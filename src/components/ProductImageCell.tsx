@@ -100,7 +100,6 @@ const ProductImageCell = ({ productNo, src, onChange }: Props) => {
             className="w-full h-full object-cover"
             onError={() => {
               setError("Không tải được ảnh.");
-              onChange(undefined);
             }}
           />
         ) : (
