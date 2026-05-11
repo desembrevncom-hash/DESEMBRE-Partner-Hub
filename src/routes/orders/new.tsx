@@ -124,21 +124,31 @@ function NewOrderPage() {
         if (!Array.isArray(picks) || picks.length === 0) return;
         const seeded: LineItem[] = [];
         for (const pk of picks) {
-          const p = PRODUCTS.find((p: Product) => p.id === pk.no);
-          if (!p) continue;
-          
+          const staticP = PRODUCTS.find((p: Product) => p.id === pk.no);
           const o = map[pk.no];
-          const variant = p.variants.find((v: ProductVariant) => v.type === pk.sizeType);
           
-          let basePrice = variant?.price ?? 0;
-          let size = variant?.size ?? "";
+          // If it's not a static product and not a custom product, skip
+          if (!staticP && (!o || !o.is_custom)) continue;
+          
+          let productName = staticP?.name ?? o?.name ?? "(Chưa có tên)";
+          let imageUrl = o?.image_url ?? staticP?.imageUrl;
+          let basePrice = 0;
+          let size = "";
 
-          // Apply overrides
+          const staticVariant = staticP?.variants.find((v: ProductVariant) => v.type === pk.sizeType);
+          basePrice = staticVariant?.price ?? 0;
+          size = staticVariant?.size ?? "";
+
+          // Apply overrides (for both static and custom products)
           if (o) {
-            if (pk.sizeType === "retail" && o.retail_price != null) basePrice = o.retail_price;
-            if (pk.sizeType === "salon" && o.salon_price != null) basePrice = o.salon_price;
-            if (pk.sizeType === "retail" && o.retail_size != null) size = o.retail_size;
-            if (pk.sizeType === "salon" && o.salon_size != null) size = o.salon_size;
+            productName = o.name ?? productName;
+            if (pk.sizeType === "retail") {
+              if (o.retail_price != null) basePrice = o.retail_price;
+              if (o.retail_size != null) size = o.retail_size;
+            } else {
+              if (o.salon_price != null) basePrice = o.salon_price;
+              if (o.salon_size != null) size = o.salon_size;
+            }
           }
           
           if (basePrice === 0) continue;
@@ -151,8 +161,8 @@ function NewOrderPage() {
 
           seeded.push({
             product_no: pk.no,
-            product_name: o?.name ?? p.name,
-            image_url: o?.image_url ?? p.imageUrl,
+            product_name: productName,
+            image_url: imageUrl,
             size,
             size_type: pk.sizeType,
             unit_price: basePrice * (isSale && !isAdmin ? (1 - DEFAULT_SALE_DISCOUNT) : 1),

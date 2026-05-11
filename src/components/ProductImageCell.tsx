@@ -93,7 +93,7 @@ const ProductImageCell = ({ productNo, src, onChange }: Props) => {
   return (
     <div className="relative inline-block group">
       <div className="product-img-box overflow-hidden">
-        {src ? (
+        {src && !error ? (
           <img
             src={src}
             alt={`Sản phẩm ${productNo}`}
