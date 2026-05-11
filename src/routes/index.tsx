@@ -283,7 +283,7 @@ function IndexInner({
             )}
             {(isSale || isAdmin) && (
               <>
-                {isAdmin && (
+                {/* {isAdmin && (
                   <PDFDownloadLink
                     document={<FullCatalogPDF products={filtered} />}
                     fileName={`Bang_Gia_Desembre_${new Date().toISOString().slice(0, 10)}.pdf`}
@@ -296,7 +296,7 @@ function IndexInner({
                       </div>
                     )}
                   </PDFDownloadLink>
-                )}
+                )} */}
                 
                 <Button asChild variant="outline" size="sm">
                   <Link to="/customers"><Users className="w-4 h-4 mr-2" /> Khách hàng</Link>
