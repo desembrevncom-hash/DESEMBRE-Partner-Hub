@@ -10,7 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { sections, flatProducts, type FlatProduct } from "@/data/desembreProducts";
+import { CATEGORIES, PRODUCTS } from "@/data/products";
+import { formatCurrencyVND, getDisplayPrice } from "@/lib/pricing";
+import type { Product, Category, ProductVariant } from "@/types/product";
 import ProductImageCell from "@/components/ProductImageCell";
 import ProductLinkCell from "@/components/ProductLinkCell";
 import ProductEditDialog, { type ProductDialogInitial } from "@/components/ProductEditDialog";
@@ -20,7 +22,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { saveProductOverride, type OverrideRow } from "@/lib/saveOverride";
 import { toast } from "sonner";
-import { PRODUCT_DEFAULTS } from "@/data/productDefaults";
 import { FullCatalogPDF } from "@/components/FullCatalogPDF";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { FileText } from "lucide-react";
@@ -31,32 +32,8 @@ export const Route = createFileRoute("/")({
 
 const ALL = "ALL";
 
-const defaultOverride = (no: number): OverrideRow => ({
-  no,
-  image_url: null,
-  link_url: null,
-  section: null,
-  name: null,
-  desc: null,
-  retail_size: null,
-  retail_price: null,
-  salon_size: null,
-  salon_price: null,
-  deleted: false,
-  is_custom: false,
-});
-
-const formatPrice = (n: number | null | undefined) => {
-  if (n == null) return "";
-  return new Intl.NumberFormat("vi-VN").format(Math.round(n));
-};
-
 const VAT_RATE = 0.08;
-type VatMode = "without" | "with";
-const applyVat = (n: number | null | undefined, mode: VatMode) => {
-  if (n == null) return null;
-  return mode === "with" ? n * (1 + VAT_RATE) : n;
-};
+type VatMode = "with" | "without";
 
 function IndexInner({
   overrides,
@@ -75,11 +52,7 @@ function IndexInner({
   const [editInitial, setEditInitial] = useState<ProductDialogInitial | null>(null);
   const [vatMode, setVatMode] = useState<VatMode>("without");
 
-  const SALE_DISCOUNT = 0.4;
-  const applyDiscount = (n: number | null | undefined) => {
-    if (n == null) return null;
-    return isSale && !isAdmin ? n * (1 - SALE_DISCOUNT) : n;
-  };
+  const role = isAdmin ? "admin" : isSale ? "sale" : "user";
 
   const canOrder = true;
   type PickupItem = { no: number; sizeType: "retail" | "salon" };
@@ -114,11 +87,43 @@ function IndexInner({
     [history, overrides, setOverrides],
   );
 
+  const [isSyncing, setIsSyncing] = useState(false);
+  const syncToSupabase = async () => {
+    const mockData = localStorage.getItem("mock_overrides");
+    if (!mockData) {
+      toast.error("Không có dữ liệu ảo để đồng bộ");
+      return;
+    }
+    
+    if (!confirm("Bạn có muốn đẩy toàn bộ dữ liệu đang có ở máy này lên Database thật không?")) return;
+
+    setIsSyncing(true);
+    try {
+      const data = JSON.parse(mockData);
+      let successCount = 0;
+      for (const row of data) {
+        const res = await saveProductOverride(row);
+        if (res.ok) successCount++;
+      }
+      toast.success(`Đã đồng bộ thành công ${successCount} mục lên Database!`);
+      // Sau khi đồng bộ xong, xoá mock để dùng data thật
+      if (confirm("Đồng bộ xong! Bạn có muốn chuyển sang dùng dữ liệu thật từ Database không? (Sẽ xoá dữ liệu tạm thời ở máy này)")) {
+        localStorage.removeItem("mock_overrides");
+        localStorage.removeItem("mock_session");
+        window.location.reload();
+      }
+    } catch (error) {
+      toast.error("Lỗi đồng bộ: " + (error as Error).message);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const setImage = async (no: number, src: string | undefined) => {
     history.snapshot(no, overrides[no], `Ảnh #${String(no).padStart(2, "0")}`);
     setOverrides((p) => ({
       ...p,
-      [no]: { ...(p[no] ?? defaultOverride(no)), image_url: src ?? null },
+      [no]: { ...(p[no] ?? { no, deleted: false, is_custom: false }), image_url: src ?? null },
     }));
   };
 
@@ -126,33 +131,62 @@ function IndexInner({
     history.snapshot(no, overrides[no], `Liên kết #${String(no).padStart(2, "0")}`);
     setOverrides((p) => ({
       ...p,
-      [no]: { ...(p[no] ?? defaultOverride(no)), link_url: href ?? null },
+      [no]: { ...(p[no] ?? { no, deleted: false, is_custom: false }), link_url: href ?? null },
     }));
   };
 
-  const merged: FlatProduct[] = useMemo(() => {
-    const list: FlatProduct[] = [];
-    for (const p of flatProducts) {
-      const o = overrides[p.no];
+  const merged: Product[] = useMemo(() => {
+    const list: Product[] = [];
+    for (const p of PRODUCTS) {
+      const o = overrides[p.id];
       if (o?.deleted) continue;
-      list.push({
+      
+      const mergedProduct = {
         ...p,
         name: o?.name ?? p.name,
-        desc: o?.desc ?? p.desc,
-        section: o?.section ?? p.section,
-        link: o?.link_url ?? p.link,
-      });
+        description: o?.desc ?? p.description,
+        categoryId: o?.section ?? p.categoryId,
+        linkUrl: o?.link_url ?? p.linkUrl,
+        imageUrl: o?.image_url ?? p.imageUrl,
+      };
+
+      // Update variant prices if overrides exist
+      if (o) {
+        mergedProduct.variants = p.variants.map(v => {
+          if (v.type === "retail" && o.retail_price !== null && o.retail_price !== undefined) {
+            return { ...v, price: o.retail_price, size: o.retail_size ?? v.size };
+          }
+          if (v.type === "salon" && o.salon_price !== null && o.salon_price !== undefined) {
+            return { ...v, price: o.salon_price, size: o.salon_size ?? v.size };
+          }
+          return v;
+        });
+      }
+      
+      list.push(mergedProduct);
     }
+
+    // Add custom products from overrides
     for (const o of Object.values(overrides)) {
       if (!o.is_custom || o.deleted) continue;
-      const sec = sections.find((s) => s.title === (o.section ?? ""));
+      
+      const variants: ProductVariant[] = [];
+      if (o.retail_price != null) {
+        variants.push({ id: `${o.no}-retail`, type: "retail", size: o.retail_size ?? "", price: o.retail_price });
+      }
+      if (o.salon_price != null) {
+        variants.push({ id: `${o.no}-salon`, type: "salon", size: o.salon_size ?? "", price: o.salon_price });
+      }
+
       list.push({
-        no: o.no,
+        id: o.no,
         name: o.name ?? "(Chưa có tên)",
-        desc: o.desc ?? "",
-        section: o.section ?? "OTHER",
-        sectionVi: sec?.vi,
-        link: o.link_url ?? undefined,
+        description: o.desc ?? "",
+        categoryId: o.section ?? "OTHER",
+        linkUrl: o.link_url ?? undefined,
+        imageUrl: o.image_url ?? undefined,
+        variants,
+        isCustom: true
       });
     }
     return list;
@@ -161,25 +195,25 @@ function IndexInner({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return merged.filter((p) => {
-      const matchesSection = section === ALL || p.section === section;
+      const matchesSection = section === ALL || p.categoryId === section;
       const matchesQuery =
-        !q || p.name.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q);
+        !q || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q);
       return matchesSection && matchesQuery;
     });
   }, [query, section, merged]);
 
   const grouped = useMemo(() => {
-    const map = new Map<string, FlatProduct[]>();
+    const map = new Map<string, Product[]>();
     for (const p of filtered) {
-      const arr = map.get(p.section) ?? [];
+      const arr = map.get(p.categoryId) ?? [];
       arr.push(p);
-      map.set(p.section, arr);
+      map.set(p.categoryId, arr);
     }
     return Array.from(map.entries());
   }, [filtered]);
 
   const sectionTitles = useMemo(() => {
-    const set = new Set<string>(sections.map((s) => s.title));
+    const set = new Set<string>(CATEGORIES.map((s) => s.id));
     for (const o of Object.values(overrides)) if (o.section) set.add(o.section);
     return Array.from(set);
   }, [overrides]);
@@ -194,37 +228,38 @@ function IndexInner({
     setEditOpen(true);
   };
 
-  const openEdit = (p: FlatProduct) => {
-    const o = overrides[p.no];
+  const openEdit = (p: Product) => {
+    const retail = p.variants.find(v => v.type === "retail");
+    const salon = p.variants.find(v => v.type === "salon");
     setEditInitial({
-      no: p.no,
-      section: p.section,
+      no: p.id,
+      section: p.categoryId,
       name: p.name,
-      desc: p.desc,
-      retail_size: o?.retail_size ?? null,
-      retail_price: o?.retail_price ?? null,
-      salon_size: o?.salon_size ?? null,
-      salon_price: o?.salon_price ?? null,
+      desc: p.description,
+      retail_size: retail?.size ?? null,
+      retail_price: retail?.price ?? null,
+      salon_size: salon?.size ?? null,
+      salon_price: salon?.price ?? null,
     });
     setEditOpen(true);
   };
 
-  const handleDelete = async (p: FlatProduct) => {
+  const handleDelete = async (p: Product) => {
     if (!isAdmin) return toast.error("Cần đăng nhập ADMIN");
     if (!confirm(`Xoá sản phẩm "${p.name}"?`)) return;
-    const prev = overrides[p.no];
-    const isCustom = !!prev?.is_custom;
+    const prev = overrides[p.id];
+    const isCustom = !!p.isCustom;
     if (isCustom) {
-      const res = await saveProductOverride({ action: "hard_delete", no: p.no });
+      const res = await saveProductOverride({ action: "hard_delete", no: p.id });
       if (!res.ok) return toast.error(res.error ?? "Xoá thất bại");
-      history.snapshot(p.no, prev, `Xoá "${p.name}"`);
+      history.snapshot(p.id, prev, `Xoá "${p.name}"`);
       setOverrides((prev2) => {
         const n = { ...prev2 };
-        delete n[p.no];
+        delete n[p.id];
         return n;
       });
     } else {
-      const res = await saveProductOverride({ no: p.no, deleted: true });
+      const res = await saveProductOverride({ no: p.id, deleted: true });
       if (!res.ok || !res.row) return toast.error(res.error ?? "Xoá thất bại");
       upsertOverride(res.row, { snapshotLabel: `Xoá "${p.name}"` });
     }
@@ -250,7 +285,7 @@ function IndexInner({
               <>
                 {isAdmin && (
                   <PDFDownloadLink
-                    document={<FullCatalogPDF products={filtered} overrides={overrides} />}
+                    document={<FullCatalogPDF products={filtered} />}
                     fileName={`Bang_Gia_Desembre_${new Date().toISOString().slice(0, 10)}.pdf`}
                     className="inline-block cursor-pointer"
                   >
@@ -278,6 +313,18 @@ function IndexInner({
                   </Button>
                 )}
               </>
+            )}
+            {isAdmin && (
+              <Button 
+                size="sm" 
+                variant="destructive" 
+                onClick={syncToSupabase} 
+                disabled={isSyncing}
+                className="animate-pulse"
+              >
+                <RotateCcw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                {isSyncing ? "Đang đồng bộ..." : "ĐỒNG BỘ DATABASE"}
+              </Button>
             )}
             {isAdmin && (
               <Button size="sm" onClick={openCreate}>
@@ -387,22 +434,21 @@ function IndexInner({
                 )}
                 {(() => {
                   let seq = 0;
-                  return grouped.map(([sectionTitle, rows]) =>
-                    rows.map((row, idx) => {
+                  return grouped.map(([categoryId, productsInCat]: [string, Product[]]) =>
+                    productsInCat.map((p: Product, idx: number) => {
                       seq += 1;
-                      const sec = sections.find((s) => s.title === sectionTitle);
-                      const dbOverride = overrides[row.no];
-                      const defaultOverrideData = PRODUCT_DEFAULTS[row.no];
-                      const o = { ...defaultOverrideData, ...dbOverride } as OverrideRow;
+                      const category = CATEGORIES.find((c) => c.id === categoryId);
+                      const retail = p.variants.find((v: ProductVariant) => v.type === "retail");
+                      const salon = p.variants.find((v: ProductVariant) => v.type === "salon");
 
                       return (
-                        <tr key={row.no}>
+                        <tr key={p.id}>
                           {idx === 0 && (
-                            <td rowSpan={rows.length} className="section-cell">
-                              <div>{sectionTitle}</div>
-                              {sec?.vi && (
+                            <td rowSpan={productsInCat.length} className="section-cell">
+                              <div>{category?.name ?? categoryId}</div>
+                              {category?.nameVi && (
                                 <div className="text-[11px] font-normal text-muted-foreground mt-1 normal-case tracking-normal">
-                                  {sec.vi}
+                                  {category.nameVi}
                                 </div>
                               )}
                             </td>
@@ -412,48 +458,48 @@ function IndexInner({
                           </td>
                           <td className="overflow-visible">
                             <ProductImageCell
-                              productNo={row.no}
-                              src={o?.image_url ?? undefined}
-                              onChange={(src) => setImage(row.no, src)}
+                              productNo={p.id}
+                              src={p.imageUrl}
+                              onChange={(src) => setImage(p.id, src)}
                             />
                           </td>
                           <td>
-                            <div className="product-name">{row.name}</div>
-                            <div className="product-desc">{row.desc}</div>
-                            {row.link && (
+                            <div className="product-name">{p.name}</div>
+                            <div className="product-desc">{p.description}</div>
+                            {p.linkUrl && (
                               <div className="mt-1">
                                 <ProductLinkCell
-                                  productNo={row.no}
-                                  href={row.link}
-                                  onChange={(href) => setLink(row.no, href)}
+                                  productNo={p.id}
+                                  href={p.linkUrl}
+                                  onChange={(href) => setLink(p.id, href)}
                                 />
                               </div>
                             )}
                           </td>
-                          <td className="price-cell">{o?.retail_size ?? ""}</td>
-                          <td className="price-cell">{formatPrice(applyVat(applyDiscount(o?.retail_price), vatMode))}</td>
-                          <td className="price-cell">{o?.salon_size ?? ""}</td>
-                          <td className="price-cell">{formatPrice(applyVat(applyDiscount(o?.salon_price), vatMode))}</td>
+                          <td className="price-cell">{retail?.size ?? ""}</td>
+                          <td className="price-cell">{formatCurrencyVND(getDisplayPrice(retail?.price, vatMode, role))}</td>
+                          <td className="price-cell">{salon?.size ?? ""}</td>
+                          <td className="price-cell">{formatCurrencyVND(getDisplayPrice(salon?.price, vatMode, role))}</td>
                           {canOrder && (
                             <td className="text-center">
                               <div className="inline-flex gap-1">
                                 <button
                                   type="button"
-                                  disabled={o?.retail_price == null}
-                                  onClick={() => togglePick(row.no, "retail")}
-                                  className={`text-[10px] font-bold px-2 py-1 rounded border ${isPicked(row.no, "retail") ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-accent"} disabled:opacity-30 disabled:cursor-not-allowed`}
+                                  disabled={!retail || retail.price === 0}
+                                  onClick={() => togglePick(p.id, "retail")}
+                                  className={`text-[10px] font-bold px-2 py-1 rounded border ${isPicked(p.id, "retail") ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-accent"} disabled:opacity-30 disabled:cursor-not-allowed`}
                                   title="Thêm Retail vào đơn"
                                 >
-                                  R{isPicked(row.no, "retail") ? " ✓" : ""}
+                                  R{isPicked(p.id, "retail") ? " ✓" : ""}
                                 </button>
                                 <button
                                   type="button"
-                                  disabled={o?.salon_price == null}
-                                  onClick={() => togglePick(row.no, "salon")}
-                                  className={`text-[10px] font-bold px-2 py-1 rounded border ${isPicked(row.no, "salon") ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-accent"} disabled:opacity-30 disabled:cursor-not-allowed`}
+                                  disabled={!salon || salon.price === 0}
+                                  onClick={() => togglePick(p.id, "salon")}
+                                  className={`text-[10px] font-bold px-2 py-1 rounded border ${isPicked(p.id, "salon") ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-accent"} disabled:opacity-30 disabled:cursor-not-allowed`}
                                   title="Thêm Salon vào đơn"
                                 >
-                                  S{isPicked(row.no, "salon") ? " ✓" : ""}
+                                  S{isPicked(p.id, "salon") ? " ✓" : ""}
                                 </button>
                               </div>
                             </td>
@@ -463,7 +509,7 @@ function IndexInner({
                               <div className="inline-flex gap-1">
                                 <button
                                   type="button"
-                                  onClick={() => openEdit(row)}
+                                  onClick={() => openEdit(p)}
                                   className="w-7 h-7 inline-flex items-center justify-center rounded border border-border hover:bg-accent"
                                   title="Chỉnh sửa"
                                 >
@@ -471,7 +517,7 @@ function IndexInner({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleDelete(row)}
+                                  onClick={() => handleDelete(p)}
                                   className="w-7 h-7 inline-flex items-center justify-center rounded border border-border hover:bg-destructive/10 text-destructive"
                                   title="Xoá"
                                 >

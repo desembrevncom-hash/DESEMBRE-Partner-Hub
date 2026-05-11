@@ -127,13 +127,13 @@ const styles = StyleSheet.create({
 
 const fmt = (n: number) => new Intl.NumberFormat('vi-VN').format(Math.round(n));
 
-export const FullCatalogPDF = ({ products, overrides }: any) => {
-  // Group products by section
-  const sections: Record<string, any[]> = {};
-  products.forEach((p: any) => {
-    const sec = p.section || 'OTHER';
-    if (!sections[sec]) sections[sec] = [];
-    sections[sec].push(p);
+export const FullCatalogPDF = ({ products }: { products: Product[] }) => {
+  // Group products by category
+  const categories: Record<string, Product[]> = {};
+  products.forEach((p) => {
+    const cat = p.categoryId || 'OTHER';
+    if (!categories[cat]) categories[cat] = [];
+    categories[cat].push(p);
   });
 
   return (
@@ -146,33 +146,32 @@ export const FullCatalogPDF = ({ products, overrides }: any) => {
 
         <Text style={styles.title}>CATALOGUE & BẢNG GIÁ NIÊM YẾT</Text>
 
-        {Object.entries(sections).map(([title, items]: any, sIdx) => (
-          <View key={sIdx} wrap={false}>
-            <Text style={styles.sectionHeader}>{title}</Text>
+        {Object.entries(categories).map(([catId, items], sIdx) => (
+          <View key={catId} wrap={false}>
+            <Text style={styles.sectionHeader}>{catId}</Text>
             <View style={styles.grid}>
-              {items.map((it: any, pIdx: number) => {
-                const o = overrides[it.no];
-                const retailPrice = o?.retail_price;
-                const salonPrice = o?.salon_price;
+              {items.map((p, pIdx: number) => {
+                const retail = p.variants.find(v => v.type === "retail");
+                const salon = p.variants.find(v => v.type === "salon");
                 
                 return (
-                  <View key={pIdx} style={styles.card}>
-                    {o?.image_url && (
-                      <Image src={o.image_url} style={styles.productImage} />
+                  <View key={p.id} style={styles.card}>
+                    {p.imageUrl && (
+                      <Image src={p.imageUrl} style={styles.productImage} />
                     )}
-                    <Text style={styles.productName}>{it.name}</Text>
-                    <Text style={styles.productDesc}>{it.desc}</Text>
+                    <Text style={styles.productName}>{p.name}</Text>
+                    <Text style={styles.productDesc}>{p.description}</Text>
                     
-                    {retailPrice && (
+                    {retail && retail.price > 0 && (
                       <View style={styles.priceRow}>
-                        <Text style={styles.priceLabel}>Retail ({o?.retail_size}):</Text>
-                        <Text style={styles.priceValue}>{fmt(retailPrice)}</Text>
+                        <Text style={styles.priceLabel}>Retail ({retail.size}):</Text>
+                        <Text style={styles.priceValue}>{fmt(retail.price)}</Text>
                       </View>
                     )}
-                    {salonPrice && (
+                    {salon && salon.price > 0 && (
                       <View style={styles.priceRow}>
-                        <Text style={styles.priceLabel}>Professional ({o?.salon_size}):</Text>
-                        <Text style={styles.priceValue}>{fmt(salonPrice)}</Text>
+                        <Text style={styles.priceLabel}>Professional ({salon.size}):</Text>
+                        <Text style={styles.priceValue}>{fmt(salon.price)}</Text>
                       </View>
                     )}
                   </View>

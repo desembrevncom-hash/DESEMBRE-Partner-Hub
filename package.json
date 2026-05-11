@@ -1,7 +1,9 @@
 {
   "name": "desembre-partner-hub",
   "private": true,
-  "sideEffects": false,
+  "sideEffects": [
+    "**/*.css"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite dev",

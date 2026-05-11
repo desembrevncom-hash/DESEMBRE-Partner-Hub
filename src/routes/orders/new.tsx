@@ -2,13 +2,14 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { sections, flatProducts, type FlatProduct } from "@/data/desembreProducts";
+import { CATEGORIES, PRODUCTS } from "@/data/products";
+import { formatCurrencyVND, VAT_RATE, DEFAULT_SALE_DISCOUNT } from "@/lib/pricing";
+import type { Product, Category, ProductVariant } from "@/types/product";
 import type { OverrideRow } from "@/lib/saveOverride";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { PRODUCT_DEFAULTS } from "@/data/productDefaults";
 import { ArrowLeft, Plus, Trash2, Search, ShoppingCart, X, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { CatalogPDF } from "@/components/CatalogPDF";
@@ -28,9 +29,7 @@ export const Route = createFileRoute("/orders/new")({
   },
 });
 
-const SALE_DISCOUNT = 0.4;
-const VAT_RATE = 0.08;
-const fmt = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
+const fmt = formatCurrencyVND;
 
 type LineItem = {
   product_no: number;
@@ -125,21 +124,24 @@ function NewOrderPage() {
         if (!Array.isArray(picks) || picks.length === 0) return;
         const seeded: LineItem[] = [];
         for (const pk of picks) {
-          const dbOverride = map[pk.no];
-          const defaultOverrideData = PRODUCT_DEFAULTS[pk.no];
-          const o = { ...defaultOverrideData, ...dbOverride } as OverrideRow;
+          const p = PRODUCTS.find((p: Product) => p.id === pk.no);
+          if (!p) continue;
           
-          const pBase = flatProducts.find(fp => fp.no === pk.no);
+          const o = map[pk.no];
+          const variant = p.variants.find((v: ProductVariant) => v.type === pk.sizeType);
           
-          if (!o && !pBase) continue;
+          let basePrice = variant?.price ?? 0;
+          let size = variant?.size ?? "";
+
+          // Apply overrides
+          if (o) {
+            if (pk.sizeType === "retail" && o.retail_price != null) basePrice = o.retail_price;
+            if (pk.sizeType === "salon" && o.salon_price != null) basePrice = o.salon_price;
+            if (pk.sizeType === "retail" && o.retail_size != null) size = o.retail_size;
+            if (pk.sizeType === "salon" && o.salon_size != null) size = o.salon_size;
+          }
           
-          const name = o?.name || pBase?.name || `#${pk.no}`;
-          const image = o?.image_url || null;
-          
-          let basePrice = pk.sizeType === "retail" ? o?.retail_price : o?.salon_price;
-          let size = pk.sizeType === "retail" ? o?.retail_size : o?.salon_size;
-          
-          if (basePrice == null) continue;
+          if (basePrice === 0) continue;
 
           const existing = seeded.find(it => it.product_no === pk.no && it.size_type === pk.sizeType);
           if (existing) {
@@ -149,11 +151,11 @@ function NewOrderPage() {
 
           seeded.push({
             product_no: pk.no,
-            product_name: name,
-            image_url: image,
-            size: size ?? "",
+            product_name: o?.name ?? p.name,
+            image_url: o?.image_url ?? p.imageUrl,
+            size,
             size_type: pk.sizeType,
-            unit_price: basePrice * (isSale && !isAdmin ? (1 - SALE_DISCOUNT) : 1),
+            unit_price: basePrice * (isSale && !isAdmin ? (1 - DEFAULT_SALE_DISCOUNT) : 1),
             quantity: 1,
           });
         }
@@ -174,19 +176,32 @@ function NewOrderPage() {
     })();
   }, [user, isAdmin, isSale, loading, navigate]);
 
-  const merged: FlatProduct[] = useMemo(() => {
-    const list: FlatProduct[] = [];
-    for (const p of flatProducts) {
-      const o = overrides[p.no];
+  const merged: Product[] = useMemo(() => {
+    const list: Product[] = [];
+    for (const p of PRODUCTS) {
+      const o = overrides[p.id];
       if (o?.deleted) continue;
-      list.push({ ...p, name: o?.name ?? p.name, desc: o?.desc ?? p.desc, section: o?.section ?? p.section });
+      list.push({
+        ...p,
+        name: o?.name ?? p.name,
+        description: o?.desc ?? p.description,
+        categoryId: o?.section ?? p.categoryId,
+        imageUrl: o?.image_url ?? p.imageUrl,
+      });
     }
     for (const o of Object.values(overrides)) {
       if (!o.is_custom || o.deleted) continue;
-      const sec = sections.find((s) => s.title === (o.section ?? ""));
       list.push({
-        no: o.no, name: o.name ?? "(Chưa có tên)", desc: o.desc ?? "",
-        section: o.section ?? "OTHER", sectionVi: sec?.vi,
+        id: o.no,
+        name: o.name ?? "(Chưa có tên)",
+        description: o.desc ?? "",
+        categoryId: o.section ?? "OTHER",
+        imageUrl: o.image_url ?? undefined,
+        variants: [
+          ...(o.retail_price != null ? [{ id: `${o.no}-retail`, type: "retail" as const, size: o.retail_size ?? "", price: o.retail_price }] : []),
+          ...(o.salon_price != null ? [{ id: `${o.no}-salon`, type: "salon" as const, size: o.salon_size ?? "", price: o.salon_price }] : []),
+        ],
+        isCustom: true
       });
     }
     return list;
@@ -194,25 +209,33 @@ function NewOrderPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return merged.filter((p) => !q || p.name.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q));
+    return merged.filter((p) => !q || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q));
   }, [search, merged]);
 
-  const addLine = (product: FlatProduct, sizeType: "retail" | "salon", isGift: boolean = false) => {
-    const dbOverride = overrides[product.no];
-    const defaultOverrideData = PRODUCT_DEFAULTS[product.no];
-    const o = { ...defaultOverrideData, ...dbOverride } as OverrideRow;
+  const addLine = (product: Product, sizeType: "retail" | "salon", isGift: boolean = false) => {
+    const o = overrides[product.id];
+    const variant = product.variants.find((v: ProductVariant) => v.type === sizeType);
     
-    const size = sizeType === "retail" ? o?.retail_size : o?.salon_size;
-    const basePrice = sizeType === "retail" ? o?.retail_price : o?.salon_price;
-    if (basePrice == null) {
+    let size = variant?.size ?? "";
+    let basePrice = variant?.price ?? 0;
+
+    if (o) {
+      if (sizeType === "retail" && o.retail_size != null) size = o.retail_size;
+      if (sizeType === "salon" && o.salon_size != null) size = o.salon_size;
+      if (sizeType === "retail" && o.retail_price != null) basePrice = o.retail_price;
+      if (sizeType === "salon" && o.salon_price != null) basePrice = o.salon_price;
+    }
+
+    if (basePrice === 0 && !isGift) {
       toast.error("Sản phẩm này chưa có giá. Hãy nhờ ADMIN cập nhật.");
       return;
     }
-    const discounted = isGift ? 0 : basePrice * (isSale && !isAdmin ? (1 - SALE_DISCOUNT) : 1);
+
+    const discounted = isGift ? 0 : basePrice * (isSale && !isAdmin ? (1 - DEFAULT_SALE_DISCOUNT) : 1);
     const finalName = isGift ? `[Quà tặng] ${product.name}` : product.name;
     
     setItems((prev) => {
-      const idx = prev.findIndex(it => it.product_no === product.no && it.size_type === sizeType && it.unit_price === discounted);
+      const idx = prev.findIndex(it => it.product_no === product.id && it.size_type === sizeType && it.unit_price === discounted);
       if (idx >= 0) {
         const next = [...prev];
         next[idx].quantity += 1;
@@ -221,10 +244,10 @@ function NewOrderPage() {
       return [
         ...prev,
         {
-          product_no: product.no,
+          product_no: product.id,
           product_name: finalName,
-          image_url: o?.image_url,
-          size: size ?? "",
+          image_url: o?.image_url ?? product.imageUrl,
+          size: size,
           size_type: sizeType,
           unit_price: discounted,
           quantity: 1,
@@ -276,7 +299,7 @@ function NewOrderPage() {
         customer_address: customerAddress.trim() || null,
         note: note.trim() || null,
         subtotal,
-        discount_rate: user && isSale && !isAdmin ? SALE_DISCOUNT : 0,
+        discount_rate: user && isSale && !isAdmin ? DEFAULT_SALE_DISCOUNT : 0,
         vat_rate: vatOn ? VAT_RATE : 0,
         total,
         status,
@@ -343,7 +366,7 @@ function NewOrderPage() {
         customer_address: customerAddress.trim() || null,
         note: note.trim() || null,
         subtotal,
-        discount_rate: isSale && !isAdmin ? SALE_DISCOUNT : 0,
+        discount_rate: isSale && !isAdmin ? DEFAULT_SALE_DISCOUNT : 0,
         vat_rate: vatOn ? VAT_RATE : 0,
         total,
         status,
@@ -364,9 +387,14 @@ function NewOrderPage() {
       orderId = order.id;
     }
 
+    if (!orderId) {
+      setBusy(false);
+      return toast.error("Lỗi: Không tìm thấy ID đơn hàng");
+    }
+
     const { error: itemsErr } = await supabase.from("order_items").insert(
       items.map((it) => ({
-        order_id: orderId,
+        order_id: orderId as string,
         product_no: it.product_no,
         product_name: it.product_name,
         size: it.size || null,
@@ -450,32 +478,26 @@ function NewOrderPage() {
                   <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm kiếm…" className="pl-9 bg-white" autoFocus />
                 </div>
                 <div className="max-h-64 overflow-y-auto divide-y divide-border/50">
-                  {filtered.slice(0, 30).map((p) => {
-                    const dbOverride = overrides[p.no];
-                    const defaultOverrideData = PRODUCT_DEFAULTS[p.no];
-                    const o = { ...defaultOverrideData, ...dbOverride } as OverrideRow;
-                    const r = o?.retail_price; const s = o?.salon_price;
-                    return (
-                      <div key={p.no} className="py-2 flex items-center justify-between gap-2 hover:bg-white/50 px-2 rounded transition-colors">
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium truncate">{p.name}</div>
-                          <div className="text-xs text-muted-foreground truncate">{p.desc}</div>
-                        </div>
-                        <div className="flex gap-1">
-                          {r != null && (
-                            <button onClick={() => addLine(p, "retail", isGiftMode)} className={`text-[10px] font-bold px-2 py-1 rounded ${isGiftMode ? "bg-orange-500 text-white" : "bg-primary text-primary-foreground"} hover:opacity-90`}>
-                              {isGiftMode ? "TẶNG" : "CHỌN"} RETAIL {o?.retail_size ?? ""}
-                            </button>
-                          )}
-                          {s != null && (
-                            <button onClick={() => addLine(p, "salon", isGiftMode)} className={`text-[10px] font-bold px-2 py-1 rounded ${isGiftMode ? "bg-orange-500 text-white" : "bg-primary text-primary-foreground"} hover:opacity-90`}>
-                              {isGiftMode ? "TẶNG" : "CHỌN"} SALON {o?.salon_size ?? ""}
-                            </button>
-                          )}
-                        </div>
+                  {filtered.slice(0, 30).map((p: Product) => (
+                    <div key={p.id} className="py-2 flex items-center justify-between gap-2 hover:bg-white/50 px-2 rounded transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{p.name}</div>
+                        <div className="text-xs text-muted-foreground truncate">{p.description}</div>
                       </div>
-                    );
-                  })}
+                      <div className="flex gap-1">
+                        {p.variants.some((v: ProductVariant) => v.type === "retail") && (
+                          <button onClick={() => addLine(p, "retail", isGiftMode)} className={`text-[10px] font-bold px-2 py-1 rounded ${isGiftMode ? "bg-orange-500 text-white" : "bg-primary text-primary-foreground"} hover:opacity-90`}>
+                            {isGiftMode ? "TẶNG" : "CHỌN"} RETAIL {p.variants.find((v: ProductVariant) => v.type === "retail")?.size ?? ""}
+                          </button>
+                        )}
+                        {p.variants.some((v: ProductVariant) => v.type === "salon") && (
+                          <button onClick={() => addLine(p, "salon", isGiftMode)} className={`text-[10px] font-bold px-2 py-1 rounded ${isGiftMode ? "bg-orange-500 text-white" : "bg-primary text-primary-foreground"} hover:opacity-90`}>
+                            {isGiftMode ? "TẶNG" : "CHỌN"} SALON {p.variants.find((v: ProductVariant) => v.type === "salon")?.size ?? ""}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
