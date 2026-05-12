@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { FunctionsHttpError, FunctionsRelayError, FunctionsFetchError } from "@supabase/supabase-js";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -70,25 +71,50 @@ function AdminUsersPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!newEmail || !newName) return;
+
     setCreating(true);
 
     const { data, error } = await supabase.functions.invoke("create-sale-user", {
       body: {
-        email: newEmail.trim(),
+        email: newEmail.trim().toLowerCase(),
         fullName: newName.trim(),
       },
     });
 
     setCreating(false);
-    if (error || data?.error) {
-      toast.error(error?.message || data?.error || "Không thể tạo tài khoản người dùng");
-    } else {
-      toast.success("Đã tạo tài khoản mới thành công (Mật khẩu mặc định: 12345678)");
-      setNewEmail("");
-      setNewName("");
-      await reload();
+
+    if (error) {
+      let message = error.message;
+
+      if (error instanceof FunctionsHttpError) {
+        const errorBody = await error.context.json().catch(() => null);
+        message = errorBody?.error || message;
+      }
+
+      if (error instanceof FunctionsRelayError) {
+        message = `Relay error: ${error.message}`;
+      }
+
+      if (error instanceof FunctionsFetchError) {
+        message =
+          "Không gửi được request tới Edge Function. Kiểm tra function đã deploy, CORS/JWT config và Supabase URL.";
+      }
+
+      toast.error(message);
+      return;
     }
+
+    if (data?.error) {
+      toast.error(data.error);
+      return;
+    }
+
+    toast.success("Đã tạo tài khoản SALE. Mật khẩu mặc định: 12345678");
+    setNewEmail("");
+    setNewName("");
+    await reload();
   };
 
   return (
