@@ -11,9 +11,11 @@ type AuthCtx = {
   loading: boolean;
   isAdmin: boolean;
   isSale: boolean;
+  mustChangePassword?: boolean;
   signIn: (email: string, password?: string) => Promise<{ error?: string }>;
   signUp: (email: string, password: string, displayName?: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
+  changePassword: (newPassword: string) => Promise<{ error?: string }>;
   refreshRoles: () => Promise<void>;
   updateProfile: (data: { email?: string; display_name?: string; phone?: string; avatar_url?: string }) => Promise<{ error?: string }>;
 };
@@ -24,27 +26,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const loadRoles = async (uid: string | undefined, userEmail?: string) => {
-    if (!uid) return setRoles([]);
-    const { data } = await supabase.from("user_roles").select("role").eq("user_id", uid);
-    const dbRoles = (data ?? []).map((r) => r.role as AppRole);
+  const checkProfilePasswordFlag = async (uid: string) => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("must_change_password")
+      .eq("id", uid)
+      .maybeSingle();
 
-    // Force admin role for the specific owner email desembrevn.com@gmail.com if standard DB record is absent
-    if (userEmail === "desembrevn.com@gmail.com" && !dbRoles.includes("admin")) {
-      dbRoles.push("admin");
+    if (data?.must_change_password) {
+      setMustChangePassword(true);
+    } else {
+      setMustChangePassword(false);
+    }
+  };
+
+  const loadRoles = async (uid: string | undefined) => {
+    if (!uid) {
+      setRoles([]);
+      setMustChangePassword(false);
+      return;
     }
 
+    const { data } = await supabase.from("user_roles").select("role").eq("user_id", uid);
+    const dbRoles = (data ?? []).map((r) => r.role as AppRole);
     setRoles(dbRoles);
+
+    await checkProfilePasswordFlag(uid);
   };
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
       setSession(sess);
       setUser(sess?.user ?? null);
-      // defer DB call to avoid deadlock
-      setTimeout(() => loadRoles(sess?.user?.id, sess?.user?.email), 0);
+      setTimeout(() => loadRoles(sess?.user?.id), 0);
     });
 
     Promise.race([
@@ -54,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(({ data: { session: sess } }) => {
         setSession(sess);
         setUser(sess?.user ?? null);
-        loadRoles(sess?.user?.id, sess?.user?.email).finally(() => setLoading(false));
+        loadRoles(sess?.user?.id).finally(() => setLoading(false));
       })
       .catch((err) => {
         console.warn("Supabase auth timeout/error", err);
@@ -69,8 +86,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: "Vui lòng nhập mật khẩu để đăng nhập hệ thống." };
     }
 
-    let { error } = await supabase.auth.signInWithPassword({ email, password });
-    return error ? { error: error.message } : {};
+    let { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { error: error.message };
+
+    if (data.user) {
+      await checkProfilePasswordFlag(data.user.id);
+    }
+    return {};
   };
 
   const signUp = async (email: string, password: string, displayName?: string) => {
@@ -86,9 +108,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return error ? { error: error.message } : {};
   };
 
+  const changePassword = async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) return { error: error.message };
+
+    if (user) {
+      await supabase.from("profiles").update({ must_change_password: false }).eq("id", user.id);
+      setMustChangePassword(false);
+    }
+    return {};
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setRoles([]);
+    setMustChangePassword(false);
     setUser(null);
     setSession(null);
   };
@@ -117,12 +151,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     isAdmin: roles.includes("admin"),
     isSale: roles.includes("sale"),
+    mustChangePassword,
     signIn,
     signUp,
     signOut,
-    refreshRoles: () => loadRoles(user?.id, user?.email),
+    changePassword,
+    refreshRoles: () => loadRoles(user?.id),
     updateProfile,
-  }), [user, session, roles, loading]);
+  }), [user, session, roles, loading, mustChangePassword]);
 
   return (
     <Ctx.Provider value={contextValue}>
