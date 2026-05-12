@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useMemo } from "react";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -206,18 +207,43 @@ function AdminUsersPage() {
     setDeleting(true);
     const targetId = deleteCandidate.id;
 
-    // Dispatch remote database flushes asynchronously in the background
-    supabase.from("profiles").delete().eq("id", targetId).catch(() => null);
-    supabase.from("user_roles").delete().eq("user_id", targetId).catch(() => null);
+    // Call secure backend delete-user Edge Function to bypass client limits and directly remove GoTrue Identity
+    const { data, error } = await supabase.functions.invoke("delete-user", {
+      body: { userId: targetId },
+    });
 
-    // Immediately resolve frontend optimistic state to provide instant tactile feedback
+    setDeleting(false);
+
+    if (error) {
+      let message = error.message;
+      if (error instanceof FunctionsHttpError) {
+        try {
+          const errBody = await error.context.json();
+          message = errBody?.error || message;
+        } catch {
+          /* ignore */
+        }
+      }
+      toast.error(`Xóa tài khoản thất bại: ${message}`);
+      return;
+    }
+
+    if (data?.error) {
+      toast.error(`Xóa tài khoản thất bại: ${data.error}`);
+      return;
+    }
+
+    // Flush public tracking tables directly just to be doubly certain
+    await supabase.from("profiles").delete().eq("id", targetId).catch(() => null);
+    await supabase.from("user_roles").delete().eq("user_id", targetId).catch(() => null);
+
+    // Apply strict UI buffer array flushes precisely upon remote success verification
     setProfiles((prev) => prev.filter((p) => p.id !== targetId));
     setRoles((prev) => prev.filter((r) => r.user_id !== targetId));
     setOptimisticCreated((prev) => prev.filter((p) => p.id !== targetId));
     setOptimisticCreatedRoles((prev) => prev.filter((r) => r.user_id !== targetId));
 
     toast.success(`Đã xóa vĩnh viễn tài khoản ${deleteCandidate.display_name || deleteCandidate.email}`);
-    setDeleting(false);
     setDeleteCandidate(null);
     setConfirmKeyword("");
   };
