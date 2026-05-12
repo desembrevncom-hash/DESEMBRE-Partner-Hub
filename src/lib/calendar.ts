@@ -1,4 +1,9 @@
-import type { CalendarEventStatus, CalendarEventType } from "@/types/calendar";
+import type { 
+  CalendarEventStatus, 
+  PersonalEventType, 
+  CompanyEventType,
+  RegistrationStatus
+} from "@/types/calendar";
 
 /**
  * Trả về chuỗi hiển thị tiếng Việt và màu sắc huy hiệu tương ứng với trạng thái lịch hẹn
@@ -16,9 +21,9 @@ export function getEventStatusLabel(status: CalendarEventStatus): { label: strin
 }
 
 /**
- * Trả về tên hiển thị và biểu tượng/nội dung thân thiện cho từng phân loại sự kiện
+ * Trả về tên hiển thị và biểu tượng/nội dung thân thiện cho từng phân loại sự kiện (Personal)
  */
-export function getEventTypeLabel(type: CalendarEventType): { label: string; icon: string } {
+export function getPersonalEventTypeLabel(type: PersonalEventType): { label: string; icon: string } {
   switch (type) {
     case "follow_up":
       return { label: "Follow-up KH", icon: "📞" };
@@ -32,11 +37,31 @@ export function getEventTypeLabel(type: CalendarEventType): { label: string; ico
       return { label: "Giao hàng", icon: "🚚" };
     case "payment":
       return { label: "Nhắc thanh toán", icon: "💰" };
-    case "company_event":
-      return { label: "Sự kiện công ty", icon: "🏢" };
     case "note":
     default:
       return { label: "Ghi chú lịch", icon: "📝" };
+  }
+}
+
+/**
+ * Trả về tên hiển thị và biểu tượng cho từng loại Sự kiện công ty (Company)
+ */
+export function getCompanyEventTypeLabel(type: CompanyEventType): { label: string; icon: string } {
+  switch (type) {
+    case "workshop":
+      return { label: "Workshop", icon: "🏢" };
+    case "training":
+      return { label: "Đào tạo", icon: "🎓" };
+    case "livestream":
+      return { label: "Livestream", icon: "📱" };
+    case "product_demo":
+      return { label: "Demo sản phẩm", icon: "✨" };
+    case "promotion":
+      return { label: "Khuyến mãi", icon: "🎁" };
+    case "internal_meeting":
+      return { label: "Họp nội bộ", icon: "👥" };
+    default:
+      return { label: "Sự kiện", icon: "🏢" };
   }
 }
 

@@ -1,16 +1,24 @@
 export type CalendarEventStatus = "pending" | "completed" | "cancelled";
 
-export type CalendarEventType = 
+export type PersonalEventType = 
   | "follow_up" 
   | "appointment" 
   | "check_in" 
   | "demo" 
   | "delivery" 
   | "payment" 
-  | "note"
-  | "company_event";
+  | "note";
 
-export interface CalendarEvent {
+export type CompanyEventType = 
+  | "workshop"
+  | "training"
+  | "livestream"
+  | "product_demo"
+  | "promotion"
+  | "internal_meeting";
+
+// Lịch hẹn / Follow-up cá nhân
+export interface PersonalEvent {
   id: string;
   customer_id?: string | null;
   order_id?: string | null;
@@ -19,11 +27,11 @@ export interface CalendarEvent {
   
   title: string;
   description?: string | null;
-  event_type: CalendarEventType;
+  event_type: PersonalEventType;
   status: CalendarEventStatus;
   
-  starts_at: string; // ISO string
-  ends_at?: string | null; // ISO string
+  starts_at: string;
+  ends_at?: string | null;
   
   remind_before_minutes: number;
   reminder_sent_at?: string | null;
@@ -33,34 +41,67 @@ export interface CalendarEvent {
   created_at: string;
   updated_at: string;
 
-  // Thuộc tính mở rộng để UI hiển thị tiện lợi sau khi enrich/join với bảng khách hàng/user
+  // Enrichment fields for UI
   customer_name?: string;
-  assigned_sale_name?: string;
-  
-  // Các thuộc tính chuyên sâu cho Chiến dịch / Sự kiện Công ty
-  location?: string | null;
-  max_attendees?: number | null;
-  event_campaign_status?: "draft" | "published" | "closed" | "completed" | "cancelled";
-  attendees?: EventAttendee[];
 }
 
-export type AttendeeRegistrationStatus = 
+// Chiến dịch / Sự kiện Công ty (Admin tạo)
+export interface CompanyEvent {
+  id: string;
+  title: string;
+  description?: string | null;
+  event_type: CompanyEventType;
+  status: "draft" | "published" | "closed" | "completed" | "cancelled";
+  
+  starts_at: string;
+  ends_at?: string | null;
+  
+  location?: string | null;
+  meeting_url?: string | null;
+  capacity?: number | null;
+  registration_deadline?: string | null;
+  
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+  
+  // UI helper: danh sách đăng ký (thường join từ bảng event_registrations)
+  registrations?: EventRegistration[];
+}
+
+export type RegistrationStatus = 
   | "invited"      // Đã mời
   | "registered"   // Đã đăng ký
   | "confirmed"    // Đã xác nhận tham gia
   | "attended"     // Đã tham gia
   | "no_show"      // Không tham gia
-  | "cancelled"     // Huỷ tham gia
+  | "cancelled"    // Huỷ tham gia
   | "converted";   // Đã chuyển thành đơn hàng
 
-export interface EventAttendee {
+// Đăng ký tham dự sự kiện
+export interface EventRegistration {
   id: string;
-  customer_id: string;
-  customer_name: string;
-  phone?: string | null;
-  added_by_sale_id: string;
-  added_by_sale_name: string;
-  status: AttendeeRegistrationStatus;
-  note?: string | null; // Ghi chú nhu cầu
-  added_at: string;
+  event_id: string;
+  customer_id?: string | null;
+  
+  registered_by?: string | null;
+  assigned_sale_id?: string | null;
+  
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  customer_business_name?: string | null;
+  
+  status: RegistrationStatus;
+  note?: string | null;
+  
+  checked_in_at?: string | null;
+  converted_order_id?: string | null;
+  
+  created_at: string;
+  updated_at: string;
 }
+
+// Union type để dùng chung trên UI Calendar
+export type UnifiedCalendarEvent = 
+  | (PersonalEvent & { _ui_type: 'personal' })
+  | (CompanyEvent & { _ui_type: 'company' });

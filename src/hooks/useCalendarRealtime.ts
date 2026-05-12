@@ -8,26 +8,27 @@ import { supabase } from "@/integrations/supabase/client";
 export function useCalendarRealtime(reloadEvents: () => void) {
   useEffect(() => {
     const channel = supabase
-      .channel("calendar_events_channel")
+      .channel("calendar_enterprise_channel")
+      // Lắng nghe Lịch cá nhân
       .on(
         "postgres_changes",
-        {
-          event: "*", // Lắng nghe toàn bộ các loại sự kiện (INSERT, UPDATE, DELETE)
-          schema: "public",
-          table: "calendar_events",
-        },
-        (payload) => {
-          // Log nhẹ để hỗ trợ theo dõi/debug trong môi trường development theo đúng yêu cầu
-          if (import.meta.env.DEV) {
-            console.log("[Calendar Realtime] Nhận tín hiệu đồng bộ từ DB:", payload);
-          }
-          // Kích hoạt nạp lại danh sách sự kiện
-          reloadEvents();
-        }
+        { event: "*", schema: "public", table: "calendar_events" },
+        () => reloadEvents()
+      )
+      // Lắng nghe Sự kiện công ty
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "company_events" },
+        () => reloadEvents()
+      )
+      // Lắng nghe Đăng ký tham dự (để cập nhật ROI/Stats trong modal)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "event_registrations" },
+        () => reloadEvents()
       )
       .subscribe();
 
-    // Hủy đăng ký lắng nghe (Cleanup) khi component bị gỡ bỏ (unmount)
     return () => {
       supabase.removeChannel(channel);
     };

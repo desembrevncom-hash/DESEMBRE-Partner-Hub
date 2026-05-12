@@ -13,6 +13,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { 
   Calendar as CalendarIcon, 
   Plus, 
@@ -24,15 +30,32 @@ import {
   CalendarDays,
   Users,
   Building2,
-  Bell
+  Bell,
+  Target,
+  ExternalLink,
+  MapPin,
+  Megaphone,
+  TrendingUp
 } from "lucide-react";
 import { toast } from "sonner";
-import type { CalendarEvent, CalendarEventStatus, CalendarEventType } from "@/types/calendar";
+import type { 
+  PersonalEvent, 
+  CompanyEvent, 
+  EventRegistration, 
+  UnifiedCalendarEvent,
+  CalendarEventStatus,
+  PersonalEventType,
+  CompanyEventType,
+  RegistrationStatus
+} from "@/types/calendar";
 import { 
   formatCalendarTime, 
   getDefaultReminderMinutes, 
   getEventStatusLabel, 
-  getEventTypeLabel, 
+  getPersonalEventTypeLabel,
+  getCompanyEventTypeLabel,
+  getAttendeeStatusMeta,
+  getCampaignStatusLabel,
   isEventOverdue 
 } from "@/lib/calendar";
 import { useCalendarRealtime } from "@/hooks/useCalendarRealtime";
@@ -50,7 +73,7 @@ function CalendarPage() {
   const { user, isAdmin } = useAuth();
   
   // Dữ liệu danh sách
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [events, setEvents] = useState<UnifiedCalendarEvent[]>([]);
   const [customersList, setCustomersList] = useState<Array<{ id: string; name: string; phone?: string | null }>>([]);
   const [salesList, setSalesList] = useState<Array<{ id: string; name: string }>>([]);
   const [customersMap, setCustomersMap] = useState<Record<string, { name: string; phone?: string | null }>>({});
@@ -69,26 +92,40 @@ function CalendarPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editEventId, setEditEventId] = useState<string | null>(null);
+  const [editEventType, setEditEventType] = useState<'personal' | 'company'>('personal');
   
   // Form Fields
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [eventType, setEventType] = useState<CalendarEventType>("follow_up");
+  const [personalType, setPersonalType] = useState<PersonalEventType>("follow_up");
+  const [companyType, setCompanyType] = useState<CompanyEventType>("workshop");
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [assignedSaleId, setAssignedSaleId] = useState("");
   const [remindMinutes, setRemindMinutes] = useState(getDefaultReminderMinutes());
-  const [modalAttendees, setModalAttendees] = useState<EventAttendee[]>([]);
+  
+  // Fields cho Company Event
+  const [modalRegistrations, setModalRegistrations] = useState<EventRegistration[]>([]);
   const [attendeeSelectId, setAttendeeSelectId] = useState("");
   const [eventLocation, setEventLocation] = useState("");
-  const [maxAttendees, setMaxAttendees] = useState<number | "">("");
+  const [meetingUrl, setMeetingUrl] = useState("");
+  const [eventCapacity, setEventCapacity] = useState<number | "">("");
+  const [regDeadline, setRegDeadline] = useState("");
   const [campaignStatus, setCampaignStatus] = useState<"draft" | "published" | "closed" | "completed" | "cancelled">("draft");
+  
+  // Quick Add Attendee fields
   const [newAttendeeNote, setNewAttendeeNote] = useState("");
-  const [newAttendeeStatus, setNewAttendeeStatus] = useState<any>("registered");
+  const [newAttendeeStatus, setNewAttendeeStatus] = useState<RegistrationStatus>("registered");
   const [isQuickAddCustomer, setIsQuickAddCustomer] = useState(false);
   const [quickCustomerName, setQuickCustomerName] = useState("");
   const [quickCustomerPhone, setQuickCustomerPhone] = useState("");
+
+  // States cho tính năng Tự động Follow-up sau sự kiện
+  const [showFollowUpDialog, setShowFollowUpDialog] = useState(false);
+  const [pendingFollowUpReg, setPendingFollowUpReg] = useState<EventRegistration | null>(null);
+
+  const [modalTab, setModalTab] = useState<"personal" | "company">("personal");
 
   // Hàm nạp danh sách dữ liệu nền tảng
   const loadBaseData = async () => {
@@ -124,109 +161,7 @@ function CalendarPage() {
     }
   };
 
-  // Dữ liệu mẫu Lịch hẹn chuyên nghiệp fallback khi CSDL chưa đồng bộ schema cache
-  const defaultBaselineEvents: CalendarEvent[] = [
-    {
-      id: "ev-demo-company-1",
-      title: "Workshop phục hồi da sau treatment",
-      description: "Giới thiệu routine phục hồi chuyên sâu với dòng sản phẩm Desembre chính hãng.",
-      event_type: "company_event",
-      status: "pending",
-      starts_at: new Date(new Date().setHours(14, 0, 0, 0)).toISOString(),
-      ends_at: new Date(new Date().setHours(16, 0, 0, 0)).toISOString(),
-      customer_id: null,
-      assigned_sale_id: null,
-      created_by: "admin-owner-id", // Do Admin tạo
-      location: "Hội trường lầu 3 Desembre / Online Zoom",
-      max_attendees: 50,
-      event_campaign_status: "published",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      remind_before_minutes: 60,
-      attendees: [
-        {
-          id: "att-1",
-          customer_id: "sample-1",
-          customer_name: "Thẩm mỹ viện Á Âu",
-          phone: "0901234567",
-          added_by_sale_id: "current-sale",
-          added_by_sale_name: "Bạn (Sale)",
-          status: "confirmed",
-          note: "Khách VIP, quan tâm máy công nghệ cao",
-          added_at: new Date().toISOString()
-        },
-        {
-          id: "att-2",
-          customer_id: "sample-2",
-          customer_name: "Spa Ngọc Dung",
-          phone: "0987654321",
-          added_by_sale_id: "other-sale",
-          added_by_sale_name: "Nguyễn Văn A (Sale khác)",
-          status: "converted",
-          note: "Đã ký hợp đồng sỉ ngay tại hội thảo",
-          added_at: new Date().toISOString()
-        },
-        {
-          id: "att-3",
-          customer_id: "sample-3",
-          customer_name: "Beauty Clinic Seoul",
-          phone: "0911223344",
-          added_by_sale_id: "current-sale",
-          added_by_sale_name: "Bạn (Sale)",
-          status: "invited",
-          note: "Đang chờ check lịch trống",
-          added_at: new Date().toISOString()
-        }
-      ]
-    },
-    {
-      id: "ev-demo-1",
-      title: "Hẹn tư vấn set cấy tảo Desembre",
-      description: "Khách hàng muốn xem mẫu và bảng giá sỉ chi tiết cho chuỗi spa mới.",
-      event_type: "appointment",
-      status: "pending",
-      starts_at: new Date(new Date().setHours(10, 0, 0, 0)).toISOString(),
-      ends_at: new Date(new Date().setHours(11, 30, 0, 0)).toISOString(),
-      customer_id: "sample-1",
-      assigned_sale_id: null,
-      created_by: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      remind_before_minutes: 30
-    },
-    {
-      id: "ev-demo-2",
-      title: "Check-in hiệu quả sử dụng Tế bào gốc",
-      description: "Gọi hỏi thăm tình trạng da khách sau 7 ngày peel và dùng tinh chất phục hồi.",
-      event_type: "check_in",
-      status: "completed",
-      starts_at: new Date(new Date().setHours(14, 0, 0, 0)).toISOString(),
-      ends_at: new Date(new Date().setHours(14, 30, 0, 0)).toISOString(),
-      customer_id: "sample-2",
-      assigned_sale_id: null,
-      created_by: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      remind_before_minutes: 15
-    },
-    {
-      id: "ev-demo-3",
-      title: "Follow-up báo giá mở đại lý",
-      description: "Khách VIP đang cân nhắc các gói hỗ trợ khai trương và chuyển giao công nghệ.",
-      event_type: "follow_up",
-      status: "pending",
-      starts_at: new Date(new Date(new Date().setDate(new Date().getDate() + 1)).setHours(9, 0, 0, 0)).toISOString(),
-      ends_at: new Date(new Date(new Date().setDate(new Date().getDate() + 1)).setHours(10, 0, 0, 0)).toISOString(),
-      customer_id: "sample-3",
-      assigned_sale_id: null,
-      created_by: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      remind_before_minutes: 30
-    }
-  ];
-
-  // Hàm nạp danh sách sự kiện chính
+  // Hàm nạp danh sách sự kiện chính từ nhiều bảng (Refactored)
   const loadEvents = async () => {
     setLoading(true);
     setError(null);
@@ -234,25 +169,46 @@ function CalendarPage() {
     try {
       await loadBaseData();
 
-      const { data, error: fetchErr } = await supabase
+      // 1. Tải Lịch cá nhân
+      const { data: pData, error: pErr } = await supabase
         .from("calendar_events")
         .select("*")
         .order("starts_at", { ascending: true });
+      if (pErr) throw pErr;
 
-      if (fetchErr) throw fetchErr;
+      // 2. Tải Sự kiện Công ty
+      const { data: cData, error: cErr } = await supabase
+        .from("company_events")
+        .select("*")
+        .order("starts_at", { ascending: true });
+      if (cErr) throw cErr;
 
-      setEvents((data || []) as CalendarEvent[]);
+      // 3. Tải danh sách đăng ký (để tính ROI/Stats cho dashboard)
+      const { data: rData, error: rErr } = await supabase
+        .from("event_registrations")
+        .select("*");
+      if (rErr) throw rErr;
+
+      // Gộp và chuẩn hóa dữ liệu
+      const personalEvents: UnifiedCalendarEvent[] = (pData || []).map(ev => ({ ...ev, _ui_type: 'personal' }));
+      const companyEvents: UnifiedCalendarEvent[] = (cData || []).map(ev => {
+        const registrations = (rData || []).filter(r => r.event_id === ev.id);
+        return { ...ev, _ui_type: 'company', registrations };
+      });
+
+      const combined = [...personalEvents, ...companyEvents];
+      setEvents(combined);
+      
+      // Cache lại cho offline mode
+      try { localStorage.setItem("offline_calendar_events_v3", JSON.stringify(combined)); } catch {}
+      
     } catch (err: any) {
-      console.warn("Lỗi tải lịch từ Supabase, nạp bộ nhớ đệm mẫu:", err);
-      // Nạp danh sách mẫu để đảm bảo trải nghiệm FullCalendar không bị gián đoạn
-      const cached = JSON.parse(localStorage.getItem("offline_calendar_events") || "null");
+      console.warn("Lỗi tải lịch từ Supabase:", err);
+      const cached = JSON.parse(localStorage.getItem("offline_calendar_events_v3") || "null");
       if (cached && Array.isArray(cached)) {
         setEvents(cached);
-      } else {
-        setEvents(defaultBaselineEvents);
-        try { localStorage.setItem("offline_calendar_events", JSON.stringify(defaultBaselineEvents)); } catch {}
       }
-      toast.info("Đã nạp dữ liệu Lịch hẹn mẫu (CSDL đang chờ làm mới Schema Cache)");
+      toast.error("Không thể đồng bộ dữ liệu mới nhất từ máy chủ.");
     } finally {
       setLoading(false);
     }
@@ -343,81 +299,105 @@ function CalendarPage() {
         targetSaleId = user?.id || null;
       }
 
+      // Lựa chọn bảng đích dựa trên phân loại Tab
+      const isCompanyMode = modalTab === "company";
+      
       if (editEventId) {
-        const updatePayload = {
-          title: title.trim(),
-          description: description.trim() || null,
-          event_type: eventType,
-          starts_at: startIso,
-          ends_at: endIso,
-          customer_id: customerId || null,
-          assigned_sale_id: targetSaleId,
-          remind_before_minutes: Number(remindMinutes) || 30,
-          attendees: modalAttendees,
-          location: eventLocation.trim() || null,
-          max_attendees: Number(maxAttendees) || null,
-          event_campaign_status: campaignStatus
-        };
-
-        try {
-          const { error: updateErr } = await supabase
-            .from("calendar_events")
-            .update(updatePayload)
-            .eq("id", editEventId);
-          if (updateErr) throw updateErr;
-          toast.success("Đã cập nhật lịch hẹn thành công");
-          await loadEvents();
-        } catch (dbErr) {
-          // Offline/mock update fallback
-          setEvents(prev => {
-            const updated = prev.map(ev => ev.id === editEventId ? { ...ev, ...updatePayload } : ev);
-            try { localStorage.setItem("offline_calendar_events", JSON.stringify(updated)); } catch {}
-            return updated;
-          });
-          toast.success("Đã cập nhật lịch hẹn thành công (Chế độ Bộ nhớ đệm)");
+        if (editEventType === 'company') {
+          // Cập nhật Sự kiện công ty
+          const payload = {
+            title: title.trim(),
+            description: description.trim() || null,
+            event_type: companyType,
+            starts_at: startIso,
+            ends_at: endIso,
+            location: eventLocation.trim() || null,
+            meeting_url: meetingUrl.trim() || null,
+            capacity: Number(eventCapacity) || null,
+            registration_deadline: regDeadline ? new Date(regDeadline).toISOString() : null,
+            status: campaignStatus,
+            updated_at: new Date().toISOString()
+          };
+          const { error: err } = await supabase.from("company_events").update(payload).eq("id", editEventId);
+          if (err) throw err;
+          toast.success("Cập nhật Chiến dịch thành công");
+        } else {
+          // Cập nhật Lịch cá nhân
+          const payload = {
+            title: title.trim(),
+            description: description.trim() || null,
+            event_type: personalType,
+            starts_at: startIso,
+            ends_at: endIso,
+            customer_id: customerId || null,
+            assigned_sale_id: targetSaleId,
+            remind_before_minutes: Number(remindMinutes) || 30,
+            updated_at: new Date().toISOString()
+          };
+          const { error: err } = await supabase.from("calendar_events").update(payload).eq("id", editEventId);
+          if (err) throw err;
+          toast.success("Cập nhật Lịch cá nhân thành công");
         }
       } else {
-        const payload = {
-          id: `ev-local-${Date.now()}`,
-          title: title.trim(),
-          description: description.trim() || null,
-          event_type: eventType,
-          starts_at: startIso,
-          ends_at: endIso,
-          customer_id: customerId || null,
-          assigned_sale_id: targetSaleId,
-          created_by: user?.id || null,
-          remind_before_minutes: Number(remindMinutes) || 30,
-          status: "pending",
-          attendees: modalAttendees,
-          location: eventLocation.trim() || null,
-          max_attendees: Number(maxAttendees) || null,
-          event_campaign_status: campaignStatus,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-
-        try {
-          const { error: insertErr } = await supabase
-            .from("calendar_events")
-            .insert([payload]);
-          if (insertErr) throw insertErr;
-          toast.success("Đã tạo lịch hẹn mới thành công");
-          await loadEvents();
-        } catch (dbErr) {
-          // Offline/mock insert fallback
-          setEvents(prev => {
-            const updated = [payload as any, ...prev];
-            try { localStorage.setItem("offline_calendar_events", JSON.stringify(updated)); } catch {}
-            return updated;
-          });
-          toast.success("Đã tạo lịch hẹn mới thành công (Chế độ Bộ nhớ đệm)");
+        // TẠO MỚI
+        if (isCompanyMode && isAdmin) {
+          const payload = {
+            title: title.trim(),
+            description: description.trim() || null,
+            event_type: companyType,
+            starts_at: startIso,
+            ends_at: endIso,
+            location: eventLocation.trim() || null,
+            meeting_url: meetingUrl.trim() || null,
+            capacity: Number(eventCapacity) || null,
+            registration_deadline: regDeadline ? new Date(regDeadline).toISOString() : null,
+            status: "draft",
+            created_by: user?.id || null,
+          };
+          const { error: err } = await supabase.from("company_events").insert([payload]);
+          if (err) throw err;
+          toast.success("Khởi tạo Chiến dịch mới thành công");
+        } else {
+          const payload = {
+            title: title.trim(),
+            description: description.trim() || null,
+            event_type: personalType,
+            starts_at: startIso,
+            ends_at: endIso,
+            customer_id: customerId || null,
+            assigned_sale_id: targetSaleId,
+            created_by: user?.id || null,
+            remind_before_minutes: Number(remindMinutes) || 30,
+            status: "pending",
+          };
+          const { error: err } = await supabase.from("calendar_events").insert([payload]);
+          if (err) throw err;
+          toast.success("Tạo Lịch làm việc mới thành công");
         }
       }
+
+      await loadEvents();
 
       setModalOpen(false);
     } catch (err: any) {
       toast.error("Lỗi xử lý form: " + (err.message || "Không thể lưu thông tin"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteEvent = async (id: string, type: 'personal' | 'company') => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa lịch trình này?")) return;
+    try {
+      setSaving(true);
+      const table = type === 'company' ? 'company_events' : 'calendar_events';
+      const { error } = await supabase.from(table).delete().eq("id", id);
+      if (error) throw error;
+      toast.success("Xóa lịch trình thành công");
+      setModalOpen(false);
+      loadEvents();
+    } catch (err: any) {
+      toast.error("Lỗi khi xóa: " + err.message);
     } finally {
       setSaving(false);
     }
@@ -442,12 +422,7 @@ function CalendarPage() {
     setAssignedSaleId(isAdmin ? "" : (user?.id || ""));
     setRemindMinutes(getDefaultReminderMinutes());
     setEditEventId(null);
-    setModalAttendees([]);
-    setAttendeeSelectId("");
-    setEventLocation("");
-    setMaxAttendees("");
-    setCampaignStatus("open");
-    setNewAttendeeNote("");
+    setModalTab(isAdmin ? "company" : "personal");
     setModalOpen(true);
   };
 
@@ -458,7 +433,6 @@ function CalendarPage() {
     
     setTitle(ev.title);
     setDescription(ev.description || "");
-    setEventType(ev.event_type);
     
     const toInputTime = (isoStr: string) => {
       if (!isoStr) return "";
@@ -469,17 +443,39 @@ function CalendarPage() {
 
     setStartsAt(toInputTime(ev.starts_at));
     setEndsAt(ev.ends_at ? toInputTime(ev.ends_at) : "");
-    setCustomerId(ev.customer_id || "");
+    setEditEventType(ev._ui_type);
+    setModalTab(ev._ui_type);
+
+    if (ev._ui_type === 'company') {
+      // Dữ liệu riêng cho Company Event
+      setCompanyType(ev.event_type);
+      setEventLocation(ev.location || "");
+      setMeetingUrl(ev.meeting_url || "");
+      setEventCapacity(ev.capacity || "");
+      setRegDeadline(ev.registration_deadline ? toInputTime(ev.registration_deadline) : "");
+      setCampaignStatus(ev.status);
+      setModalRegistrations(ev.registrations || []);
+      
+      // Reset Personal fields
+      setCustomerId("");
+      setAssignedSaleId("");
+    } else {
+      // Dữ liệu riêng cho Personal Event
+      setPersonalType(ev.event_type);
+      setCustomerId(ev.customer_id || "");
+      setAssignedSaleId(ev.assigned_sale_id || "");
+      setRemindMinutes(ev.remind_before_minutes || 30);
+      
+      // Reset Company fields
+      setEventLocation("");
+      setMeetingUrl("");
+      setEventCapacity("");
+      setRegDeadline("");
+      setModalRegistrations([]);
+    }
+
     setCustomerSearch("");
-    setAssignedSaleId(ev.assigned_sale_id || "");
-    setRemindMinutes(ev.remind_before_minutes || 30);
-    
-    setEditEventId(ev.id);
-    setModalAttendees(ev.attendees || []);
     setAttendeeSelectId("");
-    setEventLocation(ev.location || "");
-    setMaxAttendees(ev.max_attendees || "");
-    setCampaignStatus(ev.event_campaign_status || "draft");
     setNewAttendeeNote("");
     setIsQuickAddCustomer(false);
     setQuickCustomerName("");
@@ -487,151 +483,196 @@ function CalendarPage() {
     setModalOpen(true);
   };
 
-  // Hàm thêm khách hàng vào danh sách tham dự Sự kiện công ty
+  // Hàm thêm khách hàng vào danh sách tham dự Sự kiện công ty (Dùng bảng event_registrations)
   const handleAddAttendee = async () => {
     let finalCustomerId = attendeeSelectId;
-    let finalCustomerName = "";
-    let finalCustomerPhone = "";
+    let finalCustomerName = quickCustomerName.trim();
+    let finalCustomerPhone = quickCustomerPhone.trim();
 
-    // Chế độ 1: Tạo nhanh khách hàng mới
-    if (isQuickAddCustomer) {
-      if (!quickCustomerName.trim()) {
-        toast.error("Vui lòng nhập tên khách hàng mới");
-        return;
-      }
-      
-      try {
-        setSaving(true);
-        const { data: newCust, error: custErr } = await supabase
-          .from("customers")
-          .insert([{ 
-            name: quickCustomerName.trim(), 
-            phone: quickCustomerPhone.trim() || null,
-            assigned_sale_id: user?.id || null,
-            status: "new"
-          }])
-          .select()
-          .single();
-
-        if (custErr) throw custErr;
-        
-        finalCustomerId = newCust.id;
-        finalCustomerName = quickCustomerName.trim();
-        finalCustomerPhone = quickCustomerPhone.trim();
-        
-        // Cập nhật lại list khách hàng cục bộ để UI đồng bộ
-        await loadBaseData();
-      } catch (err: any) {
-        toast.error("Lỗi tạo nhanh khách hàng: " + err.message);
-        setSaving(false);
-        return;
-      } finally {
-        setSaving(false);
-      }
-    } else {
-      // Chế độ 2: Chọn khách hàng có sẵn
+    if (!isQuickAddCustomer) {
       if (!finalCustomerId) {
-        toast.error("Vui lòng chọn khách hàng để thêm vào danh sách");
+        toast.error("Vui lòng chọn khách hàng");
         return;
       }
       const cMeta = customersMap[finalCustomerId];
-      if (!cMeta) return;
-      finalCustomerName = cMeta.name;
-      finalCustomerPhone = cMeta.phone || "";
+      finalCustomerName = cMeta?.name || "Khách hàng";
+      finalCustomerPhone = cMeta?.phone || "";
+    } else {
+      if (!finalCustomerName) {
+        toast.error("Vui lòng nhập tên khách hàng mới");
+        return;
+      }
     }
 
-    // Kiểm tra xem khách đã có trong danh sách chưa
-    if (modalAttendees.some(a => a.customer_id === finalCustomerId)) {
-      toast.warning("Khách hàng này đã được đăng ký tham gia sự kiện");
+    // Kiểm tra trùng lặp (tránh add 1 người 2 lần)
+    if (modalRegistrations.some(r => (r.customer_id && r.customer_id === finalCustomerId) || (r.customer_phone && r.customer_phone === finalCustomerPhone))) {
+      toast.warning("Khách hàng này đã có trong danh sách đăng ký");
       return;
     }
 
-    const newAtt: EventAttendee = {
-      id: `att-local-${Date.now()}`,
-      customer_id: finalCustomerId,
-      customer_name: finalCustomerName,
-      phone: finalCustomerPhone,
-      added_by_sale_id: user?.id || "unknown-sale",
-      added_by_sale_name: isAdmin ? "Admin" : (user?.email?.split('@')[0] || "Bạn (Sale)"),
-      status: newAttendeeStatus,
-      note: newAttendeeNote.trim() || null,
-      added_at: new Date().toISOString()
-    };
+    try {
+      setSaving(true);
+      const newRegPayload = {
+        event_id: editEventId,
+        customer_id: isQuickAddCustomer ? null : finalCustomerId,
+        customer_name: finalCustomerName,
+        customer_phone: finalCustomerPhone,
+        registered_by: user?.id,
+        assigned_sale_id: user?.id,
+        status: newAttendeeStatus,
+        note: newAttendeeNote.trim() || null
+      };
 
-    const nextAttendees = [...modalAttendees, newAtt];
-    setModalAttendees(nextAttendees);
-    
-    // Cập nhật ngay vào sự kiện trong state chính
-    if (editEventId) {
-      setEvents(prev => prev.map(ev => ev.id === editEventId ? { ...ev, attendees: nextAttendees } : ev));
-      setTimeout(() => {
-        try { localStorage.setItem("offline_calendar_events", JSON.stringify(events)); } catch {}
-      }, 100);
+      if (editEventId) {
+        // Lưu trực tiếp vào DB
+        const { error: err } = await supabase.from("event_registrations").insert([newRegPayload]);
+        if (err) throw err;
+        toast.success("Đăng ký khách hàng thành công");
+        await loadEvents(); // Load lại để cập nhật Registrations trong list
+      } else {
+        // Nếu đang tạo Event mới, tạm thời giữ local (nhưng thường Event mới Admin sẽ tạo trước rồi Sale mới add sau)
+        toast.error("Vui lòng tạo và lưu Sự kiện trước khi thêm danh sách khách mời.");
+      }
+
+      // Reset form
+      setAttendeeSelectId("");
+      setNewAttendeeNote("");
+      setQuickCustomerName("");
+      setQuickCustomerPhone("");
+      setIsQuickAddCustomer(false);
+    } catch (err: any) {
+      toast.error("Lỗi đăng ký: " + err.message);
+    } finally {
+      setSaving(false);
     }
-    
-    // Reset form thêm khách
-    setAttendeeSelectId("");
-    setNewAttendeeNote("");
-    setQuickCustomerName("");
-    setQuickCustomerPhone("");
-    setIsQuickAddCustomer(false);
-    toast.success("Đã thêm khách hàng vào danh sách sự kiện");
   };
 
   // Hàm xóa khách khỏi danh sách tham dự
-  const handleRemoveAttendee = (attId: string, addedBySaleId: string) => {
-    // Phân quyền: Admin xóa tất cả; Sale chỉ được xóa khách do mình add
-    if (!isAdmin && addedBySaleId !== user?.id) {
-      toast.error("Không có quyền xóa: Bạn chỉ được phép gỡ khách hàng do chính mình đăng ký");
+  const handleRemoveAttendee = async (regId: string, assignedSaleId: string) => {
+    if (!isAdmin && assignedSaleId !== user?.id) {
+      toast.error("Bạn chỉ có quyền xóa khách do mình phụ trách");
       return;
     }
 
-    const nextAttendees = modalAttendees.filter(a => a.id !== attId);
-    setModalAttendees(nextAttendees);
-
-    if (editEventId) {
-      setEvents(prev => prev.map(ev => ev.id === editEventId ? { ...ev, attendees: nextAttendees } : ev));
-      setTimeout(() => {
-        try { localStorage.setItem("offline_calendar_events", JSON.stringify(events)); } catch {}
-      }, 100);
+    try {
+      const { error: err } = await supabase.from("event_registrations").delete().eq("id", regId);
+      if (err) throw err;
+      toast.success("Đã gỡ khách hàng khỏi danh sách");
+      await loadEvents();
+    } catch (err: any) {
+      toast.error("Lỗi khi xóa: " + err.message);
     }
-    toast.success("Đã gỡ khách hàng khỏi danh sách sự kiện");
   };
 
-  // Hàm cập nhật trạng thái chi tiết của khách mời tham dự (Trước/Sau sự kiện)
-  const handleUpdateAttendeeStatus = (attId: string, addedBySaleId: string, nextStatus: any) => {
-    // Phân quyền: Admin sửa tất cả; Sale chỉ thao tác với khách do mình phụ trách/add
-    if (!isAdmin && addedBySaleId !== user?.id) {
-      toast.error("Không có quyền cập nhật: Bạn chỉ được phép thao tác với khách hàng do mình phụ trách");
+  // Hàm cập nhật trạng thái chi tiết của khách mời tham dự
+  const handleUpdateAttendeeStatus = async (regId: string, assignedSaleId: string, nextStatus: RegistrationStatus) => {
+    if (!isAdmin && assignedSaleId !== user?.id) {
+      toast.error("Bạn chỉ có quyền cập nhật khách do mình phụ trách");
       return;
     }
 
-    const nextAttendees = modalAttendees.map(a => {
-      if (a.id === attId) {
-        return { ...a, status: nextStatus };
+    try {
+      const { error: err } = await supabase
+        .from("event_registrations")
+        .update({ 
+          status: nextStatus,
+          updated_at: new Date().toISOString(),
+          ...(nextStatus === 'attended' ? { checked_in_at: new Date().toISOString() } : {})
+        })
+        .eq("id", regId);
+      
+      if (err) throw err;
+      toast.success("Cập nhật trạng thái thành công");
+      
+      // TÍNH NĂNG MỚI: Nếu khách vừa 'tham gia', hỏi tạo lịch Follow-up (bước 11)
+      if (nextStatus === 'attended') {
+        const reg = modalRegistrations.find(r => r.id === regId);
+        if (reg) {
+          setPendingFollowUpReg({ ...reg, status: 'attended' });
+          setShowFollowUpDialog(true);
+        }
       }
-      return a;
-    });
 
-    setModalAttendees(nextAttendees);
-
-    if (editEventId) {
-      setEvents(prev => prev.map(ev => ev.id === editEventId ? { ...ev, attendees: nextAttendees } : ev));
-      setTimeout(() => {
-        try { localStorage.setItem("offline_calendar_events", JSON.stringify(events)); } catch {}
-      }, 100);
+      await loadEvents();
+    } catch (err: any) {
+      toast.error("Lỗi cập nhật: " + err.message);
     }
-    toast.success("Đã cập nhật trạng thái khách mời thành công");
   };
+
+  const handleCreateFollowUp = async (days: number) => {
+    if (!pendingFollowUpReg) return;
+    
+    try {
+      setSaving(true);
+      const followUpDate = new Date();
+      followUpDate.setDate(followUpDate.getDate() + days);
+      followUpDate.setHours(9, 0, 0, 0); // Mặc định 9h sáng
+
+      const payload = {
+        title: `📞 Follow-up: ${pendingFollowUpReg.customer_name}`,
+        description: `Lịch tự động sau sự kiện. (Nhu cầu: ${pendingFollowUpReg.note || "N/A"})`,
+        event_type: 'follow_up',
+        starts_at: followUpDate.toISOString(),
+        customer_id: pendingFollowUpReg.customer_id || null,
+        assigned_sale_id: pendingFollowUpReg.assigned_sale_id || user?.id,
+        created_by: user?.id,
+        status: 'pending',
+        remind_before_minutes: 30
+      };
+
+      const { error } = await supabase.from("calendar_events").insert([payload]);
+      if (error) throw error;
+
+      toast.success(`Đã lên lịch Follow-up sau ${days} ngày`);
+      setShowFollowUpDialog(false);
+      setPendingFollowUpReg(null);
+      loadEvents();
+    } catch (err: any) {
+      toast.error("Lỗi tạo follow-up: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const adminStats = useMemo(() => {
+    if (!isAdmin) return null;
+    
+    const companyEvs = events.filter(e => e._ui_type === 'company');
+    const allRegs = companyEvs.flatMap(e => e.registrations || []);
+    
+    const totalEvents = companyEvs.length;
+    const totalRegs = allRegs.length;
+    const totalAttended = allRegs.filter(r => r.status === 'attended' || r.status === 'converted').length;
+    const totalConverted = allRegs.filter(r => r.status === 'converted').length;
+    
+    const salePerformance = Object.entries(
+      allRegs.reduce((acc, reg) => {
+        const sName = reg.added_by_sale_name || "Admin/Khác";
+        if (!acc[sName]) acc[sName] = { reg: 0, att: 0, conv: 0 };
+        acc[sName].reg++;
+        if (reg.status === 'attended' || reg.status === 'converted') acc[sName].att++;
+        if (reg.status === 'converted') acc[sName].conv++;
+        return acc;
+      }, {} as Record<string, { reg: number, att: number, conv: number }>)
+    ).sort((a, b) => b[1].conv - a[1].conv);
+
+    return {
+      totalEvents,
+      totalRegs,
+      totalAttended,
+      totalConverted,
+      salePerformance
+    };
+  }, [events, isAdmin]);
 
   // Lọc sự kiện theo thanh bộ lọc và phân quyền doanh nghiệp
   const filteredEvents = useMemo(() => {
     return events.filter(ev => {
       // 1. Phân quyền hiển thị cơ bản
       // - Admin được xem tất cả
-      // - Sale chỉ xem lịch của mình (assigned_sale_id hoặc created_by) VÀ các Sự kiện công ty (company_event) để có thể đăng ký khách tham gia
-      const isMyPersonalEvent = ev.assigned_sale_id === user?.id || ev.created_by === user?.id;
-      const isCompanyEvent = ev.event_type === "company_event";
+      // - Sale chỉ xem lịch của mình VÀ các Sự kiện công ty để có thể đăng ký khách tham gia
+      const isMyPersonalEvent = ev._ui_type === 'personal' && (ev.assigned_sale_id === user?.id || ev.created_by === user?.id);
+      const isCompanyEvent = ev._ui_type === 'company';
       
       const hasViewAccess = isAdmin || isMyPersonalEvent || isCompanyEvent;
       if (!hasViewAccess) return false;
@@ -645,9 +686,9 @@ function CalendarPage() {
       // 4. Bộ lọc Nhóm Lịch trình
       let matchGroup = true;
       if (groupFilter === "personal") {
-        matchGroup = ev.event_type !== "company_event";
+        matchGroup = ev._ui_type === 'personal';
       } else if (groupFilter === "company") {
-        matchGroup = ev.event_type === "company_event";
+        matchGroup = ev._ui_type === 'company';
       }
 
       return matchStatus && matchType && matchGroup;
@@ -687,19 +728,39 @@ function CalendarPage() {
   // Chuyển đổi dữ liệu sang định dạng chuẩn của FullCalendar (bước 10)
   const fullCalendarEvents = useMemo(() => {
     return filteredEvents.map(ev => {
-      const typeMeta = getEventTypeLabel(ev.event_type);
-      const isOverdue = isEventOverdue(ev.starts_at, ev.status);
-      const custMeta = ev.customer_id ? customersMap[ev.customer_id] : null;
+      const isCompany = ev._ui_type === 'company';
+      const typeMeta = isCompany 
+        ? getCompanyEventTypeLabel(ev.event_type as CompanyEventType)
+        : getPersonalEventTypeLabel(ev.event_type as PersonalEventType);
+        
+      const isOverdue = !isCompany && isEventOverdue(ev.starts_at, (ev as PersonalEvent).status);
+      const custMeta = !isCompany && (ev as PersonalEvent).customer_id ? customersMap[(ev as PersonalEvent).customer_id!] : null;
       
-      let color = "#0ea5e9"; // default sky
-      if (ev.event_type === "company_event") color = "#8b5cf6"; // purple premium cho Sự kiện công ty
-      else if (ev.status === "completed") color = "#10b981"; // emerald
-      else if (ev.status === "cancelled") color = "#f43f5e"; // rose
-      else if (isOverdue) color = "#f97316"; // orange
+      let color = "#0ea5e9"; // Xanh dương: Mặc định follow-up cá nhân
+      if (isCompany) {
+        color = "#8b5cf6"; // Tím: Sự kiện công ty
+      } else {
+        const pEv = ev as PersonalEvent;
+        if (pEv.status === "completed") {
+          color = "#10b981"; // Xanh lá: Hoàn thành
+        } else if (pEv.status === "cancelled") {
+          color = "#94a3b8"; // Xám: Đã hủy
+        } else if (isOverdue) {
+          color = "#ef4444"; // Đỏ: Quá hạn
+        } else if (pEv.event_type === "check_in") {
+          color = "#f97316"; // Cam: Check-in
+        }
+      }
+      
+      const myRegsCount = isCompany && ev.registrations 
+        ? ev.registrations.filter((r: any) => r.assigned_sale_id === user?.id || r.registered_by === user?.id).length 
+        : 0;
+
+      const saleStatsLabel = (!isAdmin && isCompany && myRegsCount > 0) ? ` [👤 Khách: ${myRegsCount}]` : "";
       
       return {
         id: ev.id,
-        title: `${typeMeta.icon} ${ev.title} ${custMeta ? `(${custMeta.name})` : ""}`,
+        title: `${typeMeta.icon} ${ev.title}${custMeta ? ` (${custMeta.name})` : ""}${saleStatsLabel}`,
         start: ev.starts_at,
         end: ev.ends_at || undefined,
         backgroundColor: color,
@@ -826,7 +887,7 @@ function CalendarPage() {
         </div>
 
         {/* Dashboard Chiến dịch (Chỉ dành cho Admin/Quản lý) */}
-        {isAdmin && events.some(e => e.event_type === "company_event") && (
+        {isAdmin && events.some(e => e._ui_type === "company") && (
           <div className="bg-white rounded-xl border border-purple-200 shadow-sm overflow-hidden">
             <div className="bg-purple-600 px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2 text-white">
@@ -834,35 +895,36 @@ function CalendarPage() {
                 <h2 className="text-sm font-bold uppercase tracking-wide">Tổng quan Chiến dịch & Sự kiện Công ty</h2>
               </div>
               <span className="bg-purple-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
-                {events.filter(e => e.event_type === "company_event" && e.event_campaign_status !== "completed").length} Đang diễn ra
+                {events.filter(e => e._ui_type === "company" && (e as CompanyEvent).status !== "completed").length} Đang diễn ra
               </span>
             </div>
             <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {events
-                .filter(e => e.event_type === "company_event")
+                .filter(e => e._ui_type === "company")
                 .sort((a, b) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime())
                 .slice(0, 3)
                 .map(ev => {
-                  const attendees = ev.attendees || [];
-                  const regCount = attendees.length;
-                  const convCount = attendees.filter(a => a.status === "converted").length;
-                  const attendCount = attendees.filter(a => a.status === "attended" || a.status === "converted").length;
-                  const max = ev.max_attendees || 0;
+                  const companyEv = ev as CompanyEvent;
+                  const registrations = companyEv.registrations || [];
+                  const regCount = registrations.length;
+                  const convCount = registrations.filter(r => r.status === "converted").length;
+                  const attendCount = registrations.filter(r => r.status === "attended" || r.status === "converted").length;
+                  const max = companyEv.capacity || 0;
                   const progress = max > 0 ? (regCount / max) * 100 : 0;
                   
                   return (
                     <div 
-                      key={ev.id} 
-                      onClick={() => handleEventClick({ event: { id: ev.id } })}
+                      key={companyEv.id} 
+                      onClick={() => handleEventClick({ event: { id: companyEv.id } })}
                       className="border border-slate-100 rounded-lg p-3 hover:bg-slate-50 cursor-pointer transition-all flex flex-col gap-2 shadow-2xs"
                     >
                       <div className="flex justify-between items-start">
-                        <h3 className="text-xs font-bold text-slate-900 line-clamp-1 flex-1 pr-2">{ev.title}</h3>
+                        <h3 className="text-xs font-bold text-slate-900 line-clamp-1 flex-1 pr-2">{companyEv.title}</h3>
                         <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
-                          ev.event_campaign_status === 'published' ? 'bg-emerald-100 text-emerald-700' : 
-                          ev.event_campaign_status === 'closed' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'
+                          companyEv.status === 'published' ? 'bg-emerald-100 text-emerald-700' : 
+                          companyEv.status === 'closed' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'
                         }`}>
-                          {ev.event_campaign_status === 'published' ? 'OPEN' : ev.event_campaign_status?.toUpperCase()}
+                          {companyEv.status?.toUpperCase()}
                         </span>
                       </div>
                       
@@ -900,11 +962,6 @@ function CalendarPage() {
                     </div>
                   );
                 })}
-              {events.filter(e => e.event_type === "company_event").length === 0 && (
-                <div className="col-span-full py-4 text-center text-xs text-slate-400 italic">
-                  Chưa có chiến dịch sự kiện nào được thiết lập.
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -921,8 +978,11 @@ function CalendarPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {upcomingEvents.map(ev => {
-                const typeMeta = getEventTypeLabel(ev.event_type);
-                const cName = ev.customer_id ? customersMap[ev.customer_id] : null;
+                const isCompany = ev._ui_type === 'company';
+                const typeMeta = isCompany 
+                  ? getCompanyEventTypeLabel(ev.event_type as CompanyEventType)
+                  : getPersonalEventTypeLabel(ev.event_type as PersonalEventType);
+                const cName = !isCompany && ev.customer_id ? customersMap[ev.customer_id]?.name : null;
                 return (
                   <div key={ev.id} className="bg-white rounded-lg p-3 border border-amber-100 shadow-2xs flex items-start justify-between gap-3">
                     <div className="space-y-1">
@@ -936,13 +996,18 @@ function CalendarPage() {
                       {cName && (
                         <p className="text-[10px] text-slate-500 line-clamp-1">🏢 {cName}</p>
                       )}
+                      {isCompany && (
+                        <p className="text-[10px] text-purple-600 font-bold">🏢 Sự kiện công ty</p>
+                      )}
                     </div>
-                    <button
-                      onClick={() => handleStatusChange(ev.id, "completed")}
-                      className="px-2 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded text-[10px] font-bold border border-emerald-200 shrink-0"
-                    >
-                      Hoàn thành
-                    </button>
+                    {!isCompany && (
+                      <button
+                        onClick={() => handleStatusChange(ev.id, "completed")}
+                        className="px-2 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded text-[10px] font-bold border border-emerald-200 shrink-0"
+                      >
+                        Hoàn thành
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -950,7 +1015,82 @@ function CalendarPage() {
           </div>
         )}
 
-        {/* Thanh Bộ Lọc */}
+        {/* Dashboard Hiệu quả Sự kiện cho Admin (MVP) */}
+        {isAdmin && adminStats && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-slate-900 px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-purple-400" />
+                <h3 className="text-xs font-black text-white uppercase tracking-wider">Hiệu suất Sự kiện tháng này</h3>
+              </div>
+              <div className="text-[10px] text-slate-400 font-bold">Cập nhật thời gian thực</div>
+            </div>
+            
+            <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Thống kê tổng */}
+              <div className="grid grid-cols-2 gap-3 lg:col-span-1">
+                {[
+                  { label: "Tổng sự kiện", val: adminStats.totalEvents, icon: "📁", color: "text-slate-900" },
+                  { label: "Tổng Đăng ký", val: adminStats.totalRegs, icon: "👥", color: "text-blue-600" },
+                  { label: "Tham gia", val: adminStats.totalAttended, icon: "✓", color: "text-emerald-600" },
+                  { label: "Chốt đơn", val: adminStats.totalConverted, icon: "💰", color: "text-yellow-600" }
+                ].map((s, i) => (
+                  <div key={i} className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                    <span className="text-[9px] text-slate-400 uppercase font-bold block mb-1">{s.icon} {s.label}</span>
+                    <span className={`text-xl font-black ${s.color}`}>{s.val}</span>
+                    {i === 2 && adminStats.totalRegs > 0 && (
+                      <span className="text-[10px] text-slate-400 ml-2 font-bold">({((adminStats.totalAttended / adminStats.totalRegs) * 100).toFixed(0)}%)</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Bảng SALE Performance */}
+              <div className="lg:col-span-2">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">🏆 Hiệu quả theo SALE</span>
+                  <span className="text-[9px] text-slate-400 italic">Xếp hạng theo số đơn chốt</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[11px]">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-slate-400">
+                        <th className="text-left py-2 font-bold uppercase text-[9px]">Nhân viên</th>
+                        <th className="text-center py-2 font-bold uppercase text-[9px]">Đăng ký</th>
+                        <th className="text-center py-2 font-bold uppercase text-[9px]">Tham gia</th>
+                        <th className="text-center py-2 font-bold uppercase text-[9px]">Đơn chốt</th>
+                        <th className="text-right py-2 font-bold uppercase text-[9px]">Tỷ lệ (%)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {adminStats.salePerformance.map(([name, stat], i) => (
+                        <tr key={name} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-2.5 font-bold text-slate-700">
+                            {i === 0 && "🥇 "}
+                            {i === 1 && "🥈 "}
+                            {i === 2 && "🥉 "}
+                            {name}
+                          </td>
+                          <td className="text-center py-2.5 font-bold text-slate-600">{stat.reg}</td>
+                          <td className="text-center py-2.5 font-bold text-emerald-600">{stat.att}</td>
+                          <td className="text-center py-2.5 font-bold text-yellow-600">{stat.conv}</td>
+                          <td className="text-right py-2.5 font-mono font-bold text-purple-600">
+                            {stat.reg > 0 ? ((stat.conv / stat.reg) * 100).toFixed(0) : 0}%
+                          </td>
+                        </tr>
+                      ))}
+                      {adminStats.salePerformance.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="py-8 text-center text-slate-400 italic">Chưa có dữ liệu đóng góp từ nhân viên.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-wrap gap-3 items-center justify-between">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-lg border border-slate-200">
@@ -1042,13 +1182,17 @@ function CalendarPage() {
                   {events
                     .filter(ev => new Date(ev.starts_at).toDateString() === new Date().toDateString())
                     .map(ev => {
-                      const typeMeta = getEventTypeLabel(ev.event_type);
-                      const custMeta = ev.customer_id ? customersMap[ev.customer_id] : null;
+                      const isCompany = ev._ui_type === 'company';
+                      const typeMeta = isCompany 
+                        ? getCompanyEventTypeLabel(ev.event_type as CompanyEventType)
+                        : getPersonalEventTypeLabel(ev.event_type as PersonalEventType);
+                      const custName = !isCompany && ev.customer_id ? customersMap[ev.customer_id]?.name : null;
+                      
                       return (
                         <div 
                           key={ev.id} 
                           onClick={() => handleEventClick({ event: { id: ev.id } })}
-                          className={`p-2.5 rounded-lg border text-xs cursor-pointer hover:border-primary transition-all ${ev.status === 'completed' ? 'bg-slate-50/50 border-slate-100 opacity-60' : ev.status === 'cancelled' ? 'bg-rose-50/30 border-rose-100 line-through opacity-50' : 'bg-white border-slate-100 shadow-2xs'}`}
+                          className={`p-2.5 rounded-lg border text-xs cursor-pointer hover:border-primary transition-all ${!isCompany && (ev as PersonalEvent).status === 'completed' ? 'bg-slate-50/50 border-slate-100 opacity-60' : !isCompany && (ev as PersonalEvent).status === 'cancelled' ? 'bg-rose-50/30 border-rose-100 line-through opacity-50' : 'bg-white border-slate-100 shadow-2xs'}`}
                         >
                           <div className="flex items-center gap-1.5">
                             <span>{typeMeta.icon}</span>
@@ -1057,9 +1201,14 @@ function CalendarPage() {
                           <p className="text-[11px] font-mono font-bold text-slate-600 mt-0.5">
                             ⏰ {formatCalendarTime(ev.starts_at)}
                           </p>
-                          {custMeta && (
+                          {custName && (
                             <p className="text-[10px] text-slate-500 line-clamp-1 mt-0.5">
-                              🏢 {custMeta.name}
+                              🏢 {custName}
+                            </p>
+                          )}
+                          {isCompany && (
+                            <p className="text-[10px] text-purple-600 font-bold mt-0.5">
+                              🏢 Sự kiện công ty
                             </p>
                           )}
                         </div>
@@ -1114,16 +1263,42 @@ function CalendarPage() {
 
       {/* Modal Dialog Tạo Lịch Hẹn Kèm Ràng Buộc Form Đầy Đủ */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-[540px] p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden">
           <form onSubmit={handleSubmitCreate}>
             <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100 bg-white sticky top-0 z-10">
-              <DialogTitle className="text-lg font-bold flex items-center gap-2 text-slate-900">
-                <CalendarIcon className="w-5 h-5 text-primary" /> Thêm lịch hẹn / Nhắc việc mới
-              </DialogTitle>
+              <div className="flex items-center justify-between pr-8">
+                <DialogTitle className="text-lg font-bold flex items-center gap-2 text-slate-900">
+                  {editEventId ? <RotateCcw className="w-5 h-5 text-primary" /> : <Plus className="w-5 h-5 text-primary" />}
+                  {editEventId ? "Cập nhật thông tin" : "Tạo mới lịch trình"}
+                </DialogTitle>
+                {isAdmin && !editEventId && (
+                  <div className="flex bg-slate-100 p-1 rounded-lg">
+                    <button 
+                      type="button"
+                      onClick={() => setModalTab("personal")}
+                      className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${modalTab === 'personal' ? 'bg-white shadow-xs text-blue-600' : 'text-slate-500'}`}
+                    >
+                      CÁ NHÂN
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setModalTab("company")}
+                      className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${modalTab === 'company' ? 'bg-white shadow-xs text-purple-600' : 'text-slate-500'}`}
+                    >
+                      CÔNG TY
+                    </button>
+                  </div>
+                )}
+                {editEventId && (
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${editEventType === 'company' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                    {editEventType === 'company' ? 'Chiến dịch' : 'Lịch cá nhân'}
+                  </span>
+                )}
+              </div>
             </DialogHeader>
 
-            <div className="px-6 py-4 space-y-4 max-h-[65vh] overflow-y-auto text-xs">
-              {/* Tiêu đề sự kiện */}
+            <div className="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto text-xs">
+              {/* Tiêu đề chung */}
               <div className="space-y-1">
                 <Label htmlFor="ev-title" className="text-xs font-bold text-slate-700">
                   Tiêu đề / Nội dung ngắn gọn <span className="text-destructive">*</span>
@@ -1132,183 +1307,90 @@ function CalendarPage() {
                   id="ev-title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="VD: Gọi điện tư vấn cấy tảo, Ghé thăm thẩm mỹ viện..."
-                  className="h-8 text-xs bg-white font-medium"
+                  placeholder="Nội dung chính..."
+                  className="h-8 text-xs bg-white font-medium focus:ring-primary"
                 />
               </div>
 
-              {/* Phân loại & Thời gian nhắc trước */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs font-bold text-slate-700">Loại hoạt động</Label>
-                  <select
-                    value={eventType}
-                    onChange={(e) => setEventType(e.target.value as CalendarEventType)}
-                    className="w-full h-8 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
-                  >
-                    <option value="follow_up">📞 Follow-up KH</option>
-                    <option value="appointment">🤝 Lịch hẹn Spa</option>
-                    <option value="check_in">📍 Check-in CSKH</option>
-                    <option value="demo">✨ Demo sản phẩm</option>
-                    <option value="delivery">🚚 Giao hàng</option>
-                    <option value="payment">💰 Nhắc thanh toán</option>
-                    <option value="note">📝 Ghi chú tự do</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-xs font-bold text-slate-700">Nhắc nhở trước</Label>
-                  <select
-                    value={remindMinutes}
-                    onChange={(e) => setRemindMinutes(Number(e.target.value))}
-                    className="w-full h-8 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
-                  >
-                    <option value={5}>5 phút</option>
-                    <option value={15}>15 phút</option>
-                    <option value={30}>30 phút</option>
-                    <option value={60}>1 tiếng</option>
-                    <option value={120}>2 tiếng</option>
-                    <option value={1440}>1 ngày</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Thời gian Bắt đầu & Kết thúc */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="starts-at" className="text-xs font-bold text-slate-700">
-                    Thời gian bắt đầu <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="starts-at"
-                    type="datetime-local"
-                    value={startsAt}
-                    onChange={(e) => setStartsAt(e.target.value)}
-                    className="h-8 text-xs font-mono bg-white font-bold"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label htmlFor="ends-at" className="text-xs font-bold text-slate-700">
-                    Thời gian kết thúc (Tùy chọn)
-                  </Label>
-                  <Input
-                    id="ends-at"
-                    type="datetime-local"
-                    value={endsAt}
-                    onChange={(e) => setEndsAt(e.target.value)}
-                    className="h-8 text-xs font-mono bg-white"
-                  />
-                </div>
-              </div>
-
-              {/* Gắn khách hàng đối tác kèm Tìm kiếm theo Tên/SĐT (bước 8) */}
-              <div className="space-y-2 bg-slate-50/50 p-3 rounded-lg border border-slate-100">
-                <Label htmlFor="ev-cust" className="text-xs font-bold text-slate-800">
-                  Liên kết khách hàng / Spa đối tác
-                </Label>
-                <Input
-                  placeholder="🔍 Gõ tìm tên hoặc số điện thoại khách hàng..."
-                  value={customerSearch}
-                  onChange={(e) => setCustomerSearch(e.target.value)}
-                  className="h-8 text-xs bg-white"
-                />
-                <select
-                  id="ev-cust"
-                  value={customerId}
-                  onChange={(e) => setCustomerId(e.target.value)}
-                  className="w-full h-8 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
-                >
-                  <option value="">-- Không chọn (Lịch tự do) --</option>
-                  {customersList
-                    .filter(c => {
-                      if (!customerSearch.trim()) return true;
-                      const q = customerSearch.toLowerCase();
-                      const matchName = c.name.toLowerCase().includes(q);
-                      const matchPhone = c.phone ? c.phone.toLowerCase().includes(q) : false;
-                      return matchName || matchPhone;
-                    })
-                    .map(c => (
-                      <option key={c.id} value={c.id}>
-                        🏢 {c.name} {c.phone ? `(📞 ${c.phone})` : ""}
-                      </option>
-                    ))}
-                </select>
-                {customersList.length === 0 && (
-                  <p className="text-[10px] text-amber-600 italic">
-                    💡 Chưa có dữ liệu khách hàng. Bạn vẫn có thể tạo lịch hẹn tự do.
-                  </p>
-                )}
-              </div>
-
-              {/* Gán nhân viên phụ trách (Chỉ Admin thấy) */}
-              {isAdmin && (
-                <div className="space-y-1 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                  <Label htmlFor="ev-sale" className="text-xs font-bold text-primary flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5" /> Gán nhân viên SALE phụ trách (Quyền Admin)
-                  </Label>
-                  <select
-                    id="ev-sale"
-                    value={assignedSaleId}
-                    onChange={(e) => setAssignedSaleId(e.target.value)}
-                    className="w-full h-8 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs mt-1"
-                  >
-                    <option value="">-- Để trống (Lịch chung Admin) --</option>
-                    {salesList.map(s => (
-                      <option key={s.id} value={s.id}>👤 {s.name}</option>
-                    ))}
-                  </select>
-                  <p className="text-[10px] text-slate-400 mt-1 italic">
-                    Nhân viên được chọn sẽ nhìn thấy và quản lý lịch hẹn này trên Dashboard của họ.
-                  </p>
-                </div>
-              )}
-
-              {/* Ghi chú cụ thể */}
-              <div className="space-y-1">
-                <Label htmlFor="ev-desc" className="text-xs font-bold text-slate-700">Mô tả chi tiết</Label>
-                <Textarea
-                  id="ev-desc"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Thêm địa điểm họp, thành phần tham dự, hay chuẩn bị hàng hóa demo..."
-                  rows={2}
-                  className="text-xs bg-white resize-none"
-                />
-              </div>
-
-              {/* Module Quản lý Khách mời Đăng ký Sự kiện (Chỉ xuất hiện khi chọn Sự kiện Công ty) */}
-              {eventType === "company_event" && (
-                <div className="space-y-4 bg-purple-50/40 p-4 rounded-xl border border-purple-100 mt-3">
-                  {/* Cấu hình thông số chiến dịch */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 bg-white p-3 rounded-lg border border-purple-100 shadow-2xs">
-                    <div>
-                      <Label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Địa điểm tổ chức</Label>
-                      <Input
-                        placeholder="VD: Showroom / Zoom"
-                        value={eventLocation}
-                        onChange={(e) => setEventLocation(e.target.value)}
-                        className="h-7 text-xs bg-slate-50"
-                      />
+              <Tabs value={modalTab} onValueChange={(v: any) => setModalTab(v)} className="w-full">
+                <TabsContent value="personal" className="mt-0 space-y-4 border-none p-0">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold text-slate-700">Loại hoạt động</Label>
+                      <select
+                        value={personalType}
+                        onChange={(e) => setPersonalType(e.target.value as PersonalEventType)}
+                        className="w-full h-8 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary"
+                      >
+                        <option value="follow_up">📞 Follow-up KH</option>
+                        <option value="appointment">🤝 Lịch hẹn Spa</option>
+                        <option value="check_in">📍 Check-in CSKH</option>
+                        <option value="demo">✨ Demo sản phẩm</option>
+                        <option value="delivery">🚚 Giao hàng</option>
+                        <option value="payment">💰 Nhắc thanh toán</option>
+                        <option value="note">📝 Ghi chú tự do</option>
+                      </select>
                     </div>
-                    <div>
-                      <Label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Số lượng tối đa</Label>
-                      <Input
-                        type="number"
-                        placeholder="VD: 50"
-                        value={maxAttendees}
-                        onChange={(e) => setMaxAttendees(e.target.value ? Number(e.target.value) : "")}
-                        className="h-7 text-xs bg-slate-50"
-                      />
+
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold text-slate-700">Nhắc nhở trước</Label>
+                      <select
+                        value={remindMinutes}
+                        onChange={(e) => setRemindMinutes(Number(e.target.value))}
+                        className="w-full h-8 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary"
+                      >
+                        <option value={15}>15 phút</option>
+                        <option value={30}>30 phút</option>
+                        <option value={60}>1 tiếng</option>
+                        <option value={1440}>1 ngày</option>
+                        <option value={0}>Không nhắc</option>
+                      </select>
                     </div>
-                    <div>
-                      <Label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Trạng thái đăng ký</Label>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold text-slate-700">Gán cho khách hàng (CRM)</Label>
+                    <div className="relative">
+                      <select
+                        value={customerId}
+                        onChange={(e) => setCustomerId(e.target.value)}
+                        className="w-full h-8 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-medium focus:ring-1 focus:ring-primary"
+                      >
+                        <option value="">-- Không chọn / Khách hàng chưa có --</option>
+                        {customersList.map(c => (
+                          <option key={c.id} value={c.id}>{c.name} {c.phone ? `- ${c.phone}` : ""}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="company" className="mt-0 space-y-4 border-none p-0">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold text-slate-700">Loại chiến dịch</Label>
+                      <select
+                        value={companyType}
+                        onChange={(e) => setCompanyType(e.target.value as CompanyEventType)}
+                        className="w-full h-8 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary"
+                      >
+                        <option value="workshop">🏢 Workshop Offline</option>
+                        <option value="training">🎓 Đào tạo / Chuyển giao</option>
+                        <option value="livestream">📱 Livestream / Webinar</option>
+                        <option value="product_demo">✨ Demo sản phẩm mới</option>
+                        <option value="promotion">🎁 Chương trình KM</option>
+                        <option value="internal_meeting">👥 Họp nội bộ</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold text-slate-700">Trạng thái vận hành</Label>
                       <select
                         value={campaignStatus}
                         onChange={(e: any) => setCampaignStatus(e.target.value)}
-                        className="w-full h-7 px-1.5 py-0 bg-slate-50 border border-slate-200 rounded text-xs font-bold text-purple-900 focus:outline-none"
+                        className="w-full h-8 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-bold focus:ring-1 focus:ring-primary"
                       >
-                        <option value="draft">📝 Nháp</option>
+                        <option value="draft">📝 Bản nháp</option>
                         <option value="published">🟢 Đang mở đăng ký</option>
                         <option value="closed">🔴 Đã đóng đăng ký</option>
                         <option value="completed">✓ Đã hoàn thành</option>
@@ -1317,247 +1399,419 @@ function CalendarPage() {
                     </div>
                   </div>
 
-                  {/* Bảng Thống kê Hiệu suất Sự kiện trực quan */}
-                  <div className="bg-gradient-to-br from-purple-900 to-indigo-900 p-3 rounded-xl text-white shadow-xs">
-                    <p className="text-xs font-bold text-purple-200 mb-2 flex items-center gap-1.5">
-                      <span>📊 Bảng Thống kê Tổng quan Chiến dịch</span>
-                    </p>
-                    <div className="grid grid-cols-4 gap-2 text-center border-b border-purple-800/60 pb-2.5 mb-2.5">
-                      <div className="bg-white/10 p-1.5 rounded">
-                        <span className="text-[9px] text-purple-300 block uppercase font-medium">Đăng ký</span>
-                        <span className="text-sm font-black text-white">
-                          {modalAttendees.length} {maxAttendees ? `/ ${maxAttendees}` : ""}
-                        </span>
-                      </div>
-                      <div className="bg-white/10 p-1.5 rounded">
-                        <span className="text-[9px] text-purple-300 block uppercase font-medium">Tham gia</span>
-                        <span className="text-sm font-black text-emerald-400">
-                          {modalAttendees.filter(a => a.status === 'attended' || a.status === 'converted').length}
-                        </span>
-                      </div>
-                      <div className="bg-white/10 p-1.5 rounded">
-                        <span className="text-[9px] text-purple-300 block uppercase font-medium">Chốt đơn</span>
-                        <span className="text-sm font-black text-yellow-400">
-                          {modalAttendees.filter(a => a.status === 'converted').length}
-                        </span>
-                      </div>
-                      <div className="bg-white/10 p-1.5 rounded">
-                        <span className="text-[9px] text-purple-300 block uppercase font-medium">Chuyển đổi</span>
-                        <span className="text-sm font-black text-purple-200">
-                          {modalAttendees.length ? `${((modalAttendees.filter(a => a.status === 'converted').length / modalAttendees.length) * 100).toFixed(0)}%` : "0%"}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Thống kê đóng góp của từng SALE */}
+                  <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <span className="text-[9px] font-bold text-purple-300 uppercase block">Hiệu suất theo nhân viên SALE:</span>
-                      <div className="max-h-20 overflow-y-auto space-y-1 pr-1">
-                        {Object.entries(
-                          modalAttendees.reduce((acc, curr) => {
-                            const sName = curr.added_by_sale_name || "Sale ẩn danh";
-                            if (!acc[sName]) acc[sName] = { total: 0, attended: 0, closed: 0 };
-                            acc[sName].total += 1;
-                            if (curr.status === 'attended' || curr.status === 'converted') acc[sName].attended += 1;
-                            if (curr.status === 'converted') acc[sName].closed += 1;
-                            return acc;
-                          }, {} as Record<string, { total: number; attended: number; closed: number }>)
-                        ).map(([name, stats]) => (
-                          <div key={name} className="flex items-center justify-between text-[11px] bg-white/5 px-2 py-0.5 rounded border border-white/5">
-                            <span className="font-medium text-purple-100 truncate max-w-[120px]">👤 {name}</span>
-                            <div className="flex gap-2 font-mono text-[10px]">
-                              <span>Add: <b className="text-white">{stats.total}</b></span>
-                              <span>Đi: <b className="text-emerald-400">{stats.attended}</b></span>
-                              <span>Đơn: <b className="text-yellow-400">{stats.closed}</b></span>
-                            </div>
-                          </div>
-                        ))}
-                        {modalAttendees.length === 0 && (
-                          <p className="text-[10px] text-purple-300 italic text-center py-0.5">Chưa có dữ liệu đóng góp</p>
-                        )}
-                      </div>
+                      <Label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                        <MapPin className="w-3 h-3" /> Địa điểm
+                      </Label>
+                      <Input
+                        value={eventLocation}
+                        onChange={(e) => setEventLocation(e.target.value)}
+                        placeholder="Hội trường, Spa..."
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                        <ExternalLink className="w-3 h-3" /> Meeting URL
+                      </Label>
+                      <Input
+                        value={meetingUrl}
+                        onChange={(e) => setMeetingUrl(e.target.value)}
+                        placeholder="Zoom, Google Meet..."
+                        className="h-8 text-xs"
+                      />
                     </div>
                   </div>
 
-                  {/* Form Chọn và Thêm Khách mời */}
-                  <div className="space-y-2 bg-white p-3 rounded-xl border border-purple-100 shadow-2xs">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold text-slate-700">Sức chứa (Capacity)</Label>
+                      <Input
+                        type="number"
+                        value={eventCapacity}
+                        onChange={(e) => setEventCapacity(e.target.value ? Number(e.target.value) : "")}
+                        placeholder="Số lượng khách..."
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold text-slate-700">Hạn đăng ký</Label>
+                      <Input
+                        type="datetime-local"
+                        value={regDeadline}
+                        onChange={(e) => setRegDeadline(e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+
+              {/* Thời gian - Dùng chung */}
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-50">
+                <div className="space-y-1">
+                  <Label htmlFor="ev-start" className="text-xs font-bold text-slate-700">
+                    Bắt đầu <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="ev-start"
+                    type="datetime-local"
+                    value={startsAt}
+                    onChange={(e) => setStartsAt(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="ev-end" className="text-xs font-bold text-slate-700">Kết thúc</Label>
+                  <Input
+                    id="ev-end"
+                    type="datetime-local"
+                    value={endsAt}
+                    onChange={(e) => setEndsAt(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Ghi chú */}
+              <div className="space-y-1">
+                <Label htmlFor="ev-desc" className="text-xs font-bold text-slate-700">Chi tiết / Ghi chú</Label>
+                <Textarea
+                  id="ev-desc"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Ghi chú nội dung công việc..."
+                  className="text-xs min-h-[60px] bg-white"
+                />
+              </div>
+
+              {/* QUẢN LÝ DANH SÁCH ĐĂNG KÝ (Chỉ cho Company Mode) */}
+              {modalTab === 'company' && editEventId && (
+                <div className="space-y-5 pt-5 border-t border-purple-100">
+                  {/* Dashboard Thống kê cho Admin */}
+                  {isAdmin && (
+                    <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-4 shadow-lg border border-slate-700">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <Target className="w-4 h-4 text-purple-400" />
+                          <h4 className="text-xs font-black text-white uppercase tracking-wider">Phân tích Hiệu quả Chiến dịch</h4>
+                        </div>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm" 
+                          className="h-7 text-[10px] bg-white/10 border-white/20 text-white hover:bg-white/20 font-bold"
+                          onClick={() => toast.info("Tính năng Export CSV đang được khởi tạo...")}
+                        >
+                          📥 Xuất danh sách
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-3 mb-4">
+                        {[
+                          { label: "Tổng Đăng ký", val: modalRegistrations.length, color: "text-white" },
+                          { label: "Đã Xác nhận", val: modalRegistrations.filter(r => r.status === 'confirmed' || r.status === 'attended' || r.status === 'converted').length, color: "text-blue-400" },
+                          { label: "Đã Tham gia", val: modalRegistrations.filter(r => r.status === 'attended' || r.status === 'converted').length, color: "text-emerald-400" },
+                          { label: "Chốt đơn", val: modalRegistrations.filter(r => r.status === 'converted').length, color: "text-yellow-400" }
+                        ].map((s, i) => (
+                          <div key={i} className="bg-white/5 p-2 rounded-lg border border-white/10">
+                            <span className="text-[9px] text-slate-400 uppercase font-bold block mb-1">{s.label}</span>
+                            <span className={`text-lg font-black ${s.color}`}>{s.val}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Hiệu suất theo SALE */}
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1.5">
+                          <Users className="w-3 h-3" /> Đóng góp theo nhân viên SALE
+                        </p>
+                        <div className="grid grid-cols-1 gap-1.5 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
+                          {Object.entries(
+                            modalRegistrations.reduce((acc, reg) => {
+                              const sName = reg.added_by_sale_name || "Khác/Admin";
+                              if (!acc[sName]) acc[sName] = { total: 0, conv: 0 };
+                              acc[sName].total++;
+                              if (reg.status === 'converted') acc[sName].conv++;
+                              return acc;
+                            }, {} as Record<string, { total: number; conv: number }>)
+                          ).sort((a, b) => b[1].total - a[1].total).map(([name, stat]) => (
+                            <div key={name} className="flex items-center justify-between bg-white/5 px-3 py-1.5 rounded border border-white/5 text-[11px]">
+                              <span className="text-slate-300 font-medium">👤 {name}</span>
+                              <div className="flex gap-3">
+                                <span className="text-slate-400">Khách: <b className="text-white">{stat.total}</b></span>
+                                <span className="text-slate-400">Đơn: <b className="text-yellow-400">{stat.conv}</b></span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Form Thêm khách (Dành cho cả Sale & Admin) */}
+                  <div className="bg-purple-50/50 p-3 rounded-lg border border-purple-100 space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs font-bold text-purple-950">➕ Thêm Khách hàng tham gia sự kiện</Label>
-                      <button 
-                        type="button"
-                        onClick={() => setIsQuickAddCustomer(!isQuickAddCustomer)}
-                        className="text-[10px] text-purple-600 font-bold hover:underline bg-purple-50 px-2 py-0.5 rounded"
-                      >
-                        {isQuickAddCustomer ? "↩️ Chọn từ danh sách có sẵn" : "✨ Tạo nhanh khách mới"}
-                      </button>
+                      <h4 className="text-[10px] font-black text-purple-700 uppercase flex items-center gap-1">
+                        <Plus className="w-3.5 h-3.5" /> Thêm khách hàng đăng ký mới
+                      </h4>
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="quick-add" className="text-[10px] cursor-pointer font-bold text-slate-600">Khách vãng lai</Label>
+                        <input 
+                          id="quick-add" 
+                          type="checkbox" 
+                          checked={isQuickAddCustomer} 
+                          onChange={(e) => setIsQuickAddCustomer(e.target.checked)}
+                          className="w-3 h-3 rounded"
+                        />
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {!isQuickAddCustomer ? (
+                    <div className="grid grid-cols-1 gap-2">
+                      {isQuickAddCustomer ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input 
+                            placeholder="Tên khách hàng..." 
+                            value={quickCustomerName} 
+                            onChange={(e) => setQuickCustomerName(e.target.value)}
+                            className="h-8 text-xs bg-white border-purple-200"
+                          />
+                          <Input 
+                            placeholder="Số điện thoại..." 
+                            value={quickCustomerPhone} 
+                            onChange={(e) => setQuickCustomerPhone(e.target.value)}
+                            className="h-8 text-xs bg-white border-purple-200"
+                          />
+                        </div>
+                      ) : (
                         <select
                           value={attendeeSelectId}
                           onChange={(e) => setAttendeeSelectId(e.target.value)}
-                          className="h-8 px-2 py-1 bg-slate-50 border border-slate-200 rounded-md text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                          className="w-full h-8 px-2 py-1 bg-white border border-purple-200 rounded-md text-xs font-medium focus:ring-1 focus:ring-purple-500"
                         >
-                          <option value="">-- Chọn khách hàng / Spa trong tệp --</option>
+                          <option value="">-- Chọn khách hàng từ CRM --</option>
                           {customersList.map(c => (
-                            <option key={c.id} value={c.id}>🏢 {c.name} {c.phone ? `(${c.phone})` : ""}</option>
+                            <option key={c.id} value={c.id}>{c.name} {c.phone ? `(${c.phone})` : ""}</option>
                           ))}
                         </select>
-                      ) : (
-                        <div className="grid grid-cols-2 gap-1.5">
-                          <Input
-                            placeholder="Tên khách hàng *"
-                            value={quickCustomerName}
-                            onChange={(e) => setQuickCustomerName(e.target.value)}
-                            className="h-8 text-xs bg-purple-50/30 border-purple-200"
-                          />
-                          <Input
-                            placeholder="Số điện thoại"
-                            value={quickCustomerPhone}
-                            onChange={(e) => setQuickCustomerPhone(e.target.value)}
-                            className="h-8 text-xs bg-purple-50/30 border-purple-200"
-                          />
-                        </div>
                       )}
-                      <select
-                        value={newAttendeeStatus}
-                        onChange={(e: any) => setNewAttendeeStatus(e.target.value)}
-                        className="h-8 px-2 py-1 bg-slate-50 border border-slate-200 rounded-md text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                      >
-                        <option value="invited">✉️ Trạng thái: Đã mời</option>
-                        <option value="registered">📝 Trạng thái: Đã đăng ký</option>
-                        <option value="confirmed">🤝 Trạng thái: Đã xác nhận tham gia</option>
-                      </select>
-                    </div>
-                    <div className="flex gap-2 pt-0.5">
-                      <Input
-                        placeholder="Ghi chú nhu cầu (VD: Quan tâm máy công nghệ cao, cấy tảo...)"
-                        value={newAttendeeNote}
-                        onChange={(e) => setNewAttendeeNote(e.target.value)}
-                        className="flex-1 h-8 text-xs bg-slate-50"
-                      />
-                      <Button 
-                        type="button" 
-                        size="sm" 
-                        onClick={handleAddAttendee}
-                        disabled={saving}
-                        className="h-8 bg-purple-600 hover:bg-purple-700 text-white font-bold shrink-0 shadow-xs"
-                      >
-                        {saving ? "..." : <><Plus className="w-3.5 h-3.5 mr-1" /> Thêm vào danh sách</>}
-                      </Button>
+
+                      <div className="flex gap-2">
+                        <Input 
+                          placeholder="Ghi chú nhu cầu (VD: Quan tâm cấy tảo...)" 
+                          value={newAttendeeNote}
+                          onChange={(e) => setNewAttendeeNote(e.target.value)}
+                          className="flex-1 h-8 text-xs bg-white border-purple-200"
+                        />
+                        <Button 
+                          type="button" 
+                          size="sm" 
+                          onClick={handleAddAttendee}
+                          disabled={saving}
+                          className="h-8 bg-purple-600 hover:bg-purple-700 text-white font-bold shrink-0"
+                        >
+                          {saving ? "..." : <Plus className="w-3.5 h-3.5" />}
+                        </Button>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Danh sách Khách mời Chi tiết */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-slate-800 flex items-center justify-between">
-                      <span>👥 Danh sách Khách mời Đăng ký ({modalAttendees.length})</span>
-                      <span className="text-[10px] font-normal text-slate-500">Cập nhật kết quả sau sự kiện</span>
-                    </Label>
+                  {/* List Registrations */}
+                  <div className="space-y-2">
+                    {(() => {
+                      const displayedRegs = isAdmin 
+                        ? modalRegistrations 
+                        : modalRegistrations.filter(r => r.assigned_sale_id === user?.id || r.registered_by === user?.id);
 
-                    {modalAttendees.length === 0 ? (
-                      <p className="text-[11px] text-purple-600/80 italic text-center py-3 bg-white rounded-lg border border-dashed border-purple-200">
-                        Chưa có khách hàng nào được gán vào sự kiện này.
-                      </p>
-                    ) : (
-                      <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                        {modalAttendees.map(att => {
-                          const isMyAdded = att.added_by_sale_id === user?.id;
-                          const canModify = isAdmin || isMyAdded;
+                      return (
+                        <>
+                          <Label className="text-[11px] font-bold text-slate-800 flex items-center justify-between px-1">
+                            <span className="flex items-center gap-1.5">
+                              <Users className="w-3.5 h-3.5 text-slate-500" /> 
+                              {isAdmin ? `Danh sách đăng ký (${modalRegistrations.length})` : `Khách của tôi (${displayedRegs.length})`}
+                            </span>
+                            {isAdmin && (
+                              <span className="text-[10px] text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
+                                Chuyển đổi: {modalRegistrations.length > 0 ? `${((modalRegistrations.filter(r => r.status === 'converted').length / modalRegistrations.length) * 100).toFixed(0)}%` : "0%"}
+                              </span>
+                            )}
+                          </Label>
 
-                          const statusMeta = getAttendeeStatusMeta(att.status);
+                          {displayedRegs.length === 0 ? (
+                            <p className="text-[10px] text-slate-400 italic text-center py-8 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                              {isAdmin ? "Chưa có khách hàng đăng ký tham gia sự kiện này." : "Bạn chưa đăng ký khách hàng nào cho sự kiện này."}
+                            </p>
+                          ) : (
+                            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar">
+                              {displayedRegs.map(reg => {
+                          const statusMeta = getAttendeeStatusMeta(reg.status);
+                          const canModify = isAdmin || reg.assigned_sale_id === user?.id;
 
                           return (
-                            <div 
-                              key={att.id} 
-                              className={`p-2.5 bg-white rounded-lg border ${att.status === 'deal_closed' ? 'border-yellow-300 bg-yellow-50/20' : att.status === 'attended' ? 'border-emerald-200 bg-emerald-50/20' : 'border-slate-200'} flex flex-col md:flex-row md:items-center justify-between gap-2 shadow-2xs transition-all`}
-                            >
-                              <div className="space-y-1 min-w-0 flex-1">
-                                <div className="flex items-center gap-1.5">
-                                  <p className="text-xs font-bold text-slate-900 truncate">
-                                    🏢 {att.customer_name}
-                                  </p>
-                                  <span className={`px-1.5 py-0.2 text-[9px] rounded-full border ${statusMeta.badgeClass}`}>
-                                    {statusMeta.label}
-                                  </span>
+                            <div key={reg.id} className={`p-3 rounded-xl border transition-all ${reg.status === 'converted' ? 'bg-yellow-50/30 border-yellow-200' : reg.status === 'attended' ? 'bg-emerald-50/30 border-emerald-200' : 'bg-white border-slate-100 shadow-sm'}`}>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="space-y-1 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-xs font-bold text-slate-900">{reg.customer_name}</p>
+                                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight border ${statusMeta.badgeClass}`}>
+                                      {statusMeta.label}
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500">
+                                    {reg.customer_phone && <span className="flex items-center gap-1">📞 {reg.customer_phone}</span>}
+                                    <span className="flex items-center gap-1 font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">👤 Sale: {reg.added_by_sale_name || "Admin"}</span>
+                                  </div>
                                 </div>
-
-                                <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
-                                  {att.phone && <span>📞 {att.phone}</span>}
-                                  <span className="bg-slate-100 px-1.5 py-0.2 rounded text-slate-600 font-medium">
-                                    Sale: {att.added_by_sale_name}
-                                  </span>
-                                </div>
-
-                                {att.note && (
-                                  <p className="text-[10px] text-slate-600 bg-slate-50 p-1 rounded border border-slate-100 italic">
-                                    💡 <b>Nhu cầu:</b> {att.note}
-                                  </p>
+                                {canModify && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveAttendee(reg.id, reg.assigned_sale_id!)}
+                                    className="w-6 h-6 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all"
+                                  >
+                                    ✕
+                                  </button>
                                 )}
                               </div>
+                              
+                              {reg.note && (
+                                <p className="text-[10px] text-slate-600 bg-slate-50/80 p-2 rounded-lg italic border border-slate-100 mt-2">
+                                  <b className="text-[9px] uppercase text-slate-400 not-italic mr-1">Ghi chú:</b> {reg.note}
+                                </p>
+                              )}
 
-                              <div className="flex items-center gap-1.5 shrink-0 pt-1 md:pt-0 border-t md:border-t-0 border-slate-100 justify-end">
+                              <div className="flex items-center gap-2 pt-2 mt-2 border-t border-slate-100/60">
                                 <select
-                                  value={att.status}
-                                  onChange={(e: any) => handleUpdateAttendeeStatus(att.id, att.added_by_sale_id, e.target.value)}
+                                  value={reg.status}
+                                  onChange={(e: any) => handleUpdateAttendeeStatus(reg.id, reg.assigned_sale_id!, e.target.value)}
                                   disabled={!canModify}
-                                  className="h-7 px-1.5 py-0 text-[11px] font-bold bg-slate-50 border border-slate-200 rounded text-slate-800 focus:ring-1 focus:ring-purple-500"
+                                  className="h-8 flex-1 px-2 text-[10px] font-bold bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition-all"
                                 >
                                   <optgroup label="Trước sự kiện">
                                     <option value="invited">✉️ Đã mời</option>
                                     <option value="registered">📝 Đã đăng ký</option>
-                                    <option value="confirmed">🤝 Đã xác nhận tham gia</option>
+                                    <option value="confirmed">🤝 Đã xác nhận</option>
                                   </optgroup>
-                                  <optgroup label="Sau sự kiện (Kết quả)">
+                                  <optgroup label="Sau sự kiện">
                                     <option value="attended">✓ Đã tham gia</option>
                                     <option value="no_show">✕ Không tham gia</option>
                                     <option value="cancelled">🚫 Huỷ tham gia</option>
                                     <option value="converted">💰 Đã chốt đơn</option>
                                   </optgroup>
                                 </select>
-
-                                {canModify && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveAttendee(att.id, att.added_by_sale_id)}
-                                    title="Gỡ khỏi danh sách"
-                                    className="w-7 h-7 inline-flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                                {isAdmin && reg.status !== 'attended' && reg.status !== 'converted' && (
+                                  <Button 
+                                    type="button" 
+                                    size="sm" 
+                                    onClick={() => handleUpdateAttendeeStatus(reg.id, reg.assigned_sale_id!, 'attended')}
+                                    className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold shadow-sm rounded-lg"
                                   >
-                                    ✕
-                                  </button>
+                                    Check-in
+                                  </Button>
                                 )}
                               </div>
                             </div>
                           );
                         })}
                       </div>
-                    )}
-                  </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
 
-            <DialogFooter className="px-6 py-4 border-t border-slate-100 bg-slate-50 sticky bottom-0 z-10">
+            <DialogFooter className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
               <Button 
                 type="button" 
                 variant="outline" 
-                onClick={() => setModalOpen(false)} 
-                disabled={saving} 
-                size="sm"
+                onClick={() => setModalOpen(false)}
+                className="h-9 px-4 text-xs font-bold text-slate-600 border-slate-200 hover:bg-slate-100 shadow-2xs"
               >
                 Hủy bỏ
               </Button>
-              <Button 
-                type="submit" 
-                disabled={saving} 
-                size="sm" 
-                className="font-bold shadow-xs"
-              >
-                {saving ? "Đang lưu..." : editEventId ? "Cập nhật lịch" : "Xác nhận tạo lịch"}
-              </Button>
+              <div className="flex items-center gap-2">
+                {editEventId && (
+                  <Button 
+                    type="button"
+                    variant="destructive"
+                    onClick={() => handleDeleteEvent(editEventId, editEventType)}
+                    className="h-9 px-4 text-xs font-bold shadow-2xs"
+                  >
+                    Xóa
+                  </Button>
+                )}
+                <Button 
+                  type="submit" 
+                  disabled={saving} 
+                  className={`h-9 px-6 text-xs font-bold shadow-2xs text-white ${modalTab === 'company' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                >
+                  {saving ? "Đang xử lý..." : editEventId ? "Cập nhật dữ liệu" : "Xác nhận lưu lịch"}
+                </Button>
+              </div>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Hỏi tạo Follow-up tự động (Cầu nối Event -> Sales) */}
+      <Dialog open={showFollowUpDialog} onOpenChange={setShowFollowUpDialog}>
+        <DialogContent className="sm:max-w-[400px] p-6 rounded-2xl border-none shadow-2xl">
+          <DialogHeader className="space-y-3">
+            <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-2">
+              <TrendingUp className="w-6 h-6 text-emerald-600" />
+            </div>
+            <DialogTitle className="text-center text-lg font-black text-slate-900">
+              Check-in thành công!
+            </DialogTitle>
+            <p className="text-center text-slate-500 text-xs px-4">
+              Khách hàng <b>{pendingFollowUpReg?.customer_name}</b> đã tham gia sự kiện. Bạn có muốn lên lịch Follow-up để chăm sóc và chốt đơn không?
+            </p>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 gap-2.5 mt-6">
+            <Button 
+              onClick={() => handleCreateFollowUp(1)}
+              variant="outline"
+              className="h-11 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 justify-between px-4 group"
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-xs font-bold text-slate-600 group-hover:bg-emerald-100 group-hover:text-emerald-700">1</span>
+                <span className="text-xs font-bold text-slate-700">Sau 1 ngày (Gợi ý)</span>
+              </div>
+              <ArrowLeft className="w-4 h-4 rotate-180 text-slate-400" />
+            </Button>
+            <Button 
+              onClick={() => handleCreateFollowUp(3)}
+              variant="outline"
+              className="h-11 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 justify-between px-4 group"
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-xs font-bold text-slate-600 group-hover:bg-emerald-100 group-hover:text-emerald-700">3</span>
+                <span className="text-xs font-bold text-slate-700">Sau 3 ngày</span>
+              </div>
+              <ArrowLeft className="w-4 h-4 rotate-180 text-slate-400" />
+            </Button>
+            <Button 
+              onClick={() => handleCreateFollowUp(7)}
+              variant="outline"
+              className="h-11 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 justify-between px-4 group"
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-xs font-bold text-slate-600 group-hover:bg-emerald-100 group-hover:text-emerald-700">7</span>
+                <span className="text-xs font-bold text-slate-700">Sau 1 tuần</span>
+              </div>
+              <ArrowLeft className="w-4 h-4 rotate-180 text-slate-400" />
+            </Button>
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-slate-100 flex justify-center">
+            <button 
+              onClick={() => setShowFollowUpDialog(false)}
+              className="text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-widest"
+            >
+              Để sau / Không nhắc
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
