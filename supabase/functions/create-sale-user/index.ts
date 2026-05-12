@@ -55,13 +55,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: roleRow, error: roleError } = await adminClient
+    const { data: roleRow } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (roleError || roleRow?.role !== "admin") {
+    const isPrimaryAdmin = user.email === "desembrevn.com@gmail.com";
+
+    if (!isPrimaryAdmin && roleRow?.role !== "admin") {
       return new Response(JSON.stringify({ error: "Admin only" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
