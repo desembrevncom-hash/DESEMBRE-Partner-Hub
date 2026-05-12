@@ -30,7 +30,7 @@ function CustomerDetailPage() {
   
   const [customer, setCustomer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "orders" | "quotes" | "history" | "notes">("history");
+  const [activeTab, setActiveTab] = useState<"overview" | "orders" | "quotes" | "history" | "notes" | "calendar">("history");
   
   // Custom states cho tab Lịch sử CS
   const [historyEvents, setHistoryEvents] = useState<TimelineEvent[]>([]);
@@ -42,6 +42,8 @@ function CustomerDetailPage() {
 
   // Danh sách Đơn hàng của khách hàng này
   const [customerOrders, setCustomerOrders] = useState<any[]>([]);
+  // Danh sách Lịch hẹn của khách hàng này
+  const [customerEvents, setCustomerEvents] = useState<any[]>([]);
 
   // Dữ liệu baseline mặc định nếu không tìm thấy trong CSDL
   const defaultBaselineData: any[] = [
@@ -243,6 +245,18 @@ function CustomerDetailPage() {
           const map = new Map();
           [...loadedOrders, ...relatedLocal].forEach(o => map.set(o.id, o));
           setCustomerOrders(Array.from(map.values()));
+        } catch { /* ignore */ }
+
+        // Load danh sách lịch hẹn liên quan từ calendar_events (bước 8)
+        try {
+          const { data: evData } = await supabase
+            .from("calendar_events")
+            .select("*")
+            .eq("customer_id", id)
+            .order("starts_at", { ascending: false });
+          if (evData) {
+            setCustomerEvents(evData);
+          }
         } catch { /* ignore */ }
 
       } else {
@@ -569,6 +583,23 @@ function CustomerDetailPage() {
               <Bookmark className="w-3.5 h-3.5" />
               <span>Ghi chú riêng</span>
             </button>
+
+            <button
+              onClick={() => setActiveTab("calendar")}
+              className={`flex-1 min-w-[120px] h-12 px-4 inline-flex items-center justify-center gap-2 text-xs font-bold tracking-wide transition-all border-b-2 ${
+                activeTab === "calendar" 
+                  ? "border-primary bg-white text-primary shadow-2xs" 
+                  : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/50"
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5 text-primary" />
+              <span>Lịch hẹn</span>
+              {customerEvents.length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-primary/10 text-[10px] font-mono text-primary font-bold">
+                  {customerEvents.length}
+                </span>
+              )}
+            </button>
           </div>
 
           {/* NỘI DUNG TABS */}
@@ -821,6 +852,71 @@ function CustomerDetailPage() {
                 >
                   {savingNotes ? "Đang lưu..." : "💾 Lưu thay đổi ghi chú"}
                 </Button>
+              </div>
+            )}
+
+            {/* TAB 6: LỊCH HẸN & NHẮC VIỆC LIÊN KẾT (BƯỚC 8) */}
+            {activeTab === "calendar" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-800">Lịch trình & Kế hoạch Follow-up</h3>
+                    <p className="text-[11px] text-slate-500">Các cuộc hẹn tư vấn, check-in sau bán hàng được lên lịch riêng cho đối tác này.</p>
+                  </div>
+                  <Button asChild size="sm" className="font-bold shadow-2xs">
+                    <Link to="/calendar"><Calendar className="w-3.5 h-3.5 mr-1.5" /> Mở Calendar tổng</Link>
+                  </Button>
+                </div>
+
+                {customerEvents.length === 0 ? (
+                  <div className="border rounded-xl p-8 text-center bg-slate-50/50 space-y-2">
+                    <Calendar className="w-8 h-8 text-slate-300 mx-auto" />
+                    <p className="text-xs font-bold text-slate-700">Chưa có lịch hẹn nào</p>
+                    <p className="text-[11px] text-slate-500 max-w-xs mx-auto">
+                      Bạn có thể truy cập Module Lịch Hẹn tổng để thêm lịch tư vấn/check-in và chọn đối tác <strong>{customer.name}</strong>.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="border rounded-xl overflow-hidden shadow-2xs">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase">
+                          <th className="p-3">Thời gian</th>
+                          <th className="p-3">Tiêu đề hoạt động</th>
+                          <th className="p-3">Phân loại</th>
+                          <th className="p-3">Trạng thái</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {customerEvents.map((ev: any) => {
+                          const isOverdue = new Date(ev.starts_at) < new Date() && ev.status === "pending";
+                          return (
+                            <tr key={ev.id} className="hover:bg-slate-50/50">
+                              <td className="p-3 font-mono font-bold text-slate-700 whitespace-nowrap">
+                                {new Date(ev.starts_at).toLocaleString("vi-VN", { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                {isOverdue && <span className="block text-[9px] text-rose-600 font-sans mt-0.5">⚠️ Đã trễ</span>}
+                              </td>
+                              <td className="p-3 font-bold text-slate-900">
+                                {ev.title}
+                                {ev.description && <p className="text-[11px] font-normal text-slate-500 mt-0.5">{ev.description}</p>}
+                              </td>
+                              <td className="p-3">
+                                <span className="px-2 py-0.5 bg-slate-100 rounded text-[10px] font-semibold text-slate-600">
+                                  {ev.event_type === 'check_in' ? '📍 Check-in' : ev.event_type === 'appointment' ? '🤝 Hẹn Spa' : '📞 Follow-up'}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${ev.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : ev.status === 'cancelled' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>
+                                  {ev.status === 'completed' ? 'Hoàn thành' : ev.status === 'cancelled' ? 'Đã hủy' : 'Chờ xử lý'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
           </div>
