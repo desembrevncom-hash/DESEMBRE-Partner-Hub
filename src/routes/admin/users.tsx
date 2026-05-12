@@ -189,11 +189,11 @@ function AdminUsersPage() {
     setDeleting(true);
     const targetId = deleteCandidate.id;
 
-    // Flush directly from Supabase DB tables
-    await supabase.from("profiles").delete().eq("id", targetId).catch(() => null);
-    await supabase.from("user_roles").delete().eq("user_id", targetId).catch(() => null);
+    // Dispatch remote database flushes asynchronously in the background to prevent network timeouts from hanging the UI
+    supabase.from("profiles").delete().eq("id", targetId).catch(() => null);
+    supabase.from("user_roles").delete().eq("user_id", targetId).catch(() => null);
 
-    // Synchronously remove from React component optimistic state mapping
+    // Immediately resolve frontend optimistic state to provide instant tactile feedback
     setProfiles((prev) => prev.filter((p) => p.id !== targetId));
     setRoles((prev) => prev.filter((r) => r.user_id !== targetId));
 
