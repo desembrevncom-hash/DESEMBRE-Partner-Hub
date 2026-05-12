@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useMemo } from "react";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { FunctionsHttpError } from "@supabase/supabase-js";
+import { FunctionsHttpError, FunctionsFetchError, FunctionsRelayError } from "@supabase/supabase-js";
 
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -212,56 +212,37 @@ function AdminUsersPage() {
 
     setDeleting(true);
 
-    let errorMsg = "";
-    try {
-      const { data, error } = await supabase.functions.invoke("delete-user", {
-        body: { userId: deleteCandidate.id },
-      });
-
-      if (error) {
-        let message = error.message;
-        if (error instanceof FunctionsHttpError) {
-          try {
-            const errBody = await error.context.json();
-            message = errBody?.error || message;
-          } catch {
-            /* ignore */
-          }
-        }
-        throw new Error(message || "Không gọi được Edge Function delete-user");
-      }
-
-      if (data?.error) {
-        errorMsg = data.error;
-      }
-    } catch (err: any) {
-      console.warn("Lỗi SDK invoke tiêu chuẩn, tự động kích hoạt luồng gọi trực tiếp fetch fallback:", err);
-      try {
-        const session = (await supabase.auth.getSession()).data?.session;
-        const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`;
-        const rawRes = await fetch(functionUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({ userId: deleteCandidate.id }),
-        });
-
-        const resData = await rawRes.json().catch(() => null);
-        if (!rawRes.ok || resData?.error) {
-          errorMsg = resData?.error || err.message || "Lỗi giao tiếp máy chủ Edge Function";
-        }
-      } catch (fallbackErr) {
-        errorMsg = err.message || "Không thể kết nối đến máy chủ Edge Function";
-      }
-    }
+    const { data, error } = await supabase.functions.invoke("delete-user", {
+      body: { userId: deleteCandidate.id },
+    });
 
     setDeleting(false);
 
-    if (errorMsg) {
+    if (error) {
+      let message = error.message;
+
+      if (error instanceof FunctionsHttpError) {
+        const errorBody = await error.context.json().catch(() => null);
+        message = errorBody?.error || message;
+      }
+
+      if (error instanceof FunctionsFetchError) {
+        message =
+          "Không gọi được Edge Function delete-user. Kiểm tra function đã deploy đúng Supabase project, config.toml, CORS và syntax code.";
+      }
+
+      if (error instanceof FunctionsRelayError) {
+        message =
+          "Supabase relay không chuyển được request tới Edge Function. Kiểm tra logs và deploy status.";
+      }
+
+      toast.error(message);
+      return;
+    }
+
+    if (data?.error) {
       // Tầng 2 logic: If server reports transaction history existence, automatically transition to grace disabling mode
-      if (errorMsg.includes("đã tạo đơn hàng")) {
+      if (data.error.includes("đã tạo đơn hàng")) {
         toast.error("Tài khoản có lịch sử đơn hàng, tự động chuyển sang gỡ quyền SALE để vô hiệu hóa...");
         await supabase.from("user_roles").delete().eq("user_id", deleteCandidate.id).eq("role", "sale").catch(() => null);
         setRoles((prev) => prev.filter((r) => !(r.user_id === deleteCandidate.id && r.role === "sale")));
@@ -272,7 +253,7 @@ function AdminUsersPage() {
         return;
       }
 
-      toast.error(errorMsg);
+      toast.error(data.error);
       return;
     }
 
