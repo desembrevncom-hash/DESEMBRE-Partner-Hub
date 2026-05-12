@@ -260,6 +260,18 @@ function AdminUsersPage() {
     setDeleting(false);
 
     if (errorMsg) {
+      // Tầng 2 logic: If server reports transaction history existence, automatically transition to grace disabling mode
+      if (errorMsg.includes("đã tạo đơn hàng")) {
+        toast.error("Tài khoản có lịch sử đơn hàng, tự động chuyển sang gỡ quyền SALE để vô hiệu hóa...");
+        await supabase.from("user_roles").delete().eq("user_id", deleteCandidate.id).eq("role", "sale").catch(() => null);
+        setRoles((prev) => prev.filter((r) => !(r.user_id === deleteCandidate.id && r.role === "sale")));
+        toast.success(`Đã vô hiệu hóa thành công quyền SALE của ${deleteCandidate.display_name || deleteCandidate.email}`);
+        setDeleteCandidate(null);
+        setConfirmKeyword("");
+        await reload();
+        return;
+      }
+
       toast.error(errorMsg);
       return;
     }
