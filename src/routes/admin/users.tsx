@@ -274,6 +274,24 @@ function AdminUsersPage() {
 
     toast.success("Đã tạo tài khoản SALE. Mật khẩu mặc định: 12345678");
 
+    if (data?.user) {
+      const createdProf = {
+        id: data.user.id,
+        email: data.user.email,
+        display_name: data.user.displayName || fullName,
+      };
+
+      setProfiles((prev) => [createdProf, ...prev]);
+      setRoles((prev) => [...prev, { user_id: data.user.id, role: "sale" }]);
+
+      try {
+        const stored = JSON.parse(localStorage.getItem("created_sale_users") || "[]");
+        localStorage.setItem("created_sale_users", JSON.stringify([createdProf, ...stored]));
+      } catch {
+        /* ignore */
+      }
+    }
+
     setNewEmail("");
     setNewName("");
 
