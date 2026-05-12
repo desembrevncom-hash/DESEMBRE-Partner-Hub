@@ -102,6 +102,22 @@ Deno.serve(async (req) => {
       return json({ error: "Không thể xoá tài khoản admin gốc" }, 400);
     }
 
+    const { data: existingOrders, error: ordersErr } = await adminClient
+      .from("orders")
+      .select("id")
+      .eq("sale_user_id", userId)
+      .limit(1);
+
+    if (!ordersErr && existingOrders && existingOrders.length > 0) {
+      return json(
+        {
+          error:
+            "Tài khoản này đã tạo đơn hàng trong hệ thống. Để bảo toàn dữ liệu đối soát, vui lòng không xóa mà hãy gỡ quyền SALE của nhân viên này.",
+        },
+        400
+      );
+    }
+
     const { error: deleteError } = await adminClient.auth.admin.deleteUser(userId);
 
     if (deleteError) {
