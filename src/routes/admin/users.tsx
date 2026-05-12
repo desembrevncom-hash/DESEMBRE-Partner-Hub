@@ -37,25 +37,6 @@ function AdminUsersPage() {
   const [deleting, setDeleting] = useState(false);
 
   const reload = async () => {
-    // Guaranteed fallback baseline list to ensure validation staff accounts are permanently visible
-    const staticPreseededStaff = [
-      { id: "preseed-hopmt", email: "hopmt.hjcnt@gmail.com", display_name: "Mai Thế Hợp", role: "sale" as const },
-      { id: "preseed-thai", email: "thai@example.com", display_name: "Mai Hoàng Thái", role: "sale" as const },
-      { id: "preseed-hop", email: "hopmt@gmail.com", display_name: "SALE Mai Thế Hợp", role: "sale" as const },
-    ];
-
-    // Load local blacklist of deleted candidates to guarantee they never respawn
-    let deletedIdentifiers: string[] = [];
-    try {
-      deletedIdentifiers = JSON.parse(localStorage.getItem("deleted_sale_users") || "[]");
-    } catch { /* ignore */ }
-
-    const isDeleted = (idStr: string, emailStr?: string | null) => {
-      if (deletedIdentifiers.includes(idStr)) return true;
-      if (emailStr && deletedIdentifiers.includes(emailStr.toLowerCase())) return true;
-      return false;
-    };
-
     try {
       const resP = await supabase.from("profiles").select("id,email,display_name").catch(() => ({ data: [] }));
       const resR = await supabase.from("user_roles").select("user_id,role").catch(() => ({ data: [] }));
@@ -79,58 +60,23 @@ function AdminUsersPage() {
         loadedRoles.push({ user_id: user.id, role: "admin" });
       }
 
-      for (const staff of staticPreseededStaff) {
-        if (!loadedProfiles.some((prof) => prof.email?.toLowerCase() === staff.email.toLowerCase())) {
-          loadedProfiles.push({ id: staff.id, email: staff.email, display_name: staff.display_name });
-          loadedRoles.push({ user_id: staff.id, role: staff.role });
-        }
-      }
-
-      // Proactively merge any locally tracked accounts created during this session
-      try {
-        const storedUsers = JSON.parse(localStorage.getItem("created_sale_users") || "[]");
-        for (const su of storedUsers) {
-          if (!loadedProfiles.some((prof) => prof.id === su.id || prof.email?.toLowerCase() === su.email?.toLowerCase())) {
-            loadedProfiles.push({ id: su.id, email: su.email, display_name: su.display_name });
-          }
-          if (!loadedRoles.some((role) => role.user_id === su.id && role.role === su.role)) {
-            loadedRoles.push({ user_id: su.id, role: su.role || "sale" });
-          }
-        }
-      } catch {
-        /* ignore */
-      }
-
-      // Deduplicate profiles cleanly and reject blacklisted deleted items
+      // Deduplicate profiles cleanly
       const uniqueProfilesMap = new Map<string, ProfileRow>();
       for (const prof of loadedProfiles) {
-        if (!isDeleted(prof.id, prof.email)) {
-          uniqueProfilesMap.set(prof.id, prof);
-        }
+        uniqueProfilesMap.set(prof.id, prof);
       }
 
       setProfiles(Array.from(uniqueProfilesMap.values()));
-      setRoles(loadedRoles.filter((rl) => !isDeleted(rl.user_id)));
+      setRoles(loadedRoles);
     } catch (err) {
       console.error("Lỗi nạp dữ liệu reload:", err);
-      // Fallback hiển thị tài khoản admin kèm theo danh sách đệm staff cố định để UI luôn trọn vẹn
-      const fallbackP: ProfileRow[] = [];
-      const fallbackR: RoleRow[] = [];
-
       if (user) {
-        fallbackP.push({ id: user.id, email: user.email || "desembrevn.com@gmail.com", display_name: "Admin Desembre" });
-        fallbackR.push({ user_id: user.id, role: "admin" });
+        setProfiles([{ id: user.id, email: user.email || "desembrevn.com@gmail.com", display_name: "Admin Desembre" }]);
+        setRoles([{ user_id: user.id, role: "admin" }]);
+      } else {
+        setProfiles([]);
+        setRoles([]);
       }
-
-      for (const staff of staticPreseededStaff) {
-        if (!isDeleted(staff.id, staff.email)) {
-          fallbackP.push({ id: staff.id, email: staff.email, display_name: staff.display_name });
-          fallbackR.push({ user_id: staff.id, role: staff.role });
-        }
-      }
-
-      setProfiles(fallbackP);
-      setRoles(fallbackR);
     } finally {
       setBusy(false);
     }
@@ -167,23 +113,6 @@ function AdminUsersPage() {
       setRoles((prev) => [...prev, { user_id: uid, role }]);
     }
 
-    // Persist optimistic role update to local cache if applicable
-    try {
-      const storedUsers = JSON.parse(localStorage.getItem("created_sale_users") || "[]");
-      const idx = storedUsers.findIndex((u: any) => u.id === uid);
-      if (idx >= 0) {
-        storedUsers[idx].role = role;
-        localStorage.setItem("created_sale_users", JSON.stringify(storedUsers));
-      }
-    } catch {
-      /* ignore */
-    }
-
-    if (uid.startsWith("local-")) {
-      toast.success("Đã cập nhật phân quyền (Chế độ Local Fallback)");
-      return;
-    }
-
     // Background server synchronization
     if (has) {
       await supabase.from("user_roles").delete().eq("user_id", uid).eq("role", role).catch(() => null);
@@ -204,31 +133,14 @@ function AdminUsersPage() {
 
     setDeleting(true);
     const targetId = deleteCandidate.id;
-    const targetEmail = deleteCandidate.email?.toLowerCase() || "";
 
-    // Dispatch remote database flushes asynchronously in the background to prevent network timeouts from hanging the UI
+    // Dispatch remote database flushes asynchronously in the background
     supabase.from("profiles").delete().eq("id", targetId).catch(() => null);
     supabase.from("user_roles").delete().eq("user_id", targetId).catch(() => null);
 
     // Immediately resolve frontend optimistic state to provide instant tactile feedback
     setProfiles((prev) => prev.filter((p) => p.id !== targetId));
     setRoles((prev) => prev.filter((r) => r.user_id !== targetId));
-
-    // Also purge from local user memory caches and register into explicit persistent blacklist
-    try {
-      const stored = JSON.parse(localStorage.getItem("created_sale_users") || "[]");
-      const filtered = stored.filter(
-        (u: any) => u.id !== targetId && u.email?.toLowerCase() !== targetEmail
-      );
-      localStorage.setItem("created_sale_users", JSON.stringify(filtered));
-
-      const blacklist = JSON.parse(localStorage.getItem("deleted_sale_users") || "[]");
-      if (!blacklist.includes(targetId)) blacklist.push(targetId);
-      if (targetEmail && !blacklist.includes(targetEmail)) blacklist.push(targetEmail);
-      localStorage.setItem("deleted_sale_users", JSON.stringify(blacklist));
-    } catch {
-      /* ignore */
-    }
 
     toast.success(`Đã xóa vĩnh viễn tài khoản ${deleteCandidate.display_name || deleteCandidate.email}`);
     setDeleting(false);
@@ -283,13 +195,6 @@ function AdminUsersPage() {
 
       setProfiles((prev) => [createdProf, ...prev]);
       setRoles((prev) => [...prev, { user_id: data.user.id, role: "sale" }]);
-
-      try {
-        const stored = JSON.parse(localStorage.getItem("created_sale_users") || "[]");
-        localStorage.setItem("created_sale_users", JSON.stringify([createdProf, ...stored]));
-      } catch {
-        /* ignore */
-      }
     }
 
     setNewEmail("");
