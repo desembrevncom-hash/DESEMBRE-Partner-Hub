@@ -44,15 +44,13 @@ BEGIN
     );
   END IF;
 
-  -- Ensure the user role is strictly set to 'admin'
-  UPDATE public.user_roles
-  SET role = 'admin'
-  WHERE user_id = target_user_id;
+  -- Ensure the user role is strictly set to 'admin' and remove any accidental 'sale' assignment
+  DELETE FROM public.user_roles
+  WHERE user_id = target_user_id AND role = 'sale';
 
-  IF NOT FOUND THEN
-    INSERT INTO public.user_roles (user_id, role)
-    VALUES (target_user_id, 'admin');
-  END IF;
+  INSERT INTO public.user_roles (user_id, role)
+  VALUES (target_user_id, 'admin')
+  ON CONFLICT (user_id, role) DO NOTHING;
 
   -- Set profile attributes
   UPDATE public.profiles
