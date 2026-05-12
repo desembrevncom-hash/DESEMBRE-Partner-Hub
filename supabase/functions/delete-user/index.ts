@@ -94,18 +94,18 @@ Deno.serve(async (req) => {
     const { data: targetUserData, error: targetUserError } =
       await adminClient.auth.admin.getUserById(userId);
 
-    // Self-healing architecture: If the identity is missing from auth.users (Orphaned ghost user row)
-    if (targetUserError || !targetUserData?.user) {
-      // Intelligently sweep stale metadata rows directly to purge the UI directory table listing
-      await adminClient.from("profiles").delete().eq("id", userId);
+    if (targetUserError || !targetUserData.user) {
+      // User không còn trong Auth nhưng vẫn còn trong profiles/user_roles.
+      // Dọn dữ liệu public để không còn hiện trong danh sách quản lý.
       await adminClient.from("user_roles").delete().eq("user_id", userId);
+      await adminClient.from("profiles").delete().eq("id", userId);
 
       return json({
         success: true,
-        ghostCleaned: true,
         deletedUser: {
           id: userId,
-          email: "ghost-user@cleaned.local",
+          email: null,
+          wasOrphanProfile: true,
         },
       });
     }
