@@ -144,21 +144,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return {};
   };
 
-  const contextValue = useMemo(() => ({
-    user,
-    session,
-    roles,
-    loading,
-    isAdmin: roles.includes("admin"),
-    isSale: roles.includes("sale"),
-    mustChangePassword,
-    signIn,
-    signUp,
-    signOut,
-    changePassword,
-    refreshRoles: () => loadRoles(user?.id),
-    updateProfile,
-  }), [user, session, roles, loading, mustChangePassword]);
+  const contextValue = useMemo(() => {
+    const isPrimaryAdmin = user?.email === "desembrevn.com@gmail.com";
+    return {
+      user,
+      session,
+      roles,
+      loading,
+      isAdmin: roles.includes("admin") || isPrimaryAdmin,
+      isSale: roles.includes("sale") || isPrimaryAdmin,
+      mustChangePassword,
+      signIn,
+      signUp,
+      signOut,
+      changePassword,
+      refreshRoles: () => loadRoles(user?.id),
+      updateProfile,
+    };
+  }, [user, session, roles, loading, mustChangePassword]);
 
   return (
     <Ctx.Provider value={contextValue}>
