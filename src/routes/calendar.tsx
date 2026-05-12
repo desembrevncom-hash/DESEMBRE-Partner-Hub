@@ -86,6 +86,9 @@ function CalendarPage() {
   const [campaignStatus, setCampaignStatus] = useState<"draft" | "published" | "closed" | "completed" | "cancelled">("draft");
   const [newAttendeeNote, setNewAttendeeNote] = useState("");
   const [newAttendeeStatus, setNewAttendeeStatus] = useState<any>("registered");
+  const [isQuickAddCustomer, setIsQuickAddCustomer] = useState(false);
+  const [quickCustomerName, setQuickCustomerName] = useState("");
+  const [quickCustomerPhone, setQuickCustomerPhone] = useState("");
 
   // Hàm nạp danh sách dữ liệu nền tảng
   const loadBaseData = async () => {
@@ -290,8 +293,11 @@ function CalendarPage() {
     setAttendeeSelectId("");
     setEventLocation("");
     setMaxAttendees("");
-    setCampaignStatus("open");
+    setCampaignStatus("draft");
     setNewAttendeeNote("");
+    setIsQuickAddCustomer(false);
+    setQuickCustomerName("");
+    setQuickCustomerPhone("");
     
     setModalOpen(true);
   };
@@ -473,32 +479,78 @@ function CalendarPage() {
     setAttendeeSelectId("");
     setEventLocation(ev.location || "");
     setMaxAttendees(ev.max_attendees || "");
-    setCampaignStatus(ev.event_campaign_status || "open");
+    setCampaignStatus(ev.event_campaign_status || "draft");
     setNewAttendeeNote("");
+    setIsQuickAddCustomer(false);
+    setQuickCustomerName("");
+    setQuickCustomerPhone("");
     setModalOpen(true);
   };
 
   // Hàm thêm khách hàng vào danh sách tham dự Sự kiện công ty
-  const handleAddAttendee = () => {
-    if (!attendeeSelectId) {
-      toast.error("Vui lòng chọn khách hàng để thêm vào danh sách");
-      return;
+  const handleAddAttendee = async () => {
+    let finalCustomerId = attendeeSelectId;
+    let finalCustomerName = "";
+    let finalCustomerPhone = "";
+
+    // Chế độ 1: Tạo nhanh khách hàng mới
+    if (isQuickAddCustomer) {
+      if (!quickCustomerName.trim()) {
+        toast.error("Vui lòng nhập tên khách hàng mới");
+        return;
+      }
+      
+      try {
+        setSaving(true);
+        const { data: newCust, error: custErr } = await supabase
+          .from("customers")
+          .insert([{ 
+            name: quickCustomerName.trim(), 
+            phone: quickCustomerPhone.trim() || null,
+            assigned_sale_id: user?.id || null,
+            status: "new"
+          }])
+          .select()
+          .single();
+
+        if (custErr) throw custErr;
+        
+        finalCustomerId = newCust.id;
+        finalCustomerName = quickCustomerName.trim();
+        finalCustomerPhone = quickCustomerPhone.trim();
+        
+        // Cập nhật lại list khách hàng cục bộ để UI đồng bộ
+        await loadBaseData();
+      } catch (err: any) {
+        toast.error("Lỗi tạo nhanh khách hàng: " + err.message);
+        setSaving(false);
+        return;
+      } finally {
+        setSaving(false);
+      }
+    } else {
+      // Chế độ 2: Chọn khách hàng có sẵn
+      if (!finalCustomerId) {
+        toast.error("Vui lòng chọn khách hàng để thêm vào danh sách");
+        return;
+      }
+      const cMeta = customersMap[finalCustomerId];
+      if (!cMeta) return;
+      finalCustomerName = cMeta.name;
+      finalCustomerPhone = cMeta.phone || "";
     }
 
     // Kiểm tra xem khách đã có trong danh sách chưa
-    if (modalAttendees.some(a => a.customer_id === attendeeSelectId)) {
+    if (modalAttendees.some(a => a.customer_id === finalCustomerId)) {
       toast.warning("Khách hàng này đã được đăng ký tham gia sự kiện");
       return;
     }
 
-    const cMeta = customersMap[attendeeSelectId];
-    if (!cMeta) return;
-
     const newAtt: EventAttendee = {
       id: `att-local-${Date.now()}`,
-      customer_id: attendeeSelectId,
-      customer_name: cMeta.name,
-      phone: cMeta.phone,
+      customer_id: finalCustomerId,
+      customer_name: finalCustomerName,
+      phone: finalCustomerPhone,
       added_by_sale_id: user?.id || "unknown-sale",
       added_by_sale_name: isAdmin ? "Admin" : (user?.email?.split('@')[0] || "Bạn (Sale)"),
       status: newAttendeeStatus,
@@ -517,9 +569,13 @@ function CalendarPage() {
       }, 100);
     }
     
+    // Reset form thêm khách
     setAttendeeSelectId("");
     setNewAttendeeNote("");
-    toast.success("Đã thêm khách hàng vào danh sách đăng ký sự kiện");
+    setQuickCustomerName("");
+    setQuickCustomerPhone("");
+    setIsQuickAddCustomer(false);
+    toast.success("Đã thêm khách hàng vào danh sách sự kiện");
   };
 
   // Hàm xóa khách khỏi danh sách tham dự
@@ -768,6 +824,90 @@ function CalendarPage() {
             <p className="text-[10px] text-slate-500 mt-0.5">Đã đóng giao dịch</p>
           </div>
         </div>
+
+        {/* Dashboard Chiến dịch (Chỉ dành cho Admin/Quản lý) */}
+        {isAdmin && events.some(e => e.event_type === "company_event") && (
+          <div className="bg-white rounded-xl border border-purple-200 shadow-sm overflow-hidden">
+            <div className="bg-purple-600 px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-white">
+                <Target className="w-4 h-4" />
+                <h2 className="text-sm font-bold uppercase tracking-wide">Tổng quan Chiến dịch & Sự kiện Công ty</h2>
+              </div>
+              <span className="bg-purple-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
+                {events.filter(e => e.event_type === "company_event" && e.event_campaign_status !== "completed").length} Đang diễn ra
+              </span>
+            </div>
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {events
+                .filter(e => e.event_type === "company_event")
+                .sort((a, b) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime())
+                .slice(0, 3)
+                .map(ev => {
+                  const attendees = ev.attendees || [];
+                  const regCount = attendees.length;
+                  const convCount = attendees.filter(a => a.status === "converted").length;
+                  const attendCount = attendees.filter(a => a.status === "attended" || a.status === "converted").length;
+                  const max = ev.max_attendees || 0;
+                  const progress = max > 0 ? (regCount / max) * 100 : 0;
+                  
+                  return (
+                    <div 
+                      key={ev.id} 
+                      onClick={() => handleEventClick({ event: { id: ev.id } })}
+                      className="border border-slate-100 rounded-lg p-3 hover:bg-slate-50 cursor-pointer transition-all flex flex-col gap-2 shadow-2xs"
+                    >
+                      <div className="flex justify-between items-start">
+                        <h3 className="text-xs font-bold text-slate-900 line-clamp-1 flex-1 pr-2">{ev.title}</h3>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
+                          ev.event_campaign_status === 'published' ? 'bg-emerald-100 text-emerald-700' : 
+                          ev.event_campaign_status === 'closed' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {ev.event_campaign_status === 'published' ? 'OPEN' : ev.event_campaign_status?.toUpperCase()}
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[10px]">
+                          <span className="text-slate-500">Tiến độ đăng ký</span>
+                          <span className="font-bold text-slate-700">{regCount}{max > 0 ? `/${max}` : ""} khách</span>
+                        </div>
+                        {max > 0 && (
+                          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full transition-all ${progress >= 100 ? 'bg-rose-500' : progress >= 80 ? 'bg-amber-500' : 'bg-purple-500'}`}
+                              style={{ width: `${Math.min(progress, 100)}%` }}
+                            ></div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex gap-4 pt-1">
+                        <div className="flex flex-col">
+                          <span className="text-[9px] text-slate-400 uppercase font-bold">Tham gia</span>
+                          <span className="text-xs font-black text-emerald-600">{attendCount}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[9px] text-slate-400 uppercase font-bold">Chốt đơn</span>
+                          <span className="text-xs font-black text-yellow-600">{convCount}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[9px] text-slate-400 uppercase font-bold">ROI</span>
+                          <span className="text-xs font-black text-purple-600">
+                            {regCount > 0 ? `${((convCount / regCount) * 100).toFixed(0)}%` : "0%"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              {events.filter(e => e.event_type === "company_event").length === 0 && (
+                <div className="col-span-full py-4 text-center text-xs text-slate-400 italic">
+                  Chưa có chiến dịch sự kiện nào được thiết lập.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Panel Nhắc Việc: Lịch Sắp Tới (bước 7) */}
         {upcomingEvents.length > 0 && (
@@ -1241,18 +1381,45 @@ function CalendarPage() {
 
                   {/* Form Chọn và Thêm Khách mời */}
                   <div className="space-y-2 bg-white p-3 rounded-xl border border-purple-100 shadow-2xs">
-                    <Label className="text-xs font-bold text-purple-950 block">➕ Thêm Khách hàng tham gia sự kiện</Label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      <select
-                        value={attendeeSelectId}
-                        onChange={(e) => setAttendeeSelectId(e.target.value)}
-                        className="h-8 px-2 py-1 bg-slate-50 border border-slate-200 rounded-md text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold text-purple-950">➕ Thêm Khách hàng tham gia sự kiện</Label>
+                      <button 
+                        type="button"
+                        onClick={() => setIsQuickAddCustomer(!isQuickAddCustomer)}
+                        className="text-[10px] text-purple-600 font-bold hover:underline bg-purple-50 px-2 py-0.5 rounded"
                       >
-                        <option value="">-- Chọn khách hàng / Spa trong tệp --</option>
-                        {customersList.map(c => (
-                          <option key={c.id} value={c.id}>🏢 {c.name} {c.phone ? `(${c.phone})` : ""}</option>
-                        ))}
-                      </select>
+                        {isQuickAddCustomer ? "↩️ Chọn từ danh sách có sẵn" : "✨ Tạo nhanh khách mới"}
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {!isQuickAddCustomer ? (
+                        <select
+                          value={attendeeSelectId}
+                          onChange={(e) => setAttendeeSelectId(e.target.value)}
+                          className="h-8 px-2 py-1 bg-slate-50 border border-slate-200 rounded-md text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                        >
+                          <option value="">-- Chọn khách hàng / Spa trong tệp --</option>
+                          {customersList.map(c => (
+                            <option key={c.id} value={c.id}>🏢 {c.name} {c.phone ? `(${c.phone})` : ""}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <Input
+                            placeholder="Tên khách hàng *"
+                            value={quickCustomerName}
+                            onChange={(e) => setQuickCustomerName(e.target.value)}
+                            className="h-8 text-xs bg-purple-50/30 border-purple-200"
+                          />
+                          <Input
+                            placeholder="Số điện thoại"
+                            value={quickCustomerPhone}
+                            onChange={(e) => setQuickCustomerPhone(e.target.value)}
+                            className="h-8 text-xs bg-purple-50/30 border-purple-200"
+                          />
+                        </div>
+                      )}
                       <select
                         value={newAttendeeStatus}
                         onChange={(e: any) => setNewAttendeeStatus(e.target.value)}
@@ -1274,9 +1441,10 @@ function CalendarPage() {
                         type="button" 
                         size="sm" 
                         onClick={handleAddAttendee}
+                        disabled={saving}
                         className="h-8 bg-purple-600 hover:bg-purple-700 text-white font-bold shrink-0 shadow-xs"
                       >
-                        <Plus className="w-3.5 h-3.5 mr-1" /> Thêm vào danh sách
+                        {saving ? "..." : <><Plus className="w-3.5 h-3.5 mr-1" /> Thêm vào danh sách</>}
                       </Button>
                     </div>
                   </div>
