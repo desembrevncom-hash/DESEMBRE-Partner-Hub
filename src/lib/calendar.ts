@@ -80,3 +80,27 @@ export function formatCalendarTime(isoString: string): string {
 export function getDefaultReminderMinutes(): number {
   return 30;
 }
+
+/**
+ * Lấy nhãn và định dạng màu sắc cao cấp cho từng trạng thái đăng ký của khách mời
+ */
+export function getAttendeeStatusMeta(status: any): { label: string; badgeClass: string } {
+  switch (status) {
+    case "invited":
+      return { label: "✉️ Đã gửi lời mời", badgeClass: "bg-slate-100 text-slate-700 border-slate-200" };
+    case "registered":
+      return { label: "📝 Đã đăng ký", badgeClass: "bg-blue-50 text-blue-700 border-blue-200" };
+    case "confirmed":
+      return { label: "🤝 Đã xác nhận", badgeClass: "bg-purple-50 text-purple-700 border-purple-200" };
+    case "attended":
+      return { label: "✓ Đã đến tham gia", badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200 font-bold" };
+    case "no_show":
+      return { label: "✕ Vắng mặt", badgeClass: "bg-rose-50 text-rose-700 border-rose-200" };
+    case "need_followup":
+      return { label: "📞 Cần tư vấn thêm", badgeClass: "bg-amber-50 text-amber-800 border-amber-300 font-bold" };
+    case "deal_closed":
+      return { label: "💰 Đã chốt đơn", badgeClass: "bg-yellow-100 text-yellow-800 border-yellow-400 font-black" };
+    default:
+      return { label: "Chờ xử lý", badgeClass: "bg-slate-50 text-slate-600 border-slate-200" };
+  }
+}

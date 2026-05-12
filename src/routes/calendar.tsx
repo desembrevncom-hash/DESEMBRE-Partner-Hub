@@ -81,6 +81,11 @@ function CalendarPage() {
   const [remindMinutes, setRemindMinutes] = useState(getDefaultReminderMinutes());
   const [modalAttendees, setModalAttendees] = useState<EventAttendee[]>([]);
   const [attendeeSelectId, setAttendeeSelectId] = useState("");
+  const [eventLocation, setEventLocation] = useState("");
+  const [maxAttendees, setMaxAttendees] = useState<number | "">("");
+  const [campaignStatus, setCampaignStatus] = useState<"open" | "closed" | "completed">("open");
+  const [newAttendeeNote, setNewAttendeeNote] = useState("");
+  const [newAttendeeStatus, setNewAttendeeStatus] = useState<any>("registered");
 
   // Hàm nạp danh sách dữ liệu nền tảng
   const loadBaseData = async () => {
@@ -120,15 +125,18 @@ function CalendarPage() {
   const defaultBaselineEvents: CalendarEvent[] = [
     {
       id: "ev-demo-company-1",
-      title: "Hội thảo Chuyển giao Công nghệ Trẻ hóa 2026",
-      description: "Sự kiện lớn trong tháng do Admin tổ chức. Kính mời các đối tác đại lý và chủ Spa tham dự.",
+      title: "Workshop phục hồi da sau treatment",
+      description: "Giới thiệu routine phục hồi chuyên sâu với dòng sản phẩm Desembre chính hãng.",
       event_type: "company_event",
       status: "pending",
-      starts_at: new Date(new Date().setHours(8, 30, 0, 0)).toISOString(),
-      ends_at: new Date(new Date().setHours(12, 0, 0, 0)).toISOString(),
+      starts_at: new Date(new Date().setHours(14, 0, 0, 0)).toISOString(),
+      ends_at: new Date(new Date().setHours(16, 0, 0, 0)).toISOString(),
       customer_id: null,
       assigned_sale_id: null,
       created_by: "admin-owner-id", // Do Admin tạo
+      location: "Hội trường lầu 3 Desembre / Online Zoom",
+      max_attendees: 50,
+      event_campaign_status: "open",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       remind_before_minutes: 60,
@@ -140,7 +148,8 @@ function CalendarPage() {
           phone: "0901234567",
           added_by_sale_id: "current-sale",
           added_by_sale_name: "Bạn (Sale)",
-          status: "registered",
+          status: "confirmed",
+          note: "Khách VIP, quan tâm máy công nghệ cao",
           added_at: new Date().toISOString()
         },
         {
@@ -150,7 +159,19 @@ function CalendarPage() {
           phone: "0987654321",
           added_by_sale_id: "other-sale",
           added_by_sale_name: "Nguyễn Văn A (Sale khác)",
-          status: "checked_in",
+          status: "deal_closed",
+          note: "Đã ký hợp đồng sỉ ngay tại hội thảo",
+          added_at: new Date().toISOString()
+        },
+        {
+          id: "att-3",
+          customer_id: "sample-3",
+          customer_name: "Beauty Clinic Seoul",
+          phone: "0911223344",
+          added_by_sale_id: "current-sale",
+          added_by_sale_name: "Bạn (Sale)",
+          status: "invited",
+          note: "Đang chờ check lịch trống",
           added_at: new Date().toISOString()
         }
       ]
@@ -267,6 +288,10 @@ function CalendarPage() {
     setEditEventId(null);
     setModalAttendees([]);
     setAttendeeSelectId("");
+    setEventLocation("");
+    setMaxAttendees("");
+    setCampaignStatus("open");
+    setNewAttendeeNote("");
     
     setModalOpen(true);
   };
@@ -322,7 +347,10 @@ function CalendarPage() {
           customer_id: customerId || null,
           assigned_sale_id: targetSaleId,
           remind_before_minutes: Number(remindMinutes) || 30,
-          attendees: modalAttendees
+          attendees: modalAttendees,
+          location: eventLocation.trim() || null,
+          max_attendees: Number(maxAttendees) || null,
+          event_campaign_status: campaignStatus
         };
 
         try {
@@ -356,6 +384,9 @@ function CalendarPage() {
           remind_before_minutes: Number(remindMinutes) || 30,
           status: "pending",
           attendees: modalAttendees,
+          location: eventLocation.trim() || null,
+          max_attendees: Number(maxAttendees) || null,
+          event_campaign_status: campaignStatus,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
@@ -407,6 +438,10 @@ function CalendarPage() {
     setEditEventId(null);
     setModalAttendees([]);
     setAttendeeSelectId("");
+    setEventLocation("");
+    setMaxAttendees("");
+    setCampaignStatus("open");
+    setNewAttendeeNote("");
     setModalOpen(true);
   };
 
@@ -436,6 +471,10 @@ function CalendarPage() {
     setEditEventId(ev.id);
     setModalAttendees(ev.attendees || []);
     setAttendeeSelectId("");
+    setEventLocation(ev.location || "");
+    setMaxAttendees(ev.max_attendees || "");
+    setCampaignStatus(ev.event_campaign_status || "open");
+    setNewAttendeeNote("");
     setModalOpen(true);
   };
 
@@ -462,7 +501,8 @@ function CalendarPage() {
       phone: cMeta.phone,
       added_by_sale_id: user?.id || "unknown-sale",
       added_by_sale_name: isAdmin ? "Admin" : (user?.email?.split('@')[0] || "Bạn (Sale)"),
-      status: "registered",
+      status: newAttendeeStatus,
+      note: newAttendeeNote.trim() || null,
       added_at: new Date().toISOString()
     };
 
@@ -478,6 +518,7 @@ function CalendarPage() {
     }
     
     setAttendeeSelectId("");
+    setNewAttendeeNote("");
     toast.success("Đã thêm khách hàng vào danh sách đăng ký sự kiện");
   };
 
@@ -501,17 +542,16 @@ function CalendarPage() {
     toast.success("Đã gỡ khách hàng khỏi danh sách sự kiện");
   };
 
-  // Hàm Check-in khách mời tham dự
-  const handleToggleAttendeeStatus = (attId: string, addedBySaleId: string) => {
-    // Phân quyền: Admin check-in tất cả; Sale chỉ check-in khách do mình phụ trách/add
+  // Hàm cập nhật trạng thái chi tiết của khách mời tham dự (Trước/Sau sự kiện)
+  const handleUpdateAttendeeStatus = (attId: string, addedBySaleId: string, nextStatus: any) => {
+    // Phân quyền: Admin sửa tất cả; Sale chỉ thao tác với khách do mình phụ trách/add
     if (!isAdmin && addedBySaleId !== user?.id) {
-      toast.error("Không có quyền Check-in: Bạn chỉ được phép thao tác với khách hàng do mình phụ trách");
+      toast.error("Không có quyền cập nhật: Bạn chỉ được phép thao tác với khách hàng do mình phụ trách");
       return;
     }
 
     const nextAttendees = modalAttendees.map(a => {
       if (a.id === attId) {
-        const nextStatus = a.status === "registered" ? "checked_in" : "registered";
         return { ...a, status: nextStatus };
       }
       return a;
@@ -525,7 +565,7 @@ function CalendarPage() {
         try { localStorage.setItem("offline_calendar_events", JSON.stringify(events)); } catch {}
       }, 100);
     }
-    toast.success("Đã cập nhật trạng thái Check-in của khách mời");
+    toast.success("Đã cập nhật trạng thái khách mời thành công");
   };
 
   // Lọc sự kiện theo thanh bộ lọc và phân quyền doanh nghiệp
@@ -1099,99 +1139,231 @@ function CalendarPage() {
 
               {/* Module Quản lý Khách mời Đăng ký Sự kiện (Chỉ xuất hiện khi chọn Sự kiện Công ty) */}
               {eventType === "company_event" && (
-                <div className="space-y-3 bg-purple-50/60 p-3.5 rounded-xl border border-purple-100 mt-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
-                      <Users className="w-4 h-4 text-purple-600" /> Danh sách Khách mời Đăng ký Sự kiện
-                    </Label>
-                    <span className="bg-purple-200 text-purple-800 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                      {modalAttendees.length} khách
-                    </span>
+                <div className="space-y-4 bg-purple-50/40 p-4 rounded-xl border border-purple-100 mt-3">
+                  {/* Cấu hình thông số chiến dịch */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 bg-white p-3 rounded-lg border border-purple-100 shadow-2xs">
+                    <div>
+                      <Label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Địa điểm tổ chức</Label>
+                      <Input
+                        placeholder="VD: Showroom / Zoom"
+                        value={eventLocation}
+                        onChange={(e) => setEventLocation(e.target.value)}
+                        className="h-7 text-xs bg-slate-50"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Số lượng tối đa</Label>
+                      <Input
+                        type="number"
+                        placeholder="VD: 50"
+                        value={maxAttendees}
+                        onChange={(e) => setMaxAttendees(e.target.value ? Number(e.target.value) : "")}
+                        className="h-7 text-xs bg-slate-50"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Trạng thái đăng ký</Label>
+                      <select
+                        value={campaignStatus}
+                        onChange={(e: any) => setCampaignStatus(e.target.value)}
+                        className="w-full h-7 px-1.5 py-0 bg-slate-50 border border-slate-200 rounded text-xs font-bold text-purple-900 focus:outline-none"
+                      >
+                        <option value="open">🟢 Đang mở đăng ký</option>
+                        <option value="closed">🔴 Đã đóng đăng ký</option>
+                        <option value="completed">✓ Đã kết thúc</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Bảng Thống kê Hiệu suất Sự kiện trực quan */}
+                  <div className="bg-gradient-to-br from-purple-900 to-indigo-900 p-3 rounded-xl text-white shadow-xs">
+                    <p className="text-xs font-bold text-purple-200 mb-2 flex items-center gap-1.5">
+                      <span>📊 Bảng Thống kê Tổng quan Chiến dịch</span>
+                    </p>
+                    <div className="grid grid-cols-4 gap-2 text-center border-b border-purple-800/60 pb-2.5 mb-2.5">
+                      <div className="bg-white/10 p-1.5 rounded">
+                        <span className="text-[9px] text-purple-300 block uppercase font-medium">Đăng ký</span>
+                        <span className="text-sm font-black text-white">
+                          {modalAttendees.length} {maxAttendees ? `/ ${maxAttendees}` : ""}
+                        </span>
+                      </div>
+                      <div className="bg-white/10 p-1.5 rounded">
+                        <span className="text-[9px] text-purple-300 block uppercase font-medium">Tham gia</span>
+                        <span className="text-sm font-black text-emerald-400">
+                          {modalAttendees.filter(a => a.status === 'attended' || a.status === 'deal_closed').length}
+                        </span>
+                      </div>
+                      <div className="bg-white/10 p-1.5 rounded">
+                        <span className="text-[9px] text-purple-300 block uppercase font-medium">Chốt đơn</span>
+                        <span className="text-sm font-black text-yellow-400">
+                          {modalAttendees.filter(a => a.status === 'deal_closed').length}
+                        </span>
+                      </div>
+                      <div className="bg-white/10 p-1.5 rounded">
+                        <span className="text-[9px] text-purple-300 block uppercase font-medium">Chuyển đổi</span>
+                        <span className="text-sm font-black text-purple-200">
+                          {modalAttendees.length ? `${((modalAttendees.filter(a => a.status === 'deal_closed').length / modalAttendees.length) * 100).toFixed(0)}%` : "0%"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Thống kê đóng góp của từng SALE */}
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-bold text-purple-300 uppercase block">Hiệu suất theo nhân viên SALE:</span>
+                      <div className="max-h-20 overflow-y-auto space-y-1 pr-1">
+                        {Object.entries(
+                          modalAttendees.reduce((acc, curr) => {
+                            const sName = curr.added_by_sale_name || "Sale ẩn danh";
+                            if (!acc[sName]) acc[sName] = { total: 0, attended: 0, closed: 0 };
+                            acc[sName].total += 1;
+                            if (curr.status === 'attended' || curr.status === 'deal_closed') acc[sName].attended += 1;
+                            if (curr.status === 'deal_closed') acc[sName].closed += 1;
+                            return acc;
+                          }, {} as Record<string, { total: number; attended: number; closed: number }>)
+                        ).map(([name, stats]) => (
+                          <div key={name} className="flex items-center justify-between text-[11px] bg-white/5 px-2 py-0.5 rounded border border-white/5">
+                            <span className="font-medium text-purple-100 truncate max-w-[120px]">👤 {name}</span>
+                            <div className="flex gap-2 font-mono text-[10px]">
+                              <span>Add: <b className="text-white">{stats.total}</b></span>
+                              <span>Đi: <b className="text-emerald-400">{stats.attended}</b></span>
+                              <span>Đơn: <b className="text-yellow-400">{stats.closed}</b></span>
+                            </div>
+                          </div>
+                        ))}
+                        {modalAttendees.length === 0 && (
+                          <p className="text-[10px] text-purple-300 italic text-center py-0.5">Chưa có dữ liệu đóng góp</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Form Chọn và Thêm Khách mời */}
-                  <div className="flex gap-2">
-                    <select
-                      value={attendeeSelectId}
-                      onChange={(e) => setAttendeeSelectId(e.target.value)}
-                      className="flex-1 h-8 px-2 py-1 bg-white border border-purple-200 rounded-md text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500 shadow-2xs"
-                    >
-                      <option value="">-- Chọn khách hàng / Spa của bạn để thêm --</option>
-                      {customersList.map(c => (
-                        <option key={c.id} value={c.id}>
-                          🏢 {c.name} {c.phone ? `(📞 ${c.phone})` : ""}
-                        </option>
-                      ))}
-                    </select>
-                    <Button 
-                      type="button" 
-                      size="sm" 
-                      onClick={handleAddAttendee}
-                      className="h-8 bg-purple-600 hover:bg-purple-700 text-white font-bold shrink-0"
-                    >
-                      <Plus className="w-3.5 h-3.5 mr-1" /> Thêm khách
-                    </Button>
+                  <div className="space-y-2 bg-white p-3 rounded-xl border border-purple-100 shadow-2xs">
+                    <Label className="text-xs font-bold text-purple-950 block">➕ Thêm Khách hàng tham gia sự kiện</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <select
+                        value={attendeeSelectId}
+                        onChange={(e) => setAttendeeSelectId(e.target.value)}
+                        className="h-8 px-2 py-1 bg-slate-50 border border-slate-200 rounded-md text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                      >
+                        <option value="">-- Chọn khách hàng / Spa trong tệp --</option>
+                        {customersList.map(c => (
+                          <option key={c.id} value={c.id}>🏢 {c.name} {c.phone ? `(${c.phone})` : ""}</option>
+                        ))}
+                      </select>
+                      <select
+                        value={newAttendeeStatus}
+                        onChange={(e: any) => setNewAttendeeStatus(e.target.value)}
+                        className="h-8 px-2 py-1 bg-slate-50 border border-slate-200 rounded-md text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                      >
+                        <option value="invited">✉️ Trạng thái: Đã gửi lời mời</option>
+                        <option value="registered">📝 Trạng thái: Đã đăng ký</option>
+                        <option value="confirmed">🤝 Trạng thái: Đã xác nhận đi</option>
+                      </select>
+                    </div>
+                    <div className="flex gap-2 pt-0.5">
+                      <Input
+                        placeholder="Ghi chú nhu cầu (VD: Quan tâm máy công nghệ cao, cấy tảo...)"
+                        value={newAttendeeNote}
+                        onChange={(e) => setNewAttendeeNote(e.target.value)}
+                        className="flex-1 h-8 text-xs bg-slate-50"
+                      />
+                      <Button 
+                        type="button" 
+                        size="sm" 
+                        onClick={handleAddAttendee}
+                        className="h-8 bg-purple-600 hover:bg-purple-700 text-white font-bold shrink-0 shadow-xs"
+                      >
+                        <Plus className="w-3.5 h-3.5 mr-1" /> Thêm vào danh sách
+                      </Button>
+                    </div>
                   </div>
 
-                  {/* Danh sách Khách mời */}
-                  {modalAttendees.length === 0 ? (
-                    <p className="text-[11px] text-purple-600/80 italic text-center py-2 bg-white/50 rounded-lg border border-dashed border-purple-200">
-                      Chưa có khách hàng nào được đăng ký tham gia sự kiện này.
-                    </p>
-                  ) : (
-                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                      {modalAttendees.map(att => {
-                        const isMyAdded = att.added_by_sale_id === user?.id;
-                        const canModify = isAdmin || isMyAdded;
+                  {/* Danh sách Khách mời Chi tiết */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-slate-800 flex items-center justify-between">
+                      <span>👥 Danh sách Khách mời Đăng ký ({modalAttendees.length})</span>
+                      <span className="text-[10px] font-normal text-slate-500">Cập nhật kết quả sau sự kiện</span>
+                    </Label>
 
-                        return (
-                          <div 
-                            key={att.id} 
-                            className={`p-2 bg-white rounded-lg border ${att.status === 'checked_in' ? 'border-emerald-200 bg-emerald-50/30' : 'border-purple-100'} flex items-center justify-between gap-2 shadow-2xs transition-all`}
-                          >
-                            <div className="space-y-0.5 min-w-0 flex-1">
-                              <p className="text-xs font-bold text-slate-900 truncate">
-                                🏢 {att.customer_name}
-                              </p>
-                              <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
-                                {att.phone && <span>📞 {att.phone}</span>}
-                                <span className="bg-slate-100 px-1.5 py-0.2 rounded text-slate-600 font-medium">
-                                  Sale: {att.added_by_sale_name}
-                                </span>
+                    {modalAttendees.length === 0 ? (
+                      <p className="text-[11px] text-purple-600/80 italic text-center py-3 bg-white rounded-lg border border-dashed border-purple-200">
+                        Chưa có khách hàng nào được gán vào sự kiện này.
+                      </p>
+                    ) : (
+                      <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                        {modalAttendees.map(att => {
+                          const isMyAdded = att.added_by_sale_id === user?.id;
+                          const canModify = isAdmin || isMyAdded;
+
+                          const statusMeta = getAttendeeStatusMeta(att.status);
+
+                          return (
+                            <div 
+                              key={att.id} 
+                              className={`p-2.5 bg-white rounded-lg border ${att.status === 'deal_closed' ? 'border-yellow-300 bg-yellow-50/20' : att.status === 'attended' ? 'border-emerald-200 bg-emerald-50/20' : 'border-slate-200'} flex flex-col md:flex-row md:items-center justify-between gap-2 shadow-2xs transition-all`}
+                            >
+                              <div className="space-y-1 min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-xs font-bold text-slate-900 truncate">
+                                    🏢 {att.customer_name}
+                                  </p>
+                                  <span className={`px-1.5 py-0.2 text-[9px] rounded-full border ${statusMeta.badgeClass}`}>
+                                    {statusMeta.label}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
+                                  {att.phone && <span>📞 {att.phone}</span>}
+                                  <span className="bg-slate-100 px-1.5 py-0.2 rounded text-slate-600 font-medium">
+                                    Sale: {att.added_by_sale_name}
+                                  </span>
+                                </div>
+
+                                {att.note && (
+                                  <p className="text-[10px] text-slate-600 bg-slate-50 p-1 rounded border border-slate-100 italic">
+                                    💡 <b>Nhu cầu:</b> {att.note}
+                                  </p>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-1.5 shrink-0 pt-1 md:pt-0 border-t md:border-t-0 border-slate-100 justify-end">
+                                <select
+                                  value={att.status}
+                                  onChange={(e: any) => handleUpdateAttendeeStatus(att.id, att.added_by_sale_id, e.target.value)}
+                                  disabled={!canModify}
+                                  className="h-7 px-1.5 py-0 text-[11px] font-bold bg-slate-50 border border-slate-200 rounded text-slate-800 focus:ring-1 focus:ring-purple-500"
+                                >
+                                  <optgroup label="Trước sự kiện">
+                                    <option value="invited">✉️ Đã mời</option>
+                                    <option value="registered">📝 Đã đăng ký</option>
+                                    <option value="confirmed">🤝 Đã xác nhận</option>
+                                  </optgroup>
+                                  <optgroup label="Sau sự kiện (Kết quả)">
+                                    <option value="attended">✓ Đã tham gia</option>
+                                    <option value="no_show">✕ Vắng mặt</option>
+                                    <option value="need_followup">📞 Cần follow-up</option>
+                                    <option value="deal_closed">💰 Đã chốt đơn</option>
+                                  </optgroup>
+                                </select>
+
+                                {canModify && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveAttendee(att.id, att.added_by_sale_id)}
+                                    title="Gỡ khỏi danh sách"
+                                    className="w-7 h-7 inline-flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
                               </div>
                             </div>
-
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => handleToggleAttendeeStatus(att.id, att.added_by_sale_id)}
-                                title={att.status === 'checked_in' ? "Hủy Check-in" : "Đánh dấu Check-in"}
-                                className={`px-2 py-1 rounded text-[10px] font-bold border transition-all flex items-center gap-1 ${
-                                  att.status === 'checked_in'
-                                    ? 'bg-emerald-600 text-white border-emerald-600'
-                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700'
-                                }`}
-                              >
-                                <CheckCircle2 className="w-3 h-3" />
-                                {att.status === 'checked_in' ? "Đã Check-in" : "Check-in"}
-                              </button>
-
-                              {canModify && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveAttendee(att.id, att.added_by_sale_id)}
-                                  title="Gỡ khỏi danh sách"
-                                  className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
-                                >
-                                  ✕
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

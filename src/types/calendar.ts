@@ -36,8 +36,24 @@ export interface CalendarEvent {
   // Thuộc tính mở rộng để UI hiển thị tiện lợi sau khi enrich/join với bảng khách hàng/user
   customer_name?: string;
   assigned_sale_name?: string;
+  
+  // Các thuộc tính chuyên sâu cho Chiến dịch / Sự kiện Công ty
+  location?: string | null;
+  max_attendees?: number | null;
+  event_campaign_status?: "open" | "closed" | "completed";
   attendees?: EventAttendee[];
 }
+
+export type AttendeeRegistrationStatus = 
+  // Trước sự kiện
+  | "invited" 
+  | "registered" 
+  | "confirmed" 
+  // Sau sự kiện
+  | "attended" 
+  | "no_show" 
+  | "need_followup" 
+  | "deal_closed";
 
 export interface EventAttendee {
   id: string;
@@ -46,6 +62,7 @@ export interface EventAttendee {
   phone?: string | null;
   added_by_sale_id: string;
   added_by_sale_name: string;
-  status: "registered" | "checked_in";
+  status: AttendeeRegistrationStatus;
+  note?: string | null; // Ghi chú nhu cầu
   added_at: string;
 }
