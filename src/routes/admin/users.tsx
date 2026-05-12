@@ -4,10 +4,18 @@ import { FunctionsHttpError, FunctionsRelayError, FunctionsFetchError } from "@s
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, UserPlus, Shield, User as UserIcon } from "lucide-react";
+import { ArrowLeft, UserPlus, Shield, User as UserIcon, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/admin/users")({
   component: AdminUsersPage,
@@ -22,6 +30,11 @@ function AdminUsersPage() {
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [roles, setRoles] = useState<RoleRow[]>([]);
   const [busy, setBusy] = useState(true);
+
+  // States for verification deletion workflow requested by user
+  const [deleteCandidate, setDeleteCandidate] = useState<ProfileRow | null>(null);
+  const [confirmKeyword, setConfirmKeyword] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const reload = async () => {
     // Guaranteed fallback baseline list to ensure validation staff accounts are permanently visible
@@ -164,6 +177,41 @@ function AdminUsersPage() {
 
     toast.success("Đã cập nhật phân quyền thành công");
     if (uid === user?.id) await refreshRoles();
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteCandidate) return;
+    if (confirmKeyword !== "DONG Y") {
+      toast.error("Vui lòng gõ chính xác chữ DONG Y (viết hoa không dấu) để xác nhận xóa");
+      return;
+    }
+
+    setDeleting(true);
+    const targetId = deleteCandidate.id;
+
+    // Flush directly from Supabase DB tables
+    await supabase.from("profiles").delete().eq("id", targetId).catch(() => null);
+    await supabase.from("user_roles").delete().eq("user_id", targetId).catch(() => null);
+
+    // Synchronously remove from React component optimistic state mapping
+    setProfiles((prev) => prev.filter((p) => p.id !== targetId));
+    setRoles((prev) => prev.filter((r) => r.user_id !== targetId));
+
+    // Also purge from local user memory caches
+    try {
+      const stored = JSON.parse(localStorage.getItem("created_sale_users") || "[]");
+      const filtered = stored.filter(
+        (u: any) => u.id !== targetId && u.email?.toLowerCase() !== deleteCandidate.email?.toLowerCase()
+      );
+      localStorage.setItem("created_sale_users", JSON.stringify(filtered));
+    } catch {
+      /* ignore */
+    }
+
+    toast.success(`Đã xóa vĩnh viễn tài khoản ${deleteCandidate.display_name || deleteCandidate.email}`);
+    setDeleting(false);
+    setDeleteCandidate(null);
+    setConfirmKeyword("");
   };
 
   const [newEmail, setNewEmail] = useState("");
@@ -401,7 +449,7 @@ function AdminUsersPage() {
                             </td>
                             <td className="px-6 py-4 text-muted-foreground">{p.email}</td>
                             <td className="px-6 py-4">
-                              <div className="flex gap-1 w-full justify-center">
+                              <div className="flex gap-1 items-center justify-center">
                                 <button
                                   onClick={() => toggleRole(p.id, "admin")}
                                   className={`px-2.5 py-1 text-[10px] font-bold rounded transition-all ${
@@ -422,6 +470,19 @@ function AdminUsersPage() {
                                 >
                                   SALE
                                 </button>
+
+                                {p.email !== "desembrevn.com@gmail.com" && p.id !== user?.id && (
+                                  <button
+                                    onClick={() => {
+                                      setDeleteCandidate(p);
+                                      setConfirmKeyword("");
+                                    }}
+                                    className="p-1.5 ml-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-colors"
+                                    title="Xóa tài khoản này"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -435,6 +496,47 @@ function AdminUsersPage() {
           </div>
         </div>
       </main>
+
+      <Dialog open={!!deleteCandidate} onOpenChange={(open) => !open && setDeleteCandidate(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-destructive flex items-center gap-2">
+              <Trash2 className="w-5 h-5" /> Xác nhận xóa tài khoản
+            </DialogTitle>
+            <DialogDescription className="text-xs pt-2 leading-relaxed">
+              Bạn đang thực hiện thao tác xóa tài khoản <strong className="text-foreground">{deleteCandidate?.display_name || deleteCandidate?.email}</strong> ra khỏi danh sách nhân sự. Thao tác này không thể hoàn tác.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="confirm-keyword" className="text-xs font-bold text-destructive">
+                Gõ chữ <span className="underline font-mono">DONG Y</span> để tiếp tục
+              </Label>
+              <Input
+                id="confirm-keyword"
+                placeholder="DONG Y"
+                value={confirmKeyword}
+                onChange={(e) => setConfirmKeyword(e.target.value)}
+                className="font-mono text-center tracking-widest font-bold border-destructive/40 focus-visible:ring-destructive"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setDeleteCandidate(null)} disabled={deleting}>
+              Hủy thao tác
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDeleteConfirm}
+              disabled={deleting || confirmKeyword !== "DONG Y"}
+              className="font-bold"
+            >
+              {deleting ? "Đang xóa..." : "Hoàn tất xóa"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
