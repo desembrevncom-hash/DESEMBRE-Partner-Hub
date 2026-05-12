@@ -57,8 +57,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    const isDevMockEnabled = import.meta.env.DEV && import.meta.env.VITE_ENABLE_MOCK_AUTH === "true";
     const savedMock = localStorage.getItem("mock_session");
-    if (savedMock) {
+    if (isDevMockEnabled && savedMock) {
       const sess = JSON.parse(savedMock);
       setSession(sess);
       setUser(sess.user);
@@ -105,65 +106,73 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password?: string) => {
-    // Local bypass for the requested admin account
-    if (email === "desembrevn.com@gmail.com" && password === "12345678") {
-      setSession(MOCK_SESSION);
-      setUser(MOCK_USER);
-      setRoles(["admin"]);
-      setLoading(false);
-      localStorage.setItem("mock_session", JSON.stringify(MOCK_SESSION));
-      return {};
-    }
-
-    // Passwordless login for SALE
-    if (!password) {
-      const cleanEmail = email.trim().toLowerCase();
-      const mockUsers = JSON.parse(localStorage.getItem("mock_users") || "[]");
-      let foundMock = mockUsers.find((u: any) => {
-        const uEmail = (u.email || u.user_email || "").trim().toLowerCase();
-        return uEmail === cleanEmail;
-      });
-
-      // AUTO-REGISTER FALLBACK: If not found, create them locally on the fly
-      if (!foundMock) {
-        const userId = crypto.randomUUID();
-        foundMock = {
-          id: userId,
-          email: cleanEmail,
-          display_name: cleanEmail.split("@")[0],
-          created_at: new Date().toISOString()
-        };
-        mockUsers.push(foundMock);
-        localStorage.setItem("mock_users", JSON.stringify(mockUsers));
-
-        const mockRoles = JSON.parse(localStorage.getItem("mock_roles") || "[]");
-        mockRoles.push({ user_id: userId, role: "sale" });
-        localStorage.setItem("mock_roles", JSON.stringify(mockRoles));
-      }
-
-      const mockRoles = JSON.parse(localStorage.getItem("mock_roles") || "[]");
-      const userRoles = mockRoles.filter((r: any) => r.user_id === foundMock.id).map((r: any) => r.role);
-      const hasSale = userRoles.includes("sale") || userRoles.length === 0;
-
-      if (hasSale) {
-        const sess = {
-          ...MOCK_SESSION,
-          user: {
-            ...MOCK_USER,
-            id: foundMock.id,
-            email: foundMock.email || cleanEmail,
-            user_metadata: { display_name: foundMock.display_name || foundMock.email }
-          }
-        } as any;
-        setSession(sess);
-        setUser(sess.user);
-        setRoles(["sale"]);
+    const isDevMockEnabled = import.meta.env.DEV && import.meta.env.VITE_ENABLE_MOCK_AUTH === "true";
+    
+    if (isDevMockEnabled) {
+      // Local bypass for the requested admin account
+      if (email === "desembrevn.com@gmail.com" && password === "12345678") {
+        setSession(MOCK_SESSION);
+        setUser(MOCK_USER);
+        setRoles(["admin"]);
         setLoading(false);
-        localStorage.setItem("mock_session", JSON.stringify(sess));
+        localStorage.setItem("mock_session", JSON.stringify(MOCK_SESSION));
         return {};
       }
 
-      return { error: `Tài khoản '${email}' không có quyền SALE.` };
+      // Passwordless login for SALE
+      if (!password) {
+        const cleanEmail = email.trim().toLowerCase();
+        const mockUsers = JSON.parse(localStorage.getItem("mock_users") || "[]");
+        let foundMock = mockUsers.find((u: any) => {
+          const uEmail = (u.email || u.user_email || "").trim().toLowerCase();
+          return uEmail === cleanEmail;
+        });
+
+        // AUTO-REGISTER FALLBACK: If not found, create them locally on the fly
+        if (!foundMock) {
+          const userId = crypto.randomUUID();
+          foundMock = {
+            id: userId,
+            email: cleanEmail,
+            display_name: cleanEmail.split("@")[0],
+            created_at: new Date().toISOString()
+          };
+          mockUsers.push(foundMock);
+          localStorage.setItem("mock_users", JSON.stringify(mockUsers));
+
+          const mockRoles = JSON.parse(localStorage.getItem("mock_roles") || "[]");
+          mockRoles.push({ user_id: userId, role: "sale" });
+          localStorage.setItem("mock_roles", JSON.stringify(mockRoles));
+        }
+
+        const mockRoles = JSON.parse(localStorage.getItem("mock_roles") || "[]");
+        const userRoles = mockRoles.filter((r: any) => r.user_id === foundMock.id).map((r: any) => r.role);
+        const hasSale = userRoles.includes("sale") || userRoles.length === 0;
+
+        if (hasSale) {
+          const sess = {
+            ...MOCK_SESSION,
+            user: {
+              ...MOCK_USER,
+              id: foundMock.id,
+              email: foundMock.email || cleanEmail,
+              user_metadata: { display_name: foundMock.display_name || foundMock.email }
+            }
+          } as any;
+          setSession(sess);
+          setUser(sess.user);
+          setRoles(["sale"]);
+          setLoading(false);
+          localStorage.setItem("mock_session", JSON.stringify(sess));
+          return {};
+        }
+
+        return { error: `Tài khoản '${email}' không có quyền SALE.` };
+      }
+    }
+
+    if (!password) {
+      return { error: "Vui lòng nhập mật khẩu để đăng nhập." };
     }
 
     let { error } = await supabase.auth.signInWithPassword({ email, password });
