@@ -106,10 +106,30 @@ function AdminUsersPage() {
     reload();
   }, [user, isAdmin, loading, navigate]);
 
+  // Persistent component-level buffer cache to ensure optimistic identities never flicker or disappear during Supabase RLS schema reload delays
+  const [optimisticCreated, setOptimisticCreated] = useState<ProfileRow[]>([]);
+  const [optimisticCreatedRoles, setOptimisticCreatedRoles] = useState<RoleRow[]>([]);
+
+  // Deduplicate and merge live cloud arrays with persistent component memory
+  const combinedProfiles = useMemo(() => {
+    const map = new Map<string, ProfileRow>();
+    for (const p of profiles) {
+      map.set(p.id, p);
+    }
+    for (const op of optimisticCreated) {
+      map.set(op.id, op);
+    }
+    return Array.from(map.values());
+  }, [profiles, optimisticCreated]);
+
+  const combinedRoles = useMemo(() => {
+    return [...roles, ...optimisticCreatedRoles];
+  }, [roles, optimisticCreatedRoles]);
+
   // Compute lookup dictionary mapping each profile ID to array of string roles
   const rolesMap = useMemo(() => {
     const map = new Map<string, ("admin" | "sale")[]>();
-    for (const r of roles) {
+    for (const r of combinedRoles) {
       const existing = map.get(r.user_id) || [];
       if (!existing.includes(r.role)) {
         existing.push(r.role);
@@ -117,11 +137,11 @@ function AdminUsersPage() {
       map.set(r.user_id, existing);
     }
     return map;
-  }, [roles]);
+  }, [combinedRoles]);
 
   // Filtered profile list logic
   const filteredProfiles = useMemo(() => {
-    return profiles.filter((p) => {
+    return combinedProfiles.filter((p) => {
       // String matches
       const q = searchQuery.trim().toLowerCase();
       if (q) {
@@ -138,7 +158,7 @@ function AdminUsersPage() {
 
       return true;
     });
-  }, [profiles, rolesMap, searchQuery, roleFilter]);
+  }, [combinedProfiles, rolesMap, searchQuery, roleFilter]);
 
   const toggleRole = async (uid: string, role: "admin" | "sale") => {
     const currentRoles = rolesMap.get(uid) || [];
@@ -153,6 +173,7 @@ function AdminUsersPage() {
     // Optimistically update frontend UI state instantly
     if (has) {
       setRoles((prev) => prev.filter((r) => !(r.user_id === uid && r.role === role)));
+      setOptimisticCreatedRoles((prev) => prev.filter((r) => !(r.user_id === uid && r.role === role)));
     } else {
       setRoles((prev) => [...prev, { user_id: uid, role }]);
     }
@@ -185,6 +206,8 @@ function AdminUsersPage() {
     // Immediately resolve frontend optimistic state to provide instant tactile feedback
     setProfiles((prev) => prev.filter((p) => p.id !== targetId));
     setRoles((prev) => prev.filter((r) => r.user_id !== targetId));
+    setOptimisticCreated((prev) => prev.filter((p) => p.id !== targetId));
+    setOptimisticCreatedRoles((prev) => prev.filter((r) => r.user_id !== targetId));
 
     toast.success(`Đã xóa vĩnh viễn tài khoản ${deleteCandidate.display_name || deleteCandidate.email}`);
     setDeleting(false);
@@ -193,11 +216,14 @@ function AdminUsersPage() {
   };
 
   const handleSuccessOptimistic = (newUser: { id: string; email: string; displayName: string }) => {
-    setProfiles((prev) => [
-      { id: newUser.id, email: newUser.email, display_name: newUser.displayName },
-      ...prev,
-    ]);
-    setRoles((prev) => [...prev, { user_id: newUser.id, role: "sale" }]);
+    const item: ProfileRow = { id: newUser.id, email: newUser.email, display_name: newUser.displayName };
+    const ritem: RoleRow = { user_id: newUser.id, role: "sale" };
+
+    setOptimisticCreated((prev) => [item, ...prev]);
+    setOptimisticCreatedRoles((prev) => [...prev, ritem]);
+
+    setProfiles((prev) => [item, ...prev]);
+    setRoles((prev) => [...prev, ritem]);
   };
 
   return (
