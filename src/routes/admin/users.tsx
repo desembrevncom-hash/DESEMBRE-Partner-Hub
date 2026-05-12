@@ -49,11 +49,18 @@ function AdminUsersPage() {
 
   const reload = async () => {
     try {
-      const resP = await supabase.from("profiles").select("id,email,display_name").catch(() => ({ data: [] }));
-      const resR = await supabase.from("user_roles").select("user_id,role").catch(() => ({ data: [] }));
+      const resP = await supabase.from("profiles").select("id,email,display_name");
+      const resR = await supabase.from("user_roles").select("user_id,role");
 
-      const p = resP?.data || [];
-      const r = resR?.data || [];
+      if (resP.error) {
+        toast.error(`Lỗi nạp Profiles (Bị chặn bởi RLS hoặc DB): ${resP.error.message}`);
+      }
+      if (resR.error) {
+        toast.error(`Lỗi nạp Phân quyền (Bị chặn bởi RLS hoặc DB): ${resR.error.message}`);
+      }
+
+      const p = resP.data || [];
+      const r = resR.data || [];
 
       const loadedProfiles: ProfileRow[] = [...p];
       const loadedRoles: RoleRow[] = [...r];

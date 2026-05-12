@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loadRoles = async (uid: string | undefined) => {
+  const loadRoles = async (uid: string | undefined, uEmail?: string | null) => {
     if (!uid) {
       setRoles([]);
       setMustChangePassword(false);
@@ -52,6 +52,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data } = await supabase.from("user_roles").select("role").eq("user_id", uid);
     const dbRoles = (data ?? []).map((r) => r.role as AppRole);
+
+    // Ensure the primary root admin identity injects genuine backing cloud database entries automatically
+    // so PostgREST RLS engine explicitly grants unblocked underlying table SELECT visibility
+    if (uEmail === "desembrevn.com@gmail.com" && !dbRoles.includes("admin")) {
+      await supabase.from("profiles").upsert({
+        id: uid,
+        email: uEmail,
+        display_name: "Admin Desembre",
+        must_change_password: false,
+      }).catch(() => null);
+
+      await supabase.from("user_roles").insert({
+        user_id: uid,
+        role: "admin",
+      }).catch(() => null);
+
+      dbRoles.push("admin");
+    }
+
     setRoles(dbRoles);
 
     await checkProfilePasswordFlag(uid);
@@ -61,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
       setSession(sess);
       setUser(sess?.user ?? null);
-      setTimeout(() => loadRoles(sess?.user?.id), 0);
+      setTimeout(() => loadRoles(sess?.user?.id, sess?.user?.email), 0);
     });
 
     Promise.race([
@@ -71,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(({ data: { session: sess } }) => {
         setSession(sess);
         setUser(sess?.user ?? null);
-        loadRoles(sess?.user?.id).finally(() => setLoading(false));
+        loadRoles(sess?.user?.id, sess?.user?.email).finally(() => setLoading(false));
       })
       .catch((err) => {
         console.warn("Supabase auth timeout/error", err);
@@ -158,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp,
       signOut,
       changePassword,
-      refreshRoles: () => loadRoles(user?.id),
+      refreshRoles: () => loadRoles(user?.id, user?.email),
       updateProfile,
     };
   }, [user, session, roles, loading, mustChangePassword]);
