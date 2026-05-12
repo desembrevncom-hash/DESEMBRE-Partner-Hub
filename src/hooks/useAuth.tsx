@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -102,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(MOCK_SESSION);
       setUser(MOCK_USER);
       setRoles(["admin"]);
+      setLoading(false);
       localStorage.setItem("mock_session", JSON.stringify(MOCK_SESSION));
       return {};
     }
@@ -149,6 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(sess);
         setUser(sess.user);
         setRoles(["sale"]);
+        setLoading(false);
         localStorage.setItem("mock_session", JSON.stringify(sess));
         return {};
       }
@@ -249,22 +251,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return {};
   };
 
+  const contextValue = useMemo(() => ({
+    user,
+    session,
+    roles,
+    loading,
+    isAdmin: roles.includes("admin"),
+    isSale: roles.includes("sale"),
+    signIn,
+    signUp,
+    signOut,
+    refreshRoles: () => loadRoles(user?.id, user?.email),
+    updateProfile,
+  }), [user, session, roles, loading]);
+
   return (
-    <Ctx.Provider
-      value={{
-        user,
-        session,
-        roles,
-        loading,
-        isAdmin: roles.includes("admin"),
-        isSale: roles.includes("sale"),
-        signIn,
-        signUp,
-        signOut,
-        refreshRoles: () => loadRoles(user?.id, user?.email),
-        updateProfile,
-      }}
-    >
+    <Ctx.Provider value={contextValue}>
       {children}
     </Ctx.Provider>
   );

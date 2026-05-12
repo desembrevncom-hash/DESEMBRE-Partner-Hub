@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { CATEGORIES, PRODUCTS } from "@/data/products";
@@ -222,7 +222,7 @@ function NewOrderPage() {
     return merged.filter((p) => !q || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q));
   }, [search, merged]);
 
-  const addLine = (product: Product, sizeType: "retail" | "salon", isGift: boolean = false) => {
+  const addLine = useCallback((product: Product, sizeType: "retail" | "salon", isGift: boolean = false) => {
     const o = overrides[product.id];
     const variant = product.variants.find((v: ProductVariant) => v.type === sizeType);
     
@@ -266,12 +266,13 @@ function NewOrderPage() {
     });
     setPickerOpen(false);
     setSearch("");
-  };
+  }, [overrides, isSale, isAdmin]);
 
-  const updateQty = (idx: number, qty: number) => {
+  const updateQty = useCallback((idx: number, qty: number) => {
     setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, quantity: Math.max(1, qty) } : it)));
-  };
-  const removeLine = (idx: number) => setItems((prev) => prev.filter((_, i) => i !== idx));
+  }, []);
+
+  const removeLine = useCallback((idx: number) => setItems((prev) => prev.filter((_, i) => i !== idx)), []);
 
   const save = async (status: "draft" | "confirmed") => {
     if (!customerName.trim()) return toast.error("Cần nhập tên khách hàng");

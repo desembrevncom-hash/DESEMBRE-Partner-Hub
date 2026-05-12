@@ -119,21 +119,21 @@ function IndexInner({
     }
   };
 
-  const setImage = async (no: number, src: string | undefined) => {
+  const setImage = useCallback(async (no: number, src: string | undefined) => {
     history.snapshot(no, overrides[no], `Ảnh #${String(no).padStart(2, "0")}`);
     setOverrides((p) => ({
       ...p,
       [no]: { ...(p[no] ?? { no, deleted: false, is_custom: false }), image_url: src ?? null },
     }));
-  };
+  }, [history, overrides, setOverrides]);
 
-  const setLink = async (no: number, href: string | undefined) => {
+  const setLink = useCallback(async (no: number, href: string | undefined) => {
     history.snapshot(no, overrides[no], `Liên kết #${String(no).padStart(2, "0")}`);
     setOverrides((p) => ({
       ...p,
       [no]: { ...(p[no] ?? { no, deleted: false, is_custom: false }), link_url: href ?? null },
     }));
-  };
+  }, [history, overrides, setOverrides]);
 
   const merged: Product[] = useMemo(() => {
     const list: Product[] = [];
@@ -223,12 +223,12 @@ function IndexInner({
     setSection(ALL);
   };
 
-  const openCreate = () => {
+  const openCreate = useCallback(() => {
     setEditInitial({ section: section === ALL ? "" : section, name: "", desc: "" });
     setEditOpen(true);
-  };
+  }, [section]);
 
-  const openEdit = (p: Product) => {
+  const openEdit = useCallback((p: Product) => {
     const retail = p.variants.find(v => v.type === "retail");
     const salon = p.variants.find(v => v.type === "salon");
     setEditInitial({
@@ -242,9 +242,9 @@ function IndexInner({
       salon_price: salon?.price ?? null,
     });
     setEditOpen(true);
-  };
+  }, []);
 
-  const handleDelete = async (p: Product) => {
+  const handleDelete = useCallback(async (p: Product) => {
     if (!isAdmin) return toast.error("Cần đăng nhập ADMIN");
     if (!confirm(`Xoá sản phẩm "${p.name}"?`)) return;
     const prev = overrides[p.id];
@@ -264,15 +264,20 @@ function IndexInner({
       upsertOverride(res.row, { snapshotLabel: `Xoá "${p.name}"` });
     }
     toast.success("Đã xoá — có thể hoàn tác");
-  };
+  }, [isAdmin, overrides, history, setOverrides, upsertOverride]);
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="border-b border-border">
-        <div className="container mx-auto px-4 md:px-6 py-6 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-wide">DESEMBRE Partner Hub</h1>
-            <p className="text-xs text-muted-foreground mt-1">Professional Pricing & Ordering System</p>
+      <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border transition-all">
+        <div className="container mx-auto px-4 md:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-lg shadow-sm">
+              D
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-foreground">DESEMBRE Partner Hub</h1>
+              <p className="text-[11px] text-muted-foreground font-medium">Professional Pricing & Ordering System</p>
+            </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {history.canUndo && isAdmin && (

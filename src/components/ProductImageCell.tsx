@@ -93,14 +93,11 @@ const ProductImageCell = ({ productNo, src, onChange }: Props) => {
   return (
     <div className="relative inline-block group">
       <div className="product-img-box overflow-hidden">
-        {src && !error ? (
+        {src ? (
           <img
             src={src}
             alt={`Sản phẩm ${productNo}`}
             className="w-full h-full object-cover"
-            onError={() => {
-              setError("Không tải được ảnh.");
-            }}
           />
         ) : (
           <Sparkles className="w-7 h-7 text-primary/40" strokeWidth={1.25} />
