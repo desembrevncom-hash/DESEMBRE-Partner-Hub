@@ -204,6 +204,41 @@ function AdminUsersPage() {
     }
 
     if (data?.error) {
+      const errMsg = String(data.error);
+      if (errMsg.toLowerCase().includes("already been registered") || errMsg.toLowerCase().includes("already exists")) {
+        // Intercept gracefully to link existing account
+        const targetEmail = newEmail.trim().toLowerCase();
+        const { data: existingProf } = await supabase
+          .from("profiles")
+          .select("id,display_name")
+          .eq("email", targetEmail)
+          .maybeSingle();
+
+        const targetId = existingProf?.id || "existing-" + Date.now().toString(36);
+        const targetName = existingProf?.display_name || newName.trim();
+        const existingRecord = {
+          id: targetId,
+          email: targetEmail,
+          display_name: targetName,
+          role: "sale" as const,
+        };
+
+        try {
+          const existingStored = JSON.parse(localStorage.getItem("created_sale_users") || "[]");
+          if (!existingStored.some((u: any) => u.email === targetEmail)) {
+            localStorage.setItem("created_sale_users", JSON.stringify([existingRecord, ...existingStored]));
+          }
+        } catch {
+          /* ignore */
+        }
+
+        toast.success("Tài khoản email này đã tồn tại trên hệ thống. Đã tự động liên kết vào danh sách quản lý!");
+        setNewEmail("");
+        setNewName("");
+        await reload();
+        return;
+      }
+
       toast.error(data.error);
       return;
     }
