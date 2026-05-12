@@ -1,0 +1,63 @@
+import { Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+
+interface UserFiltersProps {
+  searchQuery: string;
+  setSearchQuery: (val: string) => void;
+  roleFilter: "all" | "admin" | "sale";
+  setRoleFilter: (val: "all" | "admin" | "sale") => void;
+}
+
+export function UserFilters({
+  searchQuery,
+  setSearchQuery,
+  roleFilter,
+  setRoleFilter,
+}: UserFiltersProps) {
+  return (
+    <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-card border border-border rounded-lg p-3 shadow-sm">
+      <div className="relative w-full sm:w-72">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          placeholder="Tìm kiếm tên hoặc email..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9 h-9 text-xs"
+        />
+      </div>
+
+      <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+        <button
+          onClick={() => setRoleFilter("all")}
+          className={`px-3 py-1.5 rounded text-xs font-bold transition-all whitespace-nowrap ${
+            roleFilter === "all"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-muted/50 text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          Tất cả
+        </button>
+        <button
+          onClick={() => setRoleFilter("admin")}
+          className={`px-3 py-1.5 rounded text-xs font-bold transition-all whitespace-nowrap ${
+            roleFilter === "admin"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-muted/50 text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          Quản trị (Admin)
+        </button>
+        <button
+          onClick={() => setRoleFilter("sale")}
+          className={`px-3 py-1.5 rounded text-xs font-bold transition-all whitespace-nowrap ${
+            roleFilter === "sale"
+              ? "bg-green-600 text-white shadow-sm"
+              : "bg-muted/50 text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          Nhân viên SALE
+        </button>
+      </div>
+    </div>
+  );
+}
