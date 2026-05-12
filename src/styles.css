@@ -152,16 +152,16 @@
 
 /* Desembre catalog styles */
 :root {
-  --header-bg: oklch(0.22 0.04 265);
-  --header-text: oklch(0.98 0.01 265);
-  --row-alt: oklch(0.985 0.003 265);
-  --row-hover: oklch(0.96 0.01 265);
+  --header-bg: #0f172a;
+  --header-text: #f8fafc;
+  --row-alt: #f8fafc;
+  --row-hover: #f1f5f9;
 }
 .dark {
-  --header-bg: oklch(0.18 0.04 265);
-  --header-text: oklch(0.95 0.01 265);
-  --row-alt: oklch(0.14 0.04 265);
-  --row-hover: oklch(0.16 0.04 265);
+  --header-bg: #1e293b;
+  --header-text: #f8fafc;
+  --row-alt: #0f172a;
+  --row-hover: #1e293b;
 }
 
 .table-wrap { 
