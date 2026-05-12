@@ -61,11 +61,11 @@ export async function saveProductOverride(payload: SavePayload) {
       
       const fileName = `${payload.no}_${Date.now()}.jpg`;
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('product_images')
+        .from('product-images')
         .upload(fileName, blob, { upsert: true });
         
       if (!uploadError && uploadData) {
-        const { data: publicUrlData } = supabase.storage.from('product_images').getPublicUrl(fileName);
+        const { data: publicUrlData } = supabase.storage.from('product-images').getPublicUrl(fileName);
         imageUrl = publicUrlData.publicUrl;
       } else {
         imageUrl = payload.image_data_url; // fallback to base64
