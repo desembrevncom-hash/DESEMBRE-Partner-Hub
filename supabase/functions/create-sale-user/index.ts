@@ -11,6 +11,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+    },
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -18,19 +28,13 @@ Deno.serve(async (req) => {
 
   try {
     if (req.method !== "POST") {
-      return new Response(JSON.stringify({ error: "Method not allowed" }), {
-        status: 405,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Method not allowed" }, 405);
     }
 
     const authHeader = req.headers.get("Authorization");
 
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing authorization" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Missing authorization" }, 401);
     }
 
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -41,7 +45,16 @@ Deno.serve(async (req) => {
       },
     });
 
-    const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const adminClient = createClient(
+      SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY,
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+      }
+    );
 
     const {
       data: { user },
@@ -49,36 +62,37 @@ Deno.serve(async (req) => {
     } = await userClient.auth.getUser();
 
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Unauthorized" }, 401);
     }
 
-    const { data: roleRow } = await adminClient
+    const { data: adminRole, error: roleCheckError } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
+      .eq("role", "admin")
       .maybeSingle();
 
     const isPrimaryAdmin = user.email === "desembrevn.com@gmail.com";
 
-    if (!isPrimaryAdmin && roleRow?.role !== "admin") {
-      return new Response(JSON.stringify({ error: "Admin only" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (roleCheckError) {
+      return json({ error: `Role check failed: ${roleCheckError.message}` }, 400);
+    }
+
+    if (!isPrimaryAdmin && !adminRole) {
+      return json({ error: "Admin only" }, 403);
     }
 
     const body = await req.json();
+
     const email = String(body.email || "").trim().toLowerCase();
     const fullName = String(body.fullName || "").trim();
 
     if (!email) {
-      return new Response(JSON.stringify({ error: "Email is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Email is required" }, 400);
+    }
+
+    if (!fullName) {
+      return json({ error: "Full name is required" }, 400);
     }
 
     const { data: createdUser, error: createUserError } =
@@ -88,15 +102,16 @@ Deno.serve(async (req) => {
         email_confirm: true,
         user_metadata: {
           display_name: fullName,
+          full_name: fullName,
         },
       });
 
     if (createUserError || !createdUser.user) {
-      return new Response(
-        JSON.stringify({
+      return json(
+        {
           error: createUserError?.message || "Cannot create user",
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        },
+        400
       );
     }
 
@@ -108,7 +123,7 @@ Deno.serve(async (req) => {
         {
           id: newUserId,
           email,
-          display_name: fullName || email.split("@")[0],
+          display_name: fullName,
           must_change_password: true,
         },
         {
@@ -117,14 +132,13 @@ Deno.serve(async (req) => {
       );
 
     if (profileError) {
-      return new Response(
-        JSON.stringify({
-          error: `Không tạo được profile: ${profileError.message}`,
-        }),
+      await adminClient.auth.admin.deleteUser(newUserId);
+
+      return json(
         {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+          error: `Không tạo được profile: ${profileError.message}`,
+        },
+        400
       );
     }
 
@@ -141,35 +155,32 @@ Deno.serve(async (req) => {
       );
 
     if (roleError) {
-      return new Response(
-        JSON.stringify({
-          error: `Không gán được role SALE: ${roleError.message}`,
-        }),
+      await adminClient.auth.admin.deleteUser(newUserId);
+
+      return json(
         {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+          error: `Không gán được role SALE: ${roleError.message}`,
+        },
+        400
       );
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        user: {
-          id: newUserId,
-          email,
-          role: "sale",
-          defaultPassword: DEFAULT_SALE_PASSWORD,
-        },
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return json({
+      success: true,
+      user: {
+        id: newUserId,
+        email,
+        displayName: fullName,
+        role: "sale",
+        defaultPassword: DEFAULT_SALE_PASSWORD,
+      },
+    });
   } catch (error) {
-    return new Response(
-      JSON.stringify({
+    return json(
+      {
         error: error instanceof Error ? error.message : "Unknown error",
-      }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      },
+      500
     );
   }
 });
