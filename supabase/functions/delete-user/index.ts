@@ -60,14 +60,14 @@ Deno.serve(async (req) => {
       return json({ error: "Unauthorized" }, 401);
     }
 
-    const isPrimaryAdmin = currentUser.email === "desembrevn.com@gmail.com";
-
-    const { data: adminRoles, error: adminRoleError } = await adminClient
+    const { data: adminRole, error: adminRoleError } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", currentUser.id)
       .eq("role", "admin")
-      .limit(1);
+      .maybeSingle();
+
+    const isPrimaryAdmin = currentUser.email === "desembrevn.com@gmail.com";
 
     if (adminRoleError) {
       return json(
@@ -76,23 +76,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!isPrimaryAdmin && (!adminRoles || adminRoles.length === 0)) {
+    if (!isPrimaryAdmin && !adminRole) {
       return json({ error: "Admin only" }, 403);
     }
 
     const body = await req.json();
-    const targetUserId = String(body.userId || "").trim();
+    const userId = String(body.userId || "").trim();
 
-    if (!targetUserId) {
+    if (!userId) {
       return json({ error: "Missing userId" }, 400);
     }
 
-    if (targetUserId === currentUser.id) {
+    if (userId === currentUser.id) {
       return json({ error: "Không thể xoá chính tài khoản đang đăng nhập" }, 400);
     }
 
     const { data: targetUserData, error: targetUserError } =
-      await adminClient.auth.admin.getUserById(targetUserId);
+      await adminClient.auth.admin.getUserById(userId);
 
     if (targetUserError || !targetUserData.user) {
       return json({ error: "Không tìm thấy user trong Supabase Auth" }, 404);
@@ -102,57 +102,7 @@ Deno.serve(async (req) => {
       return json({ error: "Không thể xoá tài khoản admin gốc" }, 400);
     }
 
-    const { data: targetRoles, error: targetRolesError } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", targetUserId);
-
-    if (targetRolesError) {
-      return json(
-        { error: `Không đọc được role user cần xoá: ${targetRolesError.message}` },
-        400
-      );
-    }
-
-    const isTargetAdmin = (targetRoles ?? []).some((r) => r.role === "admin");
-
-    if (isTargetAdmin) {
-      const { count, error: countError } = await adminClient
-        .from("user_roles")
-        .select("*", { count: "exact", head: true })
-        .eq("role", "admin");
-
-      if (countError) {
-        return json(
-          { error: `Không kiểm tra được số lượng admin: ${countError.message}` },
-          400
-        );
-      }
-
-      if ((count ?? 0) <= 1) {
-        return json({ error: "Không thể xoá admin cuối cùng" }, 400);
-      }
-    }
-
-    // Proactive check requested by user: verify if this user has created orders to avoid violating foreign key ON DELETE RESTRICT cascades
-    const { data: existingOrders, error: ordersErr } = await adminClient
-      .from("orders")
-      .select("id")
-      .eq("sale_user_id", targetUserId)
-      .limit(1);
-
-    if (!ordersErr && existingOrders && existingOrders.length > 0) {
-      return json(
-        {
-          error: "Tài khoản này đã tạo đơn hàng trong hệ thống. Để bảo toàn dữ liệu đối soát, vui lòng không xóa mà hãy gỡ quyền SALE của nhân viên này.",
-        },
-        400
-      );
-    }
-
-    const { error: deleteError } = await adminClient.auth.admin.deleteUser(
-      targetUserId
-    );
+    const { error: deleteError } = await adminClient.auth.admin.deleteUser(userId);
 
     if (deleteError) {
       return json(
@@ -164,7 +114,7 @@ Deno.serve(async (req) => {
     return json({
       success: true,
       deletedUser: {
-        id: targetUserId,
+        id: userId,
         email: targetUserData.user.email,
       },
     });
