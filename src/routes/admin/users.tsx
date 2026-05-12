@@ -175,7 +175,43 @@ function AdminUsersPage() {
     setCreating(false);
 
     if (error) {
-      toast.error(error.message || "Không thể tạo tài khoản SALE");
+      let message = error.message;
+      if (error instanceof FunctionsHttpError) {
+        try {
+          const errBody = await error.context.json();
+          message = errBody?.error || message;
+        } catch {
+          /* ignore */
+        }
+      }
+
+      if (
+        message.toLowerCase().includes("already been registered") ||
+        message.toLowerCase().includes("already exists")
+      ) {
+        const { data: existingProf } = await supabase
+          .from("profiles")
+          .select("id,display_name")
+          .eq("email", email)
+          .maybeSingle();
+
+        const targetId = existingProf?.id;
+        if (targetId) {
+          await supabase.from("user_roles").insert({ user_id: targetId, role: "sale" }).catch(() => null);
+          toast.success("Tài khoản email này đã tồn tại. Đã tự động liên kết vào danh sách nhân viên SALE!");
+          setNewEmail("");
+          setNewName("");
+          await reload();
+          return;
+        } else {
+          toast.error(
+            "Email này đã tồn tại trong hệ thống Auth nhưng chưa có hồ sơ Profile. Vui lòng liên hệ Admin để cấp quyền."
+          );
+          return;
+        }
+      }
+
+      toast.error(message || "Không thể tạo tài khoản SALE");
       return;
     }
 
