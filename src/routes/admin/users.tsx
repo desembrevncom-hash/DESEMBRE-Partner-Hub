@@ -199,17 +199,23 @@ function AdminUsersPage() {
 
   const handleDeleteConfirm = async () => {
     if (!deleteCandidate) return;
+
     if (confirmKeyword !== "DONG Y") {
-      toast.error("Vui lòng gõ chính xác chữ DONG Y (viết hoa không dấu) để xác nhận xóa");
+      toast.error("Vui lòng gõ chính xác chữ DONG Y để xác nhận xoá");
+      return;
+    }
+
+    if (deleteCandidate.id === user?.id) {
+      toast.error("Không thể xoá chính tài khoản đang đăng nhập");
       return;
     }
 
     setDeleting(true);
-    const targetId = deleteCandidate.id;
 
-    // Call secure backend delete-user Edge Function to bypass client limits and directly remove GoTrue Identity
     const { data, error } = await supabase.functions.invoke("delete-user", {
-      body: { userId: targetId },
+      body: {
+        userId: deleteCandidate.id,
+      },
     });
 
     setDeleting(false);
@@ -224,28 +230,33 @@ function AdminUsersPage() {
           /* ignore */
         }
       }
-      toast.error(`Xóa tài khoản thất bại: ${message}`);
+      toast.error(message || "Không gọi được Edge Function xoá user");
       return;
     }
 
     if (data?.error) {
-      toast.error(`Xóa tài khoản thất bại: ${data.error}`);
+      toast.error(data.error);
       return;
     }
 
-    // Flush public tracking tables directly just to be doubly certain
-    await supabase.from("profiles").delete().eq("id", targetId).catch(() => null);
-    await supabase.from("user_roles").delete().eq("user_id", targetId).catch(() => null);
+    // Directly delete public profiles rows to enforce instant clean cascade states
+    await supabase.from("profiles").delete().eq("id", deleteCandidate.id).catch(() => null);
+    await supabase.from("user_roles").delete().eq("user_id", deleteCandidate.id).catch(() => null);
 
-    // Apply strict UI buffer array flushes precisely upon remote success verification
-    setProfiles((prev) => prev.filter((p) => p.id !== targetId));
-    setRoles((prev) => prev.filter((r) => r.user_id !== targetId));
-    setOptimisticCreated((prev) => prev.filter((p) => p.id !== targetId));
-    setOptimisticCreatedRoles((prev) => prev.filter((r) => r.user_id !== targetId));
+    // Synchronize optimistic client view cache buffers
+    setProfiles((prev) => prev.filter((p) => p.id !== deleteCandidate.id));
+    setRoles((prev) => prev.filter((r) => r.user_id !== deleteCandidate.id));
+    setOptimisticCreated((prev) => prev.filter((p) => p.id !== deleteCandidate.id));
+    setOptimisticCreatedRoles((prev) => prev.filter((r) => r.user_id !== deleteCandidate.id));
 
-    toast.success(`Đã xóa vĩnh viễn tài khoản ${deleteCandidate.display_name || deleteCandidate.email}`);
+    toast.success(
+      `Đã xoá tài khoản ${deleteCandidate.display_name || deleteCandidate.email}`
+    );
+
     setDeleteCandidate(null);
     setConfirmKeyword("");
+
+    await reload();
   };
 
   const handleSuccessOptimistic = (newUser: { id: string; email: string; displayName: string }) => {
