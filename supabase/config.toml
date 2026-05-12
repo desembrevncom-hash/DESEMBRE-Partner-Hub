@@ -1,1 +1,4 @@
 project_id = "plopsugpfpbbkdplcrca"
+
+[functions.create-sale-user]
+verify_jwt = false
