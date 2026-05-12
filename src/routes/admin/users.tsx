@@ -230,7 +230,7 @@ function AdminUsersPage() {
           /* ignore */
         }
       }
-      toast.error(message || "Không gọi được Edge Function xoá user");
+      toast.error(message || "Không gọi được Edge Function delete-user");
       return;
     }
 
@@ -238,16 +238,6 @@ function AdminUsersPage() {
       toast.error(data.error);
       return;
     }
-
-    // Directly delete public profiles rows to enforce instant clean cascade states
-    await supabase.from("profiles").delete().eq("id", deleteCandidate.id).catch(() => null);
-    await supabase.from("user_roles").delete().eq("user_id", deleteCandidate.id).catch(() => null);
-
-    // Synchronize optimistic client view cache buffers
-    setProfiles((prev) => prev.filter((p) => p.id !== deleteCandidate.id));
-    setRoles((prev) => prev.filter((r) => r.user_id !== deleteCandidate.id));
-    setOptimisticCreated((prev) => prev.filter((p) => p.id !== deleteCandidate.id));
-    setOptimisticCreatedRoles((prev) => prev.filter((r) => r.user_id !== deleteCandidate.id));
 
     toast.success(
       `Đã xoá tài khoản ${deleteCandidate.display_name || deleteCandidate.email}`
