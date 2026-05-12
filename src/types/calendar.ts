@@ -40,20 +40,18 @@ export interface CalendarEvent {
   // Các thuộc tính chuyên sâu cho Chiến dịch / Sự kiện Công ty
   location?: string | null;
   max_attendees?: number | null;
-  event_campaign_status?: "open" | "closed" | "completed";
+  event_campaign_status?: "draft" | "published" | "closed" | "completed" | "cancelled";
   attendees?: EventAttendee[];
 }
 
 export type AttendeeRegistrationStatus = 
-  // Trước sự kiện
-  | "invited" 
-  | "registered" 
-  | "confirmed" 
-  // Sau sự kiện
-  | "attended" 
-  | "no_show" 
-  | "need_followup" 
-  | "deal_closed";
+  | "invited"      // Đã mời
+  | "registered"   // Đã đăng ký
+  | "confirmed"    // Đã xác nhận tham gia
+  | "attended"     // Đã tham gia
+  | "no_show"      // Không tham gia
+  | "cancelled"     // Huỷ tham gia
+  | "converted";   // Đã chuyển thành đơn hàng
 
 export interface EventAttendee {
   id: string;

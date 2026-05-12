@@ -83,7 +83,7 @@ function CalendarPage() {
   const [attendeeSelectId, setAttendeeSelectId] = useState("");
   const [eventLocation, setEventLocation] = useState("");
   const [maxAttendees, setMaxAttendees] = useState<number | "">("");
-  const [campaignStatus, setCampaignStatus] = useState<"open" | "closed" | "completed">("open");
+  const [campaignStatus, setCampaignStatus] = useState<"draft" | "published" | "closed" | "completed" | "cancelled">("draft");
   const [newAttendeeNote, setNewAttendeeNote] = useState("");
   const [newAttendeeStatus, setNewAttendeeStatus] = useState<any>("registered");
 
@@ -136,7 +136,7 @@ function CalendarPage() {
       created_by: "admin-owner-id", // Do Admin tạo
       location: "Hội trường lầu 3 Desembre / Online Zoom",
       max_attendees: 50,
-      event_campaign_status: "open",
+      event_campaign_status: "published",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       remind_before_minutes: 60,
@@ -159,7 +159,7 @@ function CalendarPage() {
           phone: "0987654321",
           added_by_sale_id: "other-sale",
           added_by_sale_name: "Nguyễn Văn A (Sale khác)",
-          status: "deal_closed",
+          status: "converted",
           note: "Đã ký hợp đồng sỉ ngay tại hội thảo",
           added_at: new Date().toISOString()
         },
@@ -1168,9 +1168,11 @@ function CalendarPage() {
                         onChange={(e: any) => setCampaignStatus(e.target.value)}
                         className="w-full h-7 px-1.5 py-0 bg-slate-50 border border-slate-200 rounded text-xs font-bold text-purple-900 focus:outline-none"
                       >
-                        <option value="open">🟢 Đang mở đăng ký</option>
+                        <option value="draft">📝 Nháp</option>
+                        <option value="published">🟢 Đang mở đăng ký</option>
                         <option value="closed">🔴 Đã đóng đăng ký</option>
-                        <option value="completed">✓ Đã kết thúc</option>
+                        <option value="completed">✓ Đã hoàn thành</option>
+                        <option value="cancelled">✕ Đã huỷ</option>
                       </select>
                     </div>
                   </div>
@@ -1190,19 +1192,19 @@ function CalendarPage() {
                       <div className="bg-white/10 p-1.5 rounded">
                         <span className="text-[9px] text-purple-300 block uppercase font-medium">Tham gia</span>
                         <span className="text-sm font-black text-emerald-400">
-                          {modalAttendees.filter(a => a.status === 'attended' || a.status === 'deal_closed').length}
+                          {modalAttendees.filter(a => a.status === 'attended' || a.status === 'converted').length}
                         </span>
                       </div>
                       <div className="bg-white/10 p-1.5 rounded">
                         <span className="text-[9px] text-purple-300 block uppercase font-medium">Chốt đơn</span>
                         <span className="text-sm font-black text-yellow-400">
-                          {modalAttendees.filter(a => a.status === 'deal_closed').length}
+                          {modalAttendees.filter(a => a.status === 'converted').length}
                         </span>
                       </div>
                       <div className="bg-white/10 p-1.5 rounded">
                         <span className="text-[9px] text-purple-300 block uppercase font-medium">Chuyển đổi</span>
                         <span className="text-sm font-black text-purple-200">
-                          {modalAttendees.length ? `${((modalAttendees.filter(a => a.status === 'deal_closed').length / modalAttendees.length) * 100).toFixed(0)}%` : "0%"}
+                          {modalAttendees.length ? `${((modalAttendees.filter(a => a.status === 'converted').length / modalAttendees.length) * 100).toFixed(0)}%` : "0%"}
                         </span>
                       </div>
                     </div>
@@ -1216,8 +1218,8 @@ function CalendarPage() {
                             const sName = curr.added_by_sale_name || "Sale ẩn danh";
                             if (!acc[sName]) acc[sName] = { total: 0, attended: 0, closed: 0 };
                             acc[sName].total += 1;
-                            if (curr.status === 'attended' || curr.status === 'deal_closed') acc[sName].attended += 1;
-                            if (curr.status === 'deal_closed') acc[sName].closed += 1;
+                            if (curr.status === 'attended' || curr.status === 'converted') acc[sName].attended += 1;
+                            if (curr.status === 'converted') acc[sName].closed += 1;
                             return acc;
                           }, {} as Record<string, { total: number; attended: number; closed: number }>)
                         ).map(([name, stats]) => (
@@ -1256,9 +1258,9 @@ function CalendarPage() {
                         onChange={(e: any) => setNewAttendeeStatus(e.target.value)}
                         className="h-8 px-2 py-1 bg-slate-50 border border-slate-200 rounded-md text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
                       >
-                        <option value="invited">✉️ Trạng thái: Đã gửi lời mời</option>
+                        <option value="invited">✉️ Trạng thái: Đã mời</option>
                         <option value="registered">📝 Trạng thái: Đã đăng ký</option>
-                        <option value="confirmed">🤝 Trạng thái: Đã xác nhận đi</option>
+                        <option value="confirmed">🤝 Trạng thái: Đã xác nhận tham gia</option>
                       </select>
                     </div>
                     <div className="flex gap-2 pt-0.5">
@@ -1337,13 +1339,13 @@ function CalendarPage() {
                                   <optgroup label="Trước sự kiện">
                                     <option value="invited">✉️ Đã mời</option>
                                     <option value="registered">📝 Đã đăng ký</option>
-                                    <option value="confirmed">🤝 Đã xác nhận</option>
+                                    <option value="confirmed">🤝 Đã xác nhận tham gia</option>
                                   </optgroup>
                                   <optgroup label="Sau sự kiện (Kết quả)">
                                     <option value="attended">✓ Đã tham gia</option>
-                                    <option value="no_show">✕ Vắng mặt</option>
-                                    <option value="need_followup">📞 Cần follow-up</option>
-                                    <option value="deal_closed">💰 Đã chốt đơn</option>
+                                    <option value="no_show">✕ Không tham gia</option>
+                                    <option value="cancelled">🚫 Huỷ tham gia</option>
+                                    <option value="converted">💰 Đã chốt đơn</option>
                                   </optgroup>
                                 </select>
 
