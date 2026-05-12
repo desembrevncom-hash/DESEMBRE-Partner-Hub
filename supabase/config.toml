@@ -1,0 +1,7 @@
+project_id = "xhfqjupiidexvlltstal"
+
+[functions.create-sale-user]
+verify_jwt = false
+
+[functions.delete-user]
+verify_jwt = false
