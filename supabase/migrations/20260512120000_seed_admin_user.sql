@@ -1,10 +1,10 @@
--- Seed primary Admin account: desembrevn@gmail.com / 12345678
+-- Seed primary Admin account: desembrevn.com@gmail.com / 12345678
 
 DO $$
 DECLARE
   target_user_id UUID;
 BEGIN
-  SELECT id INTO target_user_id FROM auth.users WHERE email = 'desembrevn@gmail.com';
+  SELECT id INTO target_user_id FROM auth.users WHERE email = 'desembrevn.com@gmail.com';
 
   IF target_user_id IS NULL THEN
     target_user_id := gen_random_uuid();
@@ -26,7 +26,7 @@ BEGIN
       '00000000-0000-0000-0000-000000000000',
       'authenticated',
       'authenticated',
-      'desembrevn@gmail.com',
+      'desembrevn.com@gmail.com',
       crypt('12345678', gen_salt('bf')),
       now(),
       '{"provider":"email","providers":["email"]}',
