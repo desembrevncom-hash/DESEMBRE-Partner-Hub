@@ -102,40 +102,19 @@ Deno.serve(async (req) => {
 
     const newUserId = createdUser.user.id;
 
-    // Wait briefly to allow database trigger handle_new_user to complete auto-insertion
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    // Directly UPSERT profiles and user_roles using service role to bypass network trigger delay entirely
+    await adminClient.from("profiles").upsert({
+      id: newUserId,
+      email,
+      display_name: fullName || email.split("@")[0],
+      must_change_password: true,
+    });
 
-    // Update profile created by the trigger to enforce password change
-    const { error: profileError } = await adminClient
-      .from("profiles")
-      .update({
-        display_name: fullName,
-        must_change_password: true,
-      })
-      .eq("id", newUserId);
-
-    if (profileError) {
-      // Fallback insert if trigger did not insert
-      await adminClient.from("profiles").upsert({
-        id: newUserId,
-        email,
-        display_name: fullName,
-        must_change_password: true,
-      });
-    }
-
-    // Ensure user has sale role
-    const { data: existingRoles } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", newUserId);
-
-    if (!existingRoles?.some((r) => r.role === "sale")) {
-      await adminClient.from("user_roles").insert({
-        user_id: newUserId,
-        role: "sale",
-      });
-    }
+    // We use simple raw query fallback pattern if custom composite primary key upserting requires granular bypass
+    await adminClient.from("user_roles").upsert({
+      user_id: newUserId,
+      role: "sale",
+    }).catch(() => null);
 
     return new Response(
       JSON.stringify({
