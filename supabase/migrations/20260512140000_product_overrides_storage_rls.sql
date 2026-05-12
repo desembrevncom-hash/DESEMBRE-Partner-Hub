@@ -27,7 +27,7 @@ for select
 to anon, authenticated
 using (true);
 
--- 4. Chỉ ADMIN được thêm/sửa/xoá override
+-- 4. Chỉ ADMIN được thêm/sửa/xoá override (Sử dụng ép kiểu tường minh ::public.app_role để tránh lỗi HINT signature mismatch của PostgreSQL)
 drop policy if exists "Admins insert overrides" on public.product_overrides;
 drop policy if exists "Admins update overrides" on public.product_overrides;
 drop policy if exists "Admins delete overrides" on public.product_overrides;
@@ -36,20 +36,20 @@ create policy "Admins insert overrides"
 on public.product_overrides
 for insert
 to authenticated
-with check (public.has_role(auth.uid(), 'admin'));
+with check (public.has_role(auth.uid(), 'admin'::public.app_role));
 
 create policy "Admins update overrides"
 on public.product_overrides
 for update
 to authenticated
-using (public.has_role(auth.uid(), 'admin'))
-with check (public.has_role(auth.uid(), 'admin'));
+using (public.has_role(auth.uid(), 'admin'::public.app_role))
+with check (public.has_role(auth.uid(), 'admin'::public.app_role));
 
 create policy "Admins delete overrides"
 on public.product_overrides
 for delete
 to authenticated
-using (public.has_role(auth.uid(), 'admin'));
+using (public.has_role(auth.uid(), 'admin'::public.app_role));
 
 -- 5. Tạo bucket ảnh sản phẩm nếu chưa có
 insert into storage.buckets (id, name, public)
@@ -76,7 +76,7 @@ for insert
 to authenticated
 with check (
   bucket_id = 'product-images'
-  and public.has_role(auth.uid(), 'admin')
+  and public.has_role(auth.uid(), 'admin'::public.app_role)
 );
 
 create policy "Admins update product images"
@@ -85,11 +85,11 @@ for update
 to authenticated
 using (
   bucket_id = 'product-images'
-  and public.has_role(auth.uid(), 'admin')
+  and public.has_role(auth.uid(), 'admin'::public.app_role)
 )
 with check (
   bucket_id = 'product-images'
-  and public.has_role(auth.uid(), 'admin')
+  and public.has_role(auth.uid(), 'admin'::public.app_role)
 );
 
 create policy "Admins delete product images"
@@ -98,7 +98,7 @@ for delete
 to authenticated
 using (
   bucket_id = 'product-images'
-  and public.has_role(auth.uid(), 'admin')
+  and public.has_role(auth.uid(), 'admin'::public.app_role)
 );
 
 -- 8. Reload schema cache cho PostgREST
