@@ -8,7 +8,8 @@ const DEFAULT_SALE_PASSWORD = "12345678";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
 
 function json(body: unknown, status = 200) {
@@ -45,16 +46,12 @@ Deno.serve(async (req) => {
       },
     });
 
-    const adminClient = createClient(
-      SUPABASE_URL,
-      SUPABASE_SERVICE_ROLE_KEY,
-      {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-        },
-      }
-    );
+    const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
 
     const {
       data: { user },
@@ -65,20 +62,24 @@ Deno.serve(async (req) => {
       return json({ error: "Unauthorized" }, 401);
     }
 
-    const { data: adminRole, error: roleCheckError } = await adminClient
+    // Tối ưu hóa: Dùng .limit(1) thay vì .maybeSingle() để triệt tiêu vĩnh viễn lỗi trả về nhiều dòng (PGRST116)
+    const { data: adminRoles, error: adminRoleError } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
       .eq("role", "admin")
-      .maybeSingle();
+      .limit(1);
 
     const isPrimaryAdmin = user.email === "desembrevn.com@gmail.com";
 
-    if (roleCheckError) {
-      return json({ error: `Role check failed: ${roleCheckError.message}` }, 400);
+    if (adminRoleError) {
+      return json(
+        { error: `Không kiểm tra được quyền admin: ${adminRoleError.message}` },
+        400
+      );
     }
 
-    if (!isPrimaryAdmin && !adminRole) {
+    if (!isPrimaryAdmin && (!adminRoles || adminRoles.length === 0)) {
       return json({ error: "Admin only" }, 403);
     }
 
@@ -92,7 +93,7 @@ Deno.serve(async (req) => {
     }
 
     if (!fullName) {
-      return json({ error: "Full name is required" }, 400);
+      return json({ error: "Tên hiển thị là bắt buộc" }, 400);
     }
 
     const { data: createdUser, error: createUserError } =
@@ -117,49 +118,45 @@ Deno.serve(async (req) => {
 
     const newUserId = createdUser.user.id;
 
-    const { error: profileError } = await adminClient
-      .from("profiles")
-      .upsert(
-        {
-          id: newUserId,
-          email,
-          display_name: fullName,
-          must_change_password: true,
-        },
-        {
-          onConflict: "id",
-        }
-      );
+    const { error: profileError } = await adminClient.from("profiles").upsert(
+      {
+        id: newUserId,
+        email,
+        display_name: fullName,
+        must_change_password: true,
+      },
+      {
+        onConflict: "id",
+      }
+    );
 
     if (profileError) {
       await adminClient.auth.admin.deleteUser(newUserId);
 
       return json(
         {
-          error: `Không tạo được profile: ${profileError.message}`,
+          error: `Tạo Auth user thành công nhưng ghi profiles thất bại: ${profileError.message}`,
         },
         400
       );
     }
 
-    const { error: roleError } = await adminClient
-      .from("user_roles")
-      .upsert(
-        {
-          user_id: newUserId,
-          role: "sale",
-        },
-        {
-          onConflict: "user_id,role",
-        }
-      );
+    const { error: roleError } = await adminClient.from("user_roles").upsert(
+      {
+        user_id: newUserId,
+        role: "sale",
+      },
+      {
+        onConflict: "user_id,role",
+      }
+    );
 
     if (roleError) {
       await adminClient.auth.admin.deleteUser(newUserId);
 
       return json(
         {
-          error: `Không gán được role SALE: ${roleError.message}`,
+          error: `Tạo Auth user thành công nhưng gán role SALE thất bại: ${roleError.message}`,
         },
         400
       );
