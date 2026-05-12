@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { saveDbProduct, deleteDbProduct } from "@/lib/catalogDb";
 
 export type OverrideRow = {
   no: number;
@@ -136,5 +137,39 @@ export async function saveProductOverride(payload: SavePayload) {
   if (error) {
      return { ok: false as const, error: error.message };
   }
+
+  // Mirror CRUD operation directly into the core DB catalog tables as requested
+  if (payload.no) {
+    const variantsArr = [];
+    if (payload.retail_price !== undefined && payload.retail_price !== null) {
+      variantsArr.push({
+        id: `${payload.no}-retail`,
+        type: "retail" as const,
+        size: payload.retail_size || "150ml",
+        price: payload.retail_price,
+      });
+    }
+    if (payload.salon_price !== undefined && payload.salon_price !== null) {
+      variantsArr.push({
+        id: `${payload.no}-salon`,
+        type: "salon" as const,
+        size: payload.salon_size || "1000ml",
+        price: payload.salon_price,
+      });
+    }
+
+    saveDbProduct({
+      id: payload.no,
+      name: payload.name || undefined,
+      description: payload.desc || undefined,
+      categoryId: payload.section || undefined,
+      imageUrl: imageUrl || undefined,
+      linkUrl: payload.link_url || undefined,
+      isCustom: payload.action === "create" || false,
+      isDeleted: payload.deleted || false,
+      variants: variantsArr.length > 0 ? variantsArr : undefined,
+    }).catch(err => console.warn("Direct core DB save sync failed", err));
+  }
+
   return { ok: true as const, row: data as OverrideRow };
 }
