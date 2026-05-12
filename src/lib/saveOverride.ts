@@ -53,18 +53,24 @@ export async function saveProductOverride(payload: SavePayload) {
       if (payload.salon_price !== undefined) mapped.salon_price = payload.salon_price;
       if (payload.deleted !== undefined) mapped.deleted = payload.deleted;
 
+      let savedItem;
       if (idx >= 0) {
          if (originalNo !== targetNo) {
             overrides.splice(idx, 1);
-            overrides.push(mapped);
+            const fullObj = { no: targetNo, deleted: false, is_custom: payload.action === "create" || false, ...mapped };
+            overrides.push(fullObj);
+            savedItem = fullObj;
          } else {
             overrides[idx] = { ...overrides[idx], ...mapped };
+            savedItem = overrides[idx];
          }
       } else {
-         overrides.push(mapped);
+         const fullObj = { no: targetNo, deleted: false, is_custom: payload.action === "create" || false, ...mapped };
+         overrides.push(fullObj);
+         savedItem = fullObj;
       }
       localStorage.setItem("mock_overrides", JSON.stringify(overrides));
-      return { ok: true as const, row: (originalNo !== targetNo ? mapped : overrides[idx]) as OverrideRow };
+      return { ok: true as const, row: savedItem as OverrideRow };
   }
 
   try {
