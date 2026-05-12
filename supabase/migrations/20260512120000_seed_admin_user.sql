@@ -17,6 +17,10 @@ BEGIN
       email,
       encrypted_password,
       email_confirmed_at,
+      confirmation_token,
+      recovery_token,
+      email_change_token_new,
+      email_change,
       raw_app_meta_data,
       raw_user_meta_data,
       created_at,
@@ -29,6 +33,10 @@ BEGIN
       'desembrevn.com@gmail.com',
       crypt('12345678', gen_salt('bf')),
       now(),
+      '',
+      '',
+      '',
+      '',
       '{"provider":"email","providers":["email"]}',
       '{"display_name":"Admin Desembre"}',
       now(),
@@ -51,4 +59,22 @@ BEGIN
   SET display_name = 'Admin Desembre',
       must_change_password = false
   WHERE id = target_user_id;
+
+  -- Backfill empty strings for mandatory GoTrue token columns on manually seeded records
+  -- to prevent Go struct unmarshaling panics ("Database error querying schema") during login.
+  UPDATE auth.users
+  SET confirmation_token = COALESCE(confirmation_token, ''),
+      recovery_token = COALESCE(recovery_token, ''),
+      email_change_token_new = COALESCE(email_change_token_new, ''),
+      email_change = COALESCE(email_change, ''),
+      phone_change = COALESCE(phone_change, ''),
+      phone_change_token = COALESCE(phone_change_token, ''),
+      reauthentication_token = COALESCE(reauthentication_token, '')
+  WHERE confirmation_token IS NULL 
+     OR recovery_token IS NULL 
+     OR email_change_token_new IS NULL 
+     OR email_change IS NULL
+     OR phone_change IS NULL
+     OR phone_change_token IS NULL
+     OR reauthentication_token IS NULL;
 END $$;
