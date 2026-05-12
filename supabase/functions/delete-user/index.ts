@@ -134,6 +134,22 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Proactive check requested by user: verify if this user has created orders to avoid violating foreign key ON DELETE RESTRICT cascades
+    const { data: existingOrders, error: ordersErr } = await adminClient
+      .from("orders")
+      .select("id")
+      .eq("sale_user_id", targetUserId)
+      .limit(1);
+
+    if (!ordersErr && existingOrders && existingOrders.length > 0) {
+      return json(
+        {
+          error: "Tài khoản này đã tạo đơn hàng trong hệ thống. Để bảo toàn dữ liệu đối soát, vui lòng không xóa mà hãy gỡ quyền SALE của nhân viên này.",
+        },
+        400
+      );
+    }
+
     const { error: deleteError } = await adminClient.auth.admin.deleteUser(
       targetUserId
     );
