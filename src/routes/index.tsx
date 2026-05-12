@@ -578,18 +578,6 @@ function Page() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const hasMockOverrides = localStorage.getItem("mock_overrides");
-      const hasMockUsers = localStorage.getItem("mock_users");
-      
-      if (hasMockOverrides || hasMockUsers) {
-        const mockData = JSON.parse(hasMockOverrides || "[]");
-        if (cancelled) return;
-        const map: Record<number, OverrideRow> = {};
-        for (const r of mockData) map[r.no] = r as OverrideRow;
-        setOverrides(map);
-        return;
-      }
-
       try {
         const fetchPromise = supabase.from("product_overrides").select("*");
         const timeoutPromise = new Promise<any>((_, reject) =>
