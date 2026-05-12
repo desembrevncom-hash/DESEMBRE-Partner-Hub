@@ -7,7 +7,8 @@ export type CalendarEventType =
   | "demo" 
   | "delivery" 
   | "payment" 
-  | "note";
+  | "note"
+  | "company_event";
 
 export interface CalendarEvent {
   id: string;
@@ -35,4 +36,16 @@ export interface CalendarEvent {
   // Thuộc tính mở rộng để UI hiển thị tiện lợi sau khi enrich/join với bảng khách hàng/user
   customer_name?: string;
   assigned_sale_name?: string;
+  attendees?: EventAttendee[];
+}
+
+export interface EventAttendee {
+  id: string;
+  customer_id: string;
+  customer_name: string;
+  phone?: string | null;
+  added_by_sale_id: string;
+  added_by_sale_name: string;
+  status: "registered" | "checked_in";
+  added_at: string;
 }

@@ -32,6 +32,8 @@ export function getEventTypeLabel(type: CalendarEventType): { label: string; ico
       return { label: "Giao hàng", icon: "🚚" };
     case "payment":
       return { label: "Nhắc thanh toán", icon: "💰" };
+    case "company_event":
+      return { label: "Sự kiện công ty", icon: "🏢" };
     case "note":
     default:
       return { label: "Ghi chú lịch", icon: "📝" };

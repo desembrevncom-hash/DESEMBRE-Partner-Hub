@@ -63,6 +63,7 @@ function CalendarPage() {
   // Bộ lọc
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [groupFilter, setGroupFilter] = useState<string>("all");
 
   // State Modal Form Tạo Lịch Hẹn
   const [modalOpen, setModalOpen] = useState(false);
@@ -78,6 +79,8 @@ function CalendarPage() {
   const [customerId, setCustomerId] = useState("");
   const [assignedSaleId, setAssignedSaleId] = useState("");
   const [remindMinutes, setRemindMinutes] = useState(getDefaultReminderMinutes());
+  const [modalAttendees, setModalAttendees] = useState<EventAttendee[]>([]);
+  const [attendeeSelectId, setAttendeeSelectId] = useState("");
 
   // Hàm nạp danh sách dữ liệu nền tảng
   const loadBaseData = async () => {
@@ -115,6 +118,43 @@ function CalendarPage() {
 
   // Dữ liệu mẫu Lịch hẹn chuyên nghiệp fallback khi CSDL chưa đồng bộ schema cache
   const defaultBaselineEvents: CalendarEvent[] = [
+    {
+      id: "ev-demo-company-1",
+      title: "Hội thảo Chuyển giao Công nghệ Trẻ hóa 2026",
+      description: "Sự kiện lớn trong tháng do Admin tổ chức. Kính mời các đối tác đại lý và chủ Spa tham dự.",
+      event_type: "company_event",
+      status: "pending",
+      starts_at: new Date(new Date().setHours(8, 30, 0, 0)).toISOString(),
+      ends_at: new Date(new Date().setHours(12, 0, 0, 0)).toISOString(),
+      customer_id: null,
+      assigned_sale_id: null,
+      created_by: "admin-owner-id", // Do Admin tạo
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      remind_before_minutes: 60,
+      attendees: [
+        {
+          id: "att-1",
+          customer_id: "sample-1",
+          customer_name: "Thẩm mỹ viện Á Âu",
+          phone: "0901234567",
+          added_by_sale_id: "current-sale",
+          added_by_sale_name: "Bạn (Sale)",
+          status: "registered",
+          added_at: new Date().toISOString()
+        },
+        {
+          id: "att-2",
+          customer_id: "sample-2",
+          customer_name: "Spa Ngọc Dung",
+          phone: "0987654321",
+          added_by_sale_id: "other-sale",
+          added_by_sale_name: "Nguyễn Văn A (Sale khác)",
+          status: "checked_in",
+          added_at: new Date().toISOString()
+        }
+      ]
+    },
     {
       id: "ev-demo-1",
       title: "Hẹn tư vấn set cấy tảo Desembre",
@@ -225,6 +265,8 @@ function CalendarPage() {
     setAssignedSaleId(isAdmin ? "" : (user?.id || ""));
     setRemindMinutes(getDefaultReminderMinutes());
     setEditEventId(null);
+    setModalAttendees([]);
+    setAttendeeSelectId("");
     
     setModalOpen(true);
   };
@@ -280,6 +322,7 @@ function CalendarPage() {
           customer_id: customerId || null,
           assigned_sale_id: targetSaleId,
           remind_before_minutes: Number(remindMinutes) || 30,
+          attendees: modalAttendees
         };
 
         try {
@@ -312,6 +355,7 @@ function CalendarPage() {
           created_by: user?.id || null,
           remind_before_minutes: Number(remindMinutes) || 30,
           status: "pending",
+          attendees: modalAttendees,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
@@ -361,6 +405,8 @@ function CalendarPage() {
     setAssignedSaleId(isAdmin ? "" : (user?.id || ""));
     setRemindMinutes(getDefaultReminderMinutes());
     setEditEventId(null);
+    setModalAttendees([]);
+    setAttendeeSelectId("");
     setModalOpen(true);
   };
 
@@ -388,17 +434,129 @@ function CalendarPage() {
     setRemindMinutes(ev.remind_before_minutes || 30);
     
     setEditEventId(ev.id);
+    setModalAttendees(ev.attendees || []);
+    setAttendeeSelectId("");
     setModalOpen(true);
   };
 
-  // Lọc sự kiện theo thanh bộ lọc
+  // Hàm thêm khách hàng vào danh sách tham dự Sự kiện công ty
+  const handleAddAttendee = () => {
+    if (!attendeeSelectId) {
+      toast.error("Vui lòng chọn khách hàng để thêm vào danh sách");
+      return;
+    }
+
+    // Kiểm tra xem khách đã có trong danh sách chưa
+    if (modalAttendees.some(a => a.customer_id === attendeeSelectId)) {
+      toast.warning("Khách hàng này đã được đăng ký tham gia sự kiện");
+      return;
+    }
+
+    const cMeta = customersMap[attendeeSelectId];
+    if (!cMeta) return;
+
+    const newAtt: EventAttendee = {
+      id: `att-local-${Date.now()}`,
+      customer_id: attendeeSelectId,
+      customer_name: cMeta.name,
+      phone: cMeta.phone,
+      added_by_sale_id: user?.id || "unknown-sale",
+      added_by_sale_name: isAdmin ? "Admin" : (user?.email?.split('@')[0] || "Bạn (Sale)"),
+      status: "registered",
+      added_at: new Date().toISOString()
+    };
+
+    const nextAttendees = [...modalAttendees, newAtt];
+    setModalAttendees(nextAttendees);
+    
+    // Cập nhật ngay vào sự kiện trong state chính
+    if (editEventId) {
+      setEvents(prev => prev.map(ev => ev.id === editEventId ? { ...ev, attendees: nextAttendees } : ev));
+      setTimeout(() => {
+        try { localStorage.setItem("offline_calendar_events", JSON.stringify(events)); } catch {}
+      }, 100);
+    }
+    
+    setAttendeeSelectId("");
+    toast.success("Đã thêm khách hàng vào danh sách đăng ký sự kiện");
+  };
+
+  // Hàm xóa khách khỏi danh sách tham dự
+  const handleRemoveAttendee = (attId: string, addedBySaleId: string) => {
+    // Phân quyền: Admin xóa tất cả; Sale chỉ được xóa khách do mình add
+    if (!isAdmin && addedBySaleId !== user?.id) {
+      toast.error("Không có quyền xóa: Bạn chỉ được phép gỡ khách hàng do chính mình đăng ký");
+      return;
+    }
+
+    const nextAttendees = modalAttendees.filter(a => a.id !== attId);
+    setModalAttendees(nextAttendees);
+
+    if (editEventId) {
+      setEvents(prev => prev.map(ev => ev.id === editEventId ? { ...ev, attendees: nextAttendees } : ev));
+      setTimeout(() => {
+        try { localStorage.setItem("offline_calendar_events", JSON.stringify(events)); } catch {}
+      }, 100);
+    }
+    toast.success("Đã gỡ khách hàng khỏi danh sách sự kiện");
+  };
+
+  // Hàm Check-in khách mời tham dự
+  const handleToggleAttendeeStatus = (attId: string, addedBySaleId: string) => {
+    // Phân quyền: Admin check-in tất cả; Sale chỉ check-in khách do mình phụ trách/add
+    if (!isAdmin && addedBySaleId !== user?.id) {
+      toast.error("Không có quyền Check-in: Bạn chỉ được phép thao tác với khách hàng do mình phụ trách");
+      return;
+    }
+
+    const nextAttendees = modalAttendees.map(a => {
+      if (a.id === attId) {
+        const nextStatus = a.status === "registered" ? "checked_in" : "registered";
+        return { ...a, status: nextStatus };
+      }
+      return a;
+    });
+
+    setModalAttendees(nextAttendees);
+
+    if (editEventId) {
+      setEvents(prev => prev.map(ev => ev.id === editEventId ? { ...ev, attendees: nextAttendees } : ev));
+      setTimeout(() => {
+        try { localStorage.setItem("offline_calendar_events", JSON.stringify(events)); } catch {}
+      }, 100);
+    }
+    toast.success("Đã cập nhật trạng thái Check-in của khách mời");
+  };
+
+  // Lọc sự kiện theo thanh bộ lọc và phân quyền doanh nghiệp
   const filteredEvents = useMemo(() => {
     return events.filter(ev => {
+      // 1. Phân quyền hiển thị cơ bản
+      // - Admin được xem tất cả
+      // - Sale chỉ xem lịch của mình (assigned_sale_id hoặc created_by) VÀ các Sự kiện công ty (company_event) để có thể đăng ký khách tham gia
+      const isMyPersonalEvent = ev.assigned_sale_id === user?.id || ev.created_by === user?.id;
+      const isCompanyEvent = ev.event_type === "company_event";
+      
+      const hasViewAccess = isAdmin || isMyPersonalEvent || isCompanyEvent;
+      if (!hasViewAccess) return false;
+
+      // 2. Bộ lọc Trạng thái
       const matchStatus = statusFilter === "all" || ev.status === statusFilter;
+      
+      // 3. Bộ lọc Loại sự kiện
       const matchType = typeFilter === "all" || ev.event_type === typeFilter;
-      return matchStatus && matchType;
+      
+      // 4. Bộ lọc Nhóm Lịch trình
+      let matchGroup = true;
+      if (groupFilter === "personal") {
+        matchGroup = ev.event_type !== "company_event";
+      } else if (groupFilter === "company") {
+        matchGroup = ev.event_type === "company_event";
+      }
+
+      return matchStatus && matchType && matchGroup;
     });
-  }, [events, statusFilter, typeFilter]);
+  }, [events, statusFilter, typeFilter, groupFilter, isAdmin, user?.id]);
 
   // Thống kê số lượng thẻ
   const stats = useMemo(() => {
@@ -410,10 +568,12 @@ function CalendarPage() {
     const now = Date.now();
     const todayStr = new Date().toDateString();
 
-    events.forEach(ev => {
+    filteredEvents.forEach(ev => {
       if (ev.status === "completed") {
         completedCount++;
-      } else if (ev.status === "pending") {
+      } else if (ev.status === "cancelled") {
+        // bỏ qua
+      } else {
         try {
           const evDate = new Date(ev.starts_at);
           const evTime = evDate.getTime();
@@ -426,7 +586,7 @@ function CalendarPage() {
     });
 
     return { todayCount, overdueCount, upcomingCount, completedCount };
-  }, [events]);
+  }, [filteredEvents]);
 
   // Chuyển đổi dữ liệu sang định dạng chuẩn của FullCalendar (bước 10)
   const fullCalendarEvents = useMemo(() => {
@@ -436,7 +596,8 @@ function CalendarPage() {
       const custMeta = ev.customer_id ? customersMap[ev.customer_id] : null;
       
       let color = "#0ea5e9"; // default sky
-      if (ev.status === "completed") color = "#10b981"; // emerald
+      if (ev.event_type === "company_event") color = "#8b5cf6"; // purple premium cho Sự kiện công ty
+      else if (ev.status === "completed") color = "#10b981"; // emerald
       else if (ev.status === "cancelled") color = "#f43f5e"; // rose
       else if (isOverdue) color = "#f97316"; // orange
       
@@ -632,6 +793,7 @@ function CalendarPage() {
                 className="h-8 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="all">📁 Tất cả phân loại</option>
+                <option value="company_event">🏢 Sự kiện công ty</option>
                 <option value="follow_up">📞 Follow-up KH</option>
                 <option value="appointment">🤝 Lịch hẹn Spa</option>
                 <option value="check_in">📍 Check-in CSKH</option>
@@ -640,6 +802,28 @@ function CalendarPage() {
                 <option value="payment">💰 Nhắc thanh toán</option>
                 <option value="note">📝 Ghi chú lịch</option>
               </select>
+            </div>
+
+            {/* Bộ lọc nhóm lịch trình (Personal vs Company) */}
+            <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-lg border border-slate-200">
+              <button
+                onClick={() => setGroupFilter("all")}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${groupFilter === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600'}`}
+              >
+                Mọi lịch trình
+              </button>
+              <button
+                onClick={() => setGroupFilter("personal")}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${groupFilter === 'personal' ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-600'}`}
+              >
+                👤 Lịch cá nhân
+              </button>
+              <button
+                onClick={() => setGroupFilter("company")}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${groupFilter === 'company' ? 'bg-white text-purple-600 shadow-2xs' : 'text-slate-600'}`}
+              >
+                🏢 Sự kiện công ty
+              </button>
             </div>
           </div>
 
@@ -912,6 +1096,104 @@ function CalendarPage() {
                   className="text-xs bg-white resize-none"
                 />
               </div>
+
+              {/* Module Quản lý Khách mời Đăng ký Sự kiện (Chỉ xuất hiện khi chọn Sự kiện Công ty) */}
+              {eventType === "company_event" && (
+                <div className="space-y-3 bg-purple-50/60 p-3.5 rounded-xl border border-purple-100 mt-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
+                      <Users className="w-4 h-4 text-purple-600" /> Danh sách Khách mời Đăng ký Sự kiện
+                    </Label>
+                    <span className="bg-purple-200 text-purple-800 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                      {modalAttendees.length} khách
+                    </span>
+                  </div>
+
+                  {/* Form Chọn và Thêm Khách mời */}
+                  <div className="flex gap-2">
+                    <select
+                      value={attendeeSelectId}
+                      onChange={(e) => setAttendeeSelectId(e.target.value)}
+                      className="flex-1 h-8 px-2 py-1 bg-white border border-purple-200 rounded-md text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500 shadow-2xs"
+                    >
+                      <option value="">-- Chọn khách hàng / Spa của bạn để thêm --</option>
+                      {customersList.map(c => (
+                        <option key={c.id} value={c.id}>
+                          🏢 {c.name} {c.phone ? `(📞 ${c.phone})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <Button 
+                      type="button" 
+                      size="sm" 
+                      onClick={handleAddAttendee}
+                      className="h-8 bg-purple-600 hover:bg-purple-700 text-white font-bold shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1" /> Thêm khách
+                    </Button>
+                  </div>
+
+                  {/* Danh sách Khách mời */}
+                  {modalAttendees.length === 0 ? (
+                    <p className="text-[11px] text-purple-600/80 italic text-center py-2 bg-white/50 rounded-lg border border-dashed border-purple-200">
+                      Chưa có khách hàng nào được đăng ký tham gia sự kiện này.
+                    </p>
+                  ) : (
+                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                      {modalAttendees.map(att => {
+                        const isMyAdded = att.added_by_sale_id === user?.id;
+                        const canModify = isAdmin || isMyAdded;
+
+                        return (
+                          <div 
+                            key={att.id} 
+                            className={`p-2 bg-white rounded-lg border ${att.status === 'checked_in' ? 'border-emerald-200 bg-emerald-50/30' : 'border-purple-100'} flex items-center justify-between gap-2 shadow-2xs transition-all`}
+                          >
+                            <div className="space-y-0.5 min-w-0 flex-1">
+                              <p className="text-xs font-bold text-slate-900 truncate">
+                                🏢 {att.customer_name}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
+                                {att.phone && <span>📞 {att.phone}</span>}
+                                <span className="bg-slate-100 px-1.5 py-0.2 rounded text-slate-600 font-medium">
+                                  Sale: {att.added_by_sale_name}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleAttendeeStatus(att.id, att.added_by_sale_id)}
+                                title={att.status === 'checked_in' ? "Hủy Check-in" : "Đánh dấu Check-in"}
+                                className={`px-2 py-1 rounded text-[10px] font-bold border transition-all flex items-center gap-1 ${
+                                  att.status === 'checked_in'
+                                    ? 'bg-emerald-600 text-white border-emerald-600'
+                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700'
+                                }`}
+                              >
+                                <CheckCircle2 className="w-3 h-3" />
+                                {att.status === 'checked_in' ? "Đã Check-in" : "Check-in"}
+                              </button>
+
+                              {canModify && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveAttendee(att.id, att.added_by_sale_id)}
+                                  title="Gỡ khỏi danh sách"
+                                  className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <DialogFooter className="px-6 py-4 border-t border-slate-100 bg-slate-50 sticky bottom-0 z-10">
