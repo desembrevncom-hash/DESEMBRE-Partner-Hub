@@ -1,6 +1,37 @@
 export const VAT_RATE = 0.08;
 export const DEFAULT_SALE_DISCOUNT = 0.4;
 
+export type UserRole = "admin" | "sale" | "guest";
+
+type CalculatePriceInput = {
+  basePrice: number;
+  role: UserRole | "user"; // support legacy user literal mapping
+  includeVat: boolean;
+  vatRate?: number;
+};
+
+export function calculatePrice({
+  basePrice,
+  role,
+  includeVat,
+  vatRate = 0.08,
+}: CalculatePriceInput) {
+  const discountRate = role === "sale" ? 0.4 : 0;
+
+  const priceAfterDiscount = Math.round(basePrice * (1 - discountRate));
+
+  const finalPrice = includeVat
+    ? Math.round(priceAfterDiscount * (1 + vatRate))
+    : priceAfterDiscount;
+
+  return {
+    basePrice,
+    discountRate,
+    priceAfterDiscount,
+    finalPrice,
+  };
+}
+
 /**
  * Format number to Vietnamese Dong currency format
  */
@@ -35,7 +66,7 @@ export const calculateSalePrice = (price: number | null | undefined): number | n
 export const getDisplayPrice = (
   price: number | null | undefined,
   vatMode: "with" | "without",
-  role: "admin" | "sale" | "user" = "user"
+  role: "admin" | "sale" | "user" | "guest" = "user"
 ): number | null => {
   if (price == null) return null;
   
