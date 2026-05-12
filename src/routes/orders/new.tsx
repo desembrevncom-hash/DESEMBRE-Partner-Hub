@@ -62,6 +62,11 @@ function NewOrderPage() {
   const quoterEmail = user?.email || "contact@desembre.vn";
   const quoterPhone = user?.user_metadata?.phone || "";
   const [step, setStep] = useState<1 | 2>(1);
+  const [showPdf, setShowPdf] = useState(false);
+
+  useEffect(() => {
+    setShowPdf(false);
+  }, [items, customerName]);
 
   useEffect(() => {
     if (loading) return;
@@ -708,32 +713,44 @@ function NewOrderPage() {
                   </div>
                 </div>
                 <div className="pt-4 space-y-3">
-                  <PDFDownloadLink
-                    document={
-                      <CatalogPDF 
-                        items={items} 
-                        customerName={customerName} 
-                        subtotal={subtotal} 
-                        vatAmount={vatAmount} 
-                        total={total} 
-                        orderNo={items.length > 0 ? "TEMP-" + Date.now().toString().slice(-6) : "000"} 
-                        quoterName={quoterName}
-                        quoterEmail={quoterEmail}
-                        quoterPhone={quoterPhone}
-                      />
-                    }
-                    fileName={`Bao_Gia_Desembre_${customerName || 'Khach'}.pdf`}
-                    className="w-full inline-block cursor-pointer"
-                  >
-                    {({ loading: pdfLoading }) => (
-                      <div 
-                        className={`w-full py-4 font-bold uppercase tracking-wider border-2 border-primary text-primary hover:bg-primary/10 flex items-center justify-center gap-2 rounded-md transition-colors ${items.length === 0 ? "opacity-50 pointer-events-none" : ""}`}
-                      >
-                        <FileText className="w-4 h-4" />
-                        {pdfLoading ? "Đang tạo PDF..." : "XUẤT PDF BÁO GIÁ"}
-                      </div>
-                    )}
-                  </PDFDownloadLink>
+                  {!showPdf ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowPdf(true)}
+                      disabled={items.length === 0}
+                      className={`w-full py-4 font-bold uppercase tracking-wider border-2 border-primary text-primary hover:bg-primary/10 flex items-center justify-center gap-2 rounded-md transition-colors ${items.length === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
+                    >
+                      <FileText className="w-4 h-4" />
+                      CHUẨN BỊ FILE PDF BÁO GIÁ
+                    </button>
+                  ) : (
+                    <PDFDownloadLink
+                      document={
+                        <CatalogPDF 
+                          items={items} 
+                          customerName={customerName} 
+                          subtotal={subtotal} 
+                          vatAmount={vatAmount} 
+                          total={total} 
+                          orderNo={items.length > 0 ? "TEMP-" + Date.now().toString().slice(-6) : "000"} 
+                          quoterName={quoterName}
+                          quoterEmail={quoterEmail}
+                          quoterPhone={quoterPhone}
+                        />
+                      }
+                      fileName={`Bao_Gia_Desembre_${customerName || 'Khach'}.pdf`}
+                      className="w-full inline-block cursor-pointer"
+                    >
+                      {({ loading: pdfLoading }) => (
+                        <div 
+                          className={`w-full py-4 font-bold uppercase tracking-wider bg-primary text-primary-foreground hover:opacity-90 flex items-center justify-center gap-2 rounded-md transition-colors`}
+                        >
+                          <FileText className="w-4 h-4" />
+                          {pdfLoading ? "Đang dựng file PDF..." : "📥 TẢI XUỐNG PDF NGAY"}
+                        </div>
+                      )}
+                    </PDFDownloadLink>
+                  )}
 
                   <Button 
                     variant="ghost" 
