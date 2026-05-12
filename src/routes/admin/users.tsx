@@ -212,30 +212,55 @@ function AdminUsersPage() {
 
     setDeleting(true);
 
-    const { data, error } = await supabase.functions.invoke("delete-user", {
-      body: {
-        userId: deleteCandidate.id,
-      },
-    });
+    let errorMsg = "";
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-user", {
+        body: { userId: deleteCandidate.id },
+      });
+
+      if (error) {
+        let message = error.message;
+        if (error instanceof FunctionsHttpError) {
+          try {
+            const errBody = await error.context.json();
+            message = errBody?.error || message;
+          } catch {
+            /* ignore */
+          }
+        }
+        throw new Error(message || "Không gọi được Edge Function delete-user");
+      }
+
+      if (data?.error) {
+        errorMsg = data.error;
+      }
+    } catch (err: any) {
+      console.warn("Lỗi SDK invoke tiêu chuẩn, tự động kích hoạt luồng gọi trực tiếp fetch fallback:", err);
+      try {
+        const session = (await supabase.auth.getSession()).data?.session;
+        const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`;
+        const rawRes = await fetch(functionUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ userId: deleteCandidate.id }),
+        });
+
+        const resData = await rawRes.json().catch(() => null);
+        if (!rawRes.ok || resData?.error) {
+          errorMsg = resData?.error || err.message || "Lỗi giao tiếp máy chủ Edge Function";
+        }
+      } catch (fallbackErr) {
+        errorMsg = err.message || "Không thể kết nối đến máy chủ Edge Function";
+      }
+    }
 
     setDeleting(false);
 
-    if (error) {
-      let message = error.message;
-      if (error instanceof FunctionsHttpError) {
-        try {
-          const errBody = await error.context.json();
-          message = errBody?.error || message;
-        } catch {
-          /* ignore */
-        }
-      }
-      toast.error(message || "Không gọi được Edge Function delete-user");
-      return;
-    }
-
-    if (data?.error) {
-      toast.error(data.error);
+    if (errorMsg) {
+      toast.error(errorMsg);
       return;
     }
 
