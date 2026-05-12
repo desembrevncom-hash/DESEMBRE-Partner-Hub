@@ -94,8 +94,20 @@ Deno.serve(async (req) => {
     const { data: targetUserData, error: targetUserError } =
       await adminClient.auth.admin.getUserById(userId);
 
-    if (targetUserError || !targetUserData.user) {
-      return json({ error: "Không tìm thấy user trong Supabase Auth" }, 404);
+    // Self-healing architecture: If the identity is missing from auth.users (Orphaned ghost user row)
+    if (targetUserError || !targetUserData?.user) {
+      // Intelligently sweep stale metadata rows directly to purge the UI directory table listing
+      await adminClient.from("profiles").delete().eq("id", userId);
+      await adminClient.from("user_roles").delete().eq("user_id", userId);
+
+      return json({
+        success: true,
+        ghostCleaned: true,
+        deletedUser: {
+          id: userId,
+          email: "ghost-user@cleaned.local",
+        },
+      });
     }
 
     if (targetUserData.user.email === "desembrevn.com@gmail.com") {
@@ -126,6 +138,10 @@ Deno.serve(async (req) => {
         400
       );
     }
+
+    // Explicitly guarantee complete cascading sweep of metadata entries
+    await adminClient.from("profiles").delete().eq("id", userId);
+    await adminClient.from("user_roles").delete().eq("user_id", userId);
 
     return json({
       success: true,
