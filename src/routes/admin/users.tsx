@@ -24,10 +24,11 @@ function AdminUsersPage() {
   const [busy, setBusy] = useState(true);
 
   const reload = async () => {
-    const [{ data: p }, { data: r }] = await Promise.all([
-      supabase.from("profiles").select("id,email,display_name").catch(() => null),
-      supabase.from("user_roles").select("user_id,role").catch(() => null),
-    ]);
+    const resP = await supabase.from("profiles").select("id,email,display_name").catch(() => ({ data: null }));
+    const resR = await supabase.from("user_roles").select("user_id,role").catch(() => ({ data: null }));
+
+    const p = resP?.data;
+    const r = resR?.data;
 
     const loadedProfiles: ProfileRow[] = [...((p ?? []) as ProfileRow[])];
     const loadedRoles: RoleRow[] = [...((r ?? []) as RoleRow[])];
