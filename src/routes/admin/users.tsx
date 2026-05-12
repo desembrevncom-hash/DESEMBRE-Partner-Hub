@@ -89,6 +89,12 @@ function AdminUsersPage() {
   const toggleRole = async (uid: string, role: "admin" | "sale") => {
     const has = rolesOf(uid).includes(role);
 
+    // Safeguard rule requested by user: prevent removing own admin role to avoid account self-lockout
+    if (has && uid === user?.id && role === "admin") {
+      toast.error("Hệ thống chặn thao tác tự gỡ quyền ADMIN của chính mình để tránh khóa tài khoản quản trị!");
+      return;
+    }
+
     // Optimistically update frontend UI state instantly
     if (has) {
       setRoles((prev) => prev.filter((r) => !(r.user_id === uid && r.role === role)));
