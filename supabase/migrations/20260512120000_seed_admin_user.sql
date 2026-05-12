@@ -78,3 +78,21 @@ BEGIN
      OR phone_change_token IS NULL
      OR reauthentication_token IS NULL;
 END $$;
+
+-- Enhance has_role helper function to natively recognize the primary admin account
+-- as a direct, unblockable override for all database-level Row Level Security (RLS) policies.
+CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role public.app_role)
+RETURNS BOOLEAN
+LANGUAGE SQL STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT 
+    (_role = 'admin' AND EXISTS (
+      SELECT 1 FROM auth.users 
+      WHERE id = _user_id AND email = 'desembrevn.com@gmail.com'
+    ))
+    OR
+    EXISTS (
+      SELECT 1 FROM public.user_roles 
+      WHERE user_id = _user_id AND role = _role
+    )
+$$;
