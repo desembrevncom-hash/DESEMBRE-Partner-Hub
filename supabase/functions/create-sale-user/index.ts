@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
       {
         id: newUserId,
         email,
-        display_name: fullName,
+        display_name: fullName || email.split("@")[0],
         must_change_password: true,
       },
       {
