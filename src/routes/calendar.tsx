@@ -225,7 +225,7 @@ function CalendarPage() {
   const { upcomingEvents } = useUpcomingReminders(user?.id, !!isAdmin);
 
   // Thiết lập giá trị mặc định cho Modal khi mở
-  const handleOpenCreateModal = () => {
+  const handleOpenCreateModal = (forcedTab?: "personal" | "company") => {
     setTitle("");
     setDescription("");
     setEventType("follow_up");
@@ -834,7 +834,19 @@ function CalendarPage() {
             >
               <RotateCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
-            <Button onClick={handleOpenCreateModal} className="shadow-sm font-bold">
+            {isAdmin && (
+              <Button 
+                onClick={() => handleOpenCreateModal("company")} 
+                className="bg-purple-600 hover:bg-purple-700 shadow-sm font-bold text-white"
+              >
+                <Plus className="w-4 h-4 mr-2" /> Tạo sự kiện công ty
+              </Button>
+            )}
+            <Button 
+              onClick={() => handleOpenCreateModal("personal")} 
+              variant={isAdmin ? "outline" : "default"}
+              className="shadow-sm font-bold"
+            >
               <Plus className="w-4 h-4 mr-2" /> Tạo lịch hẹn
             </Button>
           </div>
