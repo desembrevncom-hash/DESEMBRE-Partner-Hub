@@ -297,6 +297,11 @@ function AdminUsersPage() {
       `Đã xoá tài khoản ${deleteCandidate.display_name || deleteCandidate.email}`
     );
 
+    setProfiles((prev) => prev.filter((p) => p.id !== deleteCandidate.id));
+    setRoles((prev) => prev.filter((r) => r.user_id !== deleteCandidate.id));
+    setOptimisticCreated((prev) => prev.filter((p) => p.id !== deleteCandidate.id));
+    setOptimisticCreatedRoles((prev) => prev.filter((r) => r.user_id !== deleteCandidate.id));
+
     setDeleteCandidate(null);
     setConfirmKeyword("");
 
