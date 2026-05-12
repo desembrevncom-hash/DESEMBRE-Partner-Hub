@@ -223,6 +223,15 @@ function AdminUsersPage() {
           role: "sale" as const,
         };
 
+        setProfiles((prev) => {
+          if (prev.some((p) => p.email === targetEmail)) return prev;
+          return [{ id: targetId, email: targetEmail, display_name: targetName }, ...prev];
+        });
+        setRoles((prev) => {
+          if (prev.some((r) => r.user_id === targetId)) return prev;
+          return [...prev, { user_id: targetId, role: "sale" }];
+        });
+
         try {
           const existingStored = JSON.parse(localStorage.getItem("created_sale_users") || "[]");
           if (!existingStored.some((u: any) => u.email === targetEmail)) {
@@ -235,7 +244,7 @@ function AdminUsersPage() {
         toast.success("Tài khoản email này đã tồn tại trên hệ thống. Đã tự động liên kết vào danh sách quản lý!");
         setNewEmail("");
         setNewName("");
-        await reload();
+        reload();
         return;
       }
 
@@ -252,6 +261,9 @@ function AdminUsersPage() {
       role: "sale",
     };
 
+    setProfiles((prev) => [{ id: createdUserId, email: cachedProfile.email, display_name: cachedProfile.display_name }, ...prev]);
+    setRoles((prev) => [...prev, { user_id: createdUserId, role: "sale" }]);
+
     try {
       const existingStored = JSON.parse(localStorage.getItem("created_sale_users") || "[]");
       localStorage.setItem("created_sale_users", JSON.stringify([cachedProfile, ...existingStored]));
@@ -262,7 +274,7 @@ function AdminUsersPage() {
     toast.success("Đã tạo tài khoản SALE thành công. Mật khẩu mặc định: 12345678");
     setNewEmail("");
     setNewName("");
-    await reload();
+    reload();
   };
 
   return (
