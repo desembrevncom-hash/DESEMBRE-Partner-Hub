@@ -102,19 +102,55 @@ Deno.serve(async (req) => {
 
     const newUserId = createdUser.user.id;
 
-    // Directly UPSERT profiles and user_roles using service role to bypass network trigger delay entirely
-    await adminClient.from("profiles").upsert({
-      id: newUserId,
-      email,
-      display_name: fullName || email.split("@")[0],
-      must_change_password: true,
-    });
+    const { error: profileError } = await adminClient
+      .from("profiles")
+      .upsert(
+        {
+          id: newUserId,
+          email,
+          display_name: fullName || email.split("@")[0],
+          must_change_password: true,
+        },
+        {
+          onConflict: "id",
+        }
+      );
 
-    // We use simple raw query fallback pattern if custom composite primary key upserting requires granular bypass
-    await adminClient.from("user_roles").upsert({
-      user_id: newUserId,
-      role: "sale",
-    }).catch(() => null);
+    if (profileError) {
+      return new Response(
+        JSON.stringify({
+          error: `Không tạo được profile: ${profileError.message}`,
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const { error: roleError } = await adminClient
+      .from("user_roles")
+      .upsert(
+        {
+          user_id: newUserId,
+          role: "sale",
+        },
+        {
+          onConflict: "user_id,role",
+        }
+      );
+
+    if (roleError) {
+      return new Response(
+        JSON.stringify({
+          error: `Không gán được role SALE: ${roleError.message}`,
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
     return new Response(
       JSON.stringify({

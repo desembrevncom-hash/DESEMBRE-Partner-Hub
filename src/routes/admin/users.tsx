@@ -243,133 +243,41 @@ function AdminUsersPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!newEmail || !newName) return;
+    const email = newEmail.trim().toLowerCase();
+    const fullName = newName.trim();
+
+    if (!email || !fullName) {
+      toast.error("Vui lòng nhập tên và email");
+      return;
+    }
 
     setCreating(true);
 
     const { data, error } = await supabase.functions.invoke("create-sale-user", {
       body: {
-        email: newEmail.trim().toLowerCase(),
-        fullName: newName.trim(),
+        email,
+        fullName,
       },
     });
 
     setCreating(false);
 
     if (error) {
-      let message = error.message;
-
-      if (error instanceof FunctionsHttpError) {
-        const errorBody = await error.context.json().catch(() => null);
-        message = errorBody?.error || message;
-      }
-
-      if (error instanceof FunctionsRelayError) {
-        message = `Relay error: ${error.message}`;
-      }
-
-      if (error instanceof FunctionsFetchError) {
-        const fakeId = "local-" + Date.now().toString(36);
-        const newProfile = { id: fakeId, email: newEmail.trim().toLowerCase(), display_name: newName.trim() };
-        const newRole = { user_id: fakeId, role: "sale" as const };
-
-        setProfiles((prev) => [newProfile, ...prev]);
-        setRoles((prev) => [...prev, newRole]);
-
-        try {
-          const existingStored = JSON.parse(localStorage.getItem("created_sale_users") || "[]");
-          localStorage.setItem(
-            "created_sale_users",
-            JSON.stringify([{ ...newProfile, role: "sale" }, ...existingStored])
-          );
-        } catch {
-          /* ignore */
-        }
-
-        toast.success(
-          "Đã thêm user giả lập thành công (Chế độ Local Fallback do chưa deploy Edge Function). Mật khẩu: 12345678"
-        );
-        setNewEmail("");
-        setNewName("");
-        return;
-      }
-
-      toast.error(message);
+      toast.error(error.message || "Không thể tạo tài khoản SALE");
       return;
     }
 
     if (data?.error) {
-      const errMsg = String(data.error);
-      if (errMsg.toLowerCase().includes("already been registered") || errMsg.toLowerCase().includes("already exists")) {
-        // Intercept gracefully to link existing account
-        const targetEmail = newEmail.trim().toLowerCase();
-        const { data: existingProf } = await supabase
-          .from("profiles")
-          .select("id,display_name")
-          .eq("email", targetEmail)
-          .maybeSingle();
-
-        const targetId = existingProf?.id || "existing-" + Date.now().toString(36);
-        const targetName = existingProf?.display_name || newName.trim();
-        const existingRecord = {
-          id: targetId,
-          email: targetEmail,
-          display_name: targetName,
-          role: "sale" as const,
-        };
-
-        setProfiles((prev) => {
-          if (prev.some((p) => p.email === targetEmail)) return prev;
-          return [{ id: targetId, email: targetEmail, display_name: targetName }, ...prev];
-        });
-        setRoles((prev) => {
-          if (prev.some((r) => r.user_id === targetId)) return prev;
-          return [...prev, { user_id: targetId, role: "sale" }];
-        });
-
-        try {
-          const existingStored = JSON.parse(localStorage.getItem("created_sale_users") || "[]");
-          if (!existingStored.some((u: any) => u.email === targetEmail)) {
-            localStorage.setItem("created_sale_users", JSON.stringify([existingRecord, ...existingStored]));
-          }
-        } catch {
-          /* ignore */
-        }
-
-        toast.success("Tài khoản email này đã tồn tại trên hệ thống. Đã tự động liên kết vào danh sách quản lý!");
-        setNewEmail("");
-        setNewName("");
-        reload();
-        return;
-      }
-
       toast.error(data.error);
       return;
     }
 
-    // Persistently cache real cloud created user
-    const createdUserId = data?.user?.id || "remote-" + Date.now().toString(36);
-    const cachedProfile = {
-      id: createdUserId,
-      email: newEmail.trim().toLowerCase(),
-      display_name: newName.trim(),
-      role: "sale",
-    };
+    toast.success("Đã tạo tài khoản SALE. Mật khẩu mặc định: 12345678");
 
-    setProfiles((prev) => [{ id: createdUserId, email: cachedProfile.email, display_name: cachedProfile.display_name }, ...prev]);
-    setRoles((prev) => [...prev, { user_id: createdUserId, role: "sale" }]);
-
-    try {
-      const existingStored = JSON.parse(localStorage.getItem("created_sale_users") || "[]");
-      localStorage.setItem("created_sale_users", JSON.stringify([cachedProfile, ...existingStored]));
-    } catch {
-      /* ignore */
-    }
-
-    toast.success("Đã tạo tài khoản SALE thành công. Mật khẩu mặc định: 12345678");
     setNewEmail("");
     setNewName("");
-    reload();
+
+    await reload();
   };
 
   return (
