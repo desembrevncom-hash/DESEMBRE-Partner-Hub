@@ -14,6 +14,112 @@ export type Database = {
   }
   public: {
     Tables: {
+      categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          name_vi: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id: string
+          name: string
+          name_vi?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          name_vi?: string | null
+        }
+        Relationships: []
+      }
+      product_variants: {
+        Row: {
+          created_at: string
+          id: string
+          price: number
+          product_id: number | null
+          size: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          price?: number
+          product_id?: number | null
+          size: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          price?: number
+          product_id?: number | null
+          size?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_variants_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          description: string | null
+          id: number
+          image_url: string | null
+          is_custom: boolean
+          is_deleted: boolean
+          link_url: string | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          id: number
+          image_url?: string | null
+          is_custom?: boolean
+          is_deleted?: boolean
+          link_url?: string | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: number
+          image_url?: string | null
+          is_custom?: boolean
+          is_deleted?: boolean
+          link_url?: string | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           created_at: string
