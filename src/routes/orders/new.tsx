@@ -80,8 +80,16 @@ function NewOrderPage() {
         const mockData = JSON.parse(hasMockOverrides || "[]");
         for (const r of mockData) map[r.no] = r as OverrideRow;
       } else {
-        const { data } = await supabase.from("product_overrides").select("*");
-        for (const r of data ?? []) map[r.no] = r as OverrideRow;
+        try {
+          const fetchPromise = supabase.from("product_overrides").select("*");
+          const timeoutPromise = new Promise<any>((_, reject) =>
+            setTimeout(() => reject(new Error("Supabase timeout")), 3000)
+          );
+          const { data } = await Promise.race([fetchPromise, timeoutPromise]);
+          for (const r of data ?? []) map[r.no] = r as OverrideRow;
+        } catch (err) {
+          console.warn("Supabase load timed out on new order page", err);
+        }
       }
       setOverrides(map);
 

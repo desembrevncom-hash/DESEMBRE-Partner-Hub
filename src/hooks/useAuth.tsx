@@ -87,11 +87,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setTimeout(() => loadRoles(sess?.user?.id, sess?.user?.email), 0);
     });
 
-    supabase.auth.getSession().then(({ data: { session: sess } }) => {
-      setSession(sess);
-      setUser(sess?.user ?? null);
-      loadRoles(sess?.user?.id, sess?.user?.email).finally(() => setLoading(false));
-    });
+    Promise.race([
+      supabase.auth.getSession(),
+      new Promise<any>((_, reject) => setTimeout(() => reject(new Error("Auth timeout")), 2000))
+    ])
+      .then(({ data: { session: sess } }) => {
+        setSession(sess);
+        setUser(sess?.user ?? null);
+        loadRoles(sess?.user?.id, sess?.user?.email).finally(() => setLoading(false));
+      })
+      .catch((err) => {
+        console.warn("Supabase auth timeout/error", err);
+        setLoading(false);
+      });
 
     return () => sub.subscription.unsubscribe();
   }, []);

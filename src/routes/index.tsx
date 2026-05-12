@@ -590,11 +590,20 @@ function Page() {
         return;
       }
 
-      const { data, error } = await supabase.from("product_overrides").select("*");
-      if (error || cancelled) return;
-      const map: Record<number, OverrideRow> = {};
-      for (const r of data ?? []) map[r.no] = r as OverrideRow;
-      setOverrides(map);
+      try {
+        const fetchPromise = supabase.from("product_overrides").select("*");
+        const timeoutPromise = new Promise<any>((_, reject) =>
+          setTimeout(() => reject(new Error("Supabase timeout")), 3000)
+        );
+        const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
+        if (error || cancelled) return;
+        const map: Record<number, OverrideRow> = {};
+        for (const r of data ?? []) map[r.no] = r as OverrideRow;
+        setOverrides(map);
+      } catch (err) {
+        console.warn("Supabase load timed out/failed, falling back to clean initial catalog", err);
+        if (!cancelled) setOverrides({});
+      }
     })();
     return () => {
       cancelled = true;
