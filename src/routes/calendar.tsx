@@ -76,9 +76,9 @@ function CalendarPage() {
   
   // Dữ liệu danh sách
   const [events, setEvents] = useState<UnifiedCalendarEvent[]>([]);
-  const [customersList, setCustomersList] = useState<Array<{ id: string; name: string; phone?: string | null }>>([]);
+  const [customersList, setCustomersList] = useState<Array<{ id: string; name: string; phone?: string | null; email?: string | null }>>([]);
   const [salesList, setSalesList] = useState<Array<{ id: string; name: string }>>([]);
-  const [customersMap, setCustomersMap] = useState<Record<string, { name: string; phone?: string | null }>>({});
+  const [customersMap, setCustomersMap] = useState<Record<string, { name: string; phone?: string | null; email?: string | null }>>({});
   const [customerSearch, setCustomerSearch] = useState("");
   
   // Trạng thái chung
@@ -122,6 +122,7 @@ function CalendarPage() {
   const [isQuickAddCustomer, setIsQuickAddCustomer] = useState(false);
   const [quickCustomerName, setQuickCustomerName] = useState("");
   const [quickCustomerPhone, setQuickCustomerPhone] = useState("");
+  const [quickCustomerEmail, setQuickCustomerEmail] = useState("");
 
   // States cho tính năng Tự động Follow-up sau sự kiện
   const [showFollowUpDialog, setShowFollowUpDialog] = useState(false);
@@ -132,19 +133,19 @@ function CalendarPage() {
   // Hàm nạp danh sách dữ liệu nền tảng
   const loadBaseData = async () => {
     try {
-      // 1. Tải danh sách khách hàng kèm số điện thoại
-      const { data: custData } = await supabase.from("customers").select("id, contact_name, name, business_name, facility_name, phone");
-      const listC: Array<{ id: string; name: string; phone?: string | null }> = [];
-      const mapC: Record<string, { name: string; phone?: string | null }> = {};
+      // 1. Tải danh sách khách hàng kèm số điện thoại và email
+      const { data: custData } = await supabase.from("customers").select("id, contact_name, name, business_name, facility_name, phone, email");
+      const listC: Array<{ id: string; name: string; phone?: string | null; email?: string | null }> = [];
+      const mapC: Record<string, { name: string; phone?: string | null; email?: string | null }> = {};
       
       if (custData) {
         custData.forEach((c: any) => {
           const dName = c.contact_name || c.name || c.business_name || c.facility_name || "Khách hàng";
-          listC.push({ id: c.id, name: dName, phone: c.phone });
-          mapC[c.id] = { name: dName, phone: c.phone };
+          listC.push({ id: c.id, name: dName, phone: c.phone, email: c.email });
+          mapC[c.id] = { name: dName, phone: c.phone, email: c.email };
         });
       }
-      setCustomersList(listC);
+      setCustomersList(listC as any);
       setCustomersMap(mapC);
 
       // 2. Tải danh sách nhân sự Sale (Dành cho Quản lý chọn)
@@ -350,6 +351,7 @@ function CalendarPage() {
     setIsQuickAddCustomer(false);
     setQuickCustomerName("");
     setQuickCustomerPhone("");
+    setQuickCustomerEmail("");
     
     if (forcedTab) {
       setModalTab(forcedTab);
@@ -579,6 +581,7 @@ function CalendarPage() {
     setIsQuickAddCustomer(false);
     setQuickCustomerName("");
     setQuickCustomerPhone("");
+    setQuickCustomerEmail("");
     setModalOpen(true);
   };
 
@@ -586,6 +589,7 @@ function CalendarPage() {
     let finalCustomerId = attendeeSelectId;
     let finalCustomerName = quickCustomerName.trim();
     let finalCustomerPhone = quickCustomerPhone.trim();
+    let finalCustomerEmail: string | null = null;
 
     if (!isQuickAddCustomer) {
       if (!finalCustomerId) {
@@ -595,11 +599,13 @@ function CalendarPage() {
       const cMeta = customersMap[finalCustomerId];
       finalCustomerName = cMeta?.name || "Khách hàng";
       finalCustomerPhone = cMeta?.phone || "";
+      finalCustomerEmail = cMeta?.email || null;
     } else {
       if (!finalCustomerName) {
         toast.error("Vui lòng nhập tên khách hàng mới");
         return;
       }
+      finalCustomerEmail = quickCustomerEmail.trim() || null;
     }
 
     if (modalRegistrations.some(r => (r.customer_id && r.customer_id === finalCustomerId) || (r.customer_phone && r.customer_phone === finalCustomerPhone))) {
@@ -609,11 +615,22 @@ function CalendarPage() {
 
     try {
       setSaving(true);
+      
+      const calLink = buildGoogleCalendarLink({
+        title: title || "Sự kiện DESEMBRE Partner",
+        startsAt: startsAt,
+        endsAt: endsAt || null,
+        location: eventLocation || meetingUrl || null,
+        description: `Khách hàng: ${finalCustomerName} ${finalCustomerPhone ? `(${finalCustomerPhone})` : ''}\n\n${description || ''}`
+      });
+
       const newRegPayload = {
         event_id: editEventId,
         customer_id: isQuickAddCustomer ? null : finalCustomerId,
         customer_name: finalCustomerName,
         customer_phone: finalCustomerPhone,
+        attendee_email: finalCustomerEmail,
+        add_to_calendar_url: calLink || null,
         registered_by: user?.id,
         assigned_sale_id: user?.id,
         status: newAttendeeStatus,
@@ -633,6 +650,7 @@ function CalendarPage() {
       setNewAttendeeNote("");
       setQuickCustomerName("");
       setQuickCustomerPhone("");
+      setQuickCustomerEmail("");
       setIsQuickAddCustomer(false);
     } catch (err: any) {
       toast.error("Lỗi đăng ký: " + err.message);
@@ -1750,17 +1768,26 @@ function CalendarPage() {
 
                     <div className="grid grid-cols-1 gap-2">
                       {isQuickAddCustomer ? (
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <Input 
+                              placeholder="Tên khách hàng..." 
+                              value={quickCustomerName} 
+                              onChange={(e) => setQuickCustomerName(e.target.value)}
+                              className="h-8 text-xs bg-white border-purple-200"
+                            />
+                            <Input 
+                              placeholder="Số điện thoại..." 
+                              value={quickCustomerPhone} 
+                              onChange={(e) => setQuickCustomerPhone(e.target.value)}
+                              className="h-8 text-xs bg-white border-purple-200"
+                            />
+                          </div>
                           <Input 
-                            placeholder="Tên khách hàng..." 
-                            value={quickCustomerName} 
-                            onChange={(e) => setQuickCustomerName(e.target.value)}
-                            className="h-8 text-xs bg-white border-purple-200"
-                          />
-                          <Input 
-                            placeholder="Số điện thoại..." 
-                            value={quickCustomerPhone} 
-                            onChange={(e) => setQuickCustomerPhone(e.target.value)}
+                            type="email"
+                            placeholder="Email khách hàng (Không bắt buộc)..." 
+                            value={quickCustomerEmail} 
+                            onChange={(e) => setQuickCustomerEmail(e.target.value)}
                             className="h-8 text-xs bg-white border-purple-200"
                           />
                         </div>
