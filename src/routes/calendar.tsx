@@ -60,6 +60,14 @@ import {
   isEventOverdue 
 } from "@/lib/calendar";
 import { buildGoogleCalendarLink } from "@/lib/googleCalendar";
+
+const formatGCalDescription = (custName: string, custPhone?: string | null, descText?: string | null) => {
+  const header = `Khách mời: ${custName} ${custPhone ? `(${custPhone})` : ''}`;
+  const body = descText && descText.trim() 
+    ? descText.trim() 
+    : "Chương trình đào tạo và chuyển giao phác đồ chuyên sâu từ hệ thống DESEMBRE Partner Hub. Quý khách vui lòng tham dự đúng giờ để công tác đón tiếp được chu đáo nhất.";
+  return `${header}\n\nNỘI DUNG SỰ KIỆN:\n${body}`;
+};
 import { useCalendarRealtime } from "@/hooks/useCalendarRealtime";
 import { useUpcomingReminders } from "@/hooks/useUpcomingReminders";
 import FullCalendar from "@fullcalendar/react";
@@ -625,7 +633,7 @@ function CalendarPage() {
         startsAt: `${eventDatePart}T${startTimePart}`,
         endsAt: `${eventDatePart}T${endTimePart}`,
         location: eventLocation || meetingUrl || null,
-        description: `Khách hàng: ${finalCustomerName} ${finalCustomerPhone ? `(${finalCustomerPhone})` : ''}\n\n${description || ''}`
+        description: formatGCalDescription(finalCustomerName, finalCustomerPhone, description)
       });
 
       const newRegPayload = {
@@ -693,7 +701,7 @@ function CalendarPage() {
         startsAt: computedTargetStart,
         endsAt: computedTargetEnd,
         location: eventLocation || meetingUrl || null,
-        description: `Khách hàng: ${reg.customer_name} ${reg.customer_phone ? `(${reg.customer_phone})` : ''}\n\n${description || ''}`
+        description: formatGCalDescription(reg.customer_name, reg.customer_phone, description)
       });
 
       if (reg.id && calUrl) {
@@ -1982,7 +1990,7 @@ function CalendarPage() {
                                             startsAt: `${eventDatePart}T${startTimePart}`,
                                             endsAt: `${eventDatePart}T${endTimePart}`,
                                             location: eventLocation || meetingUrl || null,
-                                            description: `Khách hàng: ${reg.customer_name} ${reg.customer_phone ? `(${reg.customer_phone})` : ''}\n\n${description || ''}`
+                                            description: formatGCalDescription(reg.customer_name, reg.customer_phone, description)
                                           });
                                         })()}
                                         target="_blank"
