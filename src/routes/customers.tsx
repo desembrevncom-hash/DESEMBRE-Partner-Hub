@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
-import { ArrowLeft, Plus, Pencil, Trash2, Search, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Search, Loader2, Download } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -183,6 +183,65 @@ function CustomersPage() {
     }
   };
 
+  const handleExportCsv = () => {
+    if (filtered.length === 0) {
+      toast.error("Không có dữ liệu khách hàng để xuất CSV");
+      return;
+    }
+
+    // Tiêu đề cột chuẩn theo yêu cầu CRM
+    const headers = [
+      "contact_name", 
+      "business_name", 
+      "phone", 
+      "email", 
+      "address", 
+      "city", 
+      "status", 
+      "source", 
+      "assigned_sale_id", 
+      "note", 
+      "created_at"
+    ];
+
+    // Hàm escape chuỗi CSV an toàn
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const rows = filtered.map((c: any) => {
+      return [
+        escapeCsv(c.name || c.contact_name || ""),
+        escapeCsv(c.facility_name || c.business_name || ""),
+        escapeCsv(c.phone || ""),
+        escapeCsv(c.email || ""),
+        escapeCsv(c.address || ""),
+        escapeCsv(c.city || ""),
+        escapeCsv(c.status || "active"),
+        escapeCsv(c.source || "manual"),
+        escapeCsv(c.user_id || c.assigned_sale_id || ""),
+        escapeCsv(c.note || ""),
+        escapeCsv(c.created_at || new Date().toISOString())
+      ].join(",");
+    });
+
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    
+    // Thêm BOM UTF-8 để Excel đọc tiếng Việt chuẩn xác không bị lỗi font
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `customers_export_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success(`Đã xuất thành công ${filtered.length} khách hàng ra file CSV`);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
@@ -194,9 +253,19 @@ function CustomersPage() {
             </Link>
             <h1 className="text-xl font-bold">Khách hàng</h1>
           </div>
-          <Button onClick={() => handleOpen()} size="sm">
-            <Plus className="w-4 h-4 mr-2" /> Thêm khách hàng
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              onClick={handleExportCsv} 
+              size="sm"
+              className="border-slate-200 hover:bg-slate-100 font-bold"
+            >
+              <Download className="w-4 h-4 mr-2 text-emerald-600" /> Export CSV
+            </Button>
+            <Button onClick={() => handleOpen()} size="sm" className="font-bold">
+              <Plus className="w-4 h-4 mr-2" /> Thêm khách hàng
+            </Button>
+          </div>
         </div>
       </header>
 
