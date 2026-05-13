@@ -807,24 +807,75 @@ function CustomersPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        if (!results.data || results.data.length === 0) {
-          toast.error("File CSV trống hoặc định dạng không được hỗ trợ");
-          return;
+    const fileName = file.name.toLowerCase();
+
+    if (fileName.endsWith(".csv")) {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          if (!results.data || results.data.length === 0) {
+            toast.error("File CSV trống hoặc định dạng không được hỗ trợ");
+            return;
+          }
+          const headers = results.meta.fields || Object.keys(results.data[0] || {});
+          setImportHeaders(headers);
+          setImportRows(results.data as any[]);
+          setImportStats(null);
+        },
+        error: (err: any) => {
+          toast.error("Lỗi đọc file CSV: " + err.message);
         }
-        const headers = results.meta.fields || Object.keys(results.data[0] || {});
-        setImportHeaders(headers);
-        setImportRows(results.data as any[]);
-        setImportStats(null);
-      },
-      error: (err: any) => {
-        toast.error("Lỗi đọc file CSV: " + err.message);
-      }
-    });
-    // Reset giá trị input để có thể chọn lại cùng một file
+      });
+    } else if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const data = event.target?.result;
+          if (!data) return;
+          
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          
+          // Chuyển đổi sang JSON với dòng đầu tiên làm key
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+          
+          if (!jsonData || jsonData.length === 0) {
+            toast.error("File Excel trống hoặc không chứa dữ liệu khách hàng");
+            return;
+          }
+
+          // Ánh xạ tự động các header tiếng Việt sang các trường chuẩn CRM
+          const mappedData = jsonData.map((row: any) => {
+            const res: any = { ...row };
+            if (row["Tên khách"] !== undefined && res["contact_name"] === undefined) res["contact_name"] = row["Tên khách"];
+            if (row["Tên cơ sở"] !== undefined && res["business_name"] === undefined) res["business_name"] = row["Tên cơ sở"];
+            if (row["Số điện thoại"] !== undefined && res["phone"] === undefined) res["phone"] = row["Số điện thoại"];
+            if (row["Email"] !== undefined && res["email"] === undefined) res["email"] = row["Email"];
+            if (row["Địa chỉ"] !== undefined && res["address"] === undefined) res["address"] = row["Địa chỉ"];
+            if (row["Tỉnh/Thành"] !== undefined && res["city"] === undefined) res["city"] = row["Tỉnh/Thành"];
+            if (row["Thành phố"] !== undefined && res["city"] === undefined) res["city"] = row["Thành phố"];
+            if (row["Ghi chú"] !== undefined && res["note"] === undefined) res["note"] = row["Ghi chú"];
+            return res;
+          });
+
+          const headers = Object.keys(mappedData[0] || {});
+          setImportHeaders(headers);
+          setImportRows(mappedData);
+          setImportStats(null);
+        } catch (err: any) {
+          toast.error("Lỗi phân tích file Excel: " + err.message);
+        }
+      };
+      reader.onerror = () => {
+        toast.error("Không thể đọc tệp Excel");
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      toast.error("Định dạng file không được hỗ trợ. Vui lòng chọn .csv, .xlsx hoặc .xls");
+    }
+
     e.target.value = "";
   };
 
@@ -972,7 +1023,7 @@ function CustomersPage() {
               onClick={() => setImportOpen(true)} 
               className="shadow-sm hover:bg-slate-50 transition-all duration-300 font-bold border-blue-200 bg-blue-50/30 text-blue-800 text-xs h-9"
             >
-              <Upload className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Import CSV
+              <Upload className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Import Dữ liệu
             </Button>
             <Button 
               variant="outline" 
@@ -1753,26 +1804,26 @@ function CustomersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Import Khách hàng từ CSV */}
+      {/* Dialog Import Khách hàng từ CSV hoặc Excel */}
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
         <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden">
           <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100 bg-white sticky top-0 z-10">
             <DialogTitle className="text-lg font-bold flex items-center gap-2 text-slate-900">
-              📥 Import khách hàng từ file CSV
+              📥 Import khách hàng từ file CSV / Excel
             </DialogTitle>
           </DialogHeader>
 
           <div className="max-h-[65vh] overflow-y-auto px-6 py-4 space-y-4">
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">Chọn file CSV để nạp dữ liệu</Label>
+              <Label className="text-xs font-bold text-slate-700">Chọn file dữ liệu (.csv, .xlsx, .xls) để nạp</Label>
               <Input
                 type="file"
-                accept=".csv"
+                accept=".csv,.xlsx,.xls"
                 onChange={handleFileUpload}
                 className="text-xs file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
               />
               <p className="text-[11px] text-slate-500">
-                File CSV bắt buộc phải có dòng tiêu đề (header). Các cột tối thiểu cần có: <span className="font-mono font-bold text-slate-700">contact_name</span> (hoặc Tên khách) và <span className="font-mono font-bold text-slate-700">phone</span> (hoặc Số điện thoại).
+                Hệ thống tự động đọc sheet đầu tiên của file Excel hoặc nội dung file CSV. Các cột tối thiểu cần có: <span className="font-mono font-bold text-slate-700">contact_name</span> (hoặc Tên khách) và <span className="font-mono font-bold text-slate-700">phone</span> (hoặc Số điện thoại).
               </p>
             </div>
 
