@@ -566,6 +566,7 @@ function CalendarPage() {
       setModalRegistrations([]);
     }
 
+    setEditEventId(ev.id);
     setCustomerSearch("");
     setAttendeeSelectId("");
     setNewAttendeeNote("");
@@ -913,6 +914,8 @@ function CalendarPage() {
       toast.success(newStatus === "completed" ? "Đã hoàn thành lịch hẹn (Bộ nhớ đệm)" : "Đã hủy lịch hẹn (Bộ nhớ đệm)");
     }
   };
+
+  const isCompanyEditDisabled = !isAdmin && !!editEventId && editEventType === 'company';
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-12 flex flex-col">
@@ -1476,6 +1479,7 @@ function CalendarPage() {
                 <Input
                   id="ev-title"
                   value={title}
+                  disabled={isCompanyEditDisabled}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Nội dung chính..."
                   className="h-8 text-xs bg-white font-medium focus:ring-primary"
@@ -1541,6 +1545,7 @@ function CalendarPage() {
                       <Label className="text-xs font-bold text-slate-700">Loại chiến dịch</Label>
                       <select
                         value={companyType}
+                        disabled={isCompanyEditDisabled}
                         onChange={(e) => setCompanyType(e.target.value as CompanyEventType)}
                         className="w-full h-8 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary"
                       >
@@ -1557,6 +1562,7 @@ function CalendarPage() {
                       <Label className="text-xs font-bold text-slate-700">Trạng thái vận hành</Label>
                       <select
                         value={campaignStatus}
+                        disabled={isCompanyEditDisabled}
                         onChange={(e: any) => setCampaignStatus(e.target.value)}
                         className="w-full h-8 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-bold focus:ring-1 focus:ring-primary"
                       >
@@ -1576,6 +1582,7 @@ function CalendarPage() {
                       </Label>
                       <Input
                         value={eventLocation}
+                        disabled={isCompanyEditDisabled}
                         onChange={(e) => setEventLocation(e.target.value)}
                         placeholder="Hội trường, Spa..."
                         className="h-8 text-xs"
@@ -1587,6 +1594,7 @@ function CalendarPage() {
                       </Label>
                       <Input
                         value={meetingUrl}
+                        disabled={isCompanyEditDisabled}
                         onChange={(e) => setMeetingUrl(e.target.value)}
                         placeholder="Zoom, Google Meet..."
                         className="h-8 text-xs"
@@ -1600,6 +1608,7 @@ function CalendarPage() {
                       <Input
                         type="number"
                         value={eventCapacity}
+                        disabled={isCompanyEditDisabled}
                         onChange={(e) => setEventCapacity(e.target.value ? Number(e.target.value) : "")}
                         placeholder="Số lượng khách..."
                         className="h-8 text-xs"
@@ -1610,6 +1619,7 @@ function CalendarPage() {
                       <Input
                         type="datetime-local"
                         value={regDeadline}
+                        disabled={isCompanyEditDisabled}
                         onChange={(e) => setRegDeadline(e.target.value)}
                         className="h-8 text-xs"
                       />
@@ -1628,6 +1638,7 @@ function CalendarPage() {
                     id="ev-start"
                     type="datetime-local"
                     value={startsAt}
+                    disabled={isCompanyEditDisabled}
                     onChange={(e) => setStartsAt(e.target.value)}
                     className="h-8 text-xs"
                   />
@@ -1638,6 +1649,7 @@ function CalendarPage() {
                     id="ev-end"
                     type="datetime-local"
                     value={endsAt}
+                    disabled={isCompanyEditDisabled}
                     onChange={(e) => setEndsAt(e.target.value)}
                     className="h-8 text-xs"
                   />
@@ -1650,6 +1662,7 @@ function CalendarPage() {
                 <Textarea
                   id="ev-desc"
                   value={description}
+                  disabled={isCompanyEditDisabled}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Ghi chú nội dung công việc..."
                   className="text-xs min-h-[60px] bg-white"
@@ -1903,7 +1916,7 @@ function CalendarPage() {
                 Hủy bỏ
               </Button>
               <div className="flex items-center gap-2">
-                {editEventId && (
+                {editEventId && !isCompanyEditDisabled && (
                   <Button 
                     type="button"
                     variant="destructive"
@@ -1913,13 +1926,25 @@ function CalendarPage() {
                     Xóa
                   </Button>
                 )}
-                <Button 
-                  type="submit" 
-                  disabled={saving} 
-                  className={`h-9 px-6 text-xs font-bold shadow-2xs text-white ${modalTab === 'company' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}
-                >
-                  {saving ? "Đang xử lý..." : editEventId ? "Cập nhật dữ liệu" : "Xác nhận lưu lịch"}
-                </Button>
+                {!isCompanyEditDisabled && (
+                  <Button 
+                    type="submit" 
+                    disabled={saving} 
+                    className={`h-9 px-6 text-xs font-bold shadow-2xs text-white ${modalTab === 'company' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                  >
+                    {saving ? "Đang xử lý..." : editEventId ? "Cập nhật dữ liệu" : "Xác nhận lưu lịch"}
+                  </Button>
+                )}
+                {isCompanyEditDisabled && (
+                  <Button 
+                    type="button" 
+                    variant="default"
+                    onClick={() => setModalOpen(false)}
+                    className="h-9 px-6 text-xs font-bold shadow-2xs bg-slate-900 hover:bg-slate-800 text-white"
+                  >
+                    Đóng giao diện
+                  </Button>
+                )}
               </div>
             </DialogFooter>
           </form>
