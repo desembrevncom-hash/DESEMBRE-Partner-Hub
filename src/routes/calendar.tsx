@@ -675,6 +675,49 @@ function CalendarPage() {
     }
   };
 
+  const handleCopyCalendarMessage = async (reg: EventRegistration) => {
+    try {
+      let calUrl = reg.add_to_calendar_url;
+      
+      if (!calUrl) {
+        calUrl = buildGoogleCalendarLink({
+          title: title || "Sự kiện DESEMBRE Partner",
+          startsAt: startsAt,
+          endsAt: endsAt || null,
+          location: eventLocation || meetingUrl || null,
+          description: `Khách hàng: ${reg.customer_name} ${reg.customer_phone ? `(${reg.customer_phone})` : ''}\n\n${description || ''}`
+        });
+
+        if (reg.id && calUrl) {
+          supabase.from("event_registrations").update({ add_to_calendar_url: calUrl }).eq("id", reg.id).then();
+          setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, add_to_calendar_url: calUrl } : r));
+        }
+      }
+
+      const formatTimeStr = (iso: string) => {
+        if (!iso) return "";
+        const dt = new Date(iso);
+        const h = dt.getHours().toString().padStart(2, '0');
+        const m = dt.getMinutes().toString().padStart(2, '0');
+        const d = dt.getDate().toString().padStart(2, '0');
+        const mo = (dt.getMonth() + 1).toString().padStart(2, '0');
+        return `${h}:${m} ngày ${d}/${mo}`;
+      };
+
+      const startPretty = formatTimeStr(startsAt);
+      const endPretty = endsAt ? formatTimeStr(endsAt) : "";
+      const timeLine = endPretty ? `${startPretty} - ${endPretty}` : startPretty;
+      const locLine = eventLocation || meetingUrl || "Hệ thống DESEMBRE";
+
+      const msg = `Chị/Anh ơi, em gửi lịch sự kiện Desembre ạ.\n\nTên sự kiện: ${title || "Sự kiện DESEMBRE Partner"}\nThời gian: ${timeLine}\nĐịa điểm: ${locLine}\n\nAnh/Chị bấm link này để thêm vào Google Calendar và nhận nhắc lịch:\n${calUrl}`;
+
+      await navigator.clipboard.writeText(msg);
+      toast.success("Đã copy link lịch gửi khách");
+    } catch (err) {
+      toast.error("Lỗi copy link lịch: Trình duyệt từ chối quyền Clipboard");
+    }
+  };
+
   const handleUpdateAttendeeStatus = async (regId: string, assignedSaleId: string, nextStatus: RegistrationStatus) => {
     if (!isManager && assignedSaleId !== user?.id) {
       toast.error("Bạn chỉ có quyền cập nhật khách do mình phụ trách");
@@ -1926,10 +1969,18 @@ function CalendarPage() {
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         title="Thêm vào Google Calendar"
-                                        className="h-8 px-2.5 flex items-center justify-center gap-1 bg-white hover:bg-slate-50 text-slate-600 text-[10px] font-bold border border-slate-200 rounded-lg shadow-2xs transition-all shrink-0"
+                                        className="h-8 px-2 flex items-center justify-center gap-1 bg-white hover:bg-slate-50 text-slate-600 text-[10px] font-bold border border-slate-200 rounded-lg shadow-2xs transition-all shrink-0"
                                       >
-                                        📅 <span className="hidden sm:inline">Google Cal</span>
+                                        📅 <span className="hidden sm:inline">GCal</span>
                                       </a>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCopyCalendarMessage(reg)}
+                                        title="Copy link lịch kèm mẫu tin nhắn gửi khách"
+                                        className="h-8 px-2 flex items-center justify-center gap-1 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] font-bold border border-purple-200 rounded-lg shadow-2xs transition-all shrink-0"
+                                      >
+                                        📋 <span className="hidden sm:inline">Copy link</span>
+                                      </button>
                                     </div>
                                   </div>
                                 );
