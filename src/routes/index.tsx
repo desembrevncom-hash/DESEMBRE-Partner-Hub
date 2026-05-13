@@ -43,7 +43,7 @@ function IndexInner({
   setOverrides: React.Dispatch<React.SetStateAction<Record<number, OverrideRow>>>;
 }) {
   const { unlocked } = useEditUnlock();
-  const { user, isAdmin, isSale, signOut } = useAuth();
+  const { user, isAdmin, isSubAdmin, isManager, isSale, signOut } = useAuth();
   const history = useEditHistory();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -52,7 +52,7 @@ function IndexInner({
   const [editInitial, setEditInitial] = useState<ProductDialogInitial | null>(null);
   const [vatMode, setVatMode] = useState<VatMode>("without");
 
-  const role = isAdmin ? "admin" : isSale ? "sale" : "user";
+  const role = isAdmin ? "admin" : isSubAdmin ? "sub_admin" : isSale ? "sale" : "user";
 
   const canOrder = true;
   type PickupItem = { no: number; sizeType: "retail" | "salon" };
@@ -106,7 +106,6 @@ function IndexInner({
         if (res.ok) successCount++;
       }
       toast.success(`Đã đồng bộ thành công ${successCount} mục lên Database!`);
-      // Sau khi đồng bộ xong, xoá mock để dùng data thật
       if (confirm("Đồng bộ xong! Bạn có muốn chuyển sang dùng dữ liệu thật từ Database không? (Sẽ xoá dữ liệu tạm thời ở máy này)")) {
         localStorage.removeItem("mock_overrides");
         localStorage.removeItem("mock_session");
@@ -150,7 +149,6 @@ function IndexInner({
         imageUrl: o?.image_url ?? p.imageUrl,
       };
 
-      // Update variant prices if overrides exist
       if (o) {
         mergedProduct.variants = p.variants.map(v => {
           if (v.type === "retail" && o.retail_price !== null && o.retail_price !== undefined) {
@@ -166,7 +164,6 @@ function IndexInner({
       list.push(mergedProduct);
     }
 
-    // Add custom products from overrides
     for (const o of Object.values(overrides)) {
       if (!o.is_custom || o.deleted) continue;
       
@@ -245,7 +242,7 @@ function IndexInner({
   }, []);
 
   const handleDelete = useCallback(async (p: Product) => {
-    if (!isAdmin) return toast.error("Cần đăng nhập ADMIN");
+    if (!isManager) return toast.error("Cần quyền Quản lý (Admin / Phó Admin)");
     if (!confirm(`Xoá sản phẩm "${p.name}"?`)) return;
     const prev = overrides[p.id];
     const isCustom = !!p.isCustom;
@@ -264,7 +261,7 @@ function IndexInner({
       upsertOverride(res.row, { snapshotLabel: `Xoá "${p.name}"` });
     }
     toast.success("Đã xoá — có thể hoàn tác");
-  }, [isAdmin, overrides, history, setOverrides, upsertOverride]);
+  }, [isManager, overrides, history, setOverrides, upsertOverride]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -280,29 +277,14 @@ function IndexInner({
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {history.canUndo && isAdmin && (
+            {history.canUndo && isManager && (
               <Button variant="outline" size="sm" onClick={() => history.undo()}>
                 <Undo2 className="w-4 h-4" />
                 Hoàn tác ({history.count})
               </Button>
             )}
-            {(isSale || isAdmin) && (
+            {(isSale || isManager) && (
               <>
-                {/* {isAdmin && (
-                  <PDFDownloadLink
-                    document={<FullCatalogPDF products={filtered} />}
-                    fileName={`Bang_Gia_Desembre_${new Date().toISOString().slice(0, 10)}.pdf`}
-                    className="inline-block cursor-pointer"
-                  >
-                    {({ loading: pdfLoading }) => (
-                      <div className="inline-flex h-8 items-center justify-center rounded-md border border-primary/20 bg-primary/5 px-3 text-xs font-medium text-primary shadow-sm hover:bg-primary/10 transition-colors">
-                        <FileText className="w-4 h-4 mr-2" />
-                        {pdfLoading ? "Đang tạo PDF..." : "XUẤT PDF BẢNG GIÁ"}
-                      </div>
-                    )}
-                  </PDFDownloadLink>
-                )} */}
-                
                 <Button asChild variant="outline" size="sm">
                   <Link to="/calendar"><Calendar className="w-4 h-4 mr-2" /> Lịch hẹn</Link>
                 </Button>
@@ -315,7 +297,7 @@ function IndexInner({
                 <Button asChild variant="outline" size="sm">
                   <Link to="/profile"><User className="w-4 h-4 mr-2" /> Profile</Link>
                 </Button>
-                {isAdmin && (
+                {isManager && (
                   <Button asChild variant="outline" size="sm">
                     <Link to="/admin/users"><Users className="w-4 h-4" /> Người dùng</Link>
                   </Button>
@@ -334,7 +316,7 @@ function IndexInner({
                 {isSyncing ? "Đang đồng bộ..." : "ĐỒNG BỘ DATABASE"}
               </Button>
             )}
-            {isAdmin && (
+            {isManager && (
               <Button size="sm" onClick={openCreate}>
                 <Plus className="w-4 h-4" /> Thêm
               </Button>
@@ -343,8 +325,16 @@ function IndexInner({
               <div className="flex items-center gap-2 ml-2 pl-2 border-l border-border">
                 <span className="text-xs">
                   <span className="font-semibold">{user.email}</span>
-                  <span className="ml-1 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold uppercase">
-                    {isAdmin ? "ADMIN" : isSale ? "SALE" : "USER"}
+                  <span 
+                    className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                      isAdmin 
+                        ? "bg-blue-600/10 text-blue-600 dark:text-blue-400" 
+                        : isSubAdmin 
+                        ? "bg-purple-600/10 text-purple-600 dark:text-purple-400" 
+                        : "bg-green-600/10 text-green-600 dark:text-green-400"
+                    }`}
+                  >
+                    {isAdmin ? "ADMIN" : isSubAdmin ? "PHÓ ADMIN" : isSale ? "SALE" : "USER"}
                   </span>
                 </span>
                 <Button variant="ghost" size="sm" onClick={() => signOut()}>
@@ -427,9 +417,9 @@ function IndexInner({
                 </tr>
                 <tr>
                   <th style={{ width: "90px" }}>Size</th>
-                  <th style={{ width: "140px" }}>{isSale && !isAdmin ? "Giá SALE (-40%)" : "Consumer (100%)"}{vatMode === "with" ? " · VAT" : ""}</th>
+                  <th style={{ width: "140px" }}>{isSale && !isManager ? "Giá SALE (-40%)" : "Consumer (100%)"}{vatMode === "with" ? " · VAT" : ""}</th>
                   <th style={{ width: "90px" }}>Size</th>
-                  <th style={{ width: "140px" }}>{isSale && !isAdmin ? "Giá SALE (-40%)" : "Consumer (100%)"}{vatMode === "with" ? " · VAT" : ""}</th>
+                  <th style={{ width: "140px" }}>{isSale && !isManager ? "Giá SALE (-40%)" : "Consumer (100%)"}{vatMode === "with" ? " · VAT" : ""}</th>
                 </tr>
               </thead>
               <tbody>
