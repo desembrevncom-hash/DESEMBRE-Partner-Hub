@@ -35,7 +35,8 @@ import {
   ExternalLink,
   MapPin,
   Megaphone,
-  TrendingUp
+  TrendingUp,
+  Trash2
 } from "lucide-react";
 import { toast } from "sonner";
 import type { 
@@ -1358,11 +1359,28 @@ function CalendarPage() {
                               🏢 {custName}
                             </p>
                           )}
-                          {isCompany && (
-                            <p className="text-[10px] text-purple-600 font-bold mt-0.5">
-                              🏢 Sự kiện công ty
-                            </p>
-                          )}
+                          <div className="flex items-center justify-between mt-1 pt-1 border-t border-slate-50">
+                            {isCompany ? (
+                              <span className="text-[10px] text-purple-600 font-bold">
+                                🏢 Sự kiện công ty
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-blue-600 font-bold">
+                                👤 Lịch cá nhân
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              title="Xóa sự kiện này"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteEvent(ev.id, ev._ui_type);
+                              }}
+                              className="text-slate-300 hover:text-rose-600 p-0.5 rounded transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
