@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
 import { 
-  ArrowLeft, Plus, Pencil, Trash2, Search, Loader2, Download, FileSpreadsheet, 
+  ArrowLeft, Plus, Pencil, Trash2, Search, Loader2, Download, FileSpreadsheet, Upload, 
   Phone, ShoppingBag, Eye, Filter, CheckCircle2, 
   Clock, AlertCircle, Sparkles, Users,
   Tag, MapPin, Building2
@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
+import Papa from 'papaparse';
 import {
   Dialog,
   DialogContent,
@@ -117,6 +118,18 @@ function CustomersPage() {
     last_contact_date: ""
   });
   const [saving, setSaving] = useState(false);
+
+  // Import CSV Modal states
+  const [importOpen, setImportOpen] = useState(false);
+  const [importRows, setImportRows] = useState<any[]>([]);
+  const [importHeaders, setImportHeaders] = useState<string[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [importStats, setImportStats] = useState<{
+    total: number;
+    success: number;
+    duplicate: number;
+    error: number;
+  } | null>(null);
   
   const isMock = !!localStorage.getItem("mock_session") || !!localStorage.getItem("mock_users");
   const [useLocalFallback, setUseLocalFallback] = useState(isMock);
@@ -781,6 +794,157 @@ function CustomersPage() {
     toast.success(`Đã xuất thành công ${filtered.length} khách hàng ra file Excel`);
   };
 
+  const normalizePhone = (p?: string) => {
+    if (!p) return "";
+    let cleaned = String(p).replace(/\D/g, "");
+    if (cleaned.startsWith("84")) {
+      cleaned = "0" + cleaned.slice(2);
+    }
+    return cleaned;
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        if (!results.data || results.data.length === 0) {
+          toast.error("File CSV trống hoặc định dạng không được hỗ trợ");
+          return;
+        }
+        const headers = results.meta.fields || Object.keys(results.data[0] || {});
+        setImportHeaders(headers);
+        setImportRows(results.data as any[]);
+        setImportStats(null);
+      },
+      error: (err: any) => {
+        toast.error("Lỗi đọc file CSV: " + err.message);
+      }
+    });
+    // Reset giá trị input để có thể chọn lại cùng một file
+    e.target.value = "";
+  };
+
+  const handleExecuteImport = async () => {
+    if (importRows.length === 0) return;
+    setImporting(true);
+
+    let duplicateCount = 0;
+    let errorCount = 0;
+
+    // Lấy ra danh sách các số điện thoại đã chuẩn hóa hiện có để đối chiếu trùng lặp siêu tốc
+    const existingPhones = new Set<string>();
+    customers.forEach(c => {
+      const p = normalizePhone(c.phone);
+      if (p) existingPhones.add(p);
+    });
+
+    const validPayloads: any[] = [];
+    const validLocalPayloads: any[] = [];
+
+    importRows.forEach((row) => {
+      // Hỗ trợ linh hoạt ánh xạ các biến thể tên cột trong file CSV (VD: Tên khách, contact_name, name...)
+      const rawName = row["contact_name"] || row["Tên khách"] || row["name"] || row["Họ và tên"] || "";
+      const rawPhone = row["phone"] || row["Số điện thoại"] || row["sdt"] || "";
+      
+      if (!rawName || !String(rawName).trim() || !rawPhone || !String(rawPhone).trim()) {
+        errorCount++;
+        return;
+      }
+
+      const normPhone = normalizePhone(rawPhone);
+      if (!normPhone) {
+        errorCount++;
+        return;
+      }
+
+      // Kiểm tra trùng lặp
+      if (existingPhones.has(normPhone)) {
+        duplicateCount++;
+        return;
+      }
+
+      // Đánh dấu số này đã được dùng để các dòng dưới trong cùng file CSV không bị import đè
+      existingPhones.add(normPhone);
+
+      const rawFacility = row["business_name"] || row["Tên cơ sở"] || row["facility_name"] || "";
+      const rawEmail = row["email"] || row["Email"] || "";
+      const rawAddress = row["address"] || row["Địa chỉ"] || "";
+      const rawCity = row["city"] || row["Thành phố"] || row["province"] || "";
+      const rawNote = row["note"] || row["Ghi chú"] || row["demand_notes"] || "";
+      const rawSource = row["source"] || row["Nguồn"] || "File CSV";
+
+      validPayloads.push({
+        contact_name: String(rawName).trim(),
+        business_name: rawFacility ? String(rawFacility).trim() : null,
+        phone: normPhone,
+        email: rawEmail ? String(rawEmail).trim() : null,
+        address: rawAddress ? String(rawAddress).trim() : null,
+        city: rawCity ? String(rawCity).trim() : null,
+        status: "lead",
+        source: rawSource ? String(rawSource).trim() : "File CSV",
+        potential_level: "hot",
+        note: rawNote ? String(rawNote).trim() : null,
+        last_contacted_at: new Date().toISOString(),
+        owner_user_id: user?.id || null,
+        assigned_sale_id: user?.id || null,
+      });
+
+      validLocalPayloads.push({
+        id: crypto.randomUUID(),
+        name: String(rawName).trim(),
+        contact_name: String(rawName).trim(),
+        facility_name: rawFacility ? String(rawFacility).trim() : "",
+        business_name: rawFacility ? String(rawFacility).trim() : "",
+        phone: normPhone,
+        email: rawEmail ? String(rawEmail).trim() : "",
+        address: rawAddress ? String(rawAddress).trim() : "",
+        province: rawCity ? String(rawCity).trim() : "",
+        city: rawCity ? String(rawCity).trim() : "",
+        status: "lead",
+        source: rawSource ? String(rawSource).trim() : "File CSV",
+        potential_level: "hot",
+        demand_notes: rawNote ? String(rawNote).trim() : "",
+        note: rawNote ? String(rawNote).trim() : "",
+        created_at: new Date().toISOString(),
+        last_contact_date: "12/05/2026",
+        user_id: user?.id,
+      });
+    });
+
+    const successCount = validPayloads.length;
+
+    if (successCount > 0) {
+      if (useLocalFallback) {
+        let localData = JSON.parse(localStorage.getItem("mock_customers") || "[]");
+        localData = [...validLocalPayloads, ...localData];
+        try { localStorage.setItem("mock_customers", JSON.stringify(localData)); } catch {}
+      } else {
+        // Thử insert batch vào DB
+        const { error } = await supabase.from("customers").insert(validPayloads);
+        if (error) {
+          let localData = JSON.parse(localStorage.getItem("mock_customers") || "[]");
+          localData = [...validLocalPayloads, ...localData];
+          try { localStorage.setItem("mock_customers", JSON.stringify(localData)); } catch {}
+          setUseLocalFallback(true);
+        }
+      }
+      loadData();
+    }
+
+    setImportStats({
+      total: importRows.length,
+      success: successCount,
+      duplicate: duplicateCount,
+      error: errorCount,
+    });
+    setImporting(false);
+    toast.success(`Import hoàn tất! Thành công: ${successCount}, Trùng lặp: ${duplicateCount}, Lỗi: ${errorCount}`);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50/50 pb-12 flex flex-col">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
@@ -803,6 +967,13 @@ function CustomersPage() {
           </div>
           
           <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setImportOpen(true)} 
+              className="shadow-sm hover:bg-slate-50 transition-all duration-300 font-bold border-blue-200 bg-blue-50/30 text-blue-800 text-xs h-9"
+            >
+              <Upload className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Import CSV
+            </Button>
             <Button 
               variant="outline" 
               onClick={handleExportCsv} 
@@ -1577,6 +1748,116 @@ function CustomersPage() {
             <Button onClick={handleSave} disabled={saving} size="sm" className="shadow-2xs font-bold">
               {saving && <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />}
               {editingId ? "Lưu cập nhật" : "✨ Thêm mới ngay"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Import Khách hàng từ CSV */}
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100 bg-white sticky top-0 z-10">
+            <DialogTitle className="text-lg font-bold flex items-center gap-2 text-slate-900">
+              📥 Import khách hàng từ file CSV
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="max-h-[65vh] overflow-y-auto px-6 py-4 space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-700">Chọn file CSV để nạp dữ liệu</Label>
+              <Input
+                type="file"
+                accept=".csv"
+                onChange={handleFileUpload}
+                className="text-xs file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+              />
+              <p className="text-[11px] text-slate-500">
+                File CSV bắt buộc phải có dòng tiêu đề (header). Các cột tối thiểu cần có: <span className="font-mono font-bold text-slate-700">contact_name</span> (hoặc Tên khách) và <span className="font-mono font-bold text-slate-700">phone</span> (hoặc Số điện thoại).
+              </p>
+            </div>
+
+            {importStats && (
+              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 grid grid-cols-4 gap-2 text-center">
+                <div className="space-y-0.5">
+                  <p className="text-[10px] uppercase font-bold text-slate-500">Tổng dòng</p>
+                  <p className="text-sm font-extrabold text-slate-800">{importStats.total}</p>
+                </div>
+                <div className="space-y-0.5 border-l border-slate-200">
+                  <p className="text-[10px] uppercase font-bold text-emerald-600">Thành công</p>
+                  <p className="text-sm font-extrabold text-emerald-600">{importStats.success}</p>
+                </div>
+                <div className="space-y-0.5 border-l border-slate-200">
+                  <p className="text-[10px] uppercase font-bold text-amber-600">Trùng lặp</p>
+                  <p className="text-sm font-extrabold text-amber-600">{importStats.duplicate}</p>
+                </div>
+                <div className="space-y-0.5 border-l border-slate-200">
+                  <p className="text-[10px] uppercase font-bold text-destructive">Lỗi / Thiếu</p>
+                  <p className="text-sm font-extrabold text-destructive">{importStats.error}</p>
+                </div>
+              </div>
+            )}
+
+            {importRows.length > 0 && (
+              <div className="space-y-2 pt-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-700">
+                    Bản xem trước dữ liệu nạp (Preview tối đa 20 dòng đầu):
+                  </span>
+                  <span className="text-slate-500 font-mono">
+                    Tổng: {importRows.length} dòng
+                  </span>
+                </div>
+                
+                <div className="border border-slate-200 rounded-lg overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-600 font-bold">
+                        <th className="p-2 text-center w-10 border-r border-slate-200">#</th>
+                        {importHeaders.slice(0, 6).map((h, idx) => (
+                          <th key={idx} className="p-2 truncate max-w-[120px] border-r border-slate-200 last:border-0">
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {importRows.slice(0, 20).map((row, rIdx) => {
+                        const rawName = row["contact_name"] || row["Tên khách"] || row["name"] || row["Họ và tên"];
+                        const rawPhone = row["phone"] || row["Số điện thoại"] || row["sdt"];
+                        const isValid = rawName && String(rawName).trim() && rawPhone && String(rawPhone).trim();
+                        
+                        return (
+                          <tr key={rIdx} className={`hover:bg-slate-50 ${!isValid ? "bg-red-50/50 text-red-700" : ""}`}>
+                            <td className="p-2 text-center text-slate-400 border-r border-slate-200 font-mono">
+                              {rIdx + 1}
+                            </td>
+                            {importHeaders.slice(0, 6).map((h, cIdx) => (
+                              <td key={cIdx} className="p-2 truncate max-w-[120px] border-r border-slate-200 last:border-0">
+                                {String(row[h] ?? "")}
+                              </td>
+                            ))}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="px-6 py-4 border-t border-slate-100 bg-slate-50 sticky bottom-0 z-10 flex items-center justify-between">
+            <Button variant="outline" onClick={() => setImportOpen(false)} disabled={importing} size="sm">
+              Đóng
+            </Button>
+            <Button 
+              onClick={handleExecuteImport} 
+              disabled={importing || importRows.length === 0} 
+              size="sm" 
+              className="font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs"
+            >
+              {importing && <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />}
+              🚀 Xác nhận Import {importRows.length} dòng
             </Button>
           </DialogFooter>
         </DialogContent>
