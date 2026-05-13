@@ -62,11 +62,9 @@ import {
 import { buildGoogleCalendarLink } from "@/lib/googleCalendar";
 
 const formatGCalDescription = (custName: string, custPhone?: string | null, descText?: string | null) => {
-  const header = `Khách mời: ${custName} ${custPhone ? `(${custPhone})` : ''}`;
-  const body = descText && descText.trim() 
+  return descText && descText.trim() 
     ? descText.trim() 
     : "Chương trình đào tạo và chuyển giao phác đồ chuyên sâu từ hệ thống DESEMBRE Partner Hub. Quý khách vui lòng tham dự đúng giờ để công tác đón tiếp được chu đáo nhất.";
-  return `${header}\n\nNỘI DUNG SỰ KIỆN:\n${body}`;
 };
 import { useCalendarRealtime } from "@/hooks/useCalendarRealtime";
 import { useUpcomingReminders } from "@/hooks/useUpcomingReminders";
