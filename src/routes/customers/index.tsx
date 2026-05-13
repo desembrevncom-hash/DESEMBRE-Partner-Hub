@@ -1018,6 +1018,14 @@ function CustomersPage() {
           </div>
           
           <div className="flex items-center gap-2">
+            <Link to="/reports/crm">
+              <Button 
+                variant="outline" 
+                className="shadow-sm hover:bg-slate-50 transition-all duration-300 font-bold border-purple-200 bg-purple-50/30 text-purple-800 text-xs h-9"
+              >
+                📊 Báo cáo CRM
+              </Button>
+            </Link>
             <Button 
               variant="outline" 
               onClick={() => setImportOpen(true)} 

@@ -20,6 +20,7 @@ import { Route as OrdersNewRouteImport } from './routes/orders/new'
 import { Route as OrdersIdRouteImport } from './routes/orders/$id'
 import { Route as CustomersIdRouteImport } from './routes/customers/$id'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
+import { Route as ReportsCrmRouteImport } from './routes/reports/crm'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -76,6 +77,11 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
   path: '/admin/users',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReportsCrmRoute = ReportsCrmRouteImport.update({
+  id: '/reports/crm',
+  path: '/reports/crm',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/admin/users': typeof AdminUsersRoute
+  '/reports/crm': typeof ReportsCrmRoute
   '/customers/$id': typeof CustomersIdRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
@@ -97,6 +104,7 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/admin/users': typeof AdminUsersRoute
+  '/reports/crm': typeof ReportsCrmRoute
   '/customers/$id': typeof CustomersIdRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
@@ -111,6 +119,7 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/admin/users': typeof AdminUsersRoute
+  '/reports/crm': typeof ReportsCrmRoute
   '/customers/$id': typeof CustomersIdRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
@@ -126,6 +135,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/signup'
     | '/admin/users'
+    | '/reports/crm'
     | '/customers/$id'
     | '/orders/$id'
     | '/orders/new'
@@ -139,6 +149,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/signup'
     | '/admin/users'
+    | '/reports/crm'
     | '/customers/$id'
     | '/orders/$id'
     | '/orders/new'
@@ -152,6 +163,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/signup'
     | '/admin/users'
+    | '/reports/crm'
     | '/customers/$id'
     | '/orders/$id'
     | '/orders/new'
@@ -166,6 +178,7 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   SignupRoute: typeof SignupRoute
   AdminUsersRoute: typeof AdminUsersRoute
+  ReportsCrmRoute: typeof ReportsCrmRoute
   CustomersIdRoute: typeof CustomersIdRoute
   OrdersIdRoute: typeof OrdersIdRoute
   OrdersNewRoute: typeof OrdersNewRoute
@@ -208,6 +221,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports/crm': {
+      id: '/reports/crm'
+      path: '/reports/crm'
+      fullPath: '/reports/crm'
+      preLoaderRoute: typeof ReportsCrmRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/orders/': {
@@ -262,6 +282,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   SignupRoute: SignupRoute,
   AdminUsersRoute: AdminUsersRoute,
+  ReportsCrmRoute: ReportsCrmRoute,
   CustomersIdRoute: CustomersIdRoute,
   OrdersIdRoute: OrdersIdRoute,
   OrdersNewRoute: OrdersNewRoute,
