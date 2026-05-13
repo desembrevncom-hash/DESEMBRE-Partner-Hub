@@ -71,7 +71,7 @@ export const Route = createFileRoute("/calendar")({
 });
 
 function CalendarPage() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isSubAdmin, isManager } = useAuth();
   
   // Dữ liệu danh sách
   const [events, setEvents] = useState<UnifiedCalendarEvent[]>([]);
@@ -131,7 +131,7 @@ function CalendarPage() {
   // Hàm nạp danh sách dữ liệu nền tảng
   const loadBaseData = async () => {
     try {
-      // 1. Tải danh sách khách hàng kèm số điện thoại (bước 8)
+      // 1. Tải danh sách khách hàng kèm số điện thoại
       const { data: custData } = await supabase.from("customers").select("id, contact_name, name, business_name, facility_name, phone");
       const listC: Array<{ id: string; name: string; phone?: string | null }> = [];
       const mapC: Record<string, { name: string; phone?: string | null }> = {};
@@ -146,8 +146,8 @@ function CalendarPage() {
       setCustomersList(listC);
       setCustomersMap(mapC);
 
-      // 2. Tải danh sách nhân sự Sale (Dành cho Admin chọn)
-      if (isAdmin) {
+      // 2. Tải danh sách nhân sự Sale (Dành cho Quản lý chọn)
+      if (isManager) {
         const { data: profData } = await supabase.from("profiles").select("id, email, display_name");
         const listS: Array<{ id: string; name: string }> = [];
         if (profData) {
@@ -162,7 +162,7 @@ function CalendarPage() {
     }
   };
 
-  // Hàm nạp danh sách sự kiện chính từ nhiều bảng (Refactored)
+  // Hàm nạp danh sách sự kiện chính từ nhiều bảng
   const loadEvents = async () => {
     setLoading(true);
     setError(null);
@@ -184,7 +184,7 @@ function CalendarPage() {
         .order("starts_at", { ascending: true });
       if (cErr) throw cErr;
 
-      // 3. Tải danh sách đăng ký (để tính ROI/Stats cho dashboard)
+      // 3. Tải danh sách đăng ký
       const { data: rData, error: rErr } = await supabase
         .from("event_registrations")
         .select("*");
@@ -206,7 +206,7 @@ function CalendarPage() {
     } catch (err: any) {
       console.warn("Lỗi tải lịch từ Supabase (Có thể do chưa chạy SQL Migration):", err);
       
-      // Tạo dữ liệu Fallback mẫu để đảm bảo giao diện luôn hiển thị trực quan và đầy đủ tính năng demo
+      // Tạo dữ liệu Fallback mẫu để đảm bảo giao diện luôn hiển thị trực quan
       const now = new Date();
       const currentMonthStr = now.toISOString().slice(0, 7); // YYYY-MM
       
@@ -302,13 +302,13 @@ function CalendarPage() {
 
   useEffect(() => {
     loadEvents();
-  }, [user?.id, isAdmin]);
+  }, [user?.id, isManager]);
 
-  // Đăng ký kênh lắng nghe thay đổi Realtime từ Supabase (bước 6)
+  // Đăng ký kênh lắng nghe thay đổi Realtime
   useCalendarRealtime(loadEvents);
 
-  // Hook theo dõi và hiển thị thông báo các sự kiện sắp diễn ra trong 30 phút tới (bước 7)
-  const { upcomingEvents } = useUpcomingReminders(user?.id, !!isAdmin);
+  // Hook theo dõi và hiển thị thông báo các sự kiện sắp diễn ra
+  const { upcomingEvents } = useUpcomingReminders(user?.id, !!isManager);
 
   // Thiết lập giá trị mặc định cho Modal khi mở
   const handleOpenCreateModal = (forcedTab?: "personal" | "company") => {
@@ -321,7 +321,6 @@ function CalendarPage() {
     const now = new Date();
     now.setHours(now.getHours() + 1);
     now.setMinutes(0);
-    // Chuẩn hóa định dạng chuỗi YYYY-MM-DDTHH:mm cho thẻ input datetime-local
     const offset = now.getTimezoneOffset() * 60000;
     const localISOTime = new Date(now.getTime() - offset).toISOString().slice(0, 16);
     
@@ -329,7 +328,7 @@ function CalendarPage() {
     setEndsAt("");
     setCustomerId("");
     setCustomerSearch("");
-    setAssignedSaleId(isAdmin ? "" : (user?.id || ""));
+    setAssignedSaleId(isManager ? "" : (user?.id || ""));
     setRemindMinutes(getDefaultReminderMinutes());
     setEditEventId(null);
     setModalRegistrations([]);
@@ -352,19 +351,16 @@ function CalendarPage() {
   const handleSubmitCreate = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate 1: Tiêu đề bắt buộc
     if (!title.trim()) {
       toast.error("Vui lòng nhập tiêu đề lịch hẹn");
       return;
     }
 
-    // Validate 2: Thời gian bắt đầu bắt buộc
     if (!startsAt) {
       toast.error("Vui lòng chọn thời gian bắt đầu");
       return;
     }
 
-    // Validate 3: Thời gian kết thúc nếu có phải sau thời gian bắt đầu
     const startIso = new Date(startsAt).toISOString();
     let endIso: string | null = null;
     
@@ -381,20 +377,17 @@ function CalendarPage() {
     setSaving(true);
 
     try {
-      // Thiết lập logic assigned_sale_id theo đúng phân quyền
       let targetSaleId: string | null = null;
-      if (isAdmin) {
+      if (isManager) {
         targetSaleId = assignedSaleId.trim() || null;
       } else {
         targetSaleId = user?.id || null;
       }
 
-      // Lựa chọn bảng đích dựa trên phân loại Tab
       const isCompanyMode = modalTab === "company";
       
       if (editEventId) {
         if (editEventType === 'company') {
-          // Cập nhật Sự kiện công ty
           const payload = {
             title: title.trim(),
             description: description.trim() || null,
@@ -412,7 +405,6 @@ function CalendarPage() {
           if (err) throw err;
           toast.success("Cập nhật Chiến dịch thành công");
         } else {
-          // Cập nhật Lịch cá nhân
           const payload = {
             title: title.trim(),
             description: description.trim() || null,
@@ -430,7 +422,7 @@ function CalendarPage() {
         }
       } else {
         // TẠO MỚI
-        if (isCompanyMode && isAdmin) {
+        if (isCompanyMode && isManager) {
           const payload = {
             title: title.trim(),
             description: description.trim() || null,
@@ -467,7 +459,6 @@ function CalendarPage() {
       }
 
       await loadEvents();
-
       setModalOpen(false);
     } catch (err: any) {
       toast.error("Lỗi xử lý form: " + (err.message || "Không thể lưu thông tin"));
@@ -493,7 +484,6 @@ function CalendarPage() {
     }
   };
 
-  // Bấm vào mốc thời gian / ngày trống trên lịch FullCalendar (bước 10)
   const handleDateClick = (arg: { dateStr: string; date: Date }) => {
     let localISOTime = "";
     if (arg.dateStr.includes("T")) {
@@ -510,15 +500,14 @@ function CalendarPage() {
     setEndsAt("");
     setCustomerId("");
     setCustomerSearch("");
-    setAssignedSaleId(isAdmin ? "" : (user?.id || ""));
+    setAssignedSaleId(isManager ? "" : (user?.id || ""));
     setRemindMinutes(getDefaultReminderMinutes());
     setEditEventId(null);
     setCampaignStatus("published");
-    setModalTab(isAdmin ? "company" : "personal");
+    setModalTab(isManager ? "company" : "personal");
     setModalOpen(true);
   };
 
-  // Bấm vào thẻ sự kiện đã có trên lịch FullCalendar để xem/sửa chi tiết (bước 10)
   const handleEventClick = (arg: { event: { id: string } }) => {
     const ev = events.find(e => e.id === arg.event.id);
     if (!ev) return;
@@ -539,7 +528,6 @@ function CalendarPage() {
     setModalTab(ev._ui_type);
 
     if (ev._ui_type === 'company') {
-      // Dữ liệu riêng cho Company Event
       setCompanyType(ev.event_type);
       setEventLocation(ev.location || "");
       setMeetingUrl(ev.meeting_url || "");
@@ -548,17 +536,14 @@ function CalendarPage() {
       setCampaignStatus(ev.status);
       setModalRegistrations(ev.registrations || []);
       
-      // Reset Personal fields
       setCustomerId("");
       setAssignedSaleId("");
     } else {
-      // Dữ liệu riêng cho Personal Event
       setPersonalType(ev.event_type);
       setCustomerId(ev.customer_id || "");
       setAssignedSaleId(ev.assigned_sale_id || "");
       setRemindMinutes(ev.remind_before_minutes || 30);
       
-      // Reset Company fields
       setEventLocation("");
       setMeetingUrl("");
       setEventCapacity("");
@@ -576,7 +561,6 @@ function CalendarPage() {
     setModalOpen(true);
   };
 
-  // Hàm thêm khách hàng vào danh sách tham dự Sự kiện công ty (Dùng bảng event_registrations)
   const handleAddAttendee = async () => {
     let finalCustomerId = attendeeSelectId;
     let finalCustomerName = quickCustomerName.trim();
@@ -597,7 +581,6 @@ function CalendarPage() {
       }
     }
 
-    // Kiểm tra trùng lặp (tránh add 1 người 2 lần)
     if (modalRegistrations.some(r => (r.customer_id && r.customer_id === finalCustomerId) || (r.customer_phone && r.customer_phone === finalCustomerPhone))) {
       toast.warning("Khách hàng này đã có trong danh sách đăng ký");
       return;
@@ -617,17 +600,14 @@ function CalendarPage() {
       };
 
       if (editEventId) {
-        // Lưu trực tiếp vào DB
         const { error: err } = await supabase.from("event_registrations").insert([newRegPayload]);
         if (err) throw err;
         toast.success("Đăng ký khách hàng thành công");
-        await loadEvents(); // Load lại để cập nhật Registrations trong list
+        await loadEvents();
       } else {
-        // Nếu đang tạo Event mới, tạm thời giữ local (nhưng thường Event mới Admin sẽ tạo trước rồi Sale mới add sau)
         toast.error("Vui lòng tạo và lưu Sự kiện trước khi thêm danh sách khách mời.");
       }
 
-      // Reset form
       setAttendeeSelectId("");
       setNewAttendeeNote("");
       setQuickCustomerName("");
@@ -640,9 +620,8 @@ function CalendarPage() {
     }
   };
 
-  // Hàm xóa khách khỏi danh sách tham dự
   const handleRemoveAttendee = async (regId: string, assignedSaleId: string) => {
-    if (!isAdmin && assignedSaleId !== user?.id) {
+    if (!isManager && assignedSaleId !== user?.id) {
       toast.error("Bạn chỉ có quyền xóa khách do mình phụ trách");
       return;
     }
@@ -657,9 +636,8 @@ function CalendarPage() {
     }
   };
 
-  // Hàm cập nhật trạng thái chi tiết của khách mời tham dự
   const handleUpdateAttendeeStatus = async (regId: string, assignedSaleId: string, nextStatus: RegistrationStatus) => {
-    if (!isAdmin && assignedSaleId !== user?.id) {
+    if (!isManager && assignedSaleId !== user?.id) {
       toast.error("Bạn chỉ có quyền cập nhật khách do mình phụ trách");
       return;
     }
@@ -677,7 +655,6 @@ function CalendarPage() {
       if (err) throw err;
       toast.success("Cập nhật trạng thái thành công");
       
-      // TÍNH NĂNG MỚI: Nếu khách vừa 'tham gia', hỏi tạo lịch Follow-up (bước 11)
       if (nextStatus === 'attended') {
         const reg = modalRegistrations.find(r => r.id === regId);
         if (reg) {
@@ -699,7 +676,7 @@ function CalendarPage() {
       setSaving(true);
       const followUpDate = new Date();
       followUpDate.setDate(followUpDate.getDate() + days);
-      followUpDate.setHours(9, 0, 0, 0); // Mặc định 9h sáng
+      followUpDate.setHours(9, 0, 0, 0);
 
       const payload = {
         title: `📞 Follow-up: ${pendingFollowUpReg.customer_name}`,
@@ -728,7 +705,7 @@ function CalendarPage() {
   };
 
   const adminStats = useMemo(() => {
-    if (!isAdmin) return null;
+    if (!isManager) return null;
     
     const companyEvs = events.filter(e => e._ui_type === 'company');
     const allRegs = companyEvs.flatMap(e => e.registrations || []);
@@ -756,27 +733,19 @@ function CalendarPage() {
       totalConverted,
       salePerformance
     };
-  }, [events, isAdmin]);
+  }, [events, isManager]);
 
-  // Lọc sự kiện theo thanh bộ lọc và phân quyền doanh nghiệp
   const filteredEvents = useMemo(() => {
     return events.filter(ev => {
-      // 1. Phân quyền hiển thị cơ bản
-      // - Admin được xem tất cả
-      // - Sale chỉ xem lịch của mình VÀ các Sự kiện công ty để có thể đăng ký khách tham gia
       const isMyPersonalEvent = ev._ui_type === 'personal' && (ev.assigned_sale_id === user?.id || ev.created_by === user?.id);
       const isCompanyEvent = ev._ui_type === 'company';
       
-      const hasViewAccess = isAdmin || isMyPersonalEvent || isCompanyEvent;
+      const hasViewAccess = isManager || isMyPersonalEvent || isCompanyEvent;
       if (!hasViewAccess) return false;
 
-      // 2. Bộ lọc Trạng thái
       const matchStatus = statusFilter === "all" || ev.status === statusFilter;
-      
-      // 3. Bộ lọc Loại sự kiện
       const matchType = typeFilter === "all" || ev.event_type === typeFilter;
       
-      // 4. Bộ lọc Nhóm Lịch trình
       let matchGroup = true;
       if (groupFilter === "personal") {
         matchGroup = ev._ui_type === 'personal';
@@ -786,9 +755,75 @@ function CalendarPage() {
 
       return matchStatus && matchType && matchGroup;
     });
-  }, [events, statusFilter, typeFilter, groupFilter, isAdmin, user?.id]);
+  }, [events, statusFilter, typeFilter, groupFilter, isManager, user?.id]);
 
-  // Thống kê số lượng thẻ
+  const fullCalendarEvents = useMemo(() => {
+    return filteredEvents.map(ev => {
+      const isCompany = ev._ui_type === 'company';
+      const typeMeta = isCompany 
+        ? getCompanyEventTypeLabel(ev.event_type as CompanyEventType)
+        : getPersonalEventTypeLabel(ev.event_type as PersonalEventType);
+        
+      const isOverdue = !isCompany && isEventOverdue(ev.starts_at, (ev as PersonalEvent).status);
+      const custMeta = !isCompany && (ev as PersonalEvent).customer_id ? customersMap[(ev as PersonalEvent).customer_id!] : null;
+      
+      let color = "#0ea5e9";
+      let statusPrefix = "";
+      
+      if (isCompany) {
+        if (ev.status === 'draft') {
+          color = "#d97706";
+          statusPrefix = "📝 [Nháp] ";
+        } else if (ev.status === 'completed') {
+          color = "#10b981";
+          statusPrefix = "✓ [Xong] ";
+        } else if (ev.status === 'closed') {
+          color = "#be123c";
+          statusPrefix = "🔒 [Đóng] ";
+        } else if (ev.status === 'cancelled') {
+          color = "#64748b";
+          statusPrefix = "🚫 [Hủy] ";
+        } else {
+          color = "#8b5cf6";
+          statusPrefix = "📢 ";
+        }
+      } else {
+        const pEv = ev as PersonalEvent;
+        if (pEv.status === "completed") {
+          color = "#10b981";
+          statusPrefix = "✓ ";
+        } else if (pEv.status === "cancelled") {
+          color = "#94a3b8";
+          statusPrefix = "🚫 ";
+        } else if (isOverdue) {
+          color = "#ef4444";
+          statusPrefix = "⚠️ [Quá hạn] ";
+        } else if (pEv.event_type === "check_in") {
+          color = "#f97316";
+        }
+      }
+      
+      const myRegsCount = isCompany && ev.registrations 
+        ? ev.registrations.filter((r: any) => r.assigned_sale_id === user?.id || r.registered_by === user?.id).length 
+        : 0;
+
+      const saleStatsLabel = (!isManager && isCompany && myRegsCount > 0) ? ` [👤 Khách: ${myRegsCount}]` : "";
+      
+      return {
+        id: ev.id,
+        title: `${statusPrefix}${typeMeta.icon} ${ev.title}${custMeta ? ` (${custMeta.name})` : ""}${saleStatsLabel}`,
+        start: ev.starts_at,
+        end: ev.ends_at || undefined,
+        backgroundColor: color,
+        borderColor: color,
+        textColor: "#ffffff",
+        extendedProps: {
+          ...ev
+        }
+      };
+    });
+  }, [filteredEvents, customersMap, isManager, user?.id]);
+
   const stats = useMemo(() => {
     let todayCount = 0;
     let overdueCount = 0;
@@ -818,75 +853,6 @@ function CalendarPage() {
     return { todayCount, overdueCount, upcomingCount, completedCount };
   }, [filteredEvents]);
 
-  // Chuyển đổi dữ liệu sang định dạng chuẩn của FullCalendar (bước 10)
-  const fullCalendarEvents = useMemo(() => {
-    return filteredEvents.map(ev => {
-      const isCompany = ev._ui_type === 'company';
-      const typeMeta = isCompany 
-        ? getCompanyEventTypeLabel(ev.event_type as CompanyEventType)
-        : getPersonalEventTypeLabel(ev.event_type as PersonalEventType);
-        
-      const isOverdue = !isCompany && isEventOverdue(ev.starts_at, (ev as PersonalEvent).status);
-      const custMeta = !isCompany && (ev as PersonalEvent).customer_id ? customersMap[(ev as PersonalEvent).customer_id!] : null;
-      
-      let color = "#0ea5e9"; // Xanh dương: Mặc định follow-up cá nhân
-      let statusPrefix = "";
-      
-      if (isCompany) {
-        if (ev.status === 'draft') {
-          color = "#d97706"; // Cam/Amber đậm cho Bản nháp
-          statusPrefix = "📝 [Nháp] ";
-        } else if (ev.status === 'completed') {
-          color = "#10b981"; // Xanh lá
-          statusPrefix = "✓ [Xong] ";
-        } else if (ev.status === 'closed') {
-          color = "#be123c"; // Đỏ/Rose đậm cho Đã đóng
-          statusPrefix = "🔒 [Đóng] ";
-        } else if (ev.status === 'cancelled') {
-          color = "#64748b"; // Xám cho Hủy
-          statusPrefix = "🚫 [Hủy] ";
-        } else {
-          color = "#8b5cf6"; // Tím rực rỡ cho Live/Published
-          statusPrefix = "📢 ";
-        }
-      } else {
-        const pEv = ev as PersonalEvent;
-        if (pEv.status === "completed") {
-          color = "#10b981"; // Xanh lá
-          statusPrefix = "✓ ";
-        } else if (pEv.status === "cancelled") {
-          color = "#94a3b8"; // Xám
-          statusPrefix = "🚫 ";
-        } else if (isOverdue) {
-          color = "#ef4444"; // Đỏ rực
-          statusPrefix = "⚠️ [Quá hạn] ";
-        } else if (pEv.event_type === "check_in") {
-          color = "#f97316"; // Cam
-        }
-      }
-      
-      const myRegsCount = isCompany && ev.registrations 
-        ? ev.registrations.filter((r: any) => r.assigned_sale_id === user?.id || r.registered_by === user?.id).length 
-        : 0;
-
-      const saleStatsLabel = (!isAdmin && isCompany && myRegsCount > 0) ? ` [👤 Khách: ${myRegsCount}]` : "";
-      
-      return {
-        id: ev.id,
-        title: `${statusPrefix}${typeMeta.icon} ${ev.title}${custMeta ? ` (${custMeta.name})` : ""}${saleStatsLabel}`,
-        start: ev.starts_at,
-        end: ev.ends_at || undefined,
-        backgroundColor: color,
-        borderColor: color,
-        textColor: "#ffffff",
-        extendedProps: {
-          ...ev
-        }
-      };
-    });
-  }, [filteredEvents, customersMap, isAdmin, user?.id]);
-
-  // Thay đổi trạng thái thẻ
   const handleStatusChange = async (id: string, newStatus: CalendarEventStatus) => {
     try {
       const { error: updateErr } = await supabase
@@ -905,7 +871,6 @@ function CalendarPage() {
       setEvents(prev => prev.map(ev => ev.id === id ? ({ ...ev, status: newStatus } as any) : ev));
       await loadEvents();
     } catch (err: any) {
-      // Fallback khi offline / schema cache chưa cập nhật
       setEvents(prev => {
         const updated = prev.map(ev => ev.id === id ? ({ ...ev, status: newStatus } as any) : ev);
         try { localStorage.setItem("offline_calendar_events", JSON.stringify(updated)); } catch {}
@@ -915,11 +880,10 @@ function CalendarPage() {
     }
   };
 
-  const isCompanyEditDisabled = !isAdmin && !!editEventId && editEventType === 'company';
+  const isCompanyEditDisabled = !isManager && !!editEventId && editEventType === 'company';
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-12 flex flex-col">
-      {/* Header chính */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
         <div className="container mx-auto px-4 md:px-6 h-20 flex items-center justify-between">
           <div className="flex flex-col justify-center">
@@ -949,7 +913,7 @@ function CalendarPage() {
             >
               <RotateCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
-            {isAdmin && (
+            {isManager && (
               <Button 
                 onClick={() => handleOpenCreateModal("company")} 
                 className="bg-purple-600 hover:bg-purple-700 shadow-sm font-bold text-white"
@@ -959,7 +923,7 @@ function CalendarPage() {
             )}
             <Button 
               onClick={() => handleOpenCreateModal("personal")} 
-              variant={isAdmin ? "outline" : "default"}
+              variant={isManager ? "outline" : "default"}
               className="shadow-sm font-bold"
             >
               <Plus className="w-4 h-4 mr-2" /> Tạo lịch hẹn
@@ -968,9 +932,7 @@ function CalendarPage() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="container mx-auto px-4 md:px-6 mt-6 space-y-6 flex-1">
-        {/* Thống kê (Stats) */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-2xs hover:shadow-sm transition-all relative overflow-hidden">
             <div className="absolute top-0 left-0 w-1 h-full bg-blue-600"></div>
@@ -1013,8 +975,8 @@ function CalendarPage() {
           </div>
         </div>
 
-        {/* Dashboard Chiến dịch (Chỉ dành cho Admin/Quản lý) */}
-        {isAdmin && events.some(e => e._ui_type === "company") && (
+        {/* Dashboard Chiến dịch (Dành cho Quản lý) */}
+        {isManager && events.some(e => e._ui_type === "company") && (
           <div className="bg-white rounded-xl border border-purple-200 shadow-sm overflow-hidden">
             <div className="bg-purple-600 px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2 text-white">
@@ -1099,7 +1061,6 @@ function CalendarPage() {
           </div>
         )}
 
-        {/* Panel Nhắc Việc: Lịch Sắp Tới (bước 7) */}
         {upcomingEvents.length > 0 && (
           <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-4 shadow-2xs">
             <div className="flex items-center gap-2 text-amber-900 font-bold text-xs mb-3">
@@ -1148,8 +1109,8 @@ function CalendarPage() {
           </div>
         )}
 
-        {/* Dashboard Hiệu quả Sự kiện cho Admin (MVP) */}
-        {isAdmin && adminStats && (
+        {/* Dashboard Hiệu quả Sự kiện cho Quản lý */}
+        {isManager && adminStats && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="bg-slate-900 px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1160,7 +1121,6 @@ function CalendarPage() {
             </div>
             
             <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Thống kê tổng */}
               <div className="grid grid-cols-2 gap-3 lg:col-span-1">
                 {[
                   { label: "Tổng sự kiện", val: adminStats.totalEvents, icon: "📁", color: "text-slate-900" },
@@ -1178,7 +1138,6 @@ function CalendarPage() {
                 ))}
               </div>
 
-              {/* Bảng SALE Performance */}
               <div className="lg:col-span-2">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">🏆 Hiệu quả theo SALE</span>
@@ -1224,6 +1183,7 @@ function CalendarPage() {
             </div>
           </div>
         )}
+
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-wrap gap-3 items-center justify-between">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-lg border border-slate-200">
@@ -1257,7 +1217,6 @@ function CalendarPage() {
               </select>
             </div>
 
-            {/* Bộ lọc nhóm lịch trình (Personal vs Company) */}
             <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-lg border border-slate-200">
               <button
                 onClick={() => setGroupFilter("all")}
@@ -1285,8 +1244,6 @@ function CalendarPage() {
           </div>
         </div>
 
-        {/* Trạng thái Tải / Lỗi / Dữ liệu */}
-        {/* Trạng thái Tải / Lỗi / Dữ liệu FullCalendar (bước 10) */}
         {loading ? (
           <div className="bg-white rounded-xl border border-slate-200 p-12 text-center space-y-3">
             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
@@ -1300,7 +1257,6 @@ function CalendarPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-            {/* Sidebar: Danh sách "Việc hôm nay" */}
             <div className="lg:col-span-1 space-y-3">
               <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs">
                 <h3 className="font-bold text-xs text-slate-800 mb-3 flex items-center justify-between border-b pb-2.5">
@@ -1396,7 +1352,6 @@ function CalendarPage() {
               </div>
             </div>
 
-            {/* Khung giao diện chính: FullCalendar View (bước 10) */}
             <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 p-4 shadow-2xs overflow-hidden">
               <style>{`
                 .fc .fc-toolbar-title { font-size: 1.1rem !important; font-weight: 700; color: #0f172a; }
@@ -1434,7 +1389,6 @@ function CalendarPage() {
         )}
       </main>
 
-      {/* Modal Dialog Tạo Lịch Hẹn Kèm Ràng Buộc Form Đầy Đủ */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden">
           <form onSubmit={handleSubmitCreate}>
@@ -1444,7 +1398,7 @@ function CalendarPage() {
                   {editEventId ? <RotateCcw className="w-5 h-5 text-primary" /> : <Plus className="w-5 h-5 text-primary" />}
                   {editEventId ? "Cập nhật thông tin" : "Tạo mới lịch trình"}
                 </DialogTitle>
-                {isAdmin && !editEventId && (
+                {isManager && !editEventId && (
                   <div className="flex bg-slate-100 p-1 rounded-lg">
                     <button 
                       type="button"
@@ -1471,7 +1425,6 @@ function CalendarPage() {
             </DialogHeader>
 
             <div className="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto text-xs">
-              {/* Tiêu đề chung */}
               <div className="space-y-1">
                 <Label htmlFor="ev-title" className="text-xs font-bold text-slate-700">
                   Tiêu đề / Nội dung ngắn gọn <span className="text-destructive">*</span>
@@ -1537,6 +1490,25 @@ function CalendarPage() {
                       </select>
                     </div>
                   </div>
+
+                  {/* Phần chọn Sale phụ trách (Chỉ dành cho Quản lý) */}
+                  {isManager && (
+                    <div className="space-y-1 pt-2 border-t border-slate-100">
+                      <Label className="text-xs font-bold text-purple-700 flex items-center gap-1">
+                        <Users className="w-3.5 h-3.5" /> Gán nhân viên SALE phụ trách
+                      </Label>
+                      <select
+                        value={assignedSaleId}
+                        onChange={(e) => setAssignedSaleId(e.target.value)}
+                        className="w-full h-8 px-2 py-1 bg-purple-50/50 border border-purple-100 rounded-md text-xs font-bold text-purple-900 focus:ring-1 focus:ring-purple-500"
+                      >
+                        <option value="">-- Tự do / Admin quản lý chung --</option>
+                        {salesList.map(s => (
+                          <option key={s.id} value={s.id}>👤 {s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="company" className="mt-0 space-y-4 border-none p-0">
@@ -1628,7 +1600,6 @@ function CalendarPage() {
                 </TabsContent>
               </Tabs>
 
-              {/* Thời gian - Dùng chung */}
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-50">
                 <div className="space-y-1">
                   <Label htmlFor="ev-start" className="text-xs font-bold text-slate-700">
@@ -1656,7 +1627,6 @@ function CalendarPage() {
                 </div>
               </div>
 
-              {/* Ghi chú */}
               <div className="space-y-1">
                 <Label htmlFor="ev-desc" className="text-xs font-bold text-slate-700">Chi tiết / Ghi chú</Label>
                 <Textarea
@@ -1669,11 +1639,9 @@ function CalendarPage() {
                 />
               </div>
 
-              {/* QUẢN LÝ DANH SÁCH ĐĂNG KÝ (Chỉ cho Company Mode) */}
               {modalTab === 'company' && editEventId && (
                 <div className="space-y-5 pt-5 border-t border-purple-100">
-                  {/* Dashboard Thống kê cho Admin */}
-                  {isAdmin && (
+                  {isManager && (
                     <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-4 shadow-lg border border-slate-700">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
@@ -1705,7 +1673,6 @@ function CalendarPage() {
                         ))}
                       </div>
 
-                      {/* Hiệu suất theo SALE */}
                       <div className="space-y-2">
                         <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1.5">
                           <Users className="w-3 h-3" /> Đóng góp theo nhân viên SALE
@@ -1733,7 +1700,6 @@ function CalendarPage() {
                     </div>
                   )}
 
-                  {/* Form Thêm khách (Dành cho cả Sale & Admin) */}
                   <div className="bg-purple-50/50 p-3 rounded-lg border border-purple-100 space-y-3">
                     <div className="flex items-center justify-between">
                       <h4 className="text-[10px] font-black text-purple-700 uppercase flex items-center gap-1">
@@ -1800,10 +1766,9 @@ function CalendarPage() {
                     </div>
                   </div>
 
-                  {/* List Registrations */}
                   <div className="space-y-2">
                     {(() => {
-                      const displayedRegs = isAdmin 
+                      const displayedRegs = isManager 
                         ? modalRegistrations 
                         : modalRegistrations.filter(r => r.assigned_sale_id === user?.id || r.registered_by === user?.id);
 
@@ -1812,9 +1777,9 @@ function CalendarPage() {
                           <Label className="text-[11px] font-bold text-slate-800 flex items-center justify-between px-1">
                             <span className="flex items-center gap-1.5">
                               <Users className="w-3.5 h-3.5 text-slate-500" /> 
-                              {isAdmin ? `Danh sách đăng ký (${modalRegistrations.length})` : `Khách của tôi (${displayedRegs.length})`}
+                              {isManager ? `Danh sách đăng ký (${modalRegistrations.length})` : `Khách của tôi (${displayedRegs.length})`}
                             </span>
-                            {isAdmin && (
+                            {isManager && (
                               <span className="text-[10px] text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
                                 Chuyển đổi: {modalRegistrations.length > 0 ? `${((modalRegistrations.filter(r => r.status === 'converted').length / modalRegistrations.length) * 100).toFixed(0)}%` : "0%"}
                               </span>
@@ -1823,88 +1788,88 @@ function CalendarPage() {
 
                           {displayedRegs.length === 0 ? (
                             <p className="text-[10px] text-slate-400 italic text-center py-8 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
-                              {isAdmin ? "Chưa có khách hàng đăng ký tham gia sự kiện này." : "Bạn chưa đăng ký khách hàng nào cho sự kiện này."}
+                              {isManager ? "Chưa có khách hàng đăng ký tham gia sự kiện này." : "Bạn chưa đăng ký khách hàng nào cho sự kiện này."}
                             </p>
                           ) : (
                             <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar">
                               {displayedRegs.map(reg => {
-                          const statusMeta = getAttendeeStatusMeta(reg.status);
-                          const canModify = isAdmin || reg.assigned_sale_id === user?.id;
+                                const statusMeta = getAttendeeStatusMeta(reg.status);
+                                const canModify = isManager || reg.assigned_sale_id === user?.id;
 
-                          return (
-                            <div key={reg.id} className={`p-3 rounded-xl border transition-all ${reg.status === 'converted' ? 'bg-yellow-50/30 border-yellow-200' : reg.status === 'attended' ? 'bg-emerald-50/30 border-emerald-200' : 'bg-white border-slate-100 shadow-sm'}`}>
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="space-y-1 flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <p className="text-xs font-bold text-slate-900">{reg.customer_name}</p>
-                                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight border ${statusMeta.badgeClass}`}>
-                                      {statusMeta.label}
-                                    </span>
-                                  </div>
-                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500">
-                                    {reg.customer_phone && <span className="flex items-center gap-1">📞 {reg.customer_phone}</span>}
-                                    <span className="flex items-center gap-1 font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">👤 Sale: {reg.added_by_sale_name || "Admin"}</span>
-                                  </div>
-                                </div>
-                                {canModify && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveAttendee(reg.id, reg.assigned_sale_id!)}
-                                    className="w-6 h-6 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all"
-                                  >
-                                    ✕
-                                  </button>
-                                )}
-                              </div>
-                              
-                              {reg.note && (
-                                <p className="text-[10px] text-slate-600 bg-slate-50/80 p-2 rounded-lg italic border border-slate-100 mt-2">
-                                  <b className="text-[9px] uppercase text-slate-400 not-italic mr-1">Ghi chú:</b> {reg.note}
-                                </p>
-                              )}
+                                return (
+                                  <div key={reg.id} className={`p-3 rounded-xl border transition-all ${reg.status === 'converted' ? 'bg-yellow-50/30 border-yellow-200' : reg.status === 'attended' ? 'bg-emerald-50/30 border-emerald-200' : 'bg-white border-slate-100 shadow-sm'}`}>
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="space-y-1 flex-1">
+                                        <div className="flex items-center gap-2">
+                                          <p className="text-xs font-bold text-slate-900">{reg.customer_name}</p>
+                                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight border ${statusMeta.badgeClass}`}>
+                                            {statusMeta.label}
+                                          </span>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500">
+                                          {reg.customer_phone && <span className="flex items-center gap-1">📞 {reg.customer_phone}</span>}
+                                          <span className="flex items-center gap-1 font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">👤 Sale: {reg.added_by_sale_name || "Admin"}</span>
+                                        </div>
+                                      </div>
+                                      {canModify && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveAttendee(reg.id, reg.assigned_sale_id!)}
+                                          className="w-6 h-6 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all"
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
+                                    </div>
+                                    
+                                    {reg.note && (
+                                      <p className="text-[10px] text-slate-600 bg-slate-50/80 p-2 rounded-lg italic border border-slate-100 mt-2">
+                                        <b className="text-[9px] uppercase text-slate-400 not-italic mr-1">Ghi chú:</b> {reg.note}
+                                      </p>
+                                    )}
 
-                              <div className="flex items-center gap-2 pt-2 mt-2 border-t border-slate-100/60">
-                                <select
-                                  value={reg.status}
-                                  onChange={(e: any) => handleUpdateAttendeeStatus(reg.id, reg.assigned_sale_id!, e.target.value)}
-                                  disabled={!canModify}
-                                  className="h-8 flex-1 px-2 text-[10px] font-bold bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition-all"
-                                >
-                                  <optgroup label="Trước sự kiện">
-                                    <option value="invited">✉️ Đã mời</option>
-                                    <option value="registered">📝 Đã đăng ký</option>
-                                    <option value="confirmed">🤝 Đã xác nhận</option>
-                                  </optgroup>
-                                  <optgroup label="Sau sự kiện">
-                                    <option value="attended">✓ Đã tham gia</option>
-                                    <option value="no_show">✕ Không tham gia</option>
-                                    <option value="cancelled">🚫 Huỷ tham gia</option>
-                                    <option value="converted">💰 Đã chốt đơn</option>
-                                  </optgroup>
-                                </select>
-                                {isAdmin && reg.status !== 'attended' && reg.status !== 'converted' && (
-                                  <Button 
-                                    type="button" 
-                                    size="sm" 
-                                    onClick={() => handleUpdateAttendeeStatus(reg.id, reg.assigned_sale_id!, 'attended')}
-                                    className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold shadow-sm rounded-lg"
-                                  >
-                                    Check-in
-                                  </Button>
-                                )}
-                              </div>
+                                    <div className="flex items-center gap-2 pt-2 mt-2 border-t border-slate-100/60">
+                                      <select
+                                        value={reg.status}
+                                        onChange={(e: any) => handleUpdateAttendeeStatus(reg.id, reg.assigned_sale_id!, e.target.value)}
+                                        disabled={!canModify}
+                                        className="h-8 flex-1 px-2 text-[10px] font-bold bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition-all"
+                                      >
+                                        <optgroup label="Trước sự kiện">
+                                          <option value="invited">✉️ Đã mời</option>
+                                          <option value="registered">📝 Đã đăng ký</option>
+                                          <option value="confirmed">🤝 Đã xác nhận</option>
+                                        </optgroup>
+                                        <optgroup label="Sau sự kiện">
+                                          <option value="attended">✓ Đã tham gia</option>
+                                          <option value="no_show">✕ Không tham gia</option>
+                                          <option value="cancelled">🚫 Huỷ tham gia</option>
+                                          <option value="converted">💰 Đã chốt đơn</option>
+                                        </optgroup>
+                                      </select>
+                                      {isManager && reg.status !== 'attended' && reg.status !== 'converted' && (
+                                        <Button 
+                                          type="button" 
+                                          size="sm" 
+                                          onClick={() => handleUpdateAttendeeStatus(reg.id, reg.assigned_sale_id!, 'attended')}
+                                          className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold shadow-sm rounded-lg"
+                                        >
+                                          Check-in
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        )}
-      </div>
 
             <DialogFooter className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
               <Button 
@@ -1951,7 +1916,6 @@ function CalendarPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Hỏi tạo Follow-up tự động (Cầu nối Event -> Sales) */}
       <Dialog open={showFollowUpDialog} onOpenChange={setShowFollowUpDialog}>
         <DialogContent className="sm:max-w-[400px] p-6 rounded-2xl border-none shadow-2xl">
           <DialogHeader className="space-y-3">
@@ -2000,15 +1964,6 @@ function CalendarPage() {
               </div>
               <ArrowLeft className="w-4 h-4 rotate-180 text-slate-400" />
             </Button>
-          </div>
-
-          <div className="mt-4 pt-4 border-t border-slate-100 flex justify-center">
-            <button 
-              onClick={() => setShowFollowUpDialog(false)}
-              className="text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-widest"
-            >
-              Để sau / Không nhắc
-            </button>
           </div>
         </DialogContent>
       </Dialog>
