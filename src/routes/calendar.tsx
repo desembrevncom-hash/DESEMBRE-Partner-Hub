@@ -717,6 +717,21 @@ function CalendarPage() {
 
       await navigator.clipboard.writeText(msg);
       toast.success("Đã copy tin nhắn gửi khách");
+
+      if (reg.id) {
+        const sentAt = new Date().toISOString();
+        const sentBy = user?.id || null;
+        supabase
+          .from("event_registrations")
+          .update({ 
+            calendar_link_sent_at: sentAt,
+            calendar_link_sent_by: sentBy
+          })
+          .eq("id", reg.id)
+          .then();
+
+        setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, calendar_link_sent_at: sentAt, calendar_link_sent_by: sentBy } as any : r));
+      }
     } catch (err) {
       toast.error("Lỗi copy link lịch: Trình duyệt từ chối quyền Clipboard");
     }
@@ -1915,10 +1930,10 @@ function CalendarPage() {
                                             if (gStatus === 'sent') {
                                               return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-blue-50 text-blue-600 border border-blue-200">Đã gửi Google Calendar</span>;
                                             }
-                                            if (reg.add_to_calendar_url) {
-                                              return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-50 text-purple-600 border border-purple-200">Có link lịch</span>;
+                                            if ((reg as any).calendar_link_sent_at) {
+                                              return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200" title={`Đã gửi lúc: ${new Date((reg as any).calendar_link_sent_at).toLocaleString()}`}>Đã gửi link</span>;
                                             }
-                                            return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-50 text-slate-400 border border-slate-200">Chưa tạo link</span>;
+                                            return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-50 text-slate-400 border border-slate-200">Chưa gửi link</span>;
                                           })()}
                                         </div>
                                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500">
