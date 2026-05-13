@@ -136,11 +136,7 @@ function CalendarPage() {
       const mapC: Record<string, { name: string; phone?: string | null }> = {};
       
       if (custData) {
-<<<<<<< HEAD
         custData.forEach((c: any) => {
-=======
-        custData.forEach(c => {
->>>>>>> e054b40820ab6276f9b85f4a24a83140b4fb6d70
           const dName = c.contact_name || c.name || c.business_name || c.facility_name || "Khách hàng";
           listC.push({ id: c.id, name: dName, phone: c.phone });
           mapC[c.id] = { name: dName, phone: c.phone };
@@ -154,11 +150,7 @@ function CalendarPage() {
         const { data: profData } = await supabase.from("profiles").select("id, email, display_name");
         const listS: Array<{ id: string; name: string }> = [];
         if (profData) {
-<<<<<<< HEAD
           profData.forEach((p: any) => {
-=======
-          profData.forEach(p => {
->>>>>>> e054b40820ab6276f9b85f4a24a83140b4fb6d70
             listS.push({ id: p.id, name: p.display_name || p.email || "Nhân viên" });
           });
         }
@@ -198,15 +190,9 @@ function CalendarPage() {
       if (rErr) throw rErr;
 
       // Gộp và chuẩn hóa dữ liệu
-<<<<<<< HEAD
       const personalEvents: UnifiedCalendarEvent[] = (pData || []).map((ev: any) => ({ ...ev, _ui_type: 'personal' }));
       const companyEvents: UnifiedCalendarEvent[] = (cData || []).map((ev: any) => {
         const registrations = (rData || []).filter((r: any) => r.event_id === ev.id);
-=======
-      const personalEvents: UnifiedCalendarEvent[] = (pData || []).map(ev => ({ ...ev, _ui_type: 'personal' }));
-      const companyEvents: UnifiedCalendarEvent[] = (cData || []).map(ev => {
-        const registrations = (rData || []).filter(r => r.event_id === ev.id);
->>>>>>> e054b40820ab6276f9b85f4a24a83140b4fb6d70
         return { ...ev, _ui_type: 'company', registrations };
       });
 
@@ -242,12 +228,8 @@ function CalendarPage() {
   const handleOpenCreateModal = (forcedTab?: "personal" | "company") => {
     setTitle("");
     setDescription("");
-<<<<<<< HEAD
     setPersonalType("follow_up");
     setCompanyType("workshop");
-=======
-    setEventType("follow_up");
->>>>>>> e054b40820ab6276f9b85f4a24a83140b4fb6d70
     
     // Gợi ý giờ mặc định: 1 tiếng sau mốc hiện tại
     const now = new Date();
@@ -264,29 +246,19 @@ function CalendarPage() {
     setAssignedSaleId(isAdmin ? "" : (user?.id || ""));
     setRemindMinutes(getDefaultReminderMinutes());
     setEditEventId(null);
-<<<<<<< HEAD
     setModalRegistrations([]);
     setAttendeeSelectId("");
     setEventLocation("");
     setEventCapacity("");
-=======
-    setModalAttendees([]);
-    setAttendeeSelectId("");
-    setEventLocation("");
-    setMaxAttendees("");
->>>>>>> e054b40820ab6276f9b85f4a24a83140b4fb6d70
     setCampaignStatus("draft");
     setNewAttendeeNote("");
     setIsQuickAddCustomer(false);
     setQuickCustomerName("");
     setQuickCustomerPhone("");
     
-<<<<<<< HEAD
     if (forcedTab) {
       setModalTab(forcedTab);
     }
-=======
->>>>>>> e054b40820ab6276f9b85f4a24a83140b4fb6d70
     setModalOpen(true);
   };
 
@@ -446,12 +418,8 @@ function CalendarPage() {
     
     setTitle("");
     setDescription("");
-<<<<<<< HEAD
     setPersonalType("follow_up");
     setCompanyType("workshop");
-=======
-    setEventType("follow_up");
->>>>>>> e054b40820ab6276f9b85f4a24a83140b4fb6d70
     setStartsAt(localISOTime);
     setEndsAt("");
     setCustomerId("");
@@ -826,20 +794,12 @@ function CalendarPage() {
       if (updateErr) throw updateErr;
 
       toast.success(newStatus === "completed" ? "Đã đánh dấu hoàn thành lịch hẹn" : "Đã hủy lịch hẹn");
-<<<<<<< HEAD
       setEvents(prev => prev.map(ev => ev.id === id ? ({ ...ev, status: newStatus } as any) : ev));
-=======
-      setEvents(prev => prev.map(ev => ev.id === id ? { ...ev, status: newStatus } : ev));
->>>>>>> e054b40820ab6276f9b85f4a24a83140b4fb6d70
       await loadEvents();
     } catch (err: any) {
       // Fallback khi offline / schema cache chưa cập nhật
       setEvents(prev => {
-<<<<<<< HEAD
         const updated = prev.map(ev => ev.id === id ? ({ ...ev, status: newStatus } as any) : ev);
-=======
-        const updated = prev.map(ev => ev.id === id ? { ...ev, status: newStatus } : ev);
->>>>>>> e054b40820ab6276f9b85f4a24a83140b4fb6d70
         try { localStorage.setItem("offline_calendar_events", JSON.stringify(updated)); } catch {}
         return updated;
       });
@@ -1771,7 +1731,6 @@ function CalendarPage() {
                           );
                         })}
                       </div>
-<<<<<<< HEAD
                     )}
                   </>
                 );
@@ -1780,13 +1739,6 @@ function CalendarPage() {
           </div>
         )}
       </div>
-=======
-                    );
-                  })()}
-                </div>
-              )}
-            </div>
->>>>>>> e054b40820ab6276f9b85f4a24a83140b4fb6d70
 
             <DialogFooter className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
               <Button 
