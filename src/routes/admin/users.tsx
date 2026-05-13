@@ -160,9 +160,9 @@ function AdminUsersPage() {
       return;
     }
 
-    // Role sub_admin management check
-    if (role === "sub_admin" && !canCreateSubAdmin) {
-      toast.error("Chỉ có ADMIN chính thức mới có quyền gán hoặc gỡ vai trò PHÓ ADMIN!");
+    // Role sub_admin and superior management check
+    if ((role === "sub_admin" || role === "admin") && !canCreateSubAdmin) {
+      toast.error("Chỉ có ADMIN chính thức mới có quyền gán hoặc gỡ các vai trò quản trị cấp cao!");
       return;
     }
 
@@ -189,12 +189,19 @@ function AdminUsersPage() {
     if (!deleteCandidate) return;
 
     if (confirmKeyword !== "DONG Y") {
-      toast.error("Vui lòng gõ chính xác chữ DONG Y để xác nhận xoá");
+      toast.error("Vui lòng gõ chính chữ DONG Y để xác nhận xoá");
       return;
     }
 
     if (deleteCandidate.id === user?.id) {
       toast.error("Không thể xoá chính tài khoản đang đăng nhập");
+      return;
+    }
+
+    // Bảo mật: Không ai được phép xóa tài khoản Admin gốc
+    const targetRoles = rolesMap.get(deleteCandidate.id) || [];
+    if (targetRoles.includes("admin") || deleteCandidate.email === "desembrevn.com@gmail.com") {
+      toast.error("Hệ thống bảo mật từ chối thao tác xóa tài khoản ADMIN gốc!");
       return;
     }
 
@@ -296,9 +303,10 @@ function AdminUsersPage() {
     await reload();
   };
 
-  const handleSuccessOptimistic = (newUser: { id: string; email: string; displayName: string }) => {
+  const handleSuccessOptimistic = (newUser: { id: string; email: string; displayName: string; role?: "sale" | "sub_admin" }) => {
+    const assignedRole = newUser.role || "sale";
     const item: ProfileRow = { id: newUser.id, email: newUser.email, display_name: newUser.displayName };
-    const ritem: RoleRow = { user_id: newUser.id, role: "sale" };
+    const ritem: RoleRow = { user_id: newUser.id, role: assignedRole };
 
     setOptimisticCreated((prev) => [item, ...prev]);
     setOptimisticCreatedRoles((prev) => [...prev, ritem]);
@@ -325,7 +333,11 @@ function AdminUsersPage() {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Form module container */}
           <div className="lg:col-span-1">
-            <CreateSaleUserForm onSuccessOptimistic={handleSuccessOptimistic} reload={reload} />
+            <CreateSaleUserForm
+              onSuccessOptimistic={handleSuccessOptimistic}
+              reload={reload}
+              canCreateSubAdmin={canCreateSubAdmin}
+            />
           </div>
 
           {/* Core list operations view */}
@@ -352,6 +364,7 @@ function AdminUsersPage() {
                   setDeleteCandidate(candidate);
                   setConfirmKeyword("");
                 }}
+                canCreateSubAdmin={canCreateSubAdmin}
               />
             )}
           </div>

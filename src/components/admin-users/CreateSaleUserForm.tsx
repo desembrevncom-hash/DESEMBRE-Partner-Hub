@@ -8,13 +8,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 
 interface CreateSaleUserFormProps {
-  onSuccessOptimistic: (user: { id: string; email: string; displayName: string }) => void;
+  onSuccessOptimistic: (user: { id: string; email: string; displayName: string; role?: "sale" | "sub_admin" }) => void;
   reload: () => Promise<void>;
+  canCreateSubAdmin?: boolean;
 }
 
-export function CreateSaleUserForm({ onSuccessOptimistic, reload }: CreateSaleUserFormProps) {
+export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAdmin }: CreateSaleUserFormProps) {
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
+  const [targetRole, setTargetRole] = useState<"sale" | "sub_admin">("sale");
   const [creating, setCreating] = useState(false);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -62,8 +64,8 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload }: CreateSaleUs
 
         const targetId = existingProf?.id;
         if (targetId) {
-          await supabase.from("user_roles").insert({ user_id: targetId, role: "sale" }).catch(() => null);
-          toast.success("Tài khoản email này đã tồn tại. Đã tự động liên kết vào danh sách nhân viên SALE!");
+          await supabase.from("user_roles").insert({ user_id: targetId, role: targetRole }).catch(() => null);
+          toast.success(`Tài khoản email này đã tồn tại. Đã tự động liên kết quyền ${targetRole.toUpperCase()}!`);
           setNewEmail("");
           setNewName("");
           await reload();
@@ -76,7 +78,7 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload }: CreateSaleUs
         }
       }
 
-      toast.error(message || "Không thể tạo tài khoản SALE");
+      toast.error(message || "Không thể tạo tài khoản nhân sự");
       return;
     }
 
@@ -85,18 +87,26 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload }: CreateSaleUs
       return;
     }
 
-    toast.success("Đã tạo tài khoản SALE. Mật khẩu mặc định: 12345678");
+    toast.success(`Đã tạo tài khoản ${targetRole === "sub_admin" ? "PHÓ ADMIN" : "SALE"}. Mật khẩu: 12345678`);
 
     if (data?.user) {
+      if (targetRole === "sub_admin") {
+        // Tầng 2 logic: Gỡ vai trò SALE mặc định do bot tạo và gán quyền PHÓ ADMIN
+        await supabase.from("user_roles").delete().eq("user_id", data.user.id).eq("role", "sale").catch(() => null);
+        await supabase.from("user_roles").insert({ user_id: data.user.id, role: "sub_admin" }).catch(() => null);
+      }
+
       onSuccessOptimistic({
         id: data.user.id,
         email: data.user.email,
         displayName: data.user.displayName || fullName,
+        role: targetRole,
       });
     }
 
     setNewEmail("");
     setNewName("");
+    setTargetRole("sale");
 
     await reload();
   };
@@ -106,7 +116,9 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload }: CreateSaleUs
       <div className="bg-card border border-border rounded-lg p-6 shadow-sm space-y-4">
         <div className="flex items-center gap-2 text-primary">
           <UserPlus className="w-5 h-5" />
-          <h2 className="font-bold">Thêm nhân viên SALE</h2>
+          <h2 className="font-bold">
+            Thêm nhân sự mới
+          </h2>
         </div>
         <form onSubmit={handleCreate} className="space-y-4">
           <div className="space-y-2">
@@ -119,20 +131,69 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload }: CreateSaleUs
               required
             />
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="new-email">Email</Label>
             <Input
               id="new-email"
               type="email"
-              placeholder="sale@example.com"
+              placeholder="nhansu@example.com"
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
               required
             />
           </div>
+
+          {canCreateSubAdmin && (
+            <div className="space-y-2 pt-1 border-t border-border">
+              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                Vai trò gán cho tài khoản
+              </Label>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <label
+                  className={`flex items-center gap-2 p-2 rounded border cursor-pointer text-xs font-bold transition-all ${
+                    targetRole === "sale"
+                      ? "bg-green-600/10 border-green-600 text-green-600 dark:text-green-400"
+                      : "border-border text-muted-foreground hover:bg-muted/50"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="targetRole"
+                    value="sale"
+                    checked={targetRole === "sale"}
+                    onChange={() => setTargetRole("sale")}
+                    className="sr-only"
+                  />
+                  <span>Nhân viên SALE</span>
+                </label>
+
+                <label
+                  className={`flex items-center gap-2 p-2 rounded border cursor-pointer text-xs font-bold transition-all ${
+                    targetRole === "sub_admin"
+                      ? "bg-purple-600/10 border-purple-600 text-purple-600 dark:text-purple-400"
+                      : "border-border text-muted-foreground hover:bg-muted/50"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="targetRole"
+                    value="sub_admin"
+                    checked={targetRole === "sub_admin"}
+                    onChange={() => setTargetRole("sub_admin")}
+                    className="sr-only"
+                  />
+                  <span>Phó Admin</span>
+                </label>
+              </div>
+            </div>
+          )}
+
           <div className="pt-2">
             <Button type="submit" className="w-full font-bold" disabled={creating}>
-              {creating ? "Đang tạo tài khoản…" : "Tạo tài khoản SALE"}
+              {creating
+                ? "Đang tạo tài khoản…"
+                : `Tạo tài khoản ${targetRole === "sub_admin" ? "PHÓ ADMIN" : "SALE"}`}
             </Button>
           </div>
           <p className="text-[10px] text-muted-foreground text-center italic">
@@ -144,10 +205,12 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload }: CreateSaleUs
       <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-4 space-y-2">
         <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
           <Shield className="w-4 h-4" />
-          <span className="text-xs font-bold uppercase tracking-wider">Bảo mật</span>
+          <span className="text-xs font-bold uppercase tracking-wider">Phân quyền</span>
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Tài khoản được cấp quyền qua luồng bảo mật trực tiếp ở tầng server. Mọi tài khoản mới mặc định thuộc nhóm <strong>SALE</strong>.
+          {canCreateSubAdmin
+            ? "Bạn là Quản trị viên gốc. Bạn có toàn quyền cấp phát hoặc liên kết tài khoản vào nhóm SALE hoặc PHÓ ADMIN tự động."
+            : "Bạn là Phó Admin. Bạn được ủy quyền tạo tài khoản và phân bổ trực tiếp vào danh sách nhân viên SALE."}
         </p>
       </div>
     </div>

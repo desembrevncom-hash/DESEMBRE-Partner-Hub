@@ -11,6 +11,7 @@ interface UserRowProps {
   currentUserId?: string;
   onToggleRole: (uid: string, role: "admin" | "sub_admin" | "sale") => Promise<void>;
   onDeleteRequest: (candidate: ProfileRow) => void;
+  canCreateSubAdmin?: boolean;
 }
 
 export function UserRow({
@@ -20,6 +21,7 @@ export function UserRow({
   currentUserId,
   onToggleRole,
   onDeleteRequest,
+  canCreateSubAdmin,
 }: UserRowProps) {
   return (
     <tr className="hover:bg-accent/5 transition-colors group">
@@ -67,6 +69,7 @@ export function UserRow({
           currentUserId={currentUserId}
           onToggleRole={onToggleRole}
           onDeleteRequest={() => onDeleteRequest(profile)}
+          canCreateSubAdmin={canCreateSubAdmin}
         />
       </td>
     </tr>
