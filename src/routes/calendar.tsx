@@ -2019,16 +2019,26 @@ function CalendarPage() {
 
                       return (
                         <>
-                          <Label className="text-[11px] font-bold text-slate-800 flex items-center justify-between px-1">
+                          <Label className="text-[11px] font-bold text-slate-800 flex items-center justify-between px-1 flex-wrap gap-1">
                             <span className="flex items-center gap-1.5">
                               <Users className="w-3.5 h-3.5 text-slate-500" /> 
                               {isManager ? `Danh sách đăng ký (${modalRegistrations.length})` : `Khách của tôi (${displayedRegs.length})`}
                             </span>
-                            {isManager && (
-                              <span className="text-[10px] text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
+                            <div className="flex items-center gap-1.5 text-[10px]">
+                              {isManager && (
+                                <>
+                                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-100" title="Khách đã có Email, sẵn sàng nhận lời mời GCal tự động">
+                                    📧 Có Email: {modalRegistrations.filter(r => r.attendee_email).length}
+                                  </span>
+                                  <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 font-bold border border-rose-100" title="Khách thiếu Email, cần bổ sung để gửi lịch">
+                                    ⚠️ Thiếu: {modalRegistrations.filter(r => !r.attendee_email).length}
+                                  </span>
+                                </>
+                              )}
+                              <span className="text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
                                 Chuyển đổi: {modalRegistrations.length > 0 ? `${((modalRegistrations.filter(r => r.status === 'converted').length / modalRegistrations.length) * 100).toFixed(0)}%` : "0%"}
                               </span>
-                            )}
+                            </div>
                           </Label>
 
                           {displayedRegs.length === 0 ? (
@@ -2064,8 +2074,41 @@ function CalendarPage() {
                                             return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-50 text-slate-400 border border-slate-200">Chưa gửi link</span>;
                                           })()}
                                         </div>
-                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500">
-                                          {reg.customer_phone && <span className="flex items-center gap-1">📞 {reg.customer_phone}</span>}
+                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-slate-500 pt-0.5">
+                                          {reg.customer_phone && <span className="flex items-center gap-1 font-medium text-slate-600">📞 {reg.customer_phone}</span>}
+                                          {reg.attendee_email ? (
+                                            <button 
+                                              type="button"
+                                              onClick={() => {
+                                                const newE = window.prompt(`Sửa Email cho "${reg.customer_name || 'Khách'}":`, reg.attendee_email || "");
+                                                if (newE !== null) {
+                                                  const trimmed = newE.trim();
+                                                  supabase.from("event_registrations").update({ attendee_email: trimmed }).eq("id", reg.id).then();
+                                                  setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, attendee_email: trimmed } as any : r));
+                                                }
+                                              }}
+                                              title="Bấm để chỉnh sửa Email"
+                                              className="flex items-center gap-1 text-emerald-700 hover:text-emerald-800 font-bold bg-emerald-50 hover:bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-200 transition-all text-[9px]"
+                                            >
+                                              📧 {reg.attendee_email}
+                                            </button>
+                                          ) : (
+                                            <button 
+                                              type="button"
+                                              onClick={() => {
+                                                const newE = window.prompt(`Bổ sung Email cho "${reg.customer_name || 'Khách'}":`, "");
+                                                if (newE && newE.trim()) {
+                                                  const trimmed = newE.trim();
+                                                  supabase.from("event_registrations").update({ attendee_email: trimmed }).eq("id", reg.id).then();
+                                                  setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, attendee_email: trimmed } as any : r));
+                                                }
+                                              }}
+                                              title="Khách chưa có Email. Bấm để bổ sung nhanh!"
+                                              className="flex items-center gap-1 text-rose-600 hover:text-rose-700 font-bold bg-rose-50 hover:bg-rose-100 px-1.5 py-0.5 rounded border border-rose-200 transition-all text-[9px] animate-pulse"
+                                            >
+                                              ⚠️ Thiếu Email (Bấm bổ sung)
+                                            </button>
+                                          )}
                                           <span className="flex items-center gap-1 font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">👤 Sale: {reg.added_by_sale_name || "Admin"}</span>
                                         </div>
                                       </div>
