@@ -650,8 +650,21 @@ function CalendarPage() {
       };
 
       if (editEventId) {
-        const { error: err } = await supabase.from("event_registrations").insert([newRegPayload]);
+        const { data: insertedData, error: err } = await supabase
+          .from("event_registrations")
+          .insert([newRegPayload])
+          .select()
+          .single();
         if (err) throw err;
+        
+        if (insertedData) {
+          const freshReg = {
+            ...insertedData,
+            added_by_sale_name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || "SALE"
+          };
+          setModalRegistrations(prev => [freshReg as any, ...prev]);
+        }
+        
         toast.success("Đăng ký khách hàng thành công");
         await loadEvents();
       } else {
