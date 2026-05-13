@@ -32,7 +32,7 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAd
 
     setCreating(true);
 
-    // Ủy thác trọn vẹn việc phân quyền atomic ở DB cho Service Role của Edge Function
+    // Ủy thác trọn vẹn việc phân quyền atomic và tự sửa lỗi mồ côi (self-healing) cho Edge Function
     const { data, error } = await supabase.functions.invoke("create-sale-user", {
       body: {
         email,
@@ -54,32 +54,6 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAd
         }
       }
 
-      if (
-        message.toLowerCase().includes("already been registered") ||
-        message.toLowerCase().includes("already exists")
-      ) {
-        const { data: existingProf } = await supabase
-          .from("profiles")
-          .select("id,display_name")
-          .eq("email", email)
-          .maybeSingle();
-
-        const targetId = existingProf?.id;
-        if (targetId) {
-          await supabase.from("user_roles").insert({ user_id: targetId, role: targetRole }).catch(() => null);
-          toast.success(`Tài khoản email này đã tồn tại. Đã tự động liên kết quyền ${targetRole.toUpperCase()}!`);
-          setNewEmail("");
-          setNewName("");
-          await reload();
-          return;
-        } else {
-          toast.error(
-            "Email này đã tồn tại trong hệ thống Auth nhưng chưa có hồ sơ Profile. Vui lòng liên hệ Admin để cấp quyền."
-          );
-          return;
-        }
-      }
-
       toast.error(message || "Không thể tạo tài khoản nhân sự");
       return;
     }
@@ -89,7 +63,13 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAd
       return;
     }
 
-    toast.success(`Đã tạo tài khoản ${targetRole === "sub_admin" ? "PHÓ ADMIN" : "SALE"}. Mật khẩu: 12345678`);
+    if (data?.user?.recoveredOrphan) {
+      toast.success(
+        `Tài khoản email này đã tồn tại từ trước. Đã tự động khôi phục và liên kết chuẩn xác quyền ${targetRole.toUpperCase()}!`
+      );
+    } else {
+      toast.success(`Đã tạo tài khoản ${targetRole === "sub_admin" ? "PHÓ ADMIN" : "SALE"}. Mật khẩu: 12345678`);
+    }
 
     if (data?.user) {
       onSuccessOptimistic({
@@ -188,7 +168,7 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAd
           <div className="pt-2">
             <Button type="submit" className="w-full font-bold" disabled={creating}>
               {creating
-                ? "Đang tạo tài khoản…"
+                ? "Đang xử lý…"
                 : `Tạo tài khoản ${targetRole === "sub_admin" ? "PHÓ ADMIN" : "SALE"}`}
             </Button>
           </div>

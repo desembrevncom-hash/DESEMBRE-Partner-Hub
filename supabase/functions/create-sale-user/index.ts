@@ -103,6 +103,9 @@ Deno.serve(async (req) => {
     // Tầng 2 logic: Đảm bảo nguyên tử hóa thao tác chèn role sub_admin trực tiếp bằng quyền Service Role để triệt tiêu mọi rủi ro mất đồng bộ RLS ở Frontend
     const finalRole = (requestedRole === "sub_admin" && isCallerAdmin) ? "sub_admin" : "sale";
 
+    let newUserId = "";
+    let isSelfHealed = false;
+
     const { data: createdUser, error: createUserError } =
       await adminClient.auth.admin.createUser({
         email,
@@ -114,17 +117,33 @@ Deno.serve(async (req) => {
         },
       });
 
-    if (createUserError || !createdUser.user) {
-      return json(
-        {
-          error: createUserError?.message || "Cannot create user",
-        },
-        400
-      );
+    if (createUserError || !createdUser?.user) {
+      const errMsg = (createUserError?.message || "").toLowerCase();
+      // Cơ chế tự phục hồi (Self-Healing): Nếu email đã tồn tại do lỗi mồ côi từ các phiên trước, tự động tra cứu ID và khôi phục
+      if (errMsg.includes("already been registered") || errMsg.includes("already exists")) {
+        const { data: listData, error: listErr } = await adminClient.auth.admin.listUsers();
+        if (!listErr && listData?.users) {
+          const target = listData.users.find((u) => u.email?.toLowerCase() === email);
+          if (target) {
+            newUserId = target.id;
+            isSelfHealed = true;
+          }
+        }
+      }
+
+      if (!newUserId) {
+        return json(
+          {
+            error: createUserError?.message || "Cannot create user",
+          },
+          400
+        );
+      }
+    } else {
+      newUserId = createdUser.user.id;
     }
 
-    const newUserId = createdUser.user.id;
-
+    // Upsert khôi phục/tạo mới hồ sơ Profile
     const { error: profileError } = await adminClient.from("profiles").upsert(
       {
         id: newUserId,
@@ -138,16 +157,20 @@ Deno.serve(async (req) => {
     );
 
     if (profileError) {
-      await adminClient.auth.admin.deleteUser(newUserId);
+      // Chỉ xóa user nếu đây là user mới tạo, tránh xóa nhầm user cũ nếu tự phục hồi thất bại
+      if (!isSelfHealed) {
+        await adminClient.auth.admin.deleteUser(newUserId);
+      }
 
       return json(
         {
-          error: `Tạo Auth user thành công nhưng ghi profiles thất bại: ${profileError.message}`,
+          error: `Tạo/Khôi phục Auth user thành công nhưng ghi profiles thất bại: ${profileError.message}`,
         },
         400
       );
     }
 
+    // Upsert khôi phục/tạo mới Phân quyền
     const { error: roleError } = await adminClient.from("user_roles").upsert(
       {
         user_id: newUserId,
@@ -159,14 +182,24 @@ Deno.serve(async (req) => {
     );
 
     if (roleError) {
-      await adminClient.auth.admin.deleteUser(newUserId);
+      if (!isSelfHealed) {
+        await adminClient.auth.admin.deleteUser(newUserId);
+      }
 
       return json(
         {
-          error: `Tạo Auth user thành công nhưng gán role thất bại: ${roleError.message}`,
+          error: `Tạo/Khôi phục Auth user thành công nhưng gán role thất bại: ${roleError.message}`,
         },
         400
       );
+    }
+
+    // Gỡ các quyền dư thừa nếu đây là tài khoản được khôi phục sang vai trò mới
+    if (isSelfHealed) {
+      const otherRoles = ["admin", "sub_admin", "sale"].filter((r) => r !== finalRole);
+      for (const or of otherRoles) {
+        await adminClient.from("user_roles").delete().eq("user_id", newUserId).eq("role", or);
+      }
     }
 
     return json({
@@ -177,6 +210,7 @@ Deno.serve(async (req) => {
         displayName: fullName,
         role: finalRole,
         defaultPassword: DEFAULT_SALE_PASSWORD,
+        recoveredOrphan: isSelfHealed,
       },
     });
   } catch (error) {
