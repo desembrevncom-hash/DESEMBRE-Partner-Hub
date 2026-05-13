@@ -59,6 +59,7 @@ import {
   getCampaignStatusLabel,
   isEventOverdue 
 } from "@/lib/calendar";
+import { buildGoogleCalendarLink } from "@/lib/googleCalendar";
 import { useCalendarRealtime } from "@/hooks/useCalendarRealtime";
 import { useUpcomingReminders } from "@/hooks/useUpcomingReminders";
 import FullCalendar from "@fullcalendar/react";
@@ -1858,7 +1859,7 @@ function CalendarPage() {
                                       </p>
                                     )}
 
-                                    <div className="flex items-center gap-2 pt-2 mt-2 border-t border-slate-100/60">
+                                    <div className="flex items-center gap-1.5 pt-2 mt-2 border-t border-slate-100/60">
                                       <select
                                         value={reg.status}
                                         onChange={(e: any) => handleUpdateAttendeeStatus(reg.id, reg.assigned_sale_id!, e.target.value)}
@@ -1882,11 +1883,26 @@ function CalendarPage() {
                                           type="button" 
                                           size="sm" 
                                           onClick={() => handleUpdateAttendeeStatus(reg.id, reg.assigned_sale_id!, 'attended')}
-                                          className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold shadow-sm rounded-lg"
+                                          className="h-8 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold shadow-2xs rounded-lg shrink-0"
                                         >
                                           Check-in
                                         </Button>
                                       )}
+                                      <a
+                                        href={buildGoogleCalendarLink({
+                                          title: title || "Sự kiện DESEMBRE Partner",
+                                          startsAt: startsAt,
+                                          endsAt: endsAt || null,
+                                          location: eventLocation || meetingUrl || null,
+                                          description: `Khách hàng: ${reg.customer_name} ${reg.customer_phone ? `(${reg.customer_phone})` : ''}\n\n${description || ''}`
+                                        })}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title="Thêm vào Google Calendar"
+                                        className="h-8 px-2.5 flex items-center justify-center gap-1 bg-white hover:bg-slate-50 text-slate-600 text-[10px] font-bold border border-slate-200 rounded-lg shadow-2xs transition-all shrink-0"
+                                      >
+                                        📅 <span className="hidden sm:inline">Google Cal</span>
+                                      </a>
                                     </div>
                                   </div>
                                 );
