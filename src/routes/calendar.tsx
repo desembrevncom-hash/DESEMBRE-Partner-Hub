@@ -335,7 +335,7 @@ function CalendarPage() {
     setAttendeeSelectId("");
     setEventLocation("");
     setEventCapacity("");
-    setCampaignStatus("draft");
+    setCampaignStatus("published");
     setNewAttendeeNote("");
     setIsQuickAddCustomer(false);
     setQuickCustomerName("");
@@ -512,6 +512,7 @@ function CalendarPage() {
     setAssignedSaleId(isAdmin ? "" : (user?.id || ""));
     setRemindMinutes(getDefaultReminderMinutes());
     setEditEventId(null);
+    setCampaignStatus("published");
     setModalTab(isAdmin ? "company" : "personal");
     setModalOpen(true);
   };
