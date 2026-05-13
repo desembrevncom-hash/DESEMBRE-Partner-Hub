@@ -6,10 +6,10 @@ import { UserActionsMenu } from "./UserActionsMenu";
 
 interface UserRowProps {
   profile: ProfileRow;
-  roles: ("admin" | "sale")[];
+  roles: ("admin" | "sub_admin" | "sale")[];
   currentUserEmail?: string | null;
   currentUserId?: string;
-  onToggleRole: (uid: string, role: "admin" | "sale") => Promise<void>;
+  onToggleRole: (uid: string, role: "admin" | "sub_admin" | "sale") => Promise<void>;
   onDeleteRequest: (candidate: ProfileRow) => void;
 }
 

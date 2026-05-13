@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = "admin" | "sale";
+export type AppRole = "admin" | "sub_admin" | "sale";
 
 type AuthCtx = {
   user: User | null;
@@ -10,7 +10,13 @@ type AuthCtx = {
   roles: AppRole[];
   loading: boolean;
   isAdmin: boolean;
+  isSubAdmin: boolean;
+  isManager: boolean;
   isSale: boolean;
+  canManageUsers: boolean;
+  canManageLeads: boolean;
+  canViewReports: boolean;
+  canCreateSubAdmin: boolean;
   mustChangePassword?: boolean;
   signIn: (email: string, password?: string) => Promise<{ error?: string }>;
   signUp: (email: string, password: string, displayName?: string) => Promise<{ error?: string }>;
@@ -43,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loadRoles = async (uid: string | undefined, uEmail?: string | null) => {
+  const loadRoles = async (uid: string | undefined) => {
     if (!uid) {
       setRoles([]);
       setMustChangePassword(false);
@@ -51,36 +57,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const { data } = await supabase.from("user_roles").select("role").eq("user_id", uid);
-    const dbRoles = (data ?? []).map((r) => r.role as AppRole);
-
-    // Ensure the primary root admin identity injects genuine backing cloud database entries automatically
-    // so PostgREST RLS engine explicitly grants unblocked underlying table SELECT visibility
-    if (uEmail === "desembrevn.com@gmail.com" && !dbRoles.includes("admin")) {
-      await supabase.from("profiles").upsert({
-        id: uid,
-        email: uEmail,
-        display_name: "Admin Desembre",
-        must_change_password: false,
-      }).catch(() => null);
-
-      await supabase.from("user_roles").insert({
-        user_id: uid,
-        role: "admin",
-      }).catch(() => null);
-
-      dbRoles.push("admin");
-    }
+    const dbRoles = (data ?? []).map((r: any) => r.role as AppRole);
 
     setRoles(dbRoles);
-
     await checkProfilePasswordFlag(uid);
   };
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_event: any, sess: any) => {
       setSession(sess);
       setUser(sess?.user ?? null);
-      setTimeout(() => loadRoles(sess?.user?.id, sess?.user?.email), 0);
+      setTimeout(() => loadRoles(sess?.user?.id), 0);
     });
 
     Promise.race([
@@ -90,9 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(({ data: { session: sess } }) => {
         setSession(sess);
         setUser(sess?.user ?? null);
-        loadRoles(sess?.user?.id, sess?.user?.email).finally(() => setLoading(false));
+        loadRoles(sess?.user?.id).finally(() => setLoading(false));
       })
-      .catch((err) => {
+      .catch((err: any) => {
         console.warn("Supabase auth timeout/error", err);
         setLoading(false);
       });
@@ -164,20 +151,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const contextValue = useMemo(() => {
-    const isPrimaryAdmin = user?.email === "desembrevn.com@gmail.com";
+    const isAdmin = roles.includes("admin");
+    const isSubAdmin = roles.includes("sub_admin");
+    const isManager = isAdmin || isSubAdmin;
+    const isSale = roles.includes("sale");
+
     return {
       user,
       session,
       roles,
       loading,
-      isAdmin: roles.includes("admin") || isPrimaryAdmin,
-      isSale: roles.includes("sale") || isPrimaryAdmin,
+      isAdmin,
+      isSubAdmin,
+      isManager,
+      isSale,
+      canManageUsers: isManager,
+      canManageLeads: isManager,
+      canViewReports: isManager,
+      canCreateSubAdmin: isAdmin,
       mustChangePassword,
       signIn,
       signUp,
       signOut,
       changePassword,
-      refreshRoles: () => loadRoles(user?.id, user?.email),
+      refreshRoles: () => loadRoles(user?.id),
       updateProfile,
     };
   }, [user, session, roles, loading, mustChangePassword]);

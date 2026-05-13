@@ -1,12 +1,12 @@
-import { ProfileRow, RoleRow } from "./types";
+import { ProfileRow } from "./types";
 import { UserRow } from "./UserRow";
 
 interface UserTableProps {
   profiles: ProfileRow[];
-  rolesMap: Map<string, ("admin" | "sale")[]>;
+  rolesMap: Map<string, ("admin" | "sub_admin" | "sale")[]>;
   currentUserEmail?: string | null;
   currentUserId?: string;
-  onToggleRole: (uid: string, role: "admin" | "sale") => Promise<void>;
+  onToggleRole: (uid: string, role: "admin" | "sub_admin" | "sale") => Promise<void>;
   onDeleteRequest: (candidate: ProfileRow) => void;
 }
 

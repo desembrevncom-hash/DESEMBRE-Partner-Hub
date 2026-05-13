@@ -1,19 +1,27 @@
 interface UserRoleBadgeProps {
-  role: "admin" | "sale";
+  role: "admin" | "sub_admin" | "sale" | string;
 }
 
 export function UserRoleBadge({ role }: UserRoleBadgeProps) {
   if (role === "admin") {
     return (
       <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-primary text-primary-foreground tracking-wider uppercase">
-        Admin
+        ADMIN
+      </span>
+    );
+  }
+
+  if (role === "sub_admin") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-purple-600 text-white tracking-wider uppercase">
+        PHÓ ADMIN
       </span>
     );
   }
 
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-green-600 text-white tracking-wider uppercase">
-      Sale
+      SALE
     </span>
   );
 }

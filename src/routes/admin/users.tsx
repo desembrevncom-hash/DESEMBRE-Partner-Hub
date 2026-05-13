@@ -32,7 +32,7 @@ export const Route = createFileRoute("/admin/users")({
 });
 
 function AdminUsersPage() {
-  const { user, isAdmin, loading, refreshRoles } = useAuth();
+  const { user, canManageUsers, canCreateSubAdmin, loading, refreshRoles } = useAuth();
   const navigate = useNavigate();
 
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
@@ -41,7 +41,7 @@ function AdminUsersPage() {
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState<"all" | "admin" | "sale">("all");
+  const [roleFilter, setRoleFilter] = useState<"all" | "admin" | "sub_admin" | "sale">("all");
 
   // Deletion workflow states requested by user
   const [deleteCandidate, setDeleteCandidate] = useState<ProfileRow | null>(null);
@@ -64,20 +64,7 @@ function AdminUsersPage() {
       const r = resR.data || [];
 
       const loadedProfiles: ProfileRow[] = [...p];
-      const loadedRoles: RoleRow[] = [...r];
-
-      // Ensure the primary Admin user always shows up as a guaranteed visual baseline
-      if (user && !loadedProfiles.some((prof) => prof.id === user.id)) {
-        loadedProfiles.push({
-          id: user.id,
-          email: user.email || "desembrevn.com@gmail.com",
-          display_name: "Admin Desembre",
-        });
-      }
-
-      if (user && !loadedRoles.some((role) => role.user_id === user.id && role.role === "admin")) {
-        loadedRoles.push({ user_id: user.id, role: "admin" });
-      }
+      const loadedRoles: RoleRow[] = [...r] as RoleRow[];
 
       // Deduplicate profiles cleanly
       const uniqueProfilesMap = new Map<string, ProfileRow>();
@@ -89,13 +76,8 @@ function AdminUsersPage() {
       setRoles(loadedRoles);
     } catch (err) {
       console.error("Lỗi nạp dữ liệu reload:", err);
-      if (user) {
-        setProfiles([{ id: user.id, email: user.email || "desembrevn.com@gmail.com", display_name: "Admin Desembre" }]);
-        setRoles([{ user_id: user.id, role: "admin" }]);
-      } else {
-        setProfiles([]);
-        setRoles([]);
-      }
+      setProfiles([]);
+      setRoles([]);
     } finally {
       setBusy(false);
     }
@@ -107,12 +89,12 @@ function AdminUsersPage() {
       navigate({ to: "/login" });
       return;
     }
-    if (!isAdmin) {
+    if (!canManageUsers) {
       navigate({ to: "/" });
       return;
     }
     reload();
-  }, [user, isAdmin, loading, navigate]);
+  }, [user, canManageUsers, loading, navigate]);
 
   // Persistent component-level buffer cache to ensure optimistic identities never flicker or disappear during Supabase RLS schema reload delays
   const [optimisticCreated, setOptimisticCreated] = useState<ProfileRow[]>([]);
@@ -136,7 +118,7 @@ function AdminUsersPage() {
 
   // Compute lookup dictionary mapping each profile ID to array of string roles
   const rolesMap = useMemo(() => {
-    const map = new Map<string, ("admin" | "sale")[]>();
+    const map = new Map<string, ("admin" | "sub_admin" | "sale")[]>();
     for (const r of combinedRoles) {
       const existing = map.get(r.user_id) || [];
       if (!existing.includes(r.role)) {
@@ -168,13 +150,19 @@ function AdminUsersPage() {
     });
   }, [combinedProfiles, rolesMap, searchQuery, roleFilter]);
 
-  const toggleRole = async (uid: string, role: "admin" | "sale") => {
+  const toggleRole = async (uid: string, role: "admin" | "sub_admin" | "sale") => {
     const currentRoles = rolesMap.get(uid) || [];
     const has = currentRoles.includes(role);
 
     // Safeguard rule requested by user: prevent removing own admin role to avoid account self-lockout
     if (has && uid === user?.id && role === "admin") {
       toast.error("Hệ thống chặn thao tác tự gỡ quyền ADMIN của chính mình để tránh khóa tài khoản quản trị!");
+      return;
+    }
+
+    // Role sub_admin management check
+    if (role === "sub_admin" && !canCreateSubAdmin) {
+      toast.error("Chỉ có ADMIN chính thức mới có quyền gán hoặc gỡ vai trò PHÓ ADMIN!");
       return;
     }
 
@@ -345,8 +333,8 @@ function AdminUsersPage() {
             <UserFilters
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
-              roleFilter={roleFilter}
-              setRoleFilter={setRoleFilter}
+              roleFilter={roleFilter as any}
+              setRoleFilter={setRoleFilter as any}
             />
 
             {busy ? (

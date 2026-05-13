@@ -4,8 +4,8 @@ import { Input } from "@/components/ui/input";
 interface UserFiltersProps {
   searchQuery: string;
   setSearchQuery: (val: string) => void;
-  roleFilter: "all" | "admin" | "sale";
-  setRoleFilter: (val: "all" | "admin" | "sale") => void;
+  roleFilter: "all" | "admin" | "sub_admin" | "sale";
+  setRoleFilter: (val: "all" | "admin" | "sub_admin" | "sale") => void;
 }
 
 export function UserFilters({
@@ -46,6 +46,16 @@ export function UserFilters({
           }`}
         >
           Quản trị (Admin)
+        </button>
+        <button
+          onClick={() => setRoleFilter("sub_admin")}
+          className={`px-3 py-1.5 rounded text-xs font-bold transition-all whitespace-nowrap ${
+            roleFilter === "sub_admin"
+              ? "bg-purple-600 text-white shadow-sm"
+              : "bg-muted/50 text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          Phó Admin
         </button>
         <button
           onClick={() => setRoleFilter("sale")}
