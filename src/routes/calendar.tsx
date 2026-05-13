@@ -802,6 +802,41 @@ function CalendarPage() {
     }
   };
 
+  const handleSendRealGCalInvite = async (reg: EventRegistration) => {
+    if (!reg.attendee_email) {
+      toast.error("Khách mời chưa có địa chỉ Email! Vui lòng bổ sung trước.");
+      return;
+    }
+
+    const tid = toast.loading("Đang kết nối với Google Calendar và gửi thiệp mời từ Công ty...");
+    try {
+      const payload = {
+        registration_id: reg.id,
+        event_title: title || "Sự kiện DESEMBRE Partner",
+        starts_at: startsAt,
+        ends_at: endsAt || startsAt,
+        location: eventLocation || meetingUrl || "Hệ thống DESEMBRE Việt Nam",
+        description: description,
+        attendee_email: reg.attendee_email,
+        attendee_name: reg.customer_name || "Khách Quý"
+      };
+
+      const { data, error } = await supabase.functions.invoke('send-gcal-invite', {
+        body: payload
+      });
+
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || "Lỗi giao tiếp API Google");
+      }
+
+      toast.success("Đã gửi thư mời chính thức thành công!", { id: tid });
+      
+      setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, google_invite_status: "invited" } as any : r));
+    } catch (err: any) {
+      toast.error(`Gửi thất bại: ${err.message}`, { id: tid });
+    }
+  };
+
   const handleUpdateAttendeeStatus = async (regId: string, assignedSaleId: string, nextStatus: RegistrationStatus) => {
     if (!isManager && assignedSaleId !== user?.id) {
       toast.error("Bạn chỉ có quyền cập nhật khách do mình phụ trách");
@@ -1980,6 +2015,9 @@ function CalendarPage() {
                                           </span>
                                           {(() => {
                                             const gStatus = (reg as any).google_invite_status;
+                                            if (gStatus === 'invited') {
+                                              return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-50 text-purple-600 border border-purple-200">✉️ Đã gửi thư mời Công ty</span>;
+                                            }
                                             if (gStatus === 'sent') {
                                               return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-blue-50 text-blue-600 border border-blue-200">Đã gửi Google Calendar</span>;
                                             }
@@ -2039,6 +2077,16 @@ function CalendarPage() {
                                         >
                                           Check-in
                                         </Button>
+                                      )}
+                                      {isManager && reg.attendee_email && (reg as any).google_invite_status !== 'invited' && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSendRealGCalInvite(reg)}
+                                          title="Hệ thống tự động gửi thư mời chính thức từ Lịch Công ty"
+                                          className="h-8 px-2 flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-bold rounded-lg shadow-2xs transition-all shrink-0"
+                                        >
+                                          📧 <span className="hidden sm:inline">Gửi thư mời Công ty</span>
+                                        </button>
                                       )}
                                       <a
                                         href={(() => {
