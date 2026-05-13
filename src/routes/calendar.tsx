@@ -440,7 +440,7 @@ function CalendarPage() {
             meeting_url: meetingUrl.trim() || null,
             capacity: Number(eventCapacity) || null,
             registration_deadline: regDeadline ? new Date(regDeadline).toISOString() : null,
-            status: "draft",
+            status: campaignStatus,
             created_by: user?.id || null,
           };
           const { error: err } = await supabase.from("company_events").insert([payload]);
