@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, RotateCcw, Plus, Pencil, Trash2, Undo2, LogOut, ShoppingCart, Users, User, X } from "lucide-react";
+import { Search, RotateCcw, Plus, Pencil, Trash2, Undo2, LogOut, ShoppingCart, Users, User, X, Calendar } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -303,6 +303,9 @@ function IndexInner({
                   </PDFDownloadLink>
                 )} */}
                 
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/calendar"><Calendar className="w-4 h-4 mr-2" /> Lịch hẹn</Link>
+                </Button>
                 <Button asChild variant="outline" size="sm">
                   <Link to="/customers"><Users className="w-4 h-4 mr-2" /> Khách hàng</Link>
                 </Button>

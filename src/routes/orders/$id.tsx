@@ -3,8 +3,15 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ArrowLeft, Printer, Calendar } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/orders/$id")({
   component: OrderDetail,
@@ -18,6 +25,8 @@ function OrderDetail() {
   const [order, setOrder] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [busy, setBusy] = useState(true);
+  const [checkinPromptOpen, setCheckinPromptOpen] = useState(false);
+  const [creatingCheckin, setCreatingCheckin] = useState(false);
 
   useEffect(() => {
     if (loading || !user) return;
@@ -50,14 +59,58 @@ function OrderDetail() {
       guestOrders[localIdx].status = status;
       localStorage.setItem("guest_orders", JSON.stringify(guestOrders));
       toast.success("Đã cập nhật");
-      setOrder({ ...order, status });
+      const updatedOrder = { ...order, status };
+      setOrder(updatedOrder);
+      if (status === "confirmed" && (updatedOrder.customer_id || updatedOrder.customer_name)) {
+        setCheckinPromptOpen(true);
+      }
       return;
     }
 
     const { error } = await supabase.from("orders").update({ status }).eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Đã cập nhật");
-    setOrder({ ...order, status });
+    const updatedOrder = { ...order, status };
+    setOrder(updatedOrder);
+    if (status === "confirmed" && (updatedOrder.customer_id || updatedOrder.customer_name)) {
+      setCheckinPromptOpen(true);
+    }
+  };
+
+  // Hàm tạo lịch trình Check-in tự động sau 7 ngày (bước 9)
+  const handleCreateCheckinEvent = async () => {
+    if (!user) {
+      toast.info("Tính năng tạo lịch hẹn trực tuyến cần đăng nhập");
+      setCheckinPromptOpen(false);
+      return;
+    }
+    setCreatingCheckin(true);
+    try {
+      const targetDate = new Date();
+      targetDate.setDate(targetDate.getDate() + 7);
+      
+      const payload = {
+        title: "Check-in khách sau mua hàng",
+        event_type: "check_in",
+        status: "pending",
+        starts_at: targetDate.toISOString(),
+        order_id: order.id,
+        customer_id: order.customer_id || null,
+        assigned_sale_id: order.sale_user_id || user.id,
+        created_by: user.id,
+        remind_before_minutes: 30
+      };
+
+      const { error } = await supabase.from("calendar_events").insert([payload]);
+      if (error) throw error;
+      
+      toast.success("Đã tạo lịch hẹn Check-in tự động sau 7 ngày!");
+      setCheckinPromptOpen(false);
+    } catch (err: any) {
+      toast.error("Lỗi tạo lịch Check-in: " + err.message);
+    } finally {
+      setCreatingCheckin(false);
+    }
   };
 
   if (busy) return <p className="p-6 text-sm text-muted-foreground">Đang tải…</p>;
@@ -153,6 +206,45 @@ function OrderDetail() {
           </div>
         </div>
       </main>
+
+      {/* Dialog Gợi ý Tạo Lịch Hẹn Check-in Khách Hàng Sau Khi Xác Nhận Đơn (bước 9) */}
+      <Dialog open={checkinPromptOpen} onOpenChange={setCheckinPromptOpen}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-primary font-bold">
+              <Calendar className="w-5 h-5" /> Gợi ý chăm sóc sau mua
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-3 text-xs text-slate-600 space-y-2">
+            <p className="text-sm font-semibold text-slate-800">
+              Tạo lịch check-in sau 7 ngày?
+            </p>
+            <p>
+              Hệ thống sẽ tự động lên lịch nhắc việc vào <span className="font-bold text-primary">7 ngày sau</span> để liên hệ hỏi thăm tình trạng sử dụng sản phẩm của khách hàng <span className="font-bold">{order.customer_name}</span>.
+            </p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setCheckinPromptOpen(false)}
+              disabled={creatingCheckin}
+            >
+              Không, bỏ qua
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleCreateCheckinEvent}
+              disabled={creatingCheckin}
+              className="font-bold"
+            >
+              {creatingCheckin ? "Đang tạo..." : "Đồng ý tạo lịch"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

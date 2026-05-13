@@ -63,6 +63,8 @@ function NewOrderPage() {
   const quoterPhone = user?.user_metadata?.phone || "";
   const [step, setStep] = useState<1 | 2>(1);
   const [showPdf, setShowPdf] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [customersList, setCustomersList] = useState<any[]>([]);
 
   useEffect(() => {
     setShowPdf(false);
@@ -111,6 +113,7 @@ function NewOrderPage() {
         }
         
         if (loadedOrder) {
+          setSelectedCustomerId(loadedOrder.customer_id || null);
           setCustomerName(loadedOrder.customer_name || "");
           setCustomerPhone(loadedOrder.customer_phone || "");
           setCustomerAddress(loadedOrder.customer_address || "");
@@ -128,6 +131,17 @@ function NewOrderPage() {
         }
         setBusy(false);
       }
+
+      // Tải danh sách khách hàng CRM để liên kết
+      try {
+        const localC = JSON.parse(localStorage.getItem("mock_customers") || "[]");
+        if (localC.length > 0) {
+          setCustomersList(localC);
+        } else {
+          const { data: cData } = await supabase.from("customers").select("*").order("created_at", { ascending: false });
+          if (cData) setCustomersList(cData);
+        }
+      } catch {}
 
       // Seed items from pickup cart in sessionStorage
       try {
@@ -299,6 +313,7 @@ function NewOrderPage() {
         if (idx >= 0) {
           guestOrders[idx] = {
             ...guestOrders[idx],
+            customer_id: selectedCustomerId || null,
             customer_name: customerName.trim(),
             customer_phone: customerPhone.trim() || null,
             customer_address: customerAddress.trim() || null,
@@ -318,6 +333,7 @@ function NewOrderPage() {
         id: crypto.randomUUID(),
         order_no: 3000 + guestOrders.length,
         sale_user_id: user?.id || "guest",
+        customer_id: selectedCustomerId || null,
         customer_name: customerName.trim(),
         customer_phone: customerPhone.trim() || null,
         customer_address: customerAddress.trim() || null,
@@ -347,7 +363,9 @@ function NewOrderPage() {
     let order = null;
 
     if (editId) {
-      const { error: updErr, data: updData } = await supabase.from("orders").update({
+      // Bổ sung luồng thử ghi kèm customer_id trước, nếu DB chưa có cột thì fallback bỏ qua
+      const payloadWithCid = {
+        customer_id: selectedCustomerId || null,
         customer_name: customerName.trim(),
         customer_phone: customerPhone.trim() || null,
         customer_address: customerAddress.trim() || null,
@@ -356,11 +374,20 @@ function NewOrderPage() {
         vat_rate: vatOn ? VAT_RATE : 0,
         total,
         status,
-      }).eq("id", editId).select().maybeSingle();
+      };
+      
+      let updRes = await supabase.from("orders").update(payloadWithCid).eq("id", editId).select().maybeSingle();
+      if (updRes.error && (updRes.error.code === '42703' || updRes.error.message?.includes("column"))) {
+        // Fallback bỏ customer_id
+        const fallbackPayload = { ...payloadWithCid };
+        delete (fallbackPayload as any).customer_id;
+        updRes = await supabase.from("orders").update(fallbackPayload).eq("id", editId).select().maybeSingle();
+      }
+
+      const { error: updErr, data: updData } = updRes;
       
       if (updErr) {
         if (updErr.message?.includes("row-level security")) {
-          // If we fail due to RLS, it means it was probably a local order being saved, or we don't have access.
           updateLocalOrder();
           toast.success(editId ? "Đã cập nhật đơn nháp" : "Đã lưu nháp");
           navigate({ to: "/orders" });
@@ -372,7 +399,6 @@ function NewOrderPage() {
       }
       
       if (!updData) {
-        // Fallback: it might be a local order!
         updateLocalOrder();
         toast.success(editId ? "Đã cập nhật đơn nháp" : "Đã lưu nháp");
         navigate({ to: "/orders" });
@@ -383,8 +409,9 @@ function NewOrderPage() {
       order = updData;
       await supabase.from("order_items").delete().eq("order_id", editId);
     } else {
-      const { data: insData, error } = await supabase.from("orders").insert({
+      const payloadWithCid = {
         sale_user_id: user.id,
+        customer_id: selectedCustomerId || null,
         customer_name: customerName.trim(),
         customer_phone: customerPhone.trim() || null,
         customer_address: customerAddress.trim() || null,
@@ -394,7 +421,16 @@ function NewOrderPage() {
         vat_rate: vatOn ? VAT_RATE : 0,
         total,
         status,
-      }).select().single();
+      };
+
+      let insRes = await supabase.from("orders").insert(payloadWithCid).select().single();
+      if (insRes.error && (insRes.error.code === '42703' || insRes.error.message?.includes("column"))) {
+        const fallbackPayload = { ...payloadWithCid };
+        delete (fallbackPayload as any).customer_id;
+        insRes = await supabase.from("orders").insert(fallbackPayload).select().single();
+      }
+
+      const { data: insData, error } = insRes;
       
       if (error || !insData) {
         if (error?.message?.includes("row-level security")) {
@@ -638,6 +674,38 @@ function NewOrderPage() {
                   <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs">2</div>
                   Thông tin giao hàng
                 </h2>
+
+                {/* Chọn khách hàng CRM để tự điền thông tin */}
+                <div className="space-y-2 pb-3 border-b border-border/60">
+                  <Label className="text-xs font-bold text-primary flex items-center gap-1.5">
+                    🔗 Chọn khách hàng từ Mini CRM:
+                  </Label>
+                  <select
+                    value={selectedCustomerId || ""}
+                    onChange={(e) => {
+                      const cid = e.target.value;
+                      setSelectedCustomerId(cid || null);
+                      if (cid) {
+                        const found = customersList.find(c => c.id === cid);
+                        if (found) {
+                          setCustomerName(found.contact_name || found.name || "");
+                          setCustomerPhone(found.phone || "");
+                          setCustomerAddress([found.address, found.city || found.province].filter(Boolean).join(", "));
+                          toast.success(`Đã liên kết đơn hàng với "${found.contact_name || found.name}"`);
+                        }
+                      }
+                    }}
+                    className="w-full h-9 px-3 bg-white border border-border rounded-md text-xs font-bold text-slate-800 shadow-2xs cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="">-- Chọn khách hàng có sẵn hoặc điền tự do bên dưới --</option>
+                    {customersList.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.contact_name || c.name} {c.facility_name ? `(${c.facility_name})` : ""} - {c.phone}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="c-name">Tên khách hàng *</Label>
