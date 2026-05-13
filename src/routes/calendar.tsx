@@ -1901,11 +1901,21 @@ function CalendarPage() {
                                   <div key={reg.id} className={`p-3 rounded-xl border transition-all ${reg.status === 'converted' ? 'bg-yellow-50/30 border-yellow-200' : reg.status === 'attended' ? 'bg-emerald-50/30 border-emerald-200' : 'bg-white border-slate-100 shadow-sm'}`}>
                                     <div className="flex items-start justify-between gap-2">
                                       <div className="space-y-1 flex-1">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                           <p className="text-xs font-bold text-slate-900">{reg.customer_name}</p>
                                           <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight border ${statusMeta.badgeClass}`}>
                                             {statusMeta.label}
                                           </span>
+                                          {(() => {
+                                            const gStatus = (reg as any).google_invite_status;
+                                            if (gStatus === 'sent') {
+                                              return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-blue-50 text-blue-600 border border-blue-200">Đã gửi Google Calendar</span>;
+                                            }
+                                            if (reg.add_to_calendar_url) {
+                                              return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-50 text-purple-600 border border-purple-200">Có link lịch</span>;
+                                            }
+                                            return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-50 text-slate-400 border border-slate-200">Chưa tạo link</span>;
+                                          })()}
                                         </div>
                                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500">
                                           {reg.customer_phone && <span className="flex items-center gap-1">📞 {reg.customer_phone}</span>}
