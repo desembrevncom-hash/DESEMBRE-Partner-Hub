@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
 import { 
-  ArrowLeft, Plus, Pencil, Trash2, Search, Loader2, Download, 
+  ArrowLeft, Plus, Pencil, Trash2, Search, Loader2, Download, FileSpreadsheet, 
   Phone, ShoppingBag, Eye, Filter, CheckCircle2, 
   Clock, AlertCircle, Sparkles, Users,
   Tag, MapPin, Building2
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import * as XLSX from 'xlsx';
 import {
   Dialog,
   DialogContent,
@@ -717,6 +718,69 @@ function CustomersPage() {
     toast.success(`Đã xuất thành công ${filtered.length} khách hàng ra file CSV`);
   };
 
+  const handleExportExcel = () => {
+    if (filtered.length === 0) {
+      toast.error("Không có dữ liệu khách hàng để xuất Excel");
+      return;
+    }
+
+    // Header tiếng Việt chuẩn xác theo đúng yêu cầu
+    const headers = [
+      "Tên khách", 
+      "Tên cơ sở", 
+      "Số điện thoại", 
+      "Email", 
+      "Địa chỉ", 
+      "Thành phố", 
+      "Trạng thái", 
+      "Nguồn", 
+      "Ghi chú", 
+      "Ngày tạo"
+    ];
+
+    const mapStatusVi = (s?: string) => {
+      switch (s) {
+        case "lead": return "LEAD (Tiềm năng)";
+        case "consulting": return "ĐANG TƯ VẤN";
+        case "quoted": return "ĐÃ BÁO GIÁ";
+        case "ordered": return "ĐÃ MUA HÀNG";
+        case "repeat": return "KHÁCH MUA LẠI";
+        case "inactive": return "NGƯNG CHĂM SÓC";
+        default: return s || "LEAD";
+      }
+    };
+
+    const rows = filtered.map((c: any) => ({
+      "Tên khách": c.name || c.contact_name || "",
+      "Tên cơ sở": c.facility_name || c.business_name || "",
+      "Số điện thoại": c.phone || "",
+      "Email": c.email || "",
+      "Địa chỉ": c.address || "",
+      "Thành phố": c.province || c.city || "",
+      "Trạng thái": mapStatusVi(c.status),
+      "Nguồn": c.source || "Facebook",
+      "Ghi chú": c.demand_notes || c.note || "",
+      "Ngày tạo": c.created_at ? new Date(c.created_at).toLocaleDateString("vi-VN") : new Date().toLocaleDateString("vi-VN")
+    }));
+
+    // Tạo Worksheet từ mảng Object (đảm bảo thứ tự cột theo mảng headers)
+    const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
+    
+    // Đặt độ rộng tự động cho các cột để file Excel lộng lẫy và dễ đọc
+    const colWidths = headers.map(h => ({ wch: Math.max(h.length, 20) }));
+    worksheet['!cols'] = colWidths;
+
+    // Tạo Workbook và gắn sheet với tên "Customers"
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Customers");
+
+    // Xuất file customers-yyyy-mm-dd.xlsx
+    const dateStr = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(workbook, `customers-${dateStr}.xlsx`);
+    
+    toast.success(`Đã xuất thành công ${filtered.length} khách hàng ra file Excel`);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50/50 pb-12 flex flex-col">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
@@ -742,12 +806,19 @@ function CustomersPage() {
             <Button 
               variant="outline" 
               onClick={handleExportCsv} 
-              className="shadow-sm hover:bg-slate-50 transition-all duration-300 font-bold border-slate-200 text-slate-700"
+              className="shadow-sm hover:bg-slate-50 transition-all duration-300 font-bold border-slate-200 text-slate-700 text-xs h-9"
             >
-              <Download className="w-4 h-4 mr-2 text-emerald-600" /> Export CSV
+              <Download className="w-3.5 h-3.5 mr-1.5 text-emerald-600" /> Export CSV
             </Button>
-            <Button onClick={() => handleOpenEdit()} className="shadow-sm hover:shadow transition-all duration-300 font-bold">
-              <Plus className="w-4 h-4 mr-2" /> Thêm khách hàng
+            <Button 
+              variant="outline" 
+              onClick={handleExportExcel} 
+              className="shadow-sm hover:bg-slate-50 transition-all duration-300 font-bold border-emerald-200 bg-emerald-50/30 text-emerald-800 text-xs h-9"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 mr-1.5 text-emerald-600" /> Export Excel
+            </Button>
+            <Button onClick={() => handleOpenEdit()} className="shadow-sm hover:shadow transition-all duration-300 font-bold text-xs h-9">
+              <Plus className="w-4 h-4 mr-1.5" /> Thêm khách hàng
             </Button>
           </div>
         </div>
