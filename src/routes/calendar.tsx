@@ -616,10 +616,14 @@ function CalendarPage() {
     try {
       setSaving(true);
       
+      const eventDatePart = endsAt ? endsAt.slice(0, 10) : startsAt.slice(0, 10);
+      const startTimePart = startsAt.includes("T") ? startsAt.slice(11, 16) : "08:30";
+      const endTimePart = endsAt && endsAt.includes("T") ? endsAt.slice(11, 16) : "12:00";
+
       const calLink = buildGoogleCalendarLink({
         title: title || "Sự kiện DESEMBRE Partner",
-        startsAt: startsAt,
-        endsAt: endsAt || null,
+        startsAt: `${eventDatePart}T${startTimePart}`,
+        endsAt: `${eventDatePart}T${endTimePart}`,
         location: eventLocation || meetingUrl || null,
         description: `Khách hàng: ${finalCustomerName} ${finalCustomerPhone ? `(${finalCustomerPhone})` : ''}\n\n${description || ''}`
       });
@@ -677,36 +681,29 @@ function CalendarPage() {
 
   const handleCopyCalendarMessage = async (reg: EventRegistration) => {
     try {
-      let calUrl = reg.add_to_calendar_url;
-      
-      if (!calUrl) {
-        calUrl = buildGoogleCalendarLink({
-          title: title || "Sự kiện DESEMBRE Partner",
-          startsAt: startsAt,
-          endsAt: endsAt || null,
-          location: eventLocation || meetingUrl || null,
-          description: `Khách hàng: ${reg.customer_name} ${reg.customer_phone ? `(${reg.customer_phone})` : ''}\n\n${description || ''}`
-        });
+      const eventDatePart = endsAt ? endsAt.slice(0, 10) : startsAt.slice(0, 10);
+      const startTimePart = startsAt.includes("T") ? startsAt.slice(11, 16) : "08:30";
+      const endTimePart = endsAt && endsAt.includes("T") ? endsAt.slice(11, 16) : "12:00";
 
-        if (reg.id && calUrl) {
-          supabase.from("event_registrations").update({ add_to_calendar_url: calUrl }).eq("id", reg.id).then();
-          setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, add_to_calendar_url: calUrl } : r));
-        }
+      const computedTargetStart = `${eventDatePart}T${startTimePart}`;
+      const computedTargetEnd = `${eventDatePart}T${endTimePart}`;
+
+      let calUrl = buildGoogleCalendarLink({
+        title: title || "Sự kiện DESEMBRE Partner",
+        startsAt: computedTargetStart,
+        endsAt: computedTargetEnd,
+        location: eventLocation || meetingUrl || null,
+        description: `Khách hàng: ${reg.customer_name} ${reg.customer_phone ? `(${reg.customer_phone})` : ''}\n\n${description || ''}`
+      });
+
+      if (reg.id && calUrl) {
+        supabase.from("event_registrations").update({ add_to_calendar_url: calUrl }).eq("id", reg.id).then();
+        setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, add_to_calendar_url: calUrl } : r));
       }
 
-      const formatTimeStr = (iso: string) => {
-        if (!iso) return "";
-        const dt = new Date(iso);
-        const h = dt.getHours().toString().padStart(2, '0');
-        const m = dt.getMinutes().toString().padStart(2, '0');
-        const d = dt.getDate().toString().padStart(2, '0');
-        const mo = (dt.getMonth() + 1).toString().padStart(2, '0');
-        return `${h}:${m} ngày ${d}/${mo}`;
-      };
-
-      const startPretty = formatTimeStr(startsAt);
-      const endPretty = endsAt ? formatTimeStr(endsAt) : "";
-      const timeLine = endPretty ? `${startPretty} - ${endPretty}` : startPretty;
+      const partsD = eventDatePart.split("-");
+      const dayMonthStr = partsD.length === 3 ? `${partsD[2]}/${partsD[1]}` : eventDatePart;
+      const timeLine = `${startTimePart} - ${endTimePart} ngày ${dayMonthStr}`;
       const locLine = eventLocation || meetingUrl || "Hệ thống DESEMBRE";
 
       const greeting = reg.customer_name 
@@ -1685,28 +1682,16 @@ function CalendarPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs font-bold text-slate-700">Sức chứa (Capacity)</Label>
-                      <Input
-                        type="number"
-                        value={eventCapacity}
-                        disabled={isCompanyEditDisabled}
-                        onChange={(e) => setEventCapacity(e.target.value ? Number(e.target.value) : "")}
-                        placeholder="Số lượng khách..."
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-bold text-slate-700">Hạn đăng ký</Label>
-                      <Input
-                        type="datetime-local"
-                        value={regDeadline}
-                        disabled={isCompanyEditDisabled}
-                        onChange={(e) => setRegDeadline(e.target.value)}
-                        className="h-8 text-xs"
-                      />
-                    </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold text-slate-700">Sức chứa (Capacity)</Label>
+                    <Input
+                      type="number"
+                      value={eventCapacity}
+                      disabled={isCompanyEditDisabled}
+                      onChange={(e) => setEventCapacity(e.target.value ? Number(e.target.value) : "")}
+                      placeholder="Số lượng khách..."
+                      className="h-8 text-xs"
+                    />
                   </div>
                 </TabsContent>
               </Tabs>
@@ -1714,7 +1699,7 @@ function CalendarPage() {
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-50">
                 <div className="space-y-1">
                   <Label htmlFor="ev-start" className="text-xs font-bold text-slate-700">
-                    Bắt đầu <span className="text-destructive">*</span>
+                    Bắt đầu mời <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     id="ev-start"
@@ -1726,7 +1711,7 @@ function CalendarPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="ev-end" className="text-xs font-bold text-slate-700">Kết thúc</Label>
+                  <Label htmlFor="ev-end" className="text-xs font-bold text-slate-700">Ngày giờ Sự kiện (GCal)</Label>
                   <Input
                     id="ev-end"
                     type="datetime-local"
@@ -1988,13 +1973,18 @@ function CalendarPage() {
                                         </Button>
                                       )}
                                       <a
-                                        href={buildGoogleCalendarLink({
-                                          title: title || "Sự kiện DESEMBRE Partner",
-                                          startsAt: startsAt,
-                                          endsAt: endsAt || null,
-                                          location: eventLocation || meetingUrl || null,
-                                          description: `Khách hàng: ${reg.customer_name} ${reg.customer_phone ? `(${reg.customer_phone})` : ''}\n\n${description || ''}`
-                                        })}
+                                        href={(() => {
+                                          const eventDatePart = endsAt ? endsAt.slice(0, 10) : startsAt.slice(0, 10);
+                                          const startTimePart = startsAt.includes("T") ? startsAt.slice(11, 16) : "08:30";
+                                          const endTimePart = endsAt && endsAt.includes("T") ? endsAt.slice(11, 16) : "12:00";
+                                          return buildGoogleCalendarLink({
+                                            title: title || "Sự kiện DESEMBRE Partner",
+                                            startsAt: `${eventDatePart}T${startTimePart}`,
+                                            endsAt: `${eventDatePart}T${endTimePart}`,
+                                            location: eventLocation || meetingUrl || null,
+                                            description: `Khách hàng: ${reg.customer_name} ${reg.customer_phone ? `(${reg.customer_phone})` : ''}\n\n${description || ''}`
+                                          });
+                                        })()}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         title="Thêm vào Google Calendar"
