@@ -828,18 +828,38 @@ function CalendarPage() {
       const custMeta = !isCompany && (ev as PersonalEvent).customer_id ? customersMap[(ev as PersonalEvent).customer_id!] : null;
       
       let color = "#0ea5e9"; // Xanh dương: Mặc định follow-up cá nhân
+      let statusPrefix = "";
+      
       if (isCompany) {
-        color = "#8b5cf6"; // Tím: Sự kiện công ty
+        if (ev.status === 'draft') {
+          color = "#d97706"; // Cam/Amber đậm cho Bản nháp
+          statusPrefix = "📝 [Nháp] ";
+        } else if (ev.status === 'completed') {
+          color = "#10b981"; // Xanh lá
+          statusPrefix = "✓ [Xong] ";
+        } else if (ev.status === 'closed') {
+          color = "#be123c"; // Đỏ/Rose đậm cho Đã đóng
+          statusPrefix = "🔒 [Đóng] ";
+        } else if (ev.status === 'cancelled') {
+          color = "#64748b"; // Xám cho Hủy
+          statusPrefix = "🚫 [Hủy] ";
+        } else {
+          color = "#8b5cf6"; // Tím rực rỡ cho Live/Published
+          statusPrefix = "📢 ";
+        }
       } else {
         const pEv = ev as PersonalEvent;
         if (pEv.status === "completed") {
-          color = "#10b981"; // Xanh lá: Hoàn thành
+          color = "#10b981"; // Xanh lá
+          statusPrefix = "✓ ";
         } else if (pEv.status === "cancelled") {
-          color = "#94a3b8"; // Xám: Đã hủy
+          color = "#94a3b8"; // Xám
+          statusPrefix = "🚫 ";
         } else if (isOverdue) {
-          color = "#ef4444"; // Đỏ: Quá hạn
+          color = "#ef4444"; // Đỏ rực
+          statusPrefix = "⚠️ [Quá hạn] ";
         } else if (pEv.event_type === "check_in") {
-          color = "#f97316"; // Cam: Check-in
+          color = "#f97316"; // Cam
         }
       }
       
@@ -851,7 +871,7 @@ function CalendarPage() {
       
       return {
         id: ev.id,
-        title: `${typeMeta.icon} ${ev.title}${custMeta ? ` (${custMeta.name})` : ""}${saleStatsLabel}`,
+        title: `${statusPrefix}${typeMeta.icon} ${ev.title}${custMeta ? ` (${custMeta.name})` : ""}${saleStatsLabel}`,
         start: ev.starts_at,
         end: ev.ends_at || undefined,
         backgroundColor: color,
@@ -862,7 +882,7 @@ function CalendarPage() {
         }
       };
     });
-  }, [filteredEvents, customersMap]);
+  }, [filteredEvents, customersMap, isAdmin, user?.id]);
 
   // Thay đổi trạng thái thẻ
   const handleStatusChange = async (id: string, newStatus: CalendarEventStatus) => {
@@ -1023,11 +1043,17 @@ function CalendarPage() {
                     >
                       <div className="flex justify-between items-start">
                         <h3 className="text-xs font-bold text-slate-900 line-clamp-1 flex-1 pr-2">{companyEv.title}</h3>
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
-                          companyEv.status === 'published' ? 'bg-emerald-100 text-emerald-700' : 
-                          companyEv.status === 'closed' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold shrink-0 ${
+                          companyEv.status === 'draft' ? 'bg-amber-100 text-amber-800' :
+                          companyEv.status === 'published' ? 'bg-purple-100 text-purple-700' : 
+                          companyEv.status === 'closed' ? 'bg-rose-100 text-rose-700' : 
+                          companyEv.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
                         }`}>
-                          {companyEv.status?.toUpperCase()}
+                          {companyEv.status === 'draft' ? '📝 NHÁP' :
+                           companyEv.status === 'published' ? '📢 LIVE' :
+                           companyEv.status === 'closed' ? '🔒 ĐÓNG' :
+                           companyEv.status === 'completed' ? '✓ XONG' :
+                           companyEv.status === 'cancelled' ? '🚫 HỦY' : ""}
                         </span>
                       </div>
                       
@@ -1297,11 +1323,34 @@ function CalendarPage() {
                           onClick={() => handleEventClick({ event: { id: ev.id } })}
                           className={`p-2.5 rounded-lg border text-xs cursor-pointer hover:border-primary transition-all ${!isCompany && (ev as PersonalEvent).status === 'completed' ? 'bg-slate-50/50 border-slate-100 opacity-60' : !isCompany && (ev as PersonalEvent).status === 'cancelled' ? 'bg-rose-50/30 border-rose-100 line-through opacity-50' : 'bg-white border-slate-100 shadow-2xs'}`}
                         >
-                          <div className="flex items-center gap-1.5">
-                            <span>{typeMeta.icon}</span>
-                            <p className="font-bold text-slate-900 line-clamp-1">{ev.title}</p>
+                          <div className="flex items-center gap-1.5 justify-between">
+                            <div className="flex items-center gap-1.5 overflow-hidden">
+                              <span>{typeMeta.icon}</span>
+                              <p className="font-bold text-slate-900 line-clamp-1">{ev.title}</p>
+                            </div>
+                            {isCompany ? (
+                              <span className={`shrink-0 text-[8px] px-1 py-0.2 rounded font-bold ${
+                                ev.status === 'draft' ? 'bg-amber-100 text-amber-800' :
+                                ev.status === 'published' ? 'bg-purple-100 text-purple-700' :
+                                ev.status === 'closed' ? 'bg-rose-100 text-rose-700' :
+                                ev.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                              }`}>
+                                {ev.status === 'draft' ? '📝 NHÁP' :
+                                 ev.status === 'published' ? '📢 LIVE' :
+                                 ev.status === 'closed' ? '🔒 ĐÓNG' :
+                                 ev.status === 'completed' ? '✓ XONG' : '🚫 HỦY'}
+                              </span>
+                            ) : (
+                              <span className={`shrink-0 text-[8px] px-1 py-0.2 rounded font-bold ${
+                                (ev as PersonalEvent).status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                                (ev as PersonalEvent).status === 'cancelled' ? 'bg-slate-100 text-slate-500' : 'bg-blue-100 text-blue-700'
+                              }`}>
+                                {(ev as PersonalEvent).status === 'completed' ? '✓ Xong' :
+                                 (ev as PersonalEvent).status === 'cancelled' ? '🚫 Hủy' : '⏳ Chờ'}
+                              </span>
+                            )}
                           </div>
-                          <p className="text-[11px] font-mono font-bold text-slate-600 mt-0.5">
+                          <p className="text-[11px] font-mono font-bold text-slate-600 mt-1">
                             ⏰ {formatCalendarTime(ev.starts_at)}
                           </p>
                           {custName && (
