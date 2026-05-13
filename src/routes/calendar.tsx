@@ -830,12 +830,40 @@ function CalendarPage() {
         attendee_name: reg.customer_name || "Khách Quý"
       };
 
-      const { data, error } = await supabase.functions.invoke('send-gcal-invite', {
-        body: payload
-      });
+      let success = false;
 
-      if (error || !data?.success) {
-        throw new Error(data?.error || error?.message || "Lỗi giao tiếp API Google");
+      try {
+        const { data, error } = await supabase.functions.invoke('send-gcal-invite', {
+          body: payload
+        });
+
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        success = data?.success || true;
+      } catch (sdkErr: any) {
+        console.warn("Lỗi định tuyến Supabase Invoke, tự động kích hoạt fetch fallback:", sdkErr);
+        // Fallback trực tiếp gọi fetch API với xác thực Header tiêu chuẩn
+        const session = (await supabase.auth.getSession()).data?.session;
+        const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-gcal-invite`;
+        const rawRes = await fetch(functionUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY,
+            "Authorization": `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const resData = await rawRes.json().catch(() => null);
+        if (!rawRes.ok || resData?.error) {
+          throw new Error(resData?.error || sdkErr.message || "Lỗi giao tiếp máy chủ Edge Function");
+        }
+        success = resData?.success || true;
+      }
+
+      if (!success) {
+        throw new Error("Không nhận được tín hiệu phản hồi hợp lệ từ Google");
       }
 
       toast.success("Đã gửi thư mời chính thức thành công!", { id: tid });

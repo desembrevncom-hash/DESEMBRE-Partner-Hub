@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.export-crm-to-google-sheets]
 verify_jwt = false
+
+[functions.send-gcal-invite]
+verify_jwt = false
