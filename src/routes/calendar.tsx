@@ -709,10 +709,14 @@ function CalendarPage() {
       const timeLine = endPretty ? `${startPretty} - ${endPretty}` : startPretty;
       const locLine = eventLocation || meetingUrl || "Hệ thống DESEMBRE";
 
-      const msg = `Chị/Anh ơi, em gửi lịch sự kiện Desembre ạ.\n\nTên sự kiện: ${title || "Sự kiện DESEMBRE Partner"}\nThời gian: ${timeLine}\nĐịa điểm: ${locLine}\n\nAnh/Chị bấm link này để thêm vào Google Calendar và nhận nhắc lịch:\n${calUrl}`;
+      const greeting = reg.customer_name 
+        ? `Chị/Anh ${reg.customer_name} ơi, em gửi lịch sự kiện Desembre ạ.` 
+        : `Chị/Anh ơi, em gửi lịch sự kiện Desembre ạ.`;
+
+      const msg = `${greeting}\n\nTên sự kiện: ${title || "Sự kiện DESEMBRE Partner"}\nThời gian: ${timeLine}\nĐịa điểm: ${locLine}\n\nAnh/Chị bấm link này để thêm vào Google Calendar và nhận nhắc lịch:\n${calUrl}`;
 
       await navigator.clipboard.writeText(msg);
-      toast.success("Đã copy link lịch gửi khách");
+      toast.success("Đã copy tin nhắn gửi khách");
     } catch (err) {
       toast.error("Lỗi copy link lịch: Trình duyệt từ chối quyền Clipboard");
     }
@@ -1986,10 +1990,10 @@ function CalendarPage() {
                                       <button
                                         type="button"
                                         onClick={() => handleCopyCalendarMessage(reg)}
-                                        title="Copy link lịch kèm mẫu tin nhắn gửi khách"
+                                        title="Copy tin nhắn kèm link lịch gửi khách"
                                         className="h-8 px-2 flex items-center justify-center gap-1 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] font-bold border border-purple-200 rounded-lg shadow-2xs transition-all shrink-0"
                                       >
-                                        📋 <span className="hidden sm:inline">Copy link</span>
+                                        📋 <span className="hidden sm:inline">Copy tin nhắn</span>
                                       </button>
                                     </div>
                                   </div>
