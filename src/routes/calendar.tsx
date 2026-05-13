@@ -803,9 +803,18 @@ function CalendarPage() {
   };
 
   const handleSendRealGCalInvite = async (reg: EventRegistration) => {
-    if (!reg.attendee_email) {
-      toast.error("Khách mời chưa có địa chỉ Email! Vui lòng bổ sung trước.");
-      return;
+    let targetEmail = reg.attendee_email;
+    if (!targetEmail) {
+      const input = window.prompt(`Khách mời "${reg.customer_name || 'Khách hàng'}" chưa có Email.\nVui lòng nhập địa chỉ Email để hệ thống gửi thư mời chính thức:`, "");
+      if (!input || !input.trim()) {
+        toast.warning("Đã hủy: Cần có địa chỉ Email để thực hiện gửi lời mời Google Calendar.");
+        return;
+      }
+      targetEmail = input.trim();
+      
+      // Cập nhật ngầm vào CSDL Supabase
+      supabase.from("event_registrations").update({ attendee_email: targetEmail }).eq("id", reg.id).then();
+      setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, attendee_email: targetEmail } as any : r));
     }
 
     const tid = toast.loading("Đang kết nối với Google Calendar và gửi thiệp mời từ Công ty...");
@@ -817,7 +826,7 @@ function CalendarPage() {
         ends_at: endsAt || startsAt,
         location: eventLocation || meetingUrl || "Hệ thống DESEMBRE Việt Nam",
         description: description,
-        attendee_email: reg.attendee_email,
+        attendee_email: targetEmail,
         attendee_name: reg.customer_name || "Khách Quý"
       };
 
@@ -831,7 +840,7 @@ function CalendarPage() {
 
       toast.success("Đã gửi thư mời chính thức thành công!", { id: tid });
       
-      setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, google_invite_status: "invited" } as any : r));
+      setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, google_invite_status: "invited", attendee_email: targetEmail } as any : r));
     } catch (err: any) {
       toast.error(`Gửi thất bại: ${err.message}`, { id: tid });
     }
@@ -2078,7 +2087,7 @@ function CalendarPage() {
                                           Check-in
                                         </Button>
                                       )}
-                                      {isManager && reg.attendee_email && (reg as any).google_invite_status !== 'invited' && (
+                                      {isManager && (reg as any).google_invite_status !== 'invited' && (
                                         <button
                                           type="button"
                                           onClick={() => handleSendRealGCalInvite(reg)}
