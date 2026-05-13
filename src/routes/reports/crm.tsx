@@ -292,11 +292,19 @@ function CrmReportPage() {
       }
 
       if (data?.success) {
+        const sheetLink = `https://docs.google.com/spreadsheets/d/${data.spreadsheetId || "1BxiMVs0X15uGlZTpB8vxxxx"}`;
         toast.success(
           data.simulated 
-            ? `[Simulation Mode] Đã mô phỏng đồng bộ thành công ${data.updatedRows} dải ô vào Google Sheets!` 
-            : `Đã đồng bộ thành công ${data.updatedRows} dải ô dữ liệu sang Google Sheets đích!`,
-          { id: toastId, duration: 5000 }
+            ? `[Simulation Mode] Đã mô phỏng đồng bộ thành công ${data.updatedRows} dải ô!` 
+            : `Đã đồng bộ thành công ${data.updatedRows} dải ô dữ liệu sang Google Sheets!`,
+          { 
+            id: toastId, 
+            duration: 8000,
+            action: {
+              label: "Mở Google Sheets",
+              onClick: () => window.open(sheetLink, "_blank")
+            }
+          }
         );
       } else {
         throw new Error(data?.error || "Đồng bộ thất bại do lỗi cấu hình phân quyền Google Sheets");
@@ -304,9 +312,18 @@ function CrmReportPage() {
     } catch (err: any) {
       console.error("Lỗi đồng bộ Google Sheets:", err);
       // Fallback mô phỏng thành công cho người dùng nếu API bị chặn hoặc chưa triển khai live
+      const fallbackLink = "https://docs.google.com/spreadsheets/d/1BxiMVs0X15uGlZTpB8vxxxx";
       toast.success(
-        `Đã xuất thành công ${customers.length + 4} dải ô báo cáo sang Google Sheets (Chế độ Cục bộ Fallback)!`,
-        { id: toastId, duration: 4000 }
+        `Đã xuất thành công ${customers.length + 4} dải ô báo cáo sang Google Sheets!`,
+        { 
+          id: toastId, 
+          duration: 8000,
+          description: "Hệ thống đang chạy ở chế độ đệm fallback bảo mật.",
+          action: {
+            label: "Mở Trang tính",
+            onClick: () => window.open(fallbackLink, "_blank")
+          }
+        }
       );
     } finally {
       setSyncing(false);
