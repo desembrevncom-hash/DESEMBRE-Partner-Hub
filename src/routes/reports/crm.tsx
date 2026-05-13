@@ -292,7 +292,7 @@ function CrmReportPage() {
       }
 
       if (data?.success) {
-        const sheetLink = `https://docs.google.com/spreadsheets/d/${data.spreadsheetId || "1BxiMVs0X15uGlZTpB8vxxxx"}`;
+        const sheetLink = `https://docs.google.com/spreadsheets/d/${data.spreadsheetId || "1qSw-dGf8lkCZN69MTKMoDwwuovQLxUXR-9oin1tu5Ks"}`;
         toast.success(
           data.simulated 
             ? `[Simulation Mode] Đã mô phỏng đồng bộ thành công ${data.updatedRows} dải ô!` 
@@ -312,7 +312,7 @@ function CrmReportPage() {
     } catch (err: any) {
       console.error("Lỗi đồng bộ Google Sheets:", err);
       // Fallback mô phỏng thành công cho người dùng nếu API bị chặn hoặc chưa triển khai live
-      const fallbackLink = "https://docs.google.com/spreadsheets/d/1BxiMVs0X15uGlZTpB8vxxxx";
+      const fallbackLink = "https://docs.google.com/spreadsheets/d/1qSw-dGf8lkCZN69MTKMoDwwuovQLxUXR-9oin1tu5Ks";
       toast.success(
         `Đã xuất thành công ${customers.length + 4} dải ô báo cáo sang Google Sheets!`,
         { 
