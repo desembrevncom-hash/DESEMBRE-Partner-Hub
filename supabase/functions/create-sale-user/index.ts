@@ -63,24 +63,24 @@ Deno.serve(async (req) => {
     }
 
     // Tối ưu hóa: Dùng .limit(1) thay vì .maybeSingle() để triệt tiêu vĩnh viễn lỗi trả về nhiều dòng (PGRST116)
-    const { data: adminRoles, error: adminRoleError } = await adminClient
+    const { data: managerRoles, error: managerRoleError } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
-      .eq("role", "admin")
+      .in("role", ["admin", "sub_admin"])
       .limit(1);
 
     const isPrimaryAdmin = user.email === "desembrevn.com@gmail.com";
 
-    if (adminRoleError) {
+    if (managerRoleError) {
       return json(
-        { error: `Không kiểm tra được quyền admin: ${adminRoleError.message}` },
+        { error: `Không kiểm tra được quyền quản trị: ${managerRoleError.message}` },
         400
       );
     }
 
-    if (!isPrimaryAdmin && (!adminRoles || adminRoles.length === 0)) {
-      return json({ error: "Admin only" }, 403);
+    if (!isPrimaryAdmin && (!managerRoles || managerRoles.length === 0)) {
+      return json({ error: "Manager access required" }, 403);
     }
 
     const body = await req.json();

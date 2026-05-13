@@ -60,24 +60,28 @@ Deno.serve(async (req) => {
       return json({ error: "Unauthorized" }, 401);
     }
 
-    const { data: adminRole, error: adminRoleError } = await adminClient
+    // Tối ưu hóa: Lấy danh sách các vai trò quản lý của người gọi
+    const { data: callerRoles, error: callerRoleError } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", currentUser.id)
-      .eq("role", "admin")
-      .maybeSingle();
+      .in("role", ["admin", "sub_admin"]);
 
     const isPrimaryAdmin = currentUser.email === "desembrevn.com@gmail.com";
 
-    if (adminRoleError) {
+    if (callerRoleError) {
       return json(
-        { error: `Không kiểm tra được quyền admin: ${adminRoleError.message}` },
+        { error: `Không kiểm tra được quyền quản trị: ${callerRoleError.message}` },
         400
       );
     }
 
-    if (!isPrimaryAdmin && !adminRole) {
-      return json({ error: "Admin only" }, 403);
+    const callerRoleStrings = (callerRoles || []).map((r) => r.role);
+    const isCallerAdmin = isPrimaryAdmin || callerRoleStrings.includes("admin");
+    const isCallerSubAdmin = callerRoleStrings.includes("sub_admin");
+
+    if (!isCallerAdmin && !isCallerSubAdmin) {
+      return json({ error: "Manager access required" }, 403);
     }
 
     const body = await req.json();
@@ -89,6 +93,23 @@ Deno.serve(async (req) => {
 
     if (userId === currentUser.id) {
       return json({ error: "Không thể xoá chính tài khoản đang đăng nhập" }, 400);
+    }
+
+    // Tầng 2 logic: Kiểm tra vai trò của đối tượng bị xóa để thực thi rào chắn bảo mật cấp hệ thống
+    const { data: targetRoles } = await adminClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId);
+
+    const targetRoleStrings = (targetRoles || []).map((r) => r.role);
+
+    if (targetRoleStrings.includes("admin")) {
+      return json({ error: "Hệ thống bảo mật từ chối thao tác xóa tài khoản ADMIN gốc!" }, 403);
+    }
+
+    // Nếu người gọi chỉ là Phó Admin, tuyệt đối cấm xóa tài khoản Phó Admin ngang hàng khác
+    if (!isCallerAdmin && targetRoleStrings.includes("sub_admin")) {
+      return json({ error: "Phó Admin không có quyền xóa tài khoản Phó Admin ngang hàng!" }, 403);
     }
 
     const { data: targetUserData, error: targetUserError } =
