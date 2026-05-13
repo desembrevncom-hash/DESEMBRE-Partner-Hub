@@ -742,6 +742,55 @@ function CalendarPage() {
     }
   };
 
+  const handleExportCampaignCSV = () => {
+    if (modalRegistrations.length === 0) {
+      toast.warning("Chưa có dữ liệu khách hàng để xuất");
+      return;
+    }
+
+    try {
+      const headers = ["STT", "Tên khách hàng", "Số điện thoại", "Email", "Trạng thái", "Ghi chú", "Nhân viên SALE", "Ngày đăng ký"];
+      
+      const escapeCell = (cell: any) => {
+        if (cell === null || cell === undefined) return '""';
+        const str = String(cell).replace(/"/g, '""');
+        return `"${str}"`;
+      };
+
+      const rows = modalRegistrations.map((reg, index) => {
+        const stMeta = getAttendeeStatusMeta(reg.status);
+        const saleName = reg.added_by_sale_name || "Khác/Admin";
+        const createdStr = reg.created_at ? new Date(reg.created_at).toLocaleString("vi-VN") : "";
+        return [
+          index + 1,
+          reg.customer_name || "",
+          reg.customer_phone || "",
+          reg.attendee_email || "",
+          stMeta.label || "",
+          reg.note || "",
+          saleName,
+          createdStr
+        ].map(escapeCell).join(",");
+      });
+
+      const csvContent = "\uFEFF" + [headers.map(escapeCell).join(","), ...rows].join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      
+      const safeTitle = (title || "Danh_sach_khach_hang").replace(/[^a-zA-Z0-9]/g, "_");
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `DESEMBRE_Campaign_${safeTitle}_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success("Đã xuất danh sách thành công! Bạn có thể Import file CSV này thẳng vào Google Sheets.");
+    } catch (err: any) {
+      toast.error("Lỗi khi xuất file: " + err.message);
+    }
+  };
+
   const handleUpdateAttendeeStatus = async (regId: string, assignedSaleId: string, nextStatus: RegistrationStatus) => {
     if (!isManager && assignedSaleId !== user?.id) {
       toast.error("Bạn chỉ có quyền cập nhật khách do mình phụ trách");
@@ -1757,7 +1806,7 @@ function CalendarPage() {
                           variant="outline" 
                           size="sm" 
                           className="h-7 text-[10px] bg-white/10 border-white/20 text-white hover:bg-white/20 font-bold"
-                          onClick={() => toast.info("Tính năng Export CSV đang được khởi tạo...")}
+                          onClick={handleExportCampaignCSV}
                         >
                           📥 Xuất danh sách
                         </Button>
