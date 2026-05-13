@@ -123,6 +123,34 @@ function AdminUsersPage() {
     reload();
   }, [user, canManageUsers, loading, navigate]);
 
+  // Lắng nghe tự động các luồng phát sóng Realtime từ cơ sở dữ liệu
+  useEffect(() => {
+    if (!canManageUsers) return;
+
+    const channel = supabase
+      .channel("admin-users-realtime-stream")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profiles" },
+        () => {
+          // Bất kỳ thay đổi nào từ Admin khác hoặc DB trigger sẽ lập tức nạp lại danh sách âm thầm
+          reload();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "user_roles" },
+        () => {
+          reload();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [canManageUsers]);
+
   // Deduplicate and merge live cloud arrays with persistent component memory
   const combinedProfiles = useMemo(() => {
     const map = new Map<string, ProfileRow>();
