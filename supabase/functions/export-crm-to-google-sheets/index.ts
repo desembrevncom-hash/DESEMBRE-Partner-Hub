@@ -89,8 +89,8 @@ Deno.serve(async (req) => {
       ]);
     });
 
-    // Gọi HTTP PUT cập nhật dải ô Sheet1!A1 của trang tính đích
-    const targetRange = "Sheet1!A1";
+    // Ghi đè vào dải ô A1 (Google Sheets API tự động ngầm định trỏ vào trang tính đầu tiên bất kể tên sheet là tiếng Anh hay Việt)
+    const targetRange = "A1";
     const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${targetRange}?valueInputOption=USER_ENTERED`;
 
     const sheetResponse = await fetch(updateUrl, {
