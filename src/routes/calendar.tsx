@@ -317,15 +317,24 @@ function CalendarPage() {
     setPersonalType("follow_up");
     setCompanyType("workshop");
     
-    // Gợi ý giờ mặc định: 1 tiếng sau mốc hiện tại
+    const targetTab = forcedTab || modalTab;
     const now = new Date();
-    now.setHours(now.getHours() + 1);
-    now.setMinutes(0);
     const offset = now.getTimezoneOffset() * 60000;
-    const localISOTime = new Date(now.getTime() - offset).toISOString().slice(0, 16);
+    const baseDateStr = new Date(now.getTime() - offset).toISOString().slice(0, 10);
     
-    setStartsAt(localISOTime);
-    setEndsAt("");
+    if (targetTab === "company") {
+      setStartsAt(`${baseDateStr}T08:30`);
+      setEndsAt(`${baseDateStr}T12:00`);
+      setRegDeadline(`${baseDateStr}T12:00`);
+    } else {
+      now.setHours(now.getHours() + 1);
+      now.setMinutes(0);
+      const localISOTime = new Date(now.getTime() - offset).toISOString().slice(0, 16);
+      setStartsAt(localISOTime);
+      setEndsAt("");
+      setRegDeadline("");
+    }
+    
     setCustomerId("");
     setCustomerSearch("");
     setAssignedSaleId(isManager ? "" : (user?.id || ""));
@@ -485,26 +494,37 @@ function CalendarPage() {
   };
 
   const handleDateClick = (arg: { dateStr: string; date: Date }) => {
-    let localISOTime = "";
-    if (arg.dateStr.includes("T")) {
-      localISOTime = arg.dateStr.slice(0, 16);
-    } else {
-      localISOTime = `${arg.dateStr}T08:00`;
-    }
+    const isCompTab = isManager;
+    const baseDateStr = arg.dateStr.slice(0, 10);
     
     setTitle("");
     setDescription("");
     setPersonalType("follow_up");
     setCompanyType("workshop");
-    setStartsAt(localISOTime);
-    setEndsAt("");
+    
+    if (isCompTab) {
+      setStartsAt(`${baseDateStr}T08:30`);
+      setEndsAt(`${baseDateStr}T12:00`);
+      setRegDeadline(`${baseDateStr}T12:00`);
+    } else {
+      let localISOTime = "";
+      if (arg.dateStr.includes("T")) {
+        localISOTime = arg.dateStr.slice(0, 16);
+      } else {
+        localISOTime = `${baseDateStr}T08:00`;
+      }
+      setStartsAt(localISOTime);
+      setEndsAt("");
+      setRegDeadline("");
+    }
+    
     setCustomerId("");
     setCustomerSearch("");
     setAssignedSaleId(isManager ? "" : (user?.id || ""));
     setRemindMinutes(getDefaultReminderMinutes());
     setEditEventId(null);
     setCampaignStatus("published");
-    setModalTab(isManager ? "company" : "personal");
+    setModalTab(isCompTab ? "company" : "personal");
     setModalOpen(true);
   };
 
@@ -1409,7 +1429,17 @@ function CalendarPage() {
                     </button>
                     <button 
                       type="button"
-                      onClick={() => setModalTab("company")}
+                      onClick={() => {
+                        setModalTab("company");
+                        if (!endsAt) {
+                          const baseD = startsAt ? startsAt.slice(0, 10) : new Date().toISOString().slice(0, 10);
+                          setEndsAt(`${baseD}T12:00`);
+                          setRegDeadline(`${baseD}T12:00`);
+                          if (startsAt && startsAt.includes("T") && Number(startsAt.slice(11, 13)) >= 12) {
+                            setStartsAt(`${baseD}T08:30`);
+                          }
+                        }
+                      }}
                       className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${modalTab === 'company' ? 'bg-white shadow-xs text-purple-600' : 'text-slate-500'}`}
                     >
                       CÔNG TY
