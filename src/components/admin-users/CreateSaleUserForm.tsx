@@ -32,10 +32,12 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAd
 
     setCreating(true);
 
+    // Ủy thác trọn vẹn việc phân quyền atomic ở DB cho Service Role của Edge Function
     const { data, error } = await supabase.functions.invoke("create-sale-user", {
       body: {
         email,
         fullName,
+        role: targetRole,
       },
     });
 
@@ -90,12 +92,6 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAd
     toast.success(`Đã tạo tài khoản ${targetRole === "sub_admin" ? "PHÓ ADMIN" : "SALE"}. Mật khẩu: 12345678`);
 
     if (data?.user) {
-      if (targetRole === "sub_admin") {
-        // Tầng 2 logic: Gỡ vai trò SALE mặc định do bot tạo và gán quyền PHÓ ADMIN
-        await supabase.from("user_roles").delete().eq("user_id", data.user.id).eq("role", "sale").catch(() => null);
-        await supabase.from("user_roles").insert({ user_id: data.user.id, role: "sub_admin" }).catch(() => null);
-      }
-
       onSuccessOptimistic({
         id: data.user.id,
         email: data.user.email,

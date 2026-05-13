@@ -48,6 +48,10 @@ function AdminUsersPage() {
   const [confirmKeyword, setConfirmKeyword] = useState("");
   const [deleting, setDeleting] = useState(false);
 
+  // Persistent component-level buffer cache to ensure optimistic identities never flicker or disappear during Supabase RLS schema reload delays
+  const [optimisticCreated, setOptimisticCreated] = useState<ProfileRow[]>([]);
+  const [optimisticCreatedRoles, setOptimisticCreatedRoles] = useState<RoleRow[]>([]);
+
   const reload = async () => {
     try {
       const resP = await supabase.from("profiles").select("id,email,display_name");
@@ -66,13 +70,36 @@ function AdminUsersPage() {
       const loadedProfiles: ProfileRow[] = [...p];
       const loadedRoles: RoleRow[] = [...r] as RoleRow[];
 
-      // Deduplicate profiles cleanly
-      const uniqueProfilesMap = new Map<string, ProfileRow>();
+      // Tầng 2 logic: Cân bằng và tự động sáp nhập bộ đệm cache optimistic nếu cloud chưa nạp kịp dòng mới do trễ PostgREST cache
+      const loadedProfilesMap = new Map<string, ProfileRow>();
       for (const prof of loadedProfiles) {
-        uniqueProfilesMap.set(prof.id, prof);
+        loadedProfilesMap.set(prof.id, prof);
       }
 
-      setProfiles(Array.from(uniqueProfilesMap.values()));
+      setOptimisticCreated((prev) => {
+        const remainingOptimistic: ProfileRow[] = [];
+        for (const op of prev) {
+          if (!loadedProfilesMap.has(op.id)) {
+            loadedProfilesMap.set(op.id, op);
+            remainingOptimistic.push(op);
+          }
+        }
+        return remainingOptimistic;
+      });
+
+      const loadedRolesSet = new Set(loadedRoles.map((roleItem) => `${roleItem.user_id}:${roleItem.role}`));
+      setOptimisticCreatedRoles((prev) => {
+        const remaining: RoleRow[] = [];
+        for (const or of prev) {
+          if (!loadedRolesSet.has(`${or.user_id}:${or.role}`)) {
+            loadedRoles.push(or);
+            remaining.push(or);
+          }
+        }
+        return remaining;
+      });
+
+      setProfiles(Array.from(loadedProfilesMap.values()));
       setRoles(loadedRoles);
     } catch (err) {
       console.error("Lỗi nạp dữ liệu reload:", err);
@@ -95,10 +122,6 @@ function AdminUsersPage() {
     }
     reload();
   }, [user, canManageUsers, loading, navigate]);
-
-  // Persistent component-level buffer cache to ensure optimistic identities never flicker or disappear during Supabase RLS schema reload delays
-  const [optimisticCreated, setOptimisticCreated] = useState<ProfileRow[]>([]);
-  const [optimisticCreatedRoles, setOptimisticCreatedRoles] = useState<RoleRow[]>([]);
 
   // Deduplicate and merge live cloud arrays with persistent component memory
   const combinedProfiles = useMemo(() => {
@@ -327,8 +350,8 @@ function AdminUsersPage() {
       </header>
 
       <main className="container mx-auto px-4 md:px-6 py-6 space-y-6">
-        {/* Superior premium stat blocks */}
-        <UserStats profiles={profiles} roles={roles} />
+        {/* Superior premium stat blocks mapping merged atomic buffer arrays directly */}
+        <UserStats profiles={combinedProfiles} roles={combinedRoles} />
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Form module container */}

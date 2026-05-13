@@ -62,13 +62,12 @@ Deno.serve(async (req) => {
       return json({ error: "Unauthorized" }, 401);
     }
 
-    // Tối ưu hóa: Dùng .limit(1) thay vì .maybeSingle() để triệt tiêu vĩnh viễn lỗi trả về nhiều dòng (PGRST116)
+    // Tối ưu hóa: Lấy danh sách các vai trò quản lý của người gọi
     const { data: managerRoles, error: managerRoleError } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
-      .in("role", ["admin", "sub_admin"])
-      .limit(1);
+      .in("role", ["admin", "sub_admin"]);
 
     const isPrimaryAdmin = user.email === "desembrevn.com@gmail.com";
 
@@ -79,7 +78,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!isPrimaryAdmin && (!managerRoles || managerRoles.length === 0)) {
+    const callerRoleStrings = (managerRoles || []).map((r) => r.role);
+    const isCallerAdmin = isPrimaryAdmin || callerRoleStrings.includes("admin");
+    const isCallerSubAdmin = callerRoleStrings.includes("sub_admin");
+
+    if (!isCallerAdmin && !isCallerSubAdmin) {
       return json({ error: "Manager access required" }, 403);
     }
 
@@ -87,6 +90,7 @@ Deno.serve(async (req) => {
 
     const email = String(body.email || "").trim().toLowerCase();
     const fullName = String(body.fullName || "").trim();
+    const requestedRole = String(body.role || "sale").trim().toLowerCase();
 
     if (!email) {
       return json({ error: "Email is required" }, 400);
@@ -95,6 +99,9 @@ Deno.serve(async (req) => {
     if (!fullName) {
       return json({ error: "Tên hiển thị là bắt buộc" }, 400);
     }
+
+    // Tầng 2 logic: Đảm bảo nguyên tử hóa thao tác chèn role sub_admin trực tiếp bằng quyền Service Role để triệt tiêu mọi rủi ro mất đồng bộ RLS ở Frontend
+    const finalRole = (requestedRole === "sub_admin" && isCallerAdmin) ? "sub_admin" : "sale";
 
     const { data: createdUser, error: createUserError } =
       await adminClient.auth.admin.createUser({
@@ -144,7 +151,7 @@ Deno.serve(async (req) => {
     const { error: roleError } = await adminClient.from("user_roles").upsert(
       {
         user_id: newUserId,
-        role: "sale",
+        role: finalRole,
       },
       {
         onConflict: "user_id,role",
@@ -156,7 +163,7 @@ Deno.serve(async (req) => {
 
       return json(
         {
-          error: `Tạo Auth user thành công nhưng gán role SALE thất bại: ${roleError.message}`,
+          error: `Tạo Auth user thành công nhưng gán role thất bại: ${roleError.message}`,
         },
         400
       );
@@ -168,7 +175,7 @@ Deno.serve(async (req) => {
         id: newUserId,
         email,
         displayName: fullName,
-        role: "sale",
+        role: finalRole,
         defaultPassword: DEFAULT_SALE_PASSWORD,
       },
     });
