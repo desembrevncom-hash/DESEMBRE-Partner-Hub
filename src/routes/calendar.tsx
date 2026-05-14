@@ -547,8 +547,8 @@ function CalendarPage() {
 
   const handleDeleteEvent = async (id: string, type: 'personal' | 'company') => {
     if (type === 'company') {
-      if (!window.confirm("Hủy sự kiện Công ty sẽ đồng thời gỡ bỏ lịch trình này khỏi Google Calendar.\nBạn có chắc chắn muốn tiếp tục không?")) return;
-      const reasonInput = window.prompt("Vui lòng nhập lý do hủy sự kiện (tùy chọn):", "");
+      if (!window.confirm("Nếu sự kiện đã đồng bộ Google Calendar, lịch trên Google cũng sẽ bị xoá/hủy.")) return;
+      const reasonInput = window.prompt("Vui lòng nhập lý do huỷ sự kiện (tùy chọn):", "");
       if (reasonInput === null) return; // Người dùng bấm Hủy
       
       try {
@@ -560,11 +560,20 @@ function CalendarPage() {
         if (res.data && !res.data.success) {
           throw new Error(res.data.error || "Lỗi nội bộ khi hủy sự kiện");
         }
-        toast.success("Đã hủy sự kiện và gỡ Lịch Google thành công");
+        toast.success("Đã huỷ sự kiện");
         setModalOpen(false);
         await loadEvents();
       } catch (err: any) {
-        toast.error("Hủy thất bại: " + (err.message || JSON.stringify(err)));
+        let errorMsg = err.message || JSON.stringify(err);
+        if (err.context && typeof err.context.json === 'function') {
+          try {
+            const ctxData = await err.context.json();
+            if (ctxData && ctxData.error) {
+              errorMsg = ctxData.error;
+            }
+          } catch (_) {}
+        }
+        toast.error("Hủy thất bại: " + errorMsg);
       } finally {
         setSaving(false);
       }

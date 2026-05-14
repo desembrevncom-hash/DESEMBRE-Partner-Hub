@@ -120,7 +120,7 @@ serve(async (req) => {
         error: errorMsg,
       }),
       {
-        status: 200, // Trả về HTTP 200 để Supabase JS Relay Client nhận trọn vẹn payload JSON bóc tách mượt mà
+        status: 400, // Trả về HTTP 400 để Supabase JS Client tự động kích hoạt ném FunctionsHttpError hỗ trợ bóc tách qua error.context.json()
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
