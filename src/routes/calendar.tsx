@@ -137,6 +137,7 @@ function CalendarPage() {
 
   const [modalTab, setModalTab] = useState<"personal" | "company">("personal");
   const [sendingInviteIds, setSendingInviteIds] = useState<string[]>([]);
+  const [previewInviteReg, setPreviewInviteReg] = useState<EventRegistration | null>(null);
 
   // Hàm nạp danh sách dữ liệu nền tảng
   const loadBaseData = async () => {
@@ -2441,6 +2442,14 @@ function CalendarPage() {
                                           </button>
                                         );
                                       })()}
+                                      <button
+                                        type="button"
+                                        onClick={() => setPreviewInviteReg(reg)}
+                                        title="Xem trước nội dung thư mời Google Calendar sẽ gửi khách"
+                                        className="h-8 px-2 flex items-center justify-center gap-1 bg-slate-50 hover:bg-slate-100 text-slate-700 text-[10px] font-bold border border-slate-200 rounded-lg shadow-2xs transition-all shrink-0"
+                                      >
+                                        👁️ <span className="hidden sm:inline">Xem trước</span>
+                                      </button>
                                       <a
                                         href={(() => {
                                           const targetDatePart = endsAt ? endsAt.slice(0, 10) : startsAt.slice(0, 10);
@@ -2575,6 +2584,59 @@ function CalendarPage() {
                 <span className="text-xs font-bold text-slate-700">Sau 1 tuần</span>
               </div>
               <ArrowLeft className="w-4 h-4 rotate-180 text-slate-400" />
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!previewInviteReg} onOpenChange={(open: boolean) => !open && setPreviewInviteReg(null)}>
+        <DialogContent className="sm:max-w-[480px] p-6 rounded-2xl border-none shadow-2xl bg-white">
+          <DialogHeader className="space-y-2 border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600 text-xs font-bold">👁️</span>
+              <DialogTitle className="text-base font-black text-slate-900">
+                Xem trước nội dung thư mời
+              </DialogTitle>
+            </div>
+            <p className="text-xs text-slate-500">
+              Nội dung mô phỏng kết xuất chính thức gửi qua <b>Google Calendar</b> tới đối tác.
+            </p>
+          </DialogHeader>
+
+          {previewInviteReg && (
+            <div className="space-y-4 py-2 text-xs text-slate-700 max-h-[60vh] overflow-y-auto custom-scrollbar">
+              <div className="space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Tiêu đề (Subject):</span>
+                <p className="font-bold text-slate-900">[DESEMBRE] Thư mời: {title || "Sự kiện DESEMBRE Partner"}</p>
+              </div>
+
+              <div className="space-y-2 bg-white p-3 rounded-xl border border-slate-100 shadow-2xs whitespace-pre-wrap font-mono text-[11px] leading-relaxed">
+                <p>Kính gửi <b>{previewInviteReg.customer_name || "Khách Quý"}</b>,</p>
+                <p>DESEMBRE trân trọng kính mời Anh/Chị tham dự chương trình đào tạo và cập nhật phác đồ chuyên sâu.</p>
+                <div className="pl-2 border-l-2 border-purple-400 my-2 space-y-1 bg-purple-50/30 p-2 rounded-r">
+                  <p>📌 <b>Chủ đề:</b> {title || "Sự kiện DESEMBRE Partner"}</p>
+                  <p>⏰ <b>Thời gian:</b> {startsAt ? new Date(startsAt).toLocaleString() : "Chưa xác định"}</p>
+                  <p>📍 <b>Địa điểm:</b> {eventLocation || meetingUrl || "Hệ thống trực tuyến DESEMBRE"}</p>
+                </div>
+                {description && (
+                  <div className="pt-2 border-t border-dashed border-slate-200 mt-2">
+                    <p className="text-[10px] text-slate-400 font-sans uppercase">Nội dung chi tiết:</p>
+                    <p className="font-sans italic mt-0.5">{description}</p>
+                  </div>
+                )}
+                <p className="pt-2 text-[10px] text-slate-400">Trân trọng,<br/>Ban Giám Đốc DESEMBRE Partner Hub</p>
+              </div>
+            </div>
+          )}
+
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="default"
+              onClick={() => setPreviewInviteReg(null)}
+              className="h-9 px-6 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-2xs rounded-xl"
+            >
+              Đóng giao diện
             </Button>
           </div>
         </DialogContent>
