@@ -1,12 +1,16 @@
 -- ============================================================================
--- MIGRATION: Khởi tạo Nền tảng Dữ liệu Lõi cho Phân hệ Marketing CRM B2B
+-- MIGRATION: Nền tảng Tuân thủ Tiếp thị (Marketing Compliance Engine)
 -- ============================================================================
 
--- 1. BỔ SUNG CÁC TRƯỜNG KIỂM SOÁT OPT-IN VÀO BẢNG CUSTOMERS GỐC
+-- 1. BỔ SUNG CÁC TRƯỜNG KIỂM SOÁT COMPLIANCE VÀO BẢNG CUSTOMERS GỐC
 ALTER TABLE public.customers
-    ADD COLUMN IF NOT EXISTS marketing_opt_in boolean NOT NULL DEFAULT true,
+    ADD COLUMN IF NOT EXISTS marketing_opt_in boolean DEFAULT false,
+    ADD COLUMN IF NOT EXISTS marketing_opt_in_at timestamptz,
     ADD COLUMN IF NOT EXISTS marketing_opt_out_at timestamptz,
-    ADD COLUMN IF NOT EXISTS opt_out_reason text;
+    ADD COLUMN IF NOT EXISTS email_opt_in boolean DEFAULT false,
+    ADD COLUMN IF NOT EXISTS zalo_opt_in boolean DEFAULT false,
+    ADD COLUMN IF NOT EXISTS sms_opt_in boolean DEFAULT false,
+    ADD COLUMN IF NOT EXISTS last_marketing_sent_at timestamptz;
 
 -- 2. TẠO BẢNG CUSTOMER_SEGMENTS (PHÂN NHÓM KHÁCH HÀNG)
 CREATE TABLE IF NOT EXISTS public.customer_segments (
@@ -21,7 +25,6 @@ CREATE TABLE IF NOT EXISTS public.customer_segments (
     CONSTRAINT check_segment_type CHECK (segment_type IN ('static', 'dynamic'))
 );
 
--- Bảng ánh xạ trung gian cho các phân khúc tĩnh (Static Segment Mapping)
 CREATE TABLE IF NOT EXISTS public.customer_segments_map (
     segment_id uuid REFERENCES public.customer_segments(id) ON DELETE CASCADE,
     customer_id uuid REFERENCES public.customers(id) ON DELETE CASCADE,
@@ -49,16 +52,26 @@ CREATE TABLE IF NOT EXISTS public.marketing_campaigns (
     )
 );
 
--- 4. TẠO BẢNG MESSAGE_SEND_LOGS (NHẬT KÝ PHÁT HÀNH TRỰC TIẾP & TRUY VẾT SPAM)
-CREATE TABLE IF NOT EXISTS public.message_send_logs (
+-- 4. TẠO BẢNG MESSAGE_SEND_LOGS (NHẬT KÝ PHÁT HÀNH TRỰC TIẾP & TRUY VẾT SPAM CHUẨN)
+-- Ghi chú: Xóa bảng cũ nếu cấu trúc bị xung đột để tạo mới trọn vẹn
+DROP TABLE IF EXISTS public.message_send_logs CASCADE;
+
+CREATE TABLE public.message_send_logs (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     campaign_id uuid REFERENCES public.marketing_campaigns(id) ON DELETE CASCADE,
+    template_id uuid REFERENCES public.message_templates(id) ON DELETE SET NULL,
+    sender_account_id uuid REFERENCES public.sender_accounts(id) ON DELETE SET NULL,
     customer_id uuid REFERENCES public.customers(id) ON DELETE SET NULL,
-    recipient_email text NOT NULL,
+    lead_id uuid, -- Có thể tham chiếu public.leads nếu có
+    event_registration_id uuid, -- Có thể tham chiếu bảng đăng ký sự kiện
+    channel text NOT NULL,
+    purpose text NOT NULL,
+    recipient_email text,
+    recipient_phone text,
+    sent_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
     status text NOT NULL DEFAULT 'queued',
-    provider_message_id text,
     error_message text,
-    sent_at timestamptz,
+    provider_response jsonb,
     created_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT check_send_log_status CHECK (
         status IN ('queued', 'sent', 'delivered', 'opened', 'clicked', 'bounced', 'failed', 'frequency_capped', 'opt_out_skipped')
@@ -88,7 +101,7 @@ CREATE POLICY "Admins manage marketing campaigns" ON public.marketing_campaigns
 CREATE POLICY "Admins manage message send logs" ON public.message_send_logs
     FOR ALL TO authenticated USING (public.is_admin_or_sub_admin(auth.uid()));
 
--- Chính sách cho Sales/Người dùng nội bộ chỉ được đọc thông tin phục vụ tra cứu
+-- Chính sách cho Sales/Người dùng nội bộ chỉ được đọc thông tin
 CREATE POLICY "Sales view customer segments" ON public.customer_segments
     FOR SELECT TO authenticated USING (true);
 
@@ -104,12 +117,11 @@ CREATE POLICY "Sales view message send logs" ON public.message_send_logs
 -- ============================================================================
 -- TỐI ƯU HÓA HIỆU NĂNG BẰNG CHỈ MỤC (INDEXES)
 -- ============================================================================
-CREATE INDEX IF NOT EXISTS idx_campaigns_status ON public.marketing_campaigns(status);
-CREATE INDEX IF NOT EXISTS idx_campaigns_scheduled ON public.marketing_campaigns(scheduled_at);
 CREATE INDEX IF NOT EXISTS idx_send_logs_campaign ON public.message_send_logs(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_send_logs_customer ON public.message_send_logs(customer_id);
+CREATE INDEX IF NOT EXISTS idx_send_logs_template ON public.message_send_logs(template_id);
 CREATE INDEX IF NOT EXISTS idx_send_logs_status ON public.message_send_logs(status);
-CREATE INDEX IF NOT EXISTS idx_customers_opt_in ON public.customers(marketing_opt_in);
+CREATE INDEX IF NOT EXISTS idx_customers_marketing_opt_in ON public.customers(marketing_opt_in);
 
 -- Làm mới bộ nhớ đệm PostgREST
 NOTIFY pgrst, 'reload schema';

@@ -1,116 +1,125 @@
-/**
- * Module Kiểm soát Quy tắc Gửi tin nhắn Tiếp thị (Messaging Compliance Engine)
- * Hỗ trợ lọc danh sách, chống Spam và tuân thủ các quy định Opt-in/Opt-out trong CRM.
- */
-
-export interface MessageTemplateCompliance {
-  id?: string;
-  purpose?: string;
-  requires_opt_in?: boolean;
-  include_unsubscribe?: boolean;
-  max_send_frequency_days?: number | null;
-  [key: string]: any;
-}
-
-export interface CustomerCompliance {
-  id?: string;
+export interface ComplianceCustomer {
+  id: string;
   marketing_opt_in?: boolean;
   marketing_opt_out_at?: string | null;
   last_marketing_sent_at?: string | null;
-  [key: string]: any;
+  email?: string;
+  phone?: string;
 }
 
-export interface MessageSendLog {
+export interface ComplianceTemplate {
   id?: string;
-  template_id?: string;
-  purpose?: string;
-  status?: string;
-  created_at?: string;
-  [key: string]: any;
+  key?: string;
+  channel: string;
+  purpose: string;
+  requires_opt_in?: boolean;
+  include_unsubscribe?: boolean;
+  max_send_frequency_days?: number | null;
+}
+
+export interface SendLogRecord {
+  id?: string;
+  customer_id?: string;
+  channel: string;
+  purpose: string;
+  status: string;
+  created_at: string;
+  sent_at?: string | null;
 }
 
 export interface ComplianceResult {
   allowed: boolean;
-  reason?: string;
+  reason?: 'opt_out_skipped' | 'frequency_capped' | 'missing_contact' | 'none';
+  message?: string;
+  enforceUnsubscribeLink?: boolean;
 }
 
 /**
- * Kiểm tra xem Khách hàng có đủ điều kiện nhận Mẫu tin nhắn tiếp thị cụ thể hay không.
- * @param customer Đối tượng Khách hàng từ bảng customers
- * @param template Đối tượng Mẫu tin nhắn từ bảng message_templates
- * @param recentLogs Mảng lịch sử gửi tin nhắn gần đây của khách hàng từ bảng message_send_logs
- * @returns ComplianceResult { allowed: boolean, reason?: string }
+ * Kiểm tra các ràng buộc tuân thủ chống Spam và tần suất gửi tin nhắn cho Đối tác
+ * @param customer Đối tượng khách hàng/đối tác cần nhận thư
+ * @param template Khuôn mẫu truyền thông mang thuộc tính mục đích và quy định Opt-in
+ * @param recentLogs Danh sách các lượt gửi gần đây của khách hàng này để tính toán chu kỳ
  */
 export function canSendMarketingMessage(
-  customer: CustomerCompliance | null | undefined,
-  template: MessageTemplateCompliance | null | undefined,
-  recentLogs: MessageSendLog[] = []
+  customer: ComplianceCustomer,
+  template: ComplianceTemplate,
+  recentLogs: SendLogRecord[] = []
 ): ComplianceResult {
-  // 1. Kiểm tra tính hợp lệ của tham số
-  if (!template) {
-    return { allowed: true }; // Nếu không có mẫu, ngầm định cho phép gửi tiêu chuẩn
-  }
-
-  if (!customer) {
-    return { 
-      allowed: false, 
-      reason: "Dữ liệu khách hàng không hợp lệ hoặc không tồn tại." 
+  // 1. Kiểm tra thông tin liên lạc tối thiểu
+  if (!customer.email && !customer.phone) {
+    return {
+      allowed: false,
+      reason: 'missing_contact',
+      message: 'Khách hàng không có thông tin Email hoặc Số điện thoại.'
     };
   }
 
-  // 2. Kiểm tra trạng thái Từ chối (Opt-out)
-  // Bất kể mẫu tin nhắn là gì, nếu khách hàng đã Opt-out toàn cục thì chặn tuyệt đối
-  if (customer.marketing_opt_out_at && customer.marketing_opt_out_at.trim() !== "") {
-    return { 
-      allowed: false, 
-      reason: "Khách hàng đã từ chối nhận tin nhắn tiếp thị (Opt-out)." 
+  // 2. Kiểm tra dấu thời gian Hủy đăng ký (Opt-out Timestamp)
+  if (customer.marketing_opt_out_at) {
+    return {
+      allowed: false,
+      reason: 'opt_out_skipped',
+      message: 'Khách hàng đã từ chối nhận thông tin tiếp thị (Opt-out).'
     };
   }
 
-  // 3. Kiểm tra yêu cầu Đăng ký trước (Requires Opt-in)
-  if (template.requires_opt_in === true) {
-    if (customer.marketing_opt_in !== true) {
-      return { 
-        allowed: false, 
-        reason: "Khách hàng chưa đăng ký nhận tin tiếp thị (Opt-in)." 
+  // 3. Kiểm tra cờ bắt buộc Opt-in
+  if (template.requires_opt_in) {
+    if (!customer.marketing_opt_in) {
+      return {
+        allowed: false,
+        reason: 'opt_out_skipped',
+        message: 'Khuôn mẫu yêu cầu Opt-in nhưng đối tác chưa đồng ý nhận quảng cáo.'
       };
     }
   }
 
-  // 4. Kiểm tra Tần suất Gửi tối đa (Max Send Frequency)
-  const frequencyDays = template.max_send_frequency_days;
-  if (typeof frequencyDays === "number" && frequencyDays > 0) {
+  // 4. Kiểm tra giới hạn tần suất gửi (Frequency Capping)
+  if (template.max_send_frequency_days && template.max_send_frequency_days > 0) {
     const nowMs = Date.now();
-    const cutoffMs = nowMs - frequencyDays * 24 * 3600 * 1000;
+    const limitMs = template.max_send_frequency_days * 24 * 60 * 60 * 1000;
 
-    // Lọc các bản ghi thành công gần đây cho cùng Mẫu tin nhắn hoặc cùng Mục đích tiếp thị
-    const hasSpamConflict = recentLogs.some(log => {
-      // Chỉ tính các log đã gửi thành công hoặc đang chờ xử lý
-      if (log.status !== "sent" && log.status !== "pending") return false;
+    // Tìm lượt gửi thành công gần nhất có cùng mục đích hoặc kênh
+    for (const log of recentLogs) {
+      // Chỉ tính các lượt đã gửi thành công hoặc đã phát hành
+      if (['sent', 'delivered', 'opened', 'clicked'].includes(log.status)) {
+        // Ưu tiên so khớp theo cùng mục đích tiếp thị
+        if (log.purpose === template.purpose || log.channel === template.channel) {
+          const sentTime = log.sent_at ? new Date(log.sent_at).getTime() : new Date(log.created_at).getTime();
+          const diffMs = nowMs - sentTime;
 
-      // Khớp điều kiện: Cùng template_id hoặc cùng purpose
-      const isSameTemplate = log.template_id && template.id && log.template_id === template.id;
-      const isSamePurpose = log.purpose && template.purpose && log.purpose === template.purpose;
-
-      if (isSameTemplate || isSamePurpose) {
-        if (log.created_at) {
-          const logMs = new Date(log.created_at).getTime();
-          if (!isNaN(logMs) && logMs >= cutoffMs) {
-            return true; // Tìm thấy bản ghi gửi quá gần trong chu kỳ cho phép
+          if (diffMs < limitMs) {
+            const daysLeft = Math.ceil((limitMs - diffMs) / (24 * 60 * 60 * 1000));
+            return {
+              allowed: false,
+              reason: 'frequency_capped',
+              message: `Vi phạm tần suất: Khách hàng đã nhận thư cùng mục đích gần đây. Vui lòng thử lại sau ${daysLeft} ngày.`
+            };
           }
         }
       }
-      return false;
-    });
+    }
 
-    if (hasSpamConflict) {
-      return { 
-        allowed: false, 
-        reason: `Vượt quá tần suất gửi tối đa (${frequencyDays} ngày/lần) cho mẫu tin nhắn này.` 
-      };
+    // Tra cứu bổ sung qua trường last_marketing_sent_at nếu logs trống
+    if (customer.last_marketing_sent_at && template.purpose === 'marketing_campaign') {
+      const lastSentTime = new Date(customer.last_marketing_sent_at).getTime();
+      const diffMs = nowMs - lastSentTime;
+      if (diffMs < limitMs) {
+        return {
+          allowed: false,
+          reason: 'frequency_capped',
+          message: 'Vi phạm tần suất: Dựa trên dấu thời gian gửi tiếp thị cuối cùng của hệ thống CRM.'
+        };
+      }
     }
   }
 
-  // Nếu vượt qua toàn bộ các lớp rào cản, cấp phép gửi tin
-  return { allowed: true };
+  // 5. Ràng buộc tự động: Mục đích marketing_campaign bắt buộc đính kèm link Unsubscribe
+  const enforceUnsub = template.purpose === 'marketing_campaign' || template.include_unsubscribe === true;
+
+  return {
+    allowed: true,
+    reason: 'none',
+    enforceUnsubscribeLink: enforceUnsub
+  };
 }
