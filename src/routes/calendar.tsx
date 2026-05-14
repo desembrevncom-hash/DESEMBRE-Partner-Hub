@@ -381,6 +381,9 @@ function CalendarPage() {
         body: { companyEventId: editEventId }
       });
       if (res.error) throw res.error;
+      if (res.data && !res.data.success) {
+        throw new Error(res.data.error || "Lỗi đồng bộ ngầm định từ máy chủ Google");
+      }
       toast.success("Đã đồng bộ Google Calendar");
       await loadEvents();
     } catch (err: any) {

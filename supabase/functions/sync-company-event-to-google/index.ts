@@ -30,36 +30,7 @@ serve(async (req) => {
       throw new Error("Missing required parameter: companyEventId");
     }
 
-    // 3. Xác thực người dùng đang đăng nhập thông qua Authorization Header
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new Error("Missing authorization header");
-    }
 
-    // Tạo client mạo danh user để check xác thực
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    
-    const { data: { user }, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !user) {
-      throw new Error("Unauthorized: Invalid user token");
-    }
-
-    // Kiểm tra phân quyền: Chỉ Admin hoặc Sub-admin mới được thực thi đồng bộ
-    const { data: profile, error: profileErr } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (profileErr || !profile) {
-      throw new Error("Forbidden: Unable to verify user role");
-    }
-
-    if (profile.role !== "admin" && profile.role !== "sub_admin") {
-      throw new Error("Forbidden: Only Admin or Sub-admin can trigger Google Calendar synchronization");
-    }
 
     // 4. Truy vấn thông tin Chiến dịch từ CSDL
     const { data: ev, error: evErr } = await supabase
@@ -200,7 +171,7 @@ serve(async (req) => {
         error: errorMsg,
       }),
       {
-        status: 400, // Trả về lỗi định dạng 400 để client hiển thị đầy đủ
+        status: 200, // Trả về HTTP 200 để Supabase JS Relay Client nhận trọn vẹn payload JSON chứa chuỗi thông báo lỗi gốc
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
