@@ -44,6 +44,10 @@ interface MessageTemplate {
   name: string;
   description: string | null;
   channel: string;
+  purpose: string;
+  requires_opt_in: boolean;
+  include_unsubscribe: boolean;
+  max_send_frequency_days: number | null;
   subject_template: string | null;
   body_template: string;
   sample_variables: Record<string, any> | null;
@@ -90,8 +94,13 @@ function AdminTemplatesPage() {
   const [formName, setFormName] = useState("");
   const [formDesc, setFormDesc] = useState("");
   const [formChannel, setFormChannel] = useState("calendar_invite");
+  const [formPurpose, setFormPurpose] = useState("transactional");
+  const [formRequiresOptIn, setFormRequiresOptIn] = useState(false);
+  const [formIncludeUnsubscribe, setFormIncludeUnsubscribe] = useState(false);
+  const [formMaxFrequency, setFormMaxFrequency] = useState<string>("");
   const [formSubject, setFormSubject] = useState("");
   const [formBody, setFormBody] = useState("");
+
 
   // Trạng thái Form Gửi Test
   const [testTemplateId, setTestTemplateId] = useState("");
@@ -202,6 +211,10 @@ function AdminTemplatesPage() {
     setFormName("");
     setFormDesc("");
     setFormChannel("calendar_invite");
+    setFormPurpose("transactional");
+    setFormRequiresOptIn(false);
+    setFormIncludeUnsubscribe(false);
+    setFormMaxFrequency("");
     setFormSubject("[DESEMBRE] Thư mời: {{event_title}}");
     setFormBody(`Kính gửi Quý đối tác / Khách mời: {{customer_name}}\n\nCông ty {{company_name}} trân trọng kính mời Quý khách tham dự chương trình đào tạo và chuyển giao phác đồ chuyên sâu.\n\n📌 THÔNG TIN SỰ KIỆN:\n- Chủ đề: {{event_title}}\n- Thời gian: {{event_time}}\n- Địa điểm: {{event_location}}\n- Link trực tuyến: {{meeting_url}}\n\nChuyên viên phụ trách: {{sale_name}}\nLink nạp nhanh vào Lịch Google: {{calendar_link}}\n\nSự hiện diện của Quý khách là niềm vinh hạnh lớn cho công ty chúng tôi.\nTrân trọng,\nBan Giám Đốc DESEMBRE Partner Hub`);
     setEditModalOpen(true);
@@ -214,6 +227,10 @@ function AdminTemplatesPage() {
     setFormName(tpl.name);
     setFormDesc(tpl.description || "");
     setFormChannel(tpl.channel);
+    setFormPurpose(tpl.purpose || "transactional");
+    setFormRequiresOptIn(tpl.requires_opt_in || false);
+    setFormIncludeUnsubscribe(tpl.include_unsubscribe || false);
+    setFormMaxFrequency(tpl.max_send_frequency_days ? String(tpl.max_send_frequency_days) : "");
     setFormSubject(tpl.subject_template || "");
     setFormBody(tpl.body_template);
     setEditModalOpen(true);
@@ -229,11 +246,16 @@ function AdminTemplatesPage() {
 
     setSaving(true);
     try {
+      const freqVal = parseInt(formMaxFrequency, 10);
       const payload = {
         key: formKey.trim(),
         name: formName.trim(),
         description: formDesc.trim() || null,
         channel: formChannel,
+        purpose: formPurpose,
+        requires_opt_in: formRequiresOptIn,
+        include_unsubscribe: formIncludeUnsubscribe,
+        max_send_frequency_days: !isNaN(freqVal) && freqVal > 0 ? freqVal : null,
         subject_template: formSubject.trim() || null,
         body_template: formBody.trim(),
         sample_variables: {
@@ -736,7 +758,69 @@ function AdminTemplatesPage() {
                     <option value="calendar_invite">Google Calendar Invite</option>
                     <option value="zalo_sms">Tin nhắn Zalo/SMS</option>
                     <option value="email_campaign">Email Sự Kiện</option>
+                    <option value="marketing_email">Email Tiếp Thị</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Khối cấu hình Mục đích & Chống Spam Marketing */}
+              <div className="p-3 bg-purple-50/50 rounded-xl border border-purple-100 space-y-3 mt-1">
+                <span className="text-[10px] font-black text-purple-950 uppercase tracking-wider block">
+                  ⚙️ Phân loại Tiếp thị & Chống Spam
+                </span>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-bold text-slate-700">Mục đích (Purpose)</Label>
+                    <select
+                      value={formPurpose}
+                      onChange={e => setFormPurpose(e.target.value)}
+                      className="w-full h-9 px-2 text-xs rounded-lg border border-purple-200 bg-white mt-1 font-medium focus:outline-none"
+                    >
+                      <option value="transactional">Giao dịch (Transactional)</option>
+                      <option value="reminder">Nhắc nhở (Reminder)</option>
+                      <option value="event_invite">Mời sự kiện (Event Invite)</option>
+                      <option value="event_follow_up">Sau sự kiện (Event Follow-up)</option>
+                      <option value="marketing_campaign">Chiến dịch Marketing</option>
+                      <option value="product_launch">Ra mắt sản phẩm</option>
+                      <option value="quote_follow_up">Theo dõi Báo giá</option>
+                      <option value="reorder_reminder">Nhắc mua lại</option>
+                      <option value="post_purchase_checkin">Hỏi thăm sau mua</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs font-bold text-slate-700">Tần suất tối đa (Ngày/Lần)</Label>
+                    <Input
+                      type="number"
+                      placeholder="vd: 30"
+                      value={formMaxFrequency}
+                      onChange={e => setFormMaxFrequency(e.target.value)}
+                      className="h-9 text-xs rounded-lg bg-white mt-1"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 pt-1">
+                  <label className="flex items-center gap-1.5 text-xs font-medium text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formRequiresOptIn}
+                      onChange={e => setFormRequiresOptIn(e.target.checked)}
+                      className="w-4 h-4 rounded text-purple-600 border-purple-300 focus:ring-purple-500"
+                    />
+                    Bắt buộc Opt-in
+                  </label>
+
+                  <label className="flex items-center gap-1.5 text-xs font-medium text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formIncludeUnsubscribe}
+                      onChange={e => setFormIncludeUnsubscribe(e.target.checked)}
+                      className="w-4 h-4 rounded text-purple-600 border-purple-300 focus:ring-purple-500"
+                    />
+                    Kèm link Hủy đăng ký
+                  </label>
                 </div>
               </div>
 
