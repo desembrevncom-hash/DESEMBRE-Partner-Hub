@@ -686,7 +686,7 @@ function AdminTemplatesPage() {
                 >
                   {senderAccounts.map(a => (
                     <option key={a.id} value={a.id}>
-                      {a.name} ({a.sender_email})
+                      {a.name} — {a.sender_email}
                     </option>
                   ))}
                 </select>
