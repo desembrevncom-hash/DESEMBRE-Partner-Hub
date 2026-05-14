@@ -477,14 +477,23 @@ function AdminTemplatesPage() {
               <span>/</span>
               <span className="text-slate-800">Cấu hình</span>
             </div>
-            <div className="flex items-baseline gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-3">
               <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-                <Megaphone className="w-6 h-6 text-purple-600" /> Quản lý Mẫu Thư Mời & Tin Nhắn
+                <Megaphone className="w-6 h-6 text-purple-600" /> Kho Mẫu Tiếp Thị & Truyền Thông B2B
               </h1>
+              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-purple-500/10 text-purple-600 border border-purple-500/20 self-start sm:self-auto">
+                Model Marketing CRM
+              </span>
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <Button asChild variant="outline" className="border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 font-bold h-10 px-3 rounded-xl bg-indigo-50/20 text-indigo-700 hidden sm:inline-flex">
+              <Link to="/marketing/campaigns">🚀 Phát hành Campaign</Link>
+            </Button>
+            <Button asChild variant="outline" className="border-pink-200 hover:bg-pink-50 hover:text-pink-700 font-bold h-10 px-3 rounded-xl bg-pink-50/20 text-pink-700 hidden sm:inline-flex">
+              <Link to="/marketing/reports">📊 Báo cáo CRM</Link>
+            </Button>
             <Button 
               onClick={handleOpenCreate} 
               className="bg-purple-600 hover:bg-purple-700 shadow-sm font-bold text-white h-10 px-4 rounded-xl"
