@@ -700,14 +700,14 @@ function CalendarPage() {
 
   const handleCopyCalendarMessage = async (reg: EventRegistration) => {
     try {
-      const startDatePart = startsAt.slice(0, 10);
-      const endDatePart = endsAt ? endsAt.slice(0, 10) : startDatePart;
+      // Nghiệp vụ thực tế: startsAt là mốc mở form mời, endsAt là mốc ngày giờ tổ chức sự kiện thực tế.
+      // Do đó toàn bộ thời gian sự kiện GCal và tin nhắn phải lấy theo mốc ngày kết thúc (endsAt).
+      const targetDatePart = endsAt ? endsAt.slice(0, 10) : startsAt.slice(0, 10);
+      const targetEndTimePart = endsAt && endsAt.includes("T") ? endsAt.slice(11, 16) : "21:00";
+      const targetStartTimePart = startsAt.includes("T") ? startsAt.slice(11, 16) : "18:00";
 
-      const startTimePart = startsAt.includes("T") ? startsAt.slice(11, 16) : "08:30";
-      const endTimePart = endsAt && endsAt.includes("T") ? endsAt.slice(11, 16) : "12:00";
-
-      const computedTargetStart = `${startDatePart}T${startTimePart}`;
-      const computedTargetEnd = `${endDatePart}T${endTimePart}`;
+      const computedTargetStart = `${targetDatePart}T${targetStartTimePart}`;
+      const computedTargetEnd = `${targetDatePart}T${targetEndTimePart}`;
 
       let calUrl = buildGoogleCalendarLink({
         title: title || "Sự kiện DESEMBRE Partner",
@@ -722,17 +722,12 @@ function CalendarPage() {
         setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, add_to_calendar_url: calUrl } : r));
       }
 
-      const formatDM = (dStr: string) => {
-        const p = dStr.split("-");
-        return p.length === 3 ? `${p[2]}/${p[1]}` : dStr;
-      };
+      // Format chuỗi hiển thị đúng mốc cuối cùng của ngày kết thúc: "21h00 ngày 19/05/2026"
+      const formattedTimeStr = targetEndTimePart.replace(":", "h");
+      const partsD = targetDatePart.split("-");
+      const fullDateStr = partsD.length === 3 ? `${partsD[2]}/${partsD[1]}/${partsD[0]}` : targetDatePart;
 
-      const startDM = formatDM(startDatePart);
-      const endDM = formatDM(endDatePart);
-
-      const timeLine = startDatePart === endDatePart 
-        ? `${startTimePart} - ${endTimePart} ngày ${startDM}`
-        : `Từ ${startTimePart} ngày ${startDM} đến ${endTimePart} ngày ${endDM}`;
+      const timeLine = `${formattedTimeStr} ngày ${fullDateStr}`;
 
       const locLine = eventLocation || meetingUrl || "Hệ thống DESEMBRE";
 
@@ -2181,14 +2176,13 @@ function CalendarPage() {
                                       )}
                                       <a
                                         href={(() => {
-                                          const startDatePart = startsAt.slice(0, 10);
-                                          const endDatePart = endsAt ? endsAt.slice(0, 10) : startDatePart;
-                                          const startTimePart = startsAt.includes("T") ? startsAt.slice(11, 16) : "08:30";
-                                          const endTimePart = endsAt && endsAt.includes("T") ? endsAt.slice(11, 16) : "12:00";
+                                          const targetDatePart = endsAt ? endsAt.slice(0, 10) : startsAt.slice(0, 10);
+                                          const targetEndTimePart = endsAt && endsAt.includes("T") ? endsAt.slice(11, 16) : "21:00";
+                                          const targetStartTimePart = startsAt.includes("T") ? startsAt.slice(11, 16) : "18:00";
                                           return buildGoogleCalendarLink({
                                             title: title || "Sự kiện DESEMBRE Partner",
-                                            startsAt: `${startDatePart}T${startTimePart}`,
-                                            endsAt: `${endDatePart}T${endTimePart}`,
+                                            startsAt: `${targetDatePart}T${targetStartTimePart}`,
+                                            endsAt: `${targetDatePart}T${targetEndTimePart}`,
                                             location: eventLocation || meetingUrl || null,
                                             description: formatGCalDescription(reg.customer_name, reg.customer_phone, description)
                                           });

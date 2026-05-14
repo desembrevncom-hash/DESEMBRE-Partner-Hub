@@ -71,8 +71,15 @@ serve(async (req) => {
       }
     };
 
-    const validStart = formatDateTime(starts_at, false);
     let validEnd = formatDateTime(ends_at, true);
+    let validStart = formatDateTime(starts_at, false);
+
+    // Nghiệp vụ: Sự kiện diễn ra thực tế vào ngày kết thúc (ends_at). Do đó mốc bắt đầu của sự kiện GCal phải được neo vào CÙNG NGÀY với ends_at.
+    if (ends_at && ends_at.trim()) {
+      const endDatePart = validEnd.slice(0, 10);
+      const startTimePart = validStart.slice(11, 19);
+      validStart = `${endDatePart}T${startTimePart}${validStart.slice(19)}`;
+    }
 
     // Đảm bảo thời gian kết thúc luôn sau thời gian bắt đầu ít nhất 1 giờ
     try {
