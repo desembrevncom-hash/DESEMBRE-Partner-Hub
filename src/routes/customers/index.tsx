@@ -987,17 +987,27 @@ export function CustomersPage() {
                     {filtered.filter(c => 
                       (c.care_model === "sale_owned" && !c.owner_sale_id) ||
                       (c.care_model === "tele_owned" && !c.owner_tele_id) ||
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                      !c.customer_channel
+                    ).map(c => (
+                      <div key={c.id} className="p-3 bg-white border border-red-200/80 hover:border-red-300 rounded-lg shadow-2xs hover:shadow-xs transition-all text-xs group">
+                        <div className="flex items-start justify-between gap-1">
+                          <div className="font-bold text-slate-900 group-hover:text-red-700 transition-colors line-clamp-1">{c.name}</div>
+                          <button onClick={() => handleOpen(c)} className="text-slate-400 hover:text-slate-900 shrink-0" title="Chỉnh sửa Phân tuyến">✏️</button>
+                        </div>
+                        <div className="text-[11px] text-slate-500 font-medium mt-0.5">{c.facility_name || "Spa tự do"}</div>
+                        <div className="mt-2 pt-1.5 border-t border-red-50 flex items-center justify-between text-[10px]">
+                          <span className="bg-red-50 text-red-700 font-bold px-1.5 py-0.5 rounded border border-red-100/80">
+                            Cần gán Owner
+                          </span>
+                          <span className="text-slate-400 font-mono">{c.phone || "—"}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
