@@ -195,15 +195,15 @@ serve(async (req) => {
       throw new Error(`Google API Error (${errStatus}): ${errMsg}`);
     }
 
-    // 8. Ghi Log thành công (lưu lại senderAccountId dạng chuỗi để theo dõi nguồn)
+    // 8. Ghi Log thành công (lưu trực tiếp sender_account_id liên kết)
     await supabase.from("template_test_logs").insert([{
       template_id: templateId || null,
+      sender_account_id: senderAccountId || null,
       tested_by: userId,
       test_email: testEmail.trim(),
       status: "sent",
       provider_response: { 
         ...gcalData, 
-        sender_account_id: senderAccountId,
         sender_prefix: prefix,
         sender_email: senderAcc.sender_email
       }
@@ -224,6 +224,7 @@ serve(async (req) => {
     if (userId) {
       supabase.from("template_test_logs").insert([{
         template_id: templateId || null,
+        sender_account_id: senderAccountId || null,
         tested_by: userId,
         test_email: testEmail ? testEmail.trim() : "unknown",
         status: "failed",

@@ -143,21 +143,25 @@ function AdminTemplatesPage() {
         .from("template_test_logs")
         .select(`
           id, test_email, status, error_message, created_at,
-          message_templates ( name )
+          message_templates ( name ),
+          sender_accounts ( name, sender_email )
         `)
         .order("created_at", { ascending: false })
         .limit(10);
 
       if (!errLog && logs) {
-        setTestLogs(logs.map((l: any) => ({
-          id: l.id,
-          test_email: l.test_email,
-          status: l.status,
-          error_message: l.error_message,
-          created_at: l.created_at,
-          template_name: l.message_templates?.name,
-          account_name: "Tài khoản cấu hình động",
-        })));
+        setTestLogs(logs.map((l: any) => {
+          const acc = l.sender_accounts;
+          return {
+            id: l.id,
+            test_email: l.test_email,
+            status: l.status,
+            error_message: l.error_message,
+            created_at: l.created_at,
+            template_name: l.message_templates?.name,
+            account_name: acc ? `${acc.name} — ${acc.sender_email}` : "Hệ thống mặc định",
+          };
+        }));
       }
 
       // Khởi tạo giá trị mặc định cho dropdown test nếu có
@@ -706,9 +710,14 @@ function AdminTemplatesPage() {
                           {badgeTxt}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between text-[10px] text-slate-500">
-                        <span className="truncate max-w-[120px]">Mẫu: {log.template_name || 'N/A'}</span>
-                        <span>{new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <div className="space-y-0.5 text-[10px] text-slate-500">
+                        <div className="flex items-center justify-between">
+                          <span className="truncate max-w-[120px]">Mẫu: {log.template_name || 'N/A'}</span>
+                          <span>{new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        <p className="text-[9px] text-slate-400 truncate italic">
+                          Nguồn: {log.account_name}
+                        </p>
                       </div>
                       {!isSent && !isNotSent && log.error_message && (
                         <p className="text-[10px] text-rose-600 font-mono bg-rose-50 p-1 rounded mt-1 line-clamp-2">
