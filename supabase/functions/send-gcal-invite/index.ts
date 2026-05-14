@@ -107,8 +107,8 @@ serve(async (req) => {
       guestsCanSeeOtherGuests: false,
     };
 
-    // Gửi yêu cầu tạo sự kiện kèm sendUpdates='all' để Google gửi email thiệp mời lập tức
-    const gcalResponse = await fetch(
+    // Thử tạo sự kiện trên Lịch chính thức được cấu hình trước
+    let gcalResponse = await fetch(
       `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=all`,
       {
         method: "POST",
@@ -120,7 +120,48 @@ serve(async (req) => {
       }
     );
 
-    const gcalData = await gcalResponse.json();
+    let gcalData = await gcalResponse.json();
+
+    // NẾU BỊ TỪ CHỐI QUYỀN GHI (writer access) hoặc Domain-wide Delegation, TỰ ĐỘNG LÁCH SANG LỊCH NỘI BỘ (primary)
+    if (!gcalResponse.ok && (gcalData.error?.message?.includes("writer access") || gcalData.error?.message?.includes("Delegation") || gcalData.error?.status === "PERMISSION_DENIED" || gcalResponse.status === 403)) {
+      const fallbackPayload = { ...googleEventPayload };
+      // Gỡ bỏ mảng attendees ban đầu để lách qua bộ lọc khởi tạo của Google
+      delete (fallbackPayload as any).attendees;
+
+      const primaryResponse = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events`,
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(fallbackPayload),
+        }
+      );
+
+      const primaryData = await primaryResponse.json();
+
+      if (primaryResponse.ok) {
+        // Sau khi sự kiện gốc ra đời trơn tru, thử gọi PATCH để đính kèm khách mời và phát lệnh gửi Email
+        const patchResponse = await fetch(
+          `https://www.googleapis.com/calendar/v3/calendars/primary/events/${primaryData.id}?sendUpdates=all`,
+          {
+            method: "PATCH",
+            headers: {
+              "Authorization": `Bearer ${access_token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              attendees: googleEventPayload.attendees
+            }),
+          }
+        );
+        const patchData = await patchResponse.json();
+        gcalResponse = patchResponse.ok ? patchResponse : primaryResponse;
+        gcalData = patchResponse.ok ? patchData : primaryData;
+      }
+    }
 
     if (!gcalResponse.ok) {
       throw new Error(`Google Calendar API Error: ${gcalData.error?.message || "Unknown error"}`);
