@@ -915,7 +915,7 @@ function CalendarPage() {
     if (!targetEmail) {
       const input = window.prompt(`Khách mời "${reg.customer_name || 'Khách hàng'}" chưa có Email.\nVui lòng nhập địa chỉ Email để hệ thống gửi thư mời chính thức:`, "");
       if (!input || !input.trim()) {
-        toast.warning("Đã hủy: Cần có địa chỉ Email để thực hiện gửi lời mời Google Calendar.");
+        toast.warning("Khách chưa có email, không thể gửi Google Calendar invite");
         return;
       }
       targetEmail = input.trim();
@@ -946,12 +946,34 @@ function CalendarPage() {
           body: payload
         });
 
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
+        if (error) {
+          let customErr = error.message;
+          if (error.context && typeof error.context.json === 'function') {
+            try {
+              const errCtx = await error.context.json();
+              if (errCtx && errCtx.error) {
+                customErr = errCtx.error;
+              }
+            } catch (_) {}
+          }
+          const eObj = new Error(customErr);
+          (eObj as any)._isBusinessError = true;
+          throw eObj;
+        }
+
+        if (data?.error) {
+          const eObj = new Error(data.error);
+          (eObj as any)._isBusinessError = true;
+          throw eObj;
+        }
+
         success = data?.success || true;
       } catch (sdkErr: any) {
+        if (sdkErr._isBusinessError) {
+          throw sdkErr;
+        }
+
         console.warn("Lỗi định tuyến Supabase Invoke, tự động kích hoạt fetch fallback:", sdkErr);
-        // Fallback trực tiếp gọi fetch API với xác thực Header tiêu chuẩn
         const session = (await supabase.auth.getSession()).data?.session;
         const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-gcal-invite`;
         const rawRes = await fetch(functionUrl, {
@@ -975,14 +997,15 @@ function CalendarPage() {
         throw new Error("Không nhận được tín hiệu phản hồi hợp lệ từ Google");
       }
 
-      toast.success("Đã gửi thư mời chính thức thành công!", { id: tid });
+      toast.success("Đã gửi thư mời Google Calendar", { id: tid });
       
       setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, google_invite_status: "invited", attendee_email: targetEmail } as any : r));
+      await loadEvents();
     } catch (err: any) {
-      toast.error(`Gửi thất bại: ${err.message}`, { id: tid });
-      // Ghi nhận trạng thái gửi lỗi vào DB và State
+      toast.error(err.message || "Lỗi gửi thư mời", { id: tid });
       supabase.from("event_registrations").update({ google_invite_status: "failed" } as any).eq("id", reg.id).then();
       setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, google_invite_status: "failed" } as any : r));
+      await loadEvents();
     } finally {
       setSendingInviteIds(prev => prev.filter(id => id !== reg.id));
     }
