@@ -60,6 +60,7 @@ import {
   isEventOverdue 
 } from "@/lib/calendar";
 import { buildGoogleCalendarLink } from "@/lib/googleCalendar";
+import { renderTemplate } from "@/lib/templateRenderer";
 
 const formatGCalDescription = (custName: string, custPhone?: string | null, descText?: string | null) => {
   return descText && descText.trim() 
@@ -138,6 +139,9 @@ function CalendarPage() {
   const [modalTab, setModalTab] = useState<"personal" | "company">("personal");
   const [sendingInviteIds, setSendingInviteIds] = useState<string[]>([]);
   const [previewInviteReg, setPreviewInviteReg] = useState<EventRegistration | null>(null);
+  const [renderedPreviewSubject, setRenderedPreviewSubject] = useState<string>("");
+  const [renderedPreviewBody, setRenderedPreviewBody] = useState<string>("");
+  const [isPreviewLoading, setIsPreviewLoading] = useState<boolean>(false);
 
   // Hàm nạp danh sách dữ liệu nền tảng
   const loadBaseData = async () => {
@@ -908,6 +912,53 @@ function CalendarPage() {
       toast.success("Đã xuất danh sách thành công! Bạn có thể Import file CSV này thẳng vào Google Sheets.");
     } catch (err: any) {
       toast.error("Lỗi khi xuất file: " + err.message);
+    }
+  };
+
+  const handleOpenPreview = async (reg: EventRegistration) => {
+    setPreviewInviteReg(reg);
+    setIsPreviewLoading(true);
+    setRenderedPreviewSubject("");
+    setRenderedPreviewBody("");
+
+    try {
+      const { data: tplData, error: tplErr } = await supabase
+        .from("message_templates")
+        .select("subject_template, body_template")
+        .eq("channel", "calendar_invite")
+        .eq("is_active", true)
+        .limit(1)
+        .maybeSingle();
+
+      const targetDatePart = endsAt ? endsAt.slice(0, 10) : startsAt.slice(0, 10);
+      const targetStartTimePart = startsAt.includes("T") ? startsAt.slice(11, 16) : "18:00";
+      const eventTimeStr = startsAt ? `${targetStartTimePart} ngày ${targetDatePart.split('-').reverse().join('/')}` : "Chưa xác định";
+
+      const vars = {
+        customer_name: reg.customer_name || "Khách Quý",
+        event_title: title || "Sự kiện DESEMBRE Partner",
+        event_time: eventTimeStr,
+        event_location: eventLocation || meetingUrl || "Hệ thống trực tuyến DESEMBRE",
+        meeting_url: meetingUrl || eventLocation || "",
+        sale_name: reg.added_by_sale_name || user?.user_metadata?.full_name || "Chuyên Viên Hỗ Trợ",
+        calendar_link: (reg as any).add_to_calendar_url || "https://calendar.google.com",
+        company_name: "DESEMBRE Partner Hub",
+      };
+
+      if (tplErr || !tplData) {
+        const defaultSubject = "[DESEMBRE] Thư mời: {{event_title}}";
+        const defaultBody = "Kính gửi Quý đối tác / Khách mời: {{customer_name}}\n\nCông ty {{company_name}} trân trọng kính mời Quý khách tham dự chương trình đào tạo và chuyển giao phác đồ chuyên sâu.\n\n📌 THÔNG TIN SỰ KIỆN:\n- Chủ đề: {{event_title}}\n- Thời gian: {{event_time}}\n- Địa điểm: {{event_location}}\n- Link trực tuyến: {{meeting_url}}\n\nChuyên viên phụ trách: {{sale_name}}\nLink nạp nhanh vào Lịch Google: {{calendar_link}}\n\nSự hiện diện của Quý khách là niềm vinh hạnh lớn cho công ty chúng tôi.\nTrân trọng,\nBan Giám Đốc DESEMBRE Partner Hub";
+        
+        setRenderedPreviewSubject(renderTemplate(defaultSubject, vars));
+        setRenderedPreviewBody(renderTemplate(defaultBody, vars));
+      } else {
+        setRenderedPreviewSubject(renderTemplate(tplData.subject_template || "[DESEMBRE] Thư mời: {{event_title}}", vars));
+        setRenderedPreviewBody(renderTemplate(tplData.body_template, vars));
+      }
+    } catch (err) {
+      console.warn("Lỗi tải mẫu tin nhắn preview:", err);
+    } finally {
+      setIsPreviewLoading(false);
     }
   };
 
@@ -2444,7 +2495,7 @@ function CalendarPage() {
                                       })()}
                                       <button
                                         type="button"
-                                        onClick={() => setPreviewInviteReg(reg)}
+                                        onClick={() => handleOpenPreview(reg)}
                                         title="Xem trước nội dung thư mời Google Calendar sẽ gửi khách"
                                         className="h-8 px-2 flex items-center justify-center gap-1 bg-slate-50 hover:bg-slate-100 text-slate-700 text-[10px] font-bold border border-slate-200 rounded-lg shadow-2xs transition-all shrink-0"
                                       >
@@ -2599,33 +2650,29 @@ function CalendarPage() {
               </DialogTitle>
             </div>
             <p className="text-xs text-slate-500">
-              Nội dung mô phỏng kết xuất chính thức gửi qua <b>Google Calendar</b> tới đối tác.
+              Nội dung mô phỏng kết xuất chính thức từ <b>Mẫu Tin Nhắn</b> gửi qua <b>Google Calendar</b> tới đối tác.
             </p>
           </DialogHeader>
 
           {previewInviteReg && (
             <div className="space-y-4 py-2 text-xs text-slate-700 max-h-[60vh] overflow-y-auto custom-scrollbar">
-              <div className="space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Tiêu đề (Subject):</span>
-                <p className="font-bold text-slate-900">[DESEMBRE] Thư mời: {title || "Sự kiện DESEMBRE Partner"}</p>
-              </div>
-
-              <div className="space-y-2 bg-white p-3 rounded-xl border border-slate-100 shadow-2xs whitespace-pre-wrap font-mono text-[11px] leading-relaxed">
-                <p>Kính gửi <b>{previewInviteReg.customer_name || "Khách Quý"}</b>,</p>
-                <p>DESEMBRE trân trọng kính mời Anh/Chị tham dự chương trình đào tạo và cập nhật phác đồ chuyên sâu.</p>
-                <div className="pl-2 border-l-2 border-purple-400 my-2 space-y-1 bg-purple-50/30 p-2 rounded-r">
-                  <p>📌 <b>Chủ đề:</b> {title || "Sự kiện DESEMBRE Partner"}</p>
-                  <p>⏰ <b>Thời gian:</b> {startsAt ? new Date(startsAt).toLocaleString() : "Chưa xác định"}</p>
-                  <p>📍 <b>Địa điểm:</b> {eventLocation || meetingUrl || "Hệ thống trực tuyến DESEMBRE"}</p>
+              {isPreviewLoading ? (
+                <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-400">
+                  <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-xs">Đang nạp Mẫu tin nhắn động từ hệ thống...</p>
                 </div>
-                {description && (
-                  <div className="pt-2 border-t border-dashed border-slate-200 mt-2">
-                    <p className="text-[10px] text-slate-400 font-sans uppercase">Nội dung chi tiết:</p>
-                    <p className="font-sans italic mt-0.5">{description}</p>
+              ) : (
+                <>
+                  <div className="space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Tiêu đề (Subject):</span>
+                    <p className="font-bold text-slate-900">{renderedPreviewSubject || "[Chưa có tiêu đề]"}</p>
                   </div>
-                )}
-                <p className="pt-2 text-[10px] text-slate-400">Trân trọng,<br/>Ban Giám Đốc DESEMBRE Partner Hub</p>
-              </div>
+
+                  <div className="space-y-2 bg-white p-3 rounded-xl border border-slate-100 shadow-2xs whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-slate-800">
+                    {renderedPreviewBody || "[Nội dung trống]"}
+                  </div>
+                </>
+              )}
             </div>
           )}
 
