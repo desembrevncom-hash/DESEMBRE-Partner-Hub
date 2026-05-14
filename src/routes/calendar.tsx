@@ -422,6 +422,22 @@ function CalendarPage() {
           const { error: err } = await supabase.from("company_events").update(payload).eq("id", editEventId);
           if (err) throw err;
           toast.success("Cập nhật Chiến dịch thành công");
+
+          // Tự động nạp Master Event lên Google Calendar ngay cho Admin nghiệm thu
+          try {
+            supabase.functions.invoke('send-gcal-invite', {
+              body: {
+                registration_id: editEventId || "master_update",
+                event_title: title.trim(),
+                starts_at: startsAt,
+                ends_at: endsAt || startsAt,
+                location: eventLocation.trim() || meetingUrl.trim() || "Hệ thống DESEMBRE",
+                description: description.trim(),
+                attendee_email: user?.email || "desembrevn.com@gmail.com",
+                attendee_name: "Ban Quản Trị DESEMBRE"
+              }
+            }).then();
+          } catch (_) {}
         } else {
           const payload = {
             title: title.trim(),
@@ -454,9 +470,25 @@ function CalendarPage() {
             status: campaignStatus,
             created_by: user?.id || null,
           };
-          const { error: err } = await supabase.from("company_events").insert([payload]);
+          const { data: newEv, error: err } = await supabase.from("company_events").insert([payload]).select().single();
           if (err) throw err;
           toast.success("Khởi tạo Chiến dịch mới thành công");
+
+          // Tự động nạp Master Event lên Google Calendar ngay khi vừa tạo xong
+          try {
+            supabase.functions.invoke('send-gcal-invite', {
+              body: {
+                registration_id: newEv?.id || "master_init",
+                event_title: title.trim(),
+                starts_at: startsAt,
+                ends_at: endsAt || startsAt,
+                location: eventLocation.trim() || meetingUrl.trim() || "Hệ thống DESEMBRE",
+                description: description.trim(),
+                attendee_email: user?.email || "desembrevn.com@gmail.com",
+                attendee_name: "Ban Quản Trị DESEMBRE"
+              }
+            }).then();
+          } catch (_) {}
         } else {
           const payload = {
             title: title.trim(),
