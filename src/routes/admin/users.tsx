@@ -169,7 +169,7 @@ function AdminUsersPage() {
 
   // Compute lookup dictionary mapping each profile ID to array of string roles
   const rolesMap = useMemo(() => {
-    const map = new Map<string, ("admin" | "sub_admin" | "sale" | "tele_lead")[]>();
+    const map = new Map<string, ("admin" | "sub_admin" | "sale" | "tele_lead" | "telesale")[]>();
     for (const r of combinedRoles) {
       const existing = map.get(r.user_id) || [];
       if (!existing.includes(r.role)) {
@@ -194,14 +194,14 @@ function AdminUsersPage() {
       // Role filter check
       if (roleFilter !== "all") {
         const userRoles = rolesMap.get(p.id) || [];
-        if (!userRoles.includes(roleFilter)) return false;
+        if (!userRoles.includes(roleFilter as any)) return false;
       }
 
       return true;
     });
   }, [combinedProfiles, rolesMap, searchQuery, roleFilter]);
 
-  const toggleRole = async (uid: string, role: "admin" | "sub_admin" | "sale" | "tele_lead") => {
+  const toggleRole = async (uid: string, role: "admin" | "sub_admin" | "sale" | "tele_lead" | "telesale") => {
     const currentRoles = rolesMap.get(uid) || [];
     const has = currentRoles.includes(role);
 
@@ -354,7 +354,7 @@ function AdminUsersPage() {
     await reload();
   };
 
-  const handleSuccessOptimistic = (newUser: { id: string; email: string; displayName: string; role?: "sale" | "sub_admin" | "tele_lead" }) => {
+  const handleSuccessOptimistic = (newUser: { id: string; email: string; displayName: string; role?: "sale" | "sub_admin" | "tele_lead" | "telesale" }) => {
     const assignedRole = newUser.role || "sale";
     const item: ProfileRow = { id: newUser.id, email: newUser.email, display_name: newUser.displayName };
     const ritem: RoleRow = { user_id: newUser.id, role: assignedRole };

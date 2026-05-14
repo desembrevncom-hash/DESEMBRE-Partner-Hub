@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 
 interface CreateSaleUserFormProps {
-  onSuccessOptimistic: (user: { id: string; email: string; displayName: string; role?: "sale" | "sub_admin" | "tele_lead" }) => void;
+  onSuccessOptimistic: (user: { id: string; email: string; displayName: string; role?: "sale" | "sub_admin" | "tele_lead" | "telesale" }) => void;
   reload: () => Promise<void>;
   canCreateSubAdmin?: boolean;
 }
@@ -16,7 +16,7 @@ interface CreateSaleUserFormProps {
 export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAdmin }: CreateSaleUserFormProps) {
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
-  const [targetRole, setTargetRole] = useState<"sale" | "sub_admin" | "tele_lead">("sale");
+  const [targetRole, setTargetRole] = useState<"sale" | "sub_admin" | "tele_lead" | "telesale">("sale");
   const [creating, setCreating] = useState(false);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -32,8 +32,9 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAd
 
     setCreating(true);
 
-    // Ủy thác trọn vẹn việc phân quyền atomic và tự sửa lỗi mồ côi (self-healing) cho Edge Function
-    const { data, error } = await supabase.functions.invoke("create-sale-user", {
+    // Tối ưu hóa: Ưu tiên gọi create-staff-user cho luồng nhân viên mới, bảo lưu create-sale-user cho luồng Phó Admin
+    const targetFunction = targetRole === "sub_admin" ? "create-sale-user" : "create-staff-user";
+    const { data, error } = await supabase.functions.invoke(targetFunction, {
       body: {
         email,
         fullName,
@@ -65,7 +66,8 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAd
 
     const roleNameDisplay = 
       targetRole === "sub_admin" ? "PHÓ ADMIN" : 
-      targetRole === "tele_lead" ? "TRƯỞNG TELE" : "SALE";
+      targetRole === "tele_lead" ? "TRƯỞNG TELE" : 
+      targetRole === "telesale" ? "TELESALE" : "SALE";
 
     if (data?.user?.recoveredOrphan) {
       toast.success(
@@ -94,6 +96,7 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAd
   const getRoleLabel = () => {
     if (targetRole === "sub_admin") return "PHÓ ADMIN";
     if (targetRole === "tele_lead") return "TRƯỞNG TELE";
+    if (targetRole === "telesale") return "TELESALE";
     return "SALE";
   };
 
@@ -130,7 +133,6 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAd
             />
           </div>
 
-          {/* Cho phép cả Admin và Sub Admin gán role tele_lead */}
           <div className="space-y-2 pt-1 border-t border-border">
             <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
               Vai trò gán cho tài khoản
@@ -170,6 +172,24 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAd
                   className="sr-only"
                 />
                 <span>🎧 Trưởng Tele (Tele Lead)</span>
+              </label>
+
+              <label
+                className={`flex items-center gap-2 p-2 rounded border cursor-pointer text-xs font-bold transition-all ${
+                  targetRole === "telesale"
+                    ? "bg-amber-100 border-amber-400 text-amber-900"
+                    : "border-border text-muted-foreground hover:bg-muted/50"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="targetRole"
+                  value="telesale"
+                  checked={targetRole === "telesale"}
+                  onChange={() => setTargetRole("telesale")}
+                  className="sr-only"
+                />
+                <span>📞 Nhân viên Telesale</span>
               </label>
 
               {canCreateSubAdmin && (
@@ -214,8 +234,8 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAd
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed">
           {canCreateSubAdmin
-            ? "Bạn là Quản trị viên gốc. Bạn có toàn quyền cấp phát tài khoản vào các nhóm SALE, TRƯỞNG TELE hoặc PHÓ ADMIN."
-            : "Bạn là Phó Admin. Bạn được quyền tạo và quản lý tài khoản nhân sự thuộc phễu SALE Thị trường và TRƯỞNG TELE trực tuyến."}
+            ? "Bạn là Quản trị viên gốc. Bạn có toàn quyền cấp phát tài khoản vào các nhóm SALE, TRƯỞNG TELE, TELESALE hoặc PHÓ ADMIN."
+            : "Bạn là Phó Admin. Bạn được quyền tạo và quản lý tài khoản nhân sự thuộc phễu SALE Thị trường và khối TELE trực tuyến."}
         </p>
       </div>
     </div>

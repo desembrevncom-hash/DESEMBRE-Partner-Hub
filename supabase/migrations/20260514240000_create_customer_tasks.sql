@@ -70,7 +70,16 @@ CREATE POLICY "Staff insert customer tasks" ON public.customer_tasks
         OR (public.has_role(auth.uid(), 'tele_lead') AND owner_tele_id = auth.uid())
     );
 
--- 4. TÍCH HỢP TRIGGER TỰ ĐỘNG CẬP NHẬT UPDATED_AT NẾU CHƯA CÓ
+-- 4. ĐỊNH NGHĨA HÀM TỰ ĐỘNG CẬP NHẬT MỐC THỜI GIAN (NẾU CHƯA CÓ)
+CREATE OR REPLACE FUNCTION public.touch_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 5. TÍCH HỢP TRIGGER TỰ ĐỘNG CẬP NHẬT UPDATED_AT
 DO $$
 BEGIN
     IF NOT EXISTS (

@@ -57,6 +57,19 @@ CREATE POLICY "Staff insert owned customers" ON public.customers
         OR (public.has_role(auth.uid(), 'tele_lead') AND owner_tele_id = auth.uid())
     );
 
+-- Chính sách cho Telesale: Chỉ được XEM khách hàng nếu họ được phân công tác vụ chăm sóc (customer_tasks)
+DROP POLICY IF EXISTS "Telesales view assigned customers" ON public.customers;
+CREATE POLICY "Telesales view assigned customers" ON public.customers
+    FOR SELECT TO authenticated
+    USING (
+        public.has_role(auth.uid(), 'telesale')
+        AND EXISTS (
+            SELECT 1 FROM public.customer_tasks
+            WHERE customer_tasks.customer_id = customers.id
+              AND customer_tasks.assigned_to = auth.uid()
+        )
+    );
+
 
 -- ============================================================================
 -- 3. CẬP NHẬT RLS CHO BẢNG LEADS

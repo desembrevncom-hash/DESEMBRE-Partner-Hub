@@ -6,5 +6,5 @@ export type ProfileRow = {
 
 export type RoleRow = {
   user_id: string;
-  role: "admin" | "sub_admin" | "sale" | "tele_lead";
+  role: "admin" | "sub_admin" | "sale" | "tele_lead" | "telesale";
 };

@@ -3,10 +3,10 @@ import { Trash2 } from "lucide-react";
 interface UserActionsMenuProps {
   userId: string;
   userEmail: string | null;
-  currentRoles: ("admin" | "sub_admin" | "sale" | "tele_lead")[];
+  currentRoles: ("admin" | "sub_admin" | "sale" | "tele_lead" | "telesale")[];
   currentUserEmail?: string | null;
   currentUserId?: string;
-  onToggleRole: (uid: string, role: "admin" | "sub_admin" | "sale" | "tele_lead") => Promise<void>;
+  onToggleRole: (uid: string, role: "admin" | "sub_admin" | "sale" | "tele_lead" | "telesale") => Promise<void>;
   onDeleteRequest: () => void;
   canCreateSubAdmin?: boolean;
 }
@@ -24,6 +24,7 @@ export function UserActionsMenu({
   const isSubAdmin = currentRoles.includes("sub_admin");
   const isSale = currentRoles.includes("sale");
   const isTeleLead = currentRoles.includes("tele_lead");
+  const isTelesale = currentRoles.includes("telesale");
 
   const isPrimary = userEmail === "desembrevn.com@gmail.com";
   const isSelf = userId === currentUserId;
@@ -72,6 +73,17 @@ export function UserActionsMenu({
         }`}
       >
         TRƯỞNG TELE
+      </button>
+
+      <button
+        onClick={() => onToggleRole(userId, "telesale")}
+        className={`px-2 py-1 text-[9px] sm:text-[10px] font-bold rounded transition-all border ${
+          isTelesale
+            ? "bg-amber-100 text-amber-900 border-amber-300 shadow-2xs"
+            : "border-transparent bg-muted text-muted-foreground hover:bg-muted/80"
+        }`}
+      >
+        TELESALE
       </button>
 
       <button

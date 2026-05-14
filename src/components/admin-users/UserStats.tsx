@@ -1,4 +1,4 @@
-import { Users, ShieldCheck, UserCheck, ShieldAlert } from "lucide-react";
+import { Users, ShieldCheck, UserCheck, ShieldAlert, Headset } from "lucide-react";
 import { ProfileRow, RoleRow } from "./types";
 
 interface UserStatsProps {
@@ -17,9 +17,12 @@ export function UserStats({ profiles, roles }: UserStatsProps) {
   const saleCount = profiles.filter((p) =>
     roles.some((r) => r.user_id === p.id && r.role === "sale")
   ).length;
+  const telesaleCount = profiles.filter((p) =>
+    roles.some((r) => r.user_id === p.id && r.role === "telesale")
+  ).length;
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
       <div className="bg-card border border-border rounded-lg p-4 shadow-sm flex items-center justify-between">
         <div className="space-y-1">
           <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">
@@ -59,6 +62,20 @@ export function UserStats({ profiles, roles }: UserStatsProps) {
       </div>
 
       <div className="bg-card border border-border rounded-lg p-4 shadow-sm flex items-center justify-between">
+        <div className="space-y-1">
+          <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">
+            Nhân viên Telesale
+          </p>
+          <p className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400">
+            {telesaleCount}
+          </p>
+        </div>
+        <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+          <Headset className="w-5 h-5" />
+        </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-lg p-4 shadow-sm flex items-center justify-between col-span-2 lg:col-span-1">
         <div className="space-y-1">
           <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">
             Nhân viên SALE

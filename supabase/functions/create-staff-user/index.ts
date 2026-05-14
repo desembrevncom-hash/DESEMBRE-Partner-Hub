@@ -4,7 +4,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const DEFAULT_SALE_PASSWORD = "12345678";
+const DEFAULT_PASSWORD = "12345678";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -53,6 +53,7 @@ Deno.serve(async (req) => {
       },
     });
 
+    // 1. Kiểm tra người gọi đăng nhập
     const {
       data: { user },
       error: authError,
@@ -62,7 +63,7 @@ Deno.serve(async (req) => {
       return json({ error: "Unauthorized" }, 401);
     }
 
-    // Tối ưu hóa: Lấy danh sách các vai trò quản lý của người gọi
+    // 2. Kiểm tra người gọi có role admin hoặc sub_admin
     const { data: managerRoles, error: managerRoleError } = await adminClient
       .from("user_roles")
       .select("role")
@@ -79,11 +80,10 @@ Deno.serve(async (req) => {
     }
 
     const callerRoleStrings = (managerRoles || []).map((r) => r.role);
-    const isCallerAdmin = isPrimaryAdmin || callerRoleStrings.includes("admin");
-    const isCallerSubAdmin = callerRoleStrings.includes("sub_admin");
+    const isCallerManager = isPrimaryAdmin || callerRoleStrings.includes("admin") || callerRoleStrings.includes("sub_admin");
 
-    if (!isCallerAdmin && !isCallerSubAdmin) {
-      return json({ error: "Manager access required" }, 403);
+    if (!isCallerManager) {
+      return json({ error: "Yêu cầu quyền quản lý (Admin hoặc Phó Admin)" }, 403);
     }
 
     const body = await req.json();
@@ -92,30 +92,28 @@ Deno.serve(async (req) => {
     const fullName = String(body.fullName || "").trim();
     const requestedRole = String(body.role || "sale").trim().toLowerCase();
 
-    if (!email) {
-      return json({ error: "Email is required" }, 400);
+    if (!email || !fullName) {
+      return json({ error: "Email và Tên hiển thị là bắt buộc" }, 400);
     }
 
-    if (!fullName) {
-      return json({ error: "Tên hiển thị là bắt buộc" }, 400);
+    // 3. Validate role chỉ được là sale, tele_lead, telesale
+    // 4. Không cho tạo admin/sub_admin từ function này
+    if (!["sale", "tele_lead", "telesale"].includes(requestedRole)) {
+      return json({ error: "Vai trò không hợp lệ. Chỉ hỗ trợ tạo staff: sale, tele_lead, telesale." }, 400);
     }
 
-    // Tầng 2 logic: Phân giải các vai trò hợp lệ. Chỉ Admin được phép tạo thêm Sub-Admin.
-    // Các quyền Staff (sale, tele_lead, telesale) mở cho cả Admin và Sub-Admin.
-    let finalRole = "sale";
-    if (["sale", "tele_lead", "telesale"].includes(requestedRole)) {
-      finalRole = requestedRole;
-    } else if (requestedRole === "sub_admin" && isCallerAdmin) {
-      finalRole = "sub_admin";
-    }
+    const finalRole = requestedRole;
 
     let newUserId = "";
     let isSelfHealed = false;
 
+    // 5. Tạo Supabase Auth user bằng service_role
+    // 6. password mặc định = 12345678.
+    // 7. email_confirm = true.
     const { data: createdUser, error: createUserError } =
       await adminClient.auth.admin.createUser({
         email,
-        password: DEFAULT_SALE_PASSWORD,
+        password: DEFAULT_PASSWORD,
         email_confirm: true,
         user_metadata: {
           display_name: fullName,
@@ -125,7 +123,7 @@ Deno.serve(async (req) => {
 
     if (createUserError || !createdUser?.user) {
       const errMsg = (createUserError?.message || "").toLowerCase();
-      // Cơ chế tự phục hồi (Self-Healing): Nếu email đã tồn tại do lỗi mồ côi từ các phiên trước, tự động tra cứu ID và khôi phục
+      // Cơ chế tự phục hồi: Nếu email đã tồn tại do lỗi mồ côi từ trước, tự động tra cứu ID và khôi phục
       if (errMsg.includes("already been registered") || errMsg.includes("already exists")) {
         const { data: listData, error: listErr } = await adminClient.auth.admin.listUsers();
         if (!listErr && listData?.users) {
@@ -140,7 +138,7 @@ Deno.serve(async (req) => {
       if (!newUserId) {
         return json(
           {
-            error: createUserError?.message || "Cannot create user",
+            error: createUserError?.message || "Không thể tạo tài khoản xác thực",
           },
           400
         );
@@ -149,7 +147,7 @@ Deno.serve(async (req) => {
       newUserId = createdUser.user.id;
     }
 
-    // Upsert khôi phục/tạo mới hồ sơ Profile
+    // 8. Upsert profiles: id, email, display_name, must_change_password = true
     const { error: profileError } = await adminClient.from("profiles").upsert(
       {
         id: newUserId,
@@ -163,20 +161,19 @@ Deno.serve(async (req) => {
     );
 
     if (profileError) {
-      // Chỉ xóa user nếu đây là user mới tạo, tránh xóa nhầm user cũ nếu tự phục hồi thất bại
+      // 10. Nếu profile fail thì rollback xóa auth user vừa tạo
       if (!isSelfHealed) {
         await adminClient.auth.admin.deleteUser(newUserId);
       }
-
       return json(
         {
-          error: `Tạo/Khôi phục Auth user thành công nhưng ghi profiles thất bại: ${profileError.message}`,
+          error: `Tạo Auth user thành công nhưng ghi profiles thất bại: ${profileError.message}`,
         },
         400
       );
     }
 
-    // Upsert khôi phục/tạo mới Phân quyền
+    // 9. Insert/upsert user_roles: user_id, role
     const { error: roleError } = await adminClient.from("user_roles").upsert(
       {
         user_id: newUserId,
@@ -188,13 +185,13 @@ Deno.serve(async (req) => {
     );
 
     if (roleError) {
+      // 10. Nếu role fail thì rollback xóa auth user vừa tạo
       if (!isSelfHealed) {
         await adminClient.auth.admin.deleteUser(newUserId);
       }
-
       return json(
         {
-          error: `Tạo/Khôi phục Auth user thành công nhưng gán role thất bại: ${roleError.message}`,
+          error: `Tạo Auth user thành công nhưng gán role thất bại: ${roleError.message}`,
         },
         400
       );
@@ -208,6 +205,7 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 11. Trả JSON success rõ
     return json({
       success: true,
       user: {
@@ -215,7 +213,7 @@ Deno.serve(async (req) => {
         email,
         displayName: fullName,
         role: finalRole,
-        defaultPassword: DEFAULT_SALE_PASSWORD,
+        defaultPassword: DEFAULT_PASSWORD,
         recoveredOrphan: isSelfHealed,
       },
     });

@@ -1,5 +1,5 @@
 interface UserRoleBadgeProps {
-  role: "admin" | "sub_admin" | "sale" | "tele_lead" | string;
+  role: "admin" | "sub_admin" | "sale" | "tele_lead" | "telesale" | string;
 }
 
 export function UserRoleBadge({ role }: UserRoleBadgeProps) {
@@ -23,6 +23,14 @@ export function UserRoleBadge({ role }: UserRoleBadgeProps) {
     return (
       <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-600 text-white tracking-wider uppercase">
         TRƯỞNG TELE
+      </span>
+    );
+  }
+
+  if (role === "telesale") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 tracking-wider uppercase">
+        TELESALE
       </span>
     );
   }
