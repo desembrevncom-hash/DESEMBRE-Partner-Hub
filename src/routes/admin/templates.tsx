@@ -399,8 +399,10 @@ function AdminTemplatesPage() {
       let customMsg = err.message || "Lỗi không xác định";
       if (customMsg.includes("Service accounts cannot invite attendees") || customMsg.includes("Domain-Wide Delegation")) {
         customMsg = "Service Account chưa bật Domain-Wide Delegation hoặc chưa impersonate email công ty. Hãy cấu hình GOOGLE_IMPERSONATE_EMAIL hoặc chuyển sang OAuth.";
+      } else if (customMsg.includes("Failed to send a request") || customMsg.includes("fetch")) {
+        customMsg = "Edge Function chưa được triển khai (Undeployed) trên Supabase Cloud. Vui lòng mở Terminal và chạy lệnh: supabase functions deploy send-template-test-invite";
       }
-      toast.error(`Gửi test thất bại: ${customMsg}`, { id: tid });
+      toast.error(`Gửi test thất bại: ${customMsg}`, { id: tid, duration: 8000 });
       loadData();
     } finally {
       setTesting(false);
