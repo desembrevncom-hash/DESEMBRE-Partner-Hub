@@ -718,22 +718,32 @@ function AdminTemplatesPage() {
             ) : (
               <div className="space-y-2.5 max-h-[320px] overflow-y-auto custom-scrollbar pr-1">
                 {testLogs.map(log => {
-                  const isSuccess = log.status === 'sent';
+                  const isSent = log.status === 'sent';
+                  const isNotSent = log.status === 'not_sent';
+                  
+                  let badgeBg = 'bg-rose-100 text-rose-700';
+                  let badgeTxt = '✕ Thất bại';
+                  if (isSent) {
+                    badgeBg = 'bg-emerald-100 text-emerald-700';
+                    badgeTxt = '✓ Đã gửi Email';
+                  } else if (isNotSent) {
+                    badgeBg = 'bg-amber-100 text-amber-700';
+                    badgeTxt = '⚠ Đã tạo Lịch';
+                  }
+
                   return (
                     <div key={log.id} className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs space-y-1">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-slate-900 truncate max-w-[150px]">{log.test_email}</span>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                          isSuccess ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                        }`}>
-                          {isSuccess ? '✓ Thành công' : '✕ Thất bại'}
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${badgeBg}`}>
+                          {badgeTxt}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-[10px] text-slate-500">
                         <span className="truncate max-w-[120px]">Mẫu: {log.template_name || 'N/A'}</span>
                         <span>{new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
-                      {!isSuccess && log.error_message && (
+                      {!isSent && !isNotSent && log.error_message && (
                         <p className="text-[10px] text-rose-600 font-mono bg-rose-50 p-1 rounded mt-1 line-clamp-2">
                           Lý do: {log.error_message}
                         </p>
