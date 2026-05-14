@@ -91,15 +91,68 @@ serve(async (req) => {
       }
     } catch (_) {}
 
+    // Khởi tạo Supabase Client để truy vấn Chiến dịch mẹ và toàn bộ danh sách Khách hàng hợp lệ
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "";
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    let targetEventId = "mastercampaign" + Math.floor(Date.now() / 1000);
+    const attendeesMap = new Map<string, any>();
+
+    // 1. Thêm Khách hiện tại vào danh sách người tham dự
+    if (attendee_email && attendee_email.includes("@")) {
+      attendeesMap.set(attendee_email.trim().toLowerCase(), {
+        email: attendee_email.trim(),
+        displayName: attendee_name || "Khách mời",
+      });
+    }
+
+    // 2. Tra cứu event_id mẹ từ registration_id
+    if (registration_id && !registration_id.startsWith("master_")) {
+      const { data: currentReg } = await supabase
+        .from("event_registrations")
+        .select("event_id")
+        .eq("id", registration_id)
+        .single();
+
+      if (currentReg && currentReg.event_id) {
+        targetEventId = currentReg.event_id;
+
+        // 3. Tải toàn bộ danh sách khách hàng của Chiến dịch mẹ đã có Email
+        const { data: allRegs } = await supabase
+          .from("event_registrations")
+          .select("customer_name, attendee_email")
+          .eq("event_id", targetEventId)
+          .not("attendee_email", "is", null);
+
+        if (allRegs && allRegs.length > 0) {
+          for (const r of allRegs) {
+            if (r.attendee_email && r.attendee_email.includes("@")) {
+              attendeesMap.set(r.attendee_email.trim().toLowerCase(), {
+                email: r.attendee_email.trim(),
+                displayName: r.customer_name || "Khách mời",
+              });
+            }
+          }
+        }
+      }
+    }
+
+    const finalAttendees = Array.from(attendeesMap.values());
+
+    // 4. Băm ID Sự kiện Cố định (Deterministic Event ID) tuân thủ base32hex (a-v, 0-9) của Google Calendar
+    const cleanEventId = targetEventId.replace(/-/g, "").toLowerCase().replace(/[^a-v0-9]/g, "0");
+    const deterministicGCalId = "guestinvite" + cleanEventId;
+
     // Chuẩn hóa nội dung mang danh nghĩa Công ty DESEMBRE
     const cleanTitle = event_title || "Sự kiện DESEMBRE Partner";
-    const googleEventPayload = {
+    const googleEventPayload: any = {
       summary: `[DESEMBRE] Thư Mời Sự Kiện: ${cleanTitle}`,
-      description: `Kính gửi Quý đối tác / Khách mời: ${attendee_name}\n\nCông ty DESEMBRE Việt Nam trân trọng kính mời Quý khách tham dự chương trình đào tạo và chuyển giao phác đồ chuyên sâu.\n\n📌 NỘI DUNG CHUYỂN GIAO:\n${description || ""}\n\nSự hiện diện của Quý khách là niềm vinh hạnh lớn cho công ty chúng tôi.\nTrân trọng,\nBan Giám Đốc DESEMBRE Partner Hub`,
+      description: `Kính gửi Quý đối tác / Khách mời,\n\nCông ty DESEMBRE Việt Nam trân trọng kính mời Quý khách tham dự chương trình đào tạo và chuyển giao phác đồ chuyên sâu.\n\n📌 NỘI DUNG CHUYỂN GIAO:\n${description || ""}\n\nSự hiện diện của Quý khách là niềm vinh hạnh lớn cho công ty chúng tôi.\nTrân trọng,\nBan Giám Đốc DESEMBRE Partner Hub`,
       location: location || "Hệ thống DESEMBRE Việt Nam",
       start: { dateTime: validStart },
       end: { dateTime: validEnd },
-
+      attendees: finalAttendees,
       reminders: {
         useDefault: false,
         overrides: [
@@ -109,40 +162,56 @@ serve(async (req) => {
       },
       guestsCanModify: false,
       guestsCanInviteOthers: false,
-      guestsCanSeeOtherGuests: false,
+      guestsCanSeeOtherGuests: false, // BẢO MẬT ĐỈNH CAO: Ẩn danh sách khách hàng, khách nào chỉ thấy mình khách đó!
     };
 
-    // Thử tạo sự kiện trên Lịch chính thức được cấu hình trước
-    const gcalResponse = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=all`,
-      {
+    // 5. Thử cập nhật đè (PUT) Sự kiện Cố định này trước để duy trì duy nhất 1 mốc Xanh lam trên Lịch
+    const updateUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(deterministicGCalId)}?sendUpdates=all`;
+    let gcalResponse = await fetch(updateUrl, {
+      method: "PUT",
+      headers: {
+        "Authorization": `Bearer ${access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(googleEventPayload),
+    });
+
+    let gcalData = null;
+
+    if (gcalResponse.ok) {
+      gcalData = await gcalResponse.json();
+    } else if (gcalResponse.status === 404) {
+      // Nếu Sự kiện chưa từng tồn tại, thực thi chèn mới (POST) với ID chỉ định
+      console.warn("Sự kiện thư mời cố định chưa tồn tại, kích hoạt chèn POST...");
+      googleEventPayload.id = deterministicGCalId;
+      const insertUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=all`;
+      gcalResponse = await fetch(insertUrl, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${access_token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(googleEventPayload),
+      });
+      gcalData = await gcalResponse.json();
+      if (!gcalResponse.ok) {
+        throw new Error(`Google Calendar Insert API Error: ${gcalData.error?.message || JSON.stringify(gcalData)}`);
       }
-    );
-
-    const gcalData = await gcalResponse.json();
-
-    if (!gcalResponse.ok) {
-      throw new Error(`Google Calendar API Error: ${gcalData.error?.message || JSON.stringify(gcalData)}`);
+    } else {
+      const errPayload = await gcalResponse.json().catch(() => ({}));
+      throw new Error(`Google Calendar Update API Error: ${errPayload.error?.message || JSON.stringify(errPayload)}`);
     }
 
-    // Cập nhật trạng thái thành công vào Supabase
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "";
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    await supabase
-      .from("event_registrations")
-      .update({ 
-        google_invite_status: "invited",
-        calendar_link_sent_at: new Date().toISOString()
-      })
-      .eq("id", registration_id);
+    // Cập nhật trạng thái thành công vào Supabase cho khách hiện tại
+    if (registration_id && !registration_id.startsWith("master_")) {
+      await supabase
+        .from("event_registrations")
+        .update({ 
+          google_invite_status: "invited",
+          calendar_link_sent_at: new Date().toISOString()
+        })
+        .eq("id", registration_id);
+    }
 
     return new Response(JSON.stringify({ success: true, google_event_id: gcalData.id, html_link: gcalData.htmlLink }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -150,7 +219,7 @@ serve(async (req) => {
 
   } catch (error: any) {
     return new Response(JSON.stringify({ success: false, error: error.message }), {
-      status: 200,
+      status: 400, // Kích hoạt bóc tách client-side qua FunctionsHttpError error.context.json()
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
