@@ -556,8 +556,8 @@ function CalendarPage() {
 
   const handleDeleteEvent = async (id: string, type: 'personal' | 'company') => {
     if (type === 'company') {
-      if (!window.confirm("Nếu sự kiện đã đồng bộ Google Calendar, lịch trên Google cũng sẽ bị xoá/hủy.")) return;
-      const reasonInput = window.prompt("Vui lòng nhập lý do huỷ sự kiện (tùy chọn):", "");
+      if (!window.confirm("Hành động này sẽ XÓA VĨNH VIỄN sự kiện khỏi hệ thống CRM.\nNếu sự kiện đã đồng bộ Google Calendar, lịch trên Google cũng sẽ được tự động gỡ bỏ.\nBạn có chắc chắn muốn tiếp tục không?")) return;
+      const reasonInput = window.prompt("Vui lòng nhập lý do xóa sự kiện (tùy chọn để lưu vết log):", "");
       if (reasonInput === null) return; // Người dùng bấm Hủy
       
       try {
@@ -567,9 +567,9 @@ function CalendarPage() {
         });
         if (res.error) throw res.error;
         if (res.data && !res.data.success) {
-          throw new Error(res.data.error || "Lỗi nội bộ khi hủy sự kiện");
+          throw new Error(res.data.error || "Lỗi nội bộ khi xóa sự kiện");
         }
-        toast.success("Đã huỷ sự kiện");
+        toast.success("Đã xóa sự kiện thành công");
         setModalOpen(false);
         await loadEvents();
       } catch (err: any) {
@@ -2407,7 +2407,7 @@ function CalendarPage() {
                     onClick={() => handleDeleteEvent(editEventId, editEventType)}
                     className="h-9 px-4 text-xs font-bold shadow-2xs"
                   >
-                    {editEventType === 'company' ? "Hủy sự kiện" : "Xóa"}
+                    Xóa
                   </Button>
                 )}
                 {!isCompanyEditDisabled && (
