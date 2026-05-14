@@ -1954,10 +1954,11 @@ function CalendarPage() {
                   <Input
                     id="ev-start"
                     type="datetime-local"
+                    lang="en-US"
                     value={startsAt}
                     disabled={isCompanyEditDisabled}
                     onChange={(e) => setStartsAt(e.target.value)}
-                    className="h-8 text-xs"
+                    className="h-8 text-xs font-mono"
                   />
                 </div>
                 <div className="space-y-1">
@@ -1965,10 +1966,11 @@ function CalendarPage() {
                   <Input
                     id="ev-end"
                     type="datetime-local"
+                    lang="en-US"
                     value={endsAt}
                     disabled={isCompanyEditDisabled}
                     onChange={(e) => setEndsAt(e.target.value)}
-                    className="h-8 text-xs"
+                    className="h-8 text-xs font-mono"
                   />
                 </div>
               </div>
