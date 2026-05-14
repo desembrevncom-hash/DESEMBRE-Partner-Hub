@@ -55,11 +55,15 @@ interface MessageTemplate {
   updated_at: string;
 }
 
-interface CalendarAccount {
+interface SenderAccount {
   id: string;
   name: string;
-  calendar_id: string;
-  owner_email: string | null;
+  sender_email: string;
+  sender_name: string | null;
+  provider: string;
+  auth_type: string;
+  calendar_id: string | null;
+  secret_prefix: string;
   is_default: boolean;
   is_active: boolean;
 }
@@ -80,7 +84,7 @@ function AdminTemplatesPage() {
 
   // Dữ liệu DB
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
-  const [accounts, setAccounts] = useState<CalendarAccount[]>([]);
+  const [senderAccounts, setSenderAccounts] = useState<SenderAccount[]>([]);
   const [testLogs, setTestLogs] = useState<TestLog[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -104,7 +108,7 @@ function AdminTemplatesPage() {
 
   // Trạng thái Form Gửi Test
   const [testTemplateId, setTestTemplateId] = useState("");
-  const [testAccountId, setTestAccountId] = useState("");
+  const [selectedSenderId, setSelectedSenderId] = useState("");
   const [testEmailInput, setTestEmailInput] = useState("");
   const [testing, setTesting] = useState(false);
 
@@ -124,23 +128,22 @@ function AdminTemplatesPage() {
       if (errTpl) throw errTpl;
       setTemplates(tpls || []);
 
-      // 2. Tải danh sách tài khoản lịch
+      // 2. Tải danh sách tài khoản nguồn gửi từ bảng sender_accounts
       const { data: accs, error: errAcc } = await supabase
-        .from("google_calendar_accounts")
+        .from("sender_accounts")
         .select("*")
         .eq("is_active", true)
         .order("is_default", { ascending: false });
 
       if (errAcc) throw errAcc;
-      setAccounts(accs || []);
+      setSenderAccounts(accs || []);
 
       // 3. Tải lịch sử test gần đây
       const { data: logs, error: errLog } = await supabase
         .from("template_test_logs")
         .select(`
           id, test_email, status, error_message, created_at,
-          message_templates ( name ),
-          google_calendar_accounts ( name )
+          message_templates ( name )
         `)
         .order("created_at", { ascending: false })
         .limit(10);
@@ -153,13 +156,16 @@ function AdminTemplatesPage() {
           error_message: l.error_message,
           created_at: l.created_at,
           template_name: l.message_templates?.name,
-          account_name: l.google_calendar_accounts?.name,
+          account_name: "Tài khoản cấu hình động",
         })));
       }
 
       // Khởi tạo giá trị mặc định cho dropdown test nếu có
       if (tpls && tpls.length > 0) setTestTemplateId(tpls[0].id);
-      if (accs && accs.length > 0) setTestAccountId(accs[0].id);
+      if (accs && accs.length > 0) {
+        const defaultAcc = accs.find(a => a.is_default) || accs[0];
+        setSelectedSenderId(defaultAcc.id);
+      }
 
     } catch (err: any) {
       toast.error("Lỗi nạp dữ liệu: " + err.message);
@@ -318,7 +324,7 @@ function AdminTemplatesPage() {
   // Thực thi Gửi Lời Mời Kiểm Thử qua Edge Function
   const handleSendTestInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!testTemplateId || !testAccountId || !testEmailInput.trim()) {
+    if (!testTemplateId || !selectedSenderId || !testEmailInput.trim()) {
       toast.error("Vui lòng chọn đủ Mẫu tin nhắn, Lịch nguồn gửi và nhập Email test");
       return;
     }
@@ -329,7 +335,7 @@ function AdminTemplatesPage() {
     try {
       const payload = {
         templateId: testTemplateId,
-        calendarAccountId: testAccountId,
+        senderAccountId: selectedSenderId,
         testEmail: testEmailInput.trim()
       };
 
@@ -674,13 +680,13 @@ function AdminTemplatesPage() {
               <div>
                 <Label className="text-xs font-bold text-slate-700">2. Lịch Google nguồn gửi</Label>
                 <select
-                  value={testAccountId}
-                  onChange={e => setTestAccountId(e.target.value)}
+                  value={selectedSenderId}
+                  onChange={e => setSelectedSenderId(e.target.value)}
                   className="w-full h-10 px-3 text-xs rounded-xl border border-slate-200 bg-slate-50 mt-1 font-medium focus:outline-none focus:ring-2 focus:ring-purple-600"
                 >
-                  {accounts.map(a => (
+                  {senderAccounts.map(a => (
                     <option key={a.id} value={a.id}>
-                      {a.name} ({a.calendar_id === 'primary' ? 'Gốc' : 'Khác'})
+                      {a.name} ({a.sender_email})
                     </option>
                   ))}
                 </select>
@@ -699,7 +705,7 @@ function AdminTemplatesPage() {
 
               <Button
                 type="submit"
-                disabled={testing || !testTemplateId || !testAccountId || !testEmailInput.trim()}
+                disabled={testing || !testTemplateId || !selectedSenderId || !testEmailInput.trim()}
                 className="w-full h-10 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs mt-2 shadow-2xs"
               >
                 {testing ? "Đang phát hành thiệp mời..." : "🚀 Bấm Gửi Thiệp Mời Test"}
