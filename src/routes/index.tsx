@@ -10,6 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { CATEGORIES, PRODUCTS } from "@/data/products";
 import { formatCurrencyVND, getDisplayPrice } from "@/lib/pricing";
 import type { Product, Category, ProductVariant } from "@/types/product";
@@ -271,15 +277,24 @@ function IndexInner({
                     <Button asChild variant="outline" size="sm">
                       <Link to="/admin/users"><Users className="w-4 h-4 mr-1" /> Người dùng</Link>
                     </Button>
-                    <Button asChild variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 hover:text-purple-700 font-bold">
-                      <Link to="/admin/templates"><Megaphone className="w-3.5 h-3.5 mr-1 text-purple-600" /> Mẫu truyền thông</Link>
-                    </Button>
-                    <Button asChild variant="outline" size="sm" className="border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 font-bold bg-indigo-50/30">
-                      <Link to="/marketing/campaigns">🚀 Chiến dịch</Link>
-                    </Button>
-                    <Button asChild variant="outline" size="sm" className="border-pink-200 hover:bg-pink-50 hover:text-pink-700 font-bold bg-pink-50/30">
-                      <Link to="/marketing/reports">📊 Báo cáo CRM</Link>
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="border-purple-300 hover:bg-purple-50 hover:text-purple-700 font-bold bg-purple-50/20 text-purple-700">
+                          <Megaphone className="w-3.5 h-3.5 mr-1 text-purple-600 animate-pulse" /> 📢 Marketing CRM
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-52 rounded-xl border-slate-200 bg-white p-1 shadow-lg font-sans">
+                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer focus:bg-purple-50 focus:text-purple-700 text-xs font-bold py-2">
+                          <Link to="/admin/templates">📋 Mẫu truyền thông</Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer focus:bg-indigo-50 focus:text-indigo-700 text-xs font-bold py-2">
+                          <Link to="/marketing/campaigns">🚀 Kích hoạt Chiến dịch</Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer focus:bg-pink-50 focus:text-pink-700 text-xs font-bold py-2">
+                          <Link to="/marketing/reports">📊 Phân tích & Báo cáo</Link>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </>
                 )}
               </>
