@@ -360,12 +360,10 @@ function AdminTemplatesPage() {
         throw new Error(data.error);
       }
 
-      if (data?.warning) {
-        toast.warning(data.warning, { id: tid });
-      } else if (data?.has_attendees) {
+      if (data?.has_attendees) {
         toast.success("Đã gửi thư mời test thành công tới email của bạn.", { id: tid });
       } else {
-        toast.success("Đã tạo event test trên Lịch Google thành công.", { id: tid });
+        toast.warning("Đã tạo event test nhưng chưa có attendee. Kiểm tra Edge Function.", { id: tid });
       }
 
       setTestEmailInput("");
