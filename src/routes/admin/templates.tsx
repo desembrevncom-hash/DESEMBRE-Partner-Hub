@@ -303,7 +303,7 @@ function AdminTemplatesPage() {
         cta_label: formCtaLabel.trim() || null,
         cta_url: formCtaUrl.trim() || null,
         footer_template: formFooterTemplate.trim() || null,
-        attachment_urls: formAttachmentUrls.length > 0 ? formAttachmentUrls : null,
+        attachment_urls: formAttachmentUrls,
         sample_variables: {
           customer_name: "Chị Lan Anh",
           event_title: "Chuyển giao Phác đồ Điều trị Nám",
