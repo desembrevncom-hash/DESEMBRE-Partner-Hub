@@ -103,33 +103,69 @@ serve(async (req) => {
       },
     };
 
-    // 8. Gọi Google Calendar API thực thi chèn hoặc cập nhật dữ liệu (Tránh tạo trùng lặp)
-    const hasExistingGCalId = ev.google_calendar_event_id && ev.google_calendar_event_id.trim();
-    const gcalApiUrl = hasExistingGCalId
-      ? `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(ev.google_calendar_event_id.trim())}?sendUpdates=all`
-      : `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=all`;
-    const gcalMethod = hasExistingGCalId ? "PATCH" : "POST";
+    // 8. Gọi Google Calendar API thực thi chèn hoặc cập nhật dữ liệu (Idempotent 100%)
+    const existingGCalId = ev.google_calendar_event_id?.trim();
+    let finalGCalData: any = null;
 
-    const gcalRes = await fetch(gcalApiUrl, {
-      method: gcalMethod,
-      headers: {
-        "Authorization": `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(gcalPayload),
-    });
+    if (existingGCalId) {
+      // Đã có ID -> Gọi PUT để update sự kiện cũ
+      const updateUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(existingGCalId)}?sendUpdates=all`;
+      const updateRes = await fetch(updateUrl, {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(gcalPayload),
+      });
 
-    const gcalData = await gcalRes.json();
-    if (!gcalRes.ok) {
-      throw new Error(`Google Calendar API Error: ${gcalData.error?.message || JSON.stringify(gcalData)}`);
+      if (updateRes.ok) {
+        finalGCalData = await updateRes.json();
+      } else if (updateRes.status === 404) {
+        // Sự kiện đã bị xóa thủ công trên Lịch Google -> Thực thi tạo lại bằng POST
+        console.warn(`Sự kiện ${existingGCalId} bị 404 trên GCal, tự động tạo lại...`);
+        const insertUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=all`;
+        const insertRes = await fetch(insertUrl, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(gcalPayload),
+        });
+
+        finalGCalData = await insertRes.json();
+        if (!insertRes.ok) {
+          throw new Error(`Google Calendar Re-Insert API Error: ${finalGCalData.error?.message || JSON.stringify(finalGCalData)}`);
+        }
+      } else {
+        const errData = await updateRes.json().catch(() => ({}));
+        throw new Error(`Google Calendar Update API Error: ${errData.error?.message || JSON.stringify(errData)}`);
+      }
+    } else {
+      // Chưa có ID -> Gọi POST để tạo mới
+      const insertUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=all`;
+      const insertRes = await fetch(insertUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(gcalPayload),
+      });
+
+      finalGCalData = await insertRes.json();
+      if (!insertRes.ok) {
+        throw new Error(`Google Calendar Insert API Error: ${finalGCalData.error?.message || JSON.stringify(finalGCalData)}`);
+      }
     }
 
     // 9. Cập nhật trạng thái thành công tuyệt đối vào CSDL
     await supabase
       .from("company_events")
       .update({
-        google_calendar_event_id: gcalData.id,
-        google_calendar_html_link: gcalData.htmlLink,
+        google_calendar_event_id: finalGCalData.id,
+        google_calendar_html_link: finalGCalData.htmlLink,
         google_sync_status: "synced",
         google_synced_at: new Date().toISOString(),
         google_sync_error: null,
@@ -140,8 +176,8 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         message: "Synchronized company event to Google Calendar successfully",
-        googleEventId: gcalData.id,
-        googleEventLink: gcalData.htmlLink,
+        googleEventId: finalGCalData.id,
+        googleEventLink: finalGCalData.htmlLink,
       }),
       {
         status: 200,
@@ -171,7 +207,7 @@ serve(async (req) => {
         error: errorMsg,
       }),
       {
-        status: 200, // Trả về HTTP 200 để Supabase JS Relay Client nhận trọn vẹn payload JSON chứa chuỗi thông báo lỗi gốc
+        status: 400, // Trả về HTTP 400 để Supabase JS Client tự động kích hoạt ném FunctionsHttpError hỗ trợ bóc tách qua error.context.json()
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );

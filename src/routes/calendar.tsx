@@ -387,7 +387,16 @@ function CalendarPage() {
       toast.success("Đã đồng bộ Google Calendar");
       await loadEvents();
     } catch (err: any) {
-      toast.error("Lỗi đồng bộ: " + (err.message || JSON.stringify(err)));
+      let errorMsg = err.message || JSON.stringify(err);
+      if (err.context && typeof err.context.json === 'function') {
+        try {
+          const ctxData = await err.context.json();
+          if (ctxData && ctxData.error) {
+            errorMsg = ctxData.error;
+          }
+        } catch (_) {}
+      }
+      toast.error("Lỗi đồng bộ: " + errorMsg);
     } finally {
       setIsSyncingGCal(false);
     }
