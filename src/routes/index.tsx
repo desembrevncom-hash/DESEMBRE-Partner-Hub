@@ -87,37 +87,6 @@ function IndexInner({
     [history, overrides, setOverrides],
   );
 
-  const [isSyncing, setIsSyncing] = useState(false);
-  const syncToSupabase = async () => {
-    const mockData = localStorage.getItem("mock_overrides");
-    if (!mockData) {
-      toast.error("Không có dữ liệu ảo để đồng bộ");
-      return;
-    }
-    
-    if (!confirm("Bạn có muốn đẩy toàn bộ dữ liệu đang có ở máy này lên Database thật không?")) return;
-
-    setIsSyncing(true);
-    try {
-      const data = JSON.parse(mockData);
-      let successCount = 0;
-      for (const row of data) {
-        const res = await saveProductOverride(row);
-        if (res.ok) successCount++;
-      }
-      toast.success(`Đã đồng bộ thành công ${successCount} mục lên Database!`);
-      if (confirm("Đồng bộ xong! Bạn có muốn chuyển sang dùng dữ liệu thật từ Database không? (Sẽ xoá dữ liệu tạm thời ở máy này)")) {
-        localStorage.removeItem("mock_overrides");
-        localStorage.removeItem("mock_session");
-        window.location.reload();
-      }
-    } catch (error) {
-      toast.error("Lỗi đồng bộ: " + (error as Error).message);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
   const setImage = useCallback(async (no: number, src: string | undefined) => {
     history.snapshot(no, overrides[no], `Ảnh #${String(no).padStart(2, "0")}`);
     setOverrides((p) => ({
@@ -308,18 +277,6 @@ function IndexInner({
                   </>
                 )}
               </>
-            )}
-            {isAdmin && (
-              <Button 
-                size="sm" 
-                variant="destructive" 
-                onClick={syncToSupabase} 
-                disabled={isSyncing}
-                className="animate-pulse"
-              >
-                <RotateCcw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-                {isSyncing ? "Đang đồng bộ..." : "ĐỒNG BỘ DATABASE"}
-              </Button>
             )}
             {isManager && (
               <Button size="sm" onClick={openCreate}>
