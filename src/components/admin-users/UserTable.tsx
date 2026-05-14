@@ -3,10 +3,10 @@ import { UserRow } from "./UserRow";
 
 interface UserTableProps {
   profiles: ProfileRow[];
-  rolesMap: Map<string, ("admin" | "sub_admin" | "sale")[]>;
+  rolesMap: Map<string, ("admin" | "sub_admin" | "sale" | "tele_lead")[]>;
   currentUserEmail?: string | null;
   currentUserId?: string;
-  onToggleRole: (uid: string, role: "admin" | "sub_admin" | "sale") => Promise<void>;
+  onToggleRole: (uid: string, role: "admin" | "sub_admin" | "sale" | "tele_lead") => Promise<void>;
   onDeleteRequest: (candidate: ProfileRow) => void;
   canCreateSubAdmin?: boolean;
 }

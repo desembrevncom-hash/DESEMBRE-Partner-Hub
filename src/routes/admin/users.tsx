@@ -41,7 +41,7 @@ function AdminUsersPage() {
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState<"all" | "admin" | "sub_admin" | "sale">("all");
+  const [roleFilter, setRoleFilter] = useState<"all" | "admin" | "sub_admin" | "sale" | "tele_lead">("all");
 
   // Deletion workflow states requested by user
   const [deleteCandidate, setDeleteCandidate] = useState<ProfileRow | null>(null);
@@ -169,7 +169,7 @@ function AdminUsersPage() {
 
   // Compute lookup dictionary mapping each profile ID to array of string roles
   const rolesMap = useMemo(() => {
-    const map = new Map<string, ("admin" | "sub_admin" | "sale")[]>();
+    const map = new Map<string, ("admin" | "sub_admin" | "sale" | "tele_lead")[]>();
     for (const r of combinedRoles) {
       const existing = map.get(r.user_id) || [];
       if (!existing.includes(r.role)) {
@@ -201,7 +201,7 @@ function AdminUsersPage() {
     });
   }, [combinedProfiles, rolesMap, searchQuery, roleFilter]);
 
-  const toggleRole = async (uid: string, role: "admin" | "sub_admin" | "sale") => {
+  const toggleRole = async (uid: string, role: "admin" | "sub_admin" | "sale" | "tele_lead") => {
     const currentRoles = rolesMap.get(uid) || [];
     const has = currentRoles.includes(role);
 
@@ -354,7 +354,7 @@ function AdminUsersPage() {
     await reload();
   };
 
-  const handleSuccessOptimistic = (newUser: { id: string; email: string; displayName: string; role?: "sale" | "sub_admin" }) => {
+  const handleSuccessOptimistic = (newUser: { id: string; email: string; displayName: string; role?: "sale" | "sub_admin" | "tele_lead" }) => {
     const assignedRole = newUser.role || "sale";
     const item: ProfileRow = { id: newUser.id, email: newUser.email, display_name: newUser.displayName };
     const ritem: RoleRow = { user_id: newUser.id, role: assignedRole };

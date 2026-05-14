@@ -264,7 +264,7 @@ function IndexInner({
                   <Link to="/calendar"><Calendar className="w-4 h-4 mr-2" /> Lịch hẹn</Link>
                 </Button>
                 <Button asChild variant="outline" size="sm">
-                  <Link to="/customers"><Users className="w-4 h-4 mr-2" /> Khách hàng</Link>
+                  <Link to="/customers/"><Users className="w-4 h-4 mr-2" /> Khách hàng</Link>
                 </Button>
                 <Button asChild variant="outline" size="sm">
                   <Link to="/orders"><ShoppingCart className="w-4 h-4 mr-2" /> Đơn hàng</Link>

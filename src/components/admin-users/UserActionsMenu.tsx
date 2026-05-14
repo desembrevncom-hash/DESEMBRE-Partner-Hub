@@ -3,10 +3,10 @@ import { Trash2 } from "lucide-react";
 interface UserActionsMenuProps {
   userId: string;
   userEmail: string | null;
-  currentRoles: ("admin" | "sub_admin" | "sale")[];
+  currentRoles: ("admin" | "sub_admin" | "sale" | "tele_lead")[];
   currentUserEmail?: string | null;
   currentUserId?: string;
-  onToggleRole: (uid: string, role: "admin" | "sub_admin" | "sale") => Promise<void>;
+  onToggleRole: (uid: string, role: "admin" | "sub_admin" | "sale" | "tele_lead") => Promise<void>;
   onDeleteRequest: () => void;
   canCreateSubAdmin?: boolean;
 }
@@ -23,6 +23,7 @@ export function UserActionsMenu({
   const isAdmin = currentRoles.includes("admin");
   const isSubAdmin = currentRoles.includes("sub_admin");
   const isSale = currentRoles.includes("sale");
+  const isTeleLead = currentRoles.includes("tele_lead");
 
   const isPrimary = userEmail === "desembrevn.com@gmail.com";
   const isSelf = userId === currentUserId;
@@ -35,7 +36,7 @@ export function UserActionsMenu({
   const canDelete = !isPrimary && !isSelf && (canManageSuperiorRoles || !isTargetSuperior);
 
   return (
-    <div className="flex items-center gap-1.5 justify-end">
+    <div className="flex items-center gap-1.5 justify-end flex-wrap">
       {canManageSuperiorRoles && (
         <>
           <button
@@ -61,6 +62,17 @@ export function UserActionsMenu({
           </button>
         </>
       )}
+
+      <button
+        onClick={() => onToggleRole(userId, "tele_lead")}
+        className={`px-2 py-1 text-[9px] sm:text-[10px] font-bold rounded transition-all ${
+          isTeleLead
+            ? "bg-amber-600 text-white shadow-sm"
+            : "bg-muted text-muted-foreground hover:bg-muted/80"
+        }`}
+      >
+        TRƯỞNG TELE
+      </button>
 
       <button
         onClick={() => onToggleRole(userId, "sale")}

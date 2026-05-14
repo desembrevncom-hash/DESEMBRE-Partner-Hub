@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = "admin" | "sub_admin" | "sale";
+export type AppRole = "admin" | "sub_admin" | "sale" | "tele_lead";
 
 type AuthCtx = {
   user: User | null;
@@ -13,6 +13,9 @@ type AuthCtx = {
   isSubAdmin: boolean;
   isManager: boolean;
   isSale: boolean;
+  isTeleLead: boolean;
+  isSalesLine: boolean;
+  isTeleLine: boolean;
   canManageUsers: boolean;
   canManageLeads: boolean;
   canViewReports: boolean;
@@ -155,6 +158,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isSubAdmin = roles.includes("sub_admin");
     const isManager = isAdmin || isSubAdmin;
     const isSale = roles.includes("sale");
+    const isTeleLead = roles.includes("tele_lead");
+
+    const isSalesLine = isSale;
+    const isTeleLine = isTeleLead;
 
     return {
       user,
@@ -165,6 +172,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isSubAdmin,
       isManager,
       isSale,
+      isTeleLead,
+      isSalesLine,
+      isTeleLine,
       canManageUsers: isManager,
       canManageLeads: isManager,
       canViewReports: isManager,
