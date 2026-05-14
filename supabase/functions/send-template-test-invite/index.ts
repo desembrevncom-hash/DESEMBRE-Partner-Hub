@@ -39,16 +39,8 @@ serve(async (req) => {
       throw new Error("Vui lòng cung cấp tham số templateId và testEmail");
     }
 
-    // 1. Kiểm tra các Secrets bắt buộc từ cấu hình Supabase Vault / Deno Env
-    const serviceAccountStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT");
-    if (!serviceAccountStr || !serviceAccountStr.trim()) {
-      throw new Error("Thiếu cấu hình GOOGLE_SERVICE_ACCOUNT trong Supabase Secrets.");
-    }
-
-    const targetCalendarId = Deno.env.get("GOOGLE_CALENDAR_ID");
-    if (!targetCalendarId || !targetCalendarId.trim()) {
-      throw new Error("Thiếu cấu hình GOOGLE_CALENDAR_ID trong Supabase Secrets.");
-    }
+    // 1. Kiểm tra Lịch đích bắt buộc
+    const targetCalendarId = Deno.env.get("GOOGLE_CALENDAR_ID") || "primary";
 
     // 2. Xác thực danh tính người gọi
     const authHeader = req.headers.get("Authorization");
@@ -115,41 +107,76 @@ serve(async (req) => {
     startDt.setHours(9, 0, 0, 0);
     const endDt = new Date(startDt.getTime() + 3600 * 1000);
 
-    // 4. Phân tích Service Account
-    let serviceAccount: any = null;
-    try {
-      serviceAccount = JSON.parse(serviceAccountStr);
-    } catch (_) {
-      throw new Error("Chuỗi GOOGLE_SERVICE_ACCOUNT không đúng định dạng JSON.");
-    }
+    // 4. Kiến trúc xác thực Đa luồng: Ưu tiên OAuth2 Refresh Token nếu có
+    const refreshToken = Deno.env.get("GOOGLE_REFRESH_TOKEN");
+    const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
+    const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
+    const serviceAccountStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT");
 
-    // Đọc secret GOOGLE_IMPERSONATE_EMAIL để áp dụng kiến trúc Domain-Wide Delegation
-    const impersonateEmail = Deno.env.get("GOOGLE_IMPERSONATE_EMAIL");
+    let access_token = "";
     let hasAttendees = false;
     let warningMsg: string | undefined = undefined;
+    let usingOAuthUserFlow = false;
 
-    // 5. Xin cấp Access Token từ Google OAuth2 hỗ trợ tính năng mạo danh (sub)
-    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-        assertion: await generateJwtAssertion(serviceAccount, impersonateEmail),
-      }),
-    });
+    if (refreshToken && clientId && clientSecret) {
+      usingOAuthUserFlow = true;
+      // Xin token qua OAuth2 Refresh Token (Luồng con người thật - Hỗ trợ Gmail cá nhân)
+      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          client_id: clientId.trim(),
+          client_secret: clientSecret.trim(),
+          refresh_token: refreshToken.trim(),
+          grant_type: "refresh_token",
+        }),
+      });
 
-    const tokenData = await tokenResponse.json();
-    if (!tokenResponse.ok) {
-      const tErr = tokenData.error_description || tokenData.error || "";
-      if (tErr.toLowerCase().includes("unauthorized_client") || tErr.toLowerCase().includes("delegation") || tErr.toLowerCase().includes("forbidden")) {
-        throw new Error("Service Account chưa bật Domain-Wide Delegation hoặc chưa impersonate email công ty. Hãy cấu hình GOOGLE_IMPERSONATE_EMAIL hoặc chuyển sang OAuth.");
+      const tokenData = await tokenResponse.json();
+      if (!tokenResponse.ok) {
+        throw new Error(`Xác thực tài khoản cá nhân qua GOOGLE_REFRESH_TOKEN thất bại: ${tokenData.error_description || tokenData.error}`);
       }
-      throw new Error(`Xác thực Google Service Account thất bại: ${tErr}`);
+      access_token = tokenData.access_token;
+      hasAttendees = true; // Gmail cá nhân thật luôn được quyền phát hành email mời
+    } else if (serviceAccountStr && serviceAccountStr.trim()) {
+      // Xin token qua Service Account JWT (Hỗ trợ Google Workspace)
+      let serviceAccount: any = null;
+      try {
+        serviceAccount = JSON.parse(serviceAccountStr);
+      } catch (_) {
+        throw new Error("Chuỗi GOOGLE_SERVICE_ACCOUNT không đúng định dạng JSON.");
+      }
+
+      const impersonateEmail = Deno.env.get("GOOGLE_IMPERSONATE_EMAIL");
+      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+          assertion: await generateJwtAssertion(serviceAccount, impersonateEmail),
+        }),
+      });
+
+      const tokenData = await tokenResponse.json();
+      if (!tokenResponse.ok) {
+        const tErr = tokenData.error_description || tokenData.error || "";
+        if (tErr.toLowerCase().includes("unauthorized_client") || tErr.toLowerCase().includes("delegation") || tErr.toLowerCase().includes("forbidden")) {
+          throw new Error("Service Account chưa bật Domain-Wide Delegation hoặc chưa impersonate email công ty. Hãy cấu hình GOOGLE_IMPERSONATE_EMAIL hoặc chuyển sang OAuth Refresh Token.");
+        }
+        throw new Error(`Xác thực Google Service Account thất bại: ${tErr}`);
+      }
+
+      access_token = tokenData.access_token;
+      if (impersonateEmail && impersonateEmail.trim()) {
+        hasAttendees = true;
+      } else {
+        warningMsg = "chưa gửi email invite vì chưa cấu hình Domain-Wide Delegation.";
+      }
+    } else {
+      throw new Error("Hệ thống chưa được cấu hình phương thức xác thực Google API. Vui lòng khai báo GOOGLE_REFRESH_TOKEN (kèm Client ID/Secret) hoặc GOOGLE_SERVICE_ACCOUNT trong Supabase Secrets.");
     }
 
-    const { access_token } = tokenData;
-
-    // 6. Xây dựng Payload sự kiện với attendees tùy chọn
+    // 5. Xây dựng Payload sự kiện
     const googleEventPayload: any = {
       summary: renderedSubject,
       description: renderedBody,
@@ -165,14 +192,11 @@ serve(async (req) => {
       },
     };
 
-    if (impersonateEmail && impersonateEmail.trim()) {
+    if (hasAttendees) {
       googleEventPayload.attendees = [{ email: testEmail.trim() }];
-      hasAttendees = true;
-    } else {
-      warningMsg = "chưa gửi email invite vì chưa cấu hình Domain-Wide Delegation.";
     }
 
-    // 7. Gửi yêu cầu tạo sự kiện tới Google Calendar API
+    // 6. Gửi yêu cầu tạo sự kiện tới Google Calendar API
     const insertUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(targetCalendarId.trim())}/events?sendUpdates=all`;
     const gcalResponse = await fetch(insertUrl, {
       method: "POST",
@@ -190,26 +214,23 @@ serve(async (req) => {
       const errMsg = gcalData?.error?.message || JSON.stringify(gcalData);
 
       if (errMsg.toLowerCase().includes("delegation") || errMsg.toLowerCase().includes("domain-wide") || errMsg.toLowerCase().includes("service accounts cannot invite attendees") || errMsg.toLowerCase().includes("forbidden")) {
-        throw new Error("Service Account chưa bật Domain-Wide Delegation hoặc chưa impersonate email công ty. Hãy cấu hình GOOGLE_IMPERSONATE_EMAIL hoặc chuyển sang OAuth.");
+        throw new Error("Tài khoản chưa được phân quyền phát hành thư mời. Hãy cấu hình GOOGLE_IMPERSONATE_EMAIL (nếu dùng Service Account) hoặc kiểm tra lại OAuth scopes.");
       }
       if (errStatus === 404 || errMsg.toLowerCase().includes("not found")) {
-        throw new Error(`Calendar not found. Không tìm thấy lịch mang ID "${targetCalendarId}". Vui lòng đảm bảo đã chia sẻ lịch này cho email Service Account (${serviceAccount.client_email}) trong phần Cài đặt của Google Calendar.`);
-      }
-      if (errStatus === 403 || errMsg.toLowerCase().includes("permission")) {
-        throw new Error(`insufficient permissions. Service Account (${serviceAccount.client_email}) chưa được cấp quyền "Thực hiện thay đổi đối với sự kiện" (Make changes to events) trên lịch đích.`);
+        throw new Error(`Calendar not found. Không tìm thấy lịch mang ID "${targetCalendarId}". Vui lòng đảm bảo đã chia sẻ quyền ghi lịch này cho ứng dụng.`);
       }
 
       throw new Error(`Google API Error (${errStatus}): ${errMsg}`);
     }
 
-    // 8. Ghi Log thành công
+    // 7. Ghi Log thành công
     await supabase.from("template_test_logs").insert([{
       template_id: templateId || null,
       calendar_account_id: calendarAccountId || null,
       tested_by: userId,
       test_email: testEmail.trim(),
       status: hasAttendees ? "sent" : "not_sent",
-      provider_response: { ...gcalData, domain_delegation_warning: warningMsg }
+      provider_response: { ...gcalData, oauth_user_flow: usingOAuthUserFlow, domain_delegation_warning: warningMsg }
     }]);
 
     return new Response(JSON.stringify({ 

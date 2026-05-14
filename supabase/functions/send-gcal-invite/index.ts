@@ -32,40 +32,68 @@ serve(async (req) => {
       throw new Error("Khách mời chưa có địa chỉ email hợp lệ.");
     }
 
-    // 1. Kiểm tra cấu hình Secrets bắt buộc
+    // 1. Kiểm tra Lịch đích bắt buộc
+    const targetCalendarId = Deno.env.get("GOOGLE_CALENDAR_ID") || "primary";
+
+    // 2. Lấy Access Token từ Google (Hỗ trợ Đa luồng: OAuth2 Refresh Token hoặc Service Account)
+    const refreshToken = Deno.env.get("GOOGLE_REFRESH_TOKEN");
+    const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
+    const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
     const serviceAccountStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT");
-    if (!serviceAccountStr || !serviceAccountStr.trim()) {
-      throw new Error("Thiếu cấu hình GOOGLE_SERVICE_ACCOUNT trong Supabase Secrets.");
+
+    let access_token = "";
+    let usingOAuthUserFlow = false;
+
+    if (refreshToken && clientId && clientSecret) {
+      usingOAuthUserFlow = true;
+      // Xin token qua OAuth2 Refresh Token (Luồng con người thật - Hỗ trợ Gmail cá nhân)
+      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          client_id: clientId.trim(),
+          client_secret: clientSecret.trim(),
+          refresh_token: refreshToken.trim(),
+          grant_type: "refresh_token",
+        }),
+      });
+
+      const tokenData = await tokenResponse.json();
+      if (!tokenResponse.ok) {
+        throw new Error(`Xác thực tài khoản cá nhân qua GOOGLE_REFRESH_TOKEN thất bại: ${tokenData.error_description || tokenData.error}`);
+      }
+      access_token = tokenData.access_token;
+    } else if (serviceAccountStr && serviceAccountStr.trim()) {
+      // Xin token qua Service Account JWT (Hỗ trợ Google Workspace)
+      let serviceAccount: any = null;
+      try {
+        serviceAccount = JSON.parse(serviceAccountStr);
+      } catch (_) {
+        throw new Error("Chuỗi GOOGLE_SERVICE_ACCOUNT không đúng định dạng JSON.");
+      }
+
+      const impersonateEmail = Deno.env.get("GOOGLE_IMPERSONATE_EMAIL");
+      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+          assertion: await generateJwtAssertion(serviceAccount, impersonateEmail),
+        }),
+      });
+
+      const tokenData = await tokenResponse.json();
+      if (!tokenResponse.ok) {
+        const tErr = tokenData.error_description || tokenData.error || "";
+        if (tErr.toLowerCase().includes("unauthorized_client") || tErr.toLowerCase().includes("delegation") || tErr.toLowerCase().includes("forbidden")) {
+          throw new Error("Service Account chưa bật Domain-Wide Delegation hoặc chưa impersonate email công ty. Hãy cấu hình GOOGLE_IMPERSONATE_EMAIL hoặc chuyển sang OAuth Refresh Token.");
+        }
+        throw new Error(`Xác thực Google Service Account thất bại: ${tErr}`);
+      }
+      access_token = tokenData.access_token;
+    } else {
+      throw new Error("Hệ thống chưa được cấu hình phương thức xác thực Google API. Vui lòng khai báo GOOGLE_REFRESH_TOKEN (kèm Client ID/Secret) hoặc GOOGLE_SERVICE_ACCOUNT trong Supabase Secrets.");
     }
-
-    const targetCalendarId = Deno.env.get("GOOGLE_CALENDAR_ID");
-    if (!targetCalendarId || !targetCalendarId.trim()) {
-      throw new Error("Thiếu cấu hình GOOGLE_CALENDAR_ID trong Supabase Secrets.");
-    }
-
-    let serviceAccount: any = null;
-    try {
-      serviceAccount = JSON.parse(serviceAccountStr);
-    } catch (_) {
-      throw new Error("Chuỗi GOOGLE_SERVICE_ACCOUNT không đúng định dạng JSON.");
-    }
-
-    // 2. Lấy Access Token từ Google
-    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-        assertion: await generateJwtAssertion(serviceAccount),
-      }),
-    });
-
-    const tokenData = await tokenResponse.json();
-    if (!tokenResponse.ok) {
-      throw new Error(`Xác thực Google Service Account thất bại: ${tokenData.error_description || tokenData.error}`);
-    }
-
-    const { access_token } = tokenData;
 
     // Chuẩn hóa thời gian
     const formatDateTime = (dtStr?: string, isEnd = false) => {
@@ -250,11 +278,11 @@ serve(async (req) => {
       const errStatus = gcalResponse.status;
       const errMsg = gcalData?.error?.message || JSON.stringify(gcalData);
 
-      if (errStatus === 404 || errMsg.toLowerCase().includes("not found")) {
-        throw new Error(`Calendar not found. Không tìm thấy lịch mang ID "${targetCalendarId}". Vui lòng kiểm tra lại cấu hình GOOGLE_CALENDAR_ID hoặc đảm bảo đã chia sẻ lịch cho Service Account (${serviceAccount.client_email}).`);
+      if (errMsg.toLowerCase().includes("delegation") || errMsg.toLowerCase().includes("domain-wide") || errMsg.toLowerCase().includes("service accounts cannot invite attendees") || errMsg.toLowerCase().includes("forbidden")) {
+        throw new Error("Tài khoản chưa được phân quyền phát hành thư mời. Hãy cấu hình GOOGLE_IMPERSONATE_EMAIL (nếu dùng Service Account) hoặc chuyển sang sử dụng OAuth Refresh Token.");
       }
-      if (errStatus === 403 || errMsg.toLowerCase().includes("permission") || errMsg.toLowerCase().includes("forbidden")) {
-        throw new Error(`insufficient permissions. Service Account (${serviceAccount.client_email}) chưa được cấp quyền "Thực hiện thay đổi đối với sự kiện" (Make changes to events) trên lịch này.`);
+      if (errStatus === 404 || errMsg.toLowerCase().includes("not found")) {
+        throw new Error(`Calendar not found. Không tìm thấy lịch mang ID "${targetCalendarId}". Vui lòng kiểm tra lại cấu hình GOOGLE_CALENDAR_ID hoặc chia sẻ quyền cho tài khoản.`);
       }
 
       throw new Error(`Google API Error (${errStatus}): ${errMsg}`);
@@ -271,7 +299,7 @@ serve(async (req) => {
         .eq("id", registration_id);
     }
 
-    return new Response(JSON.stringify({ success: true, google_event_id: gcalData.id, html_link: gcalData.htmlLink }), {
+    return new Response(JSON.stringify({ success: true, oauth_user_flow: usingOAuthUserFlow, google_event_id: gcalData.id, html_link: gcalData.htmlLink }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
@@ -297,17 +325,21 @@ serve(async (req) => {
   }
 });
 
-async function generateJwtAssertion(credentials: any) {
+async function generateJwtAssertion(credentials: any, subjectEmail?: string) {
   const header = { alg: "RS256", typ: "JWT" };
   const iat = Math.floor(Date.now() / 1000);
   const exp = iat + 3600;
-  const payload = {
+  const payload: any = {
     iss: credentials.client_email,
     scope: "https://www.googleapis.com/auth/calendar.events",
     aud: "https://oauth2.googleapis.com/token",
     exp,
     iat,
   };
+
+  if (subjectEmail && subjectEmail.trim()) {
+    payload.sub = subjectEmail.trim();
+  }
 
   const base64Header = btoa(JSON.stringify(header)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
   const base64Payload = btoa(JSON.stringify(payload)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
