@@ -132,18 +132,21 @@ serve(async (req) => {
       },
     };
 
-    // 8. Gọi Google Calendar API thực thi chèn dữ liệu
-    const gcalRes = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=all`,
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(gcalPayload),
-      }
-    );
+    // 8. Gọi Google Calendar API thực thi chèn hoặc cập nhật dữ liệu (Tránh tạo trùng lặp)
+    const hasExistingGCalId = ev.google_calendar_event_id && ev.google_calendar_event_id.trim();
+    const gcalApiUrl = hasExistingGCalId
+      ? `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(ev.google_calendar_event_id.trim())}?sendUpdates=all`
+      : `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=all`;
+    const gcalMethod = hasExistingGCalId ? "PATCH" : "POST";
+
+    const gcalRes = await fetch(gcalApiUrl, {
+      method: gcalMethod,
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(gcalPayload),
+    });
 
     const gcalData = await gcalRes.json();
     if (!gcalRes.ok) {

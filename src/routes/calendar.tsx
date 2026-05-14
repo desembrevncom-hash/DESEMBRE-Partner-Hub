@@ -369,6 +369,12 @@ function CalendarPage() {
   // Hàm kích hoạt Đồng bộ thủ công Chiến dịch Công ty lên Google Calendar
   const handleTriggerGCalSync = async () => {
     if (!editEventId) return;
+    const currentEv = events.find(e => e.id === editEventId) as CompanyEvent | undefined;
+    if (currentEv?.google_sync_status === 'synced') {
+      if (!window.confirm("Sự kiện này đã được đồng bộ lên Google Calendar. Bạn có chắc chắn muốn đồng bộ lại không?")) {
+        return;
+      }
+    }
     setIsSyncingGCal(true);
     try {
       const res = await supabase.functions.invoke("sync-company-event-to-google", {
@@ -1946,7 +1952,7 @@ function CalendarPage() {
                           </div>
                           <div>
                             <h5 className="text-xs font-bold text-slate-800">Đồng bộ Google Calendar</h5>
-                            <div className="flex items-center gap-1.5 mt-0.5">
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                               <span className="text-[10px] text-slate-500">Trạng thái:</span>
                               <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
                                 currentSyncStatus === 'synced' ? 'bg-emerald-100 text-emerald-700' :
@@ -1955,6 +1961,11 @@ function CalendarPage() {
                                 {currentSyncStatus === 'synced' ? '✓ Đã đồng bộ' :
                                  currentSyncStatus === 'failed' ? '✕ Lỗi đồng bộ' : '⏳ Chưa đồng bộ'}
                               </span>
+                              {currentSyncStatus === 'synced' && currentActiveCompEv?.google_synced_at && (
+                                <span className="text-[9px] text-slate-400 italic">
+                                  ({new Date(currentActiveCompEv.google_synced_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1983,6 +1994,8 @@ function CalendarPage() {
                                 <span className="flex items-center gap-1.5">
                                   <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> Đang đồng bộ...
                                 </span>
+                              ) : currentSyncStatus === 'failed' ? (
+                                "🔄 Thử lại"
                               ) : (
                                 "🔄 Đồng bộ GCal"
                               )}
