@@ -50,6 +50,11 @@ interface MessageTemplate {
   max_send_frequency_days: number | null;
   subject_template: string | null;
   body_template: string;
+  banner_image_url: string | null;
+  cta_label: string | null;
+  cta_url: string | null;
+  footer_template: string | null;
+  attachment_urls: string[] | null;
   sample_variables: Record<string, any> | null;
   is_active: boolean;
   updated_at: string;
@@ -104,6 +109,12 @@ function AdminTemplatesPage() {
   const [formMaxFrequency, setFormMaxFrequency] = useState<string>("");
   const [formSubject, setFormSubject] = useState("");
   const [formBody, setFormBody] = useState("");
+  const [formBannerImageUrl, setFormBannerImageUrl] = useState("");
+  const [formCtaLabel, setFormCtaLabel] = useState("");
+  const [formCtaUrl, setFormCtaUrl] = useState("");
+  const [formFooterTemplate, setFormFooterTemplate] = useState("");
+  const [formAttachmentInput, setFormAttachmentInput] = useState("");
+  const [formAttachmentUrls, setFormAttachmentUrls] = useState<string[]>([]);
 
 
   // Trạng thái Form Gửi Test
@@ -227,6 +238,11 @@ function AdminTemplatesPage() {
     setFormMaxFrequency("");
     setFormSubject("[DESEMBRE] Thư mời: {{event_title}}");
     setFormBody(`Kính gửi Quý đối tác / Khách mời: {{customer_name}}\n\nCông ty {{company_name}} trân trọng kính mời Quý khách tham dự chương trình đào tạo và chuyển giao phác đồ chuyên sâu.\n\n📌 THÔNG TIN SỰ KIỆN:\n- Chủ đề: {{event_title}}\n- Thời gian: {{event_time}}\n- Địa điểm: {{event_location}}\n- Link trực tuyến: {{meeting_url}}\n\nChuyên viên phụ trách: {{sale_name}}\nLink nạp nhanh vào Lịch Google: {{calendar_link}}\n\nSự hiện diện của Quý khách là niềm vinh hạnh lớn cho công ty chúng tôi.\nTrân trọng,\nBan Giám Đốc DESEMBRE Partner Hub`);
+    setFormBannerImageUrl("");
+    setFormCtaLabel("");
+    setFormCtaUrl("");
+    setFormFooterTemplate("");
+    setFormAttachmentUrls([]);
     setEditModalOpen(true);
   };
 
@@ -243,6 +259,11 @@ function AdminTemplatesPage() {
     setFormMaxFrequency(tpl.max_send_frequency_days ? String(tpl.max_send_frequency_days) : "");
     setFormSubject(tpl.subject_template || "");
     setFormBody(tpl.body_template);
+    setFormBannerImageUrl(tpl.banner_image_url || "");
+    setFormCtaLabel(tpl.cta_label || "");
+    setFormCtaUrl(tpl.cta_url || "");
+    setFormFooterTemplate(tpl.footer_template || "");
+    setFormAttachmentUrls(tpl.attachment_urls || []);
     setEditModalOpen(true);
   };
 
@@ -257,17 +278,32 @@ function AdminTemplatesPage() {
     setSaving(true);
     try {
       const freqVal = parseInt(formMaxFrequency, 10);
+      let finalRequiresOptIn = formRequiresOptIn;
+      let finalIncludeUnsub = formIncludeUnsubscribe;
+      let finalFreqVal: number | null = !isNaN(freqVal) && freqVal > 0 ? freqVal : null;
+
+      if (formPurpose === 'marketing_campaign') {
+        finalRequiresOptIn = true;
+        finalIncludeUnsub = true;
+        if (finalFreqVal === null) finalFreqVal = 30;
+      }
+
       const payload = {
         key: formKey.trim(),
         name: formName.trim(),
         description: formDesc.trim() || null,
         channel: formChannel,
         purpose: formPurpose,
-        requires_opt_in: formRequiresOptIn,
-        include_unsubscribe: formIncludeUnsubscribe,
-        max_send_frequency_days: !isNaN(freqVal) && freqVal > 0 ? freqVal : null,
+        requires_opt_in: finalRequiresOptIn,
+        include_unsubscribe: finalIncludeUnsub,
+        max_send_frequency_days: finalFreqVal,
         subject_template: formSubject.trim() || null,
         body_template: formBody.trim(),
+        banner_image_url: formBannerImageUrl.trim() || null,
+        cta_label: formCtaLabel.trim() || null,
+        cta_url: formCtaUrl.trim() || null,
+        footer_template: formFooterTemplate.trim() || null,
+        attachment_urls: formAttachmentUrls.length > 0 ? formAttachmentUrls : null,
         sample_variables: {
           customer_name: "Chị Lan Anh",
           event_title: "Chuyển giao Phác đồ Điều trị Nám",
@@ -402,6 +438,27 @@ function AdminTemplatesPage() {
   const insertVariableToBody = (varName: string) => {
     setFormBody(prev => prev + `{{${varName}}}`);
     toast.success(`Đã chèn từ khóa {{${varName}}} vào cuối nội dung`);
+  };
+
+  // Thao tác liên kết tệp đính kèm
+  const handleAddAttachmentUrl = () => {
+    const val = formAttachmentInput.trim();
+    if (!val) return;
+    if (!val.startsWith("http://") && !val.startsWith("https://")) {
+      toast.error("Đường dẫn tệp phải bắt đầu bằng http:// hoặc https://");
+      return;
+    }
+    if (formAttachmentUrls.includes(val)) {
+      toast.warning("Đường dẫn này đã được thêm vào danh sách");
+      return;
+    }
+    setFormAttachmentUrls(prev => [...prev, val]);
+    setFormAttachmentInput("");
+    toast.success("Đã đính kèm liên kết tệp");
+  };
+
+  const handleRemoveAttachmentUrl = (urlToRemove: string) => {
+    setFormAttachmentUrls(prev => prev.filter(u => u !== urlToRemove));
   };
 
   const activeTemplatesCount = useMemo(() => templates.filter(t => t.is_active).length, [templates]);
@@ -791,6 +848,7 @@ function AdminTemplatesPage() {
                     <option value="zalo_sms">Tin nhắn Zalo/SMS</option>
                     <option value="email_campaign">Email Sự Kiện</option>
                     <option value="marketing_email">Email Tiếp Thị</option>
+                    <option value="event_follow_up_email">Email Follow-up Sự kiện</option>
                   </select>
                 </div>
               </div>
@@ -913,6 +971,224 @@ function AdminTemplatesPage() {
                   placeholder="Kính gửi {{customer_name}},..."
                   className="min-h-[180px] text-xs font-mono rounded-xl p-3 leading-relaxed mt-1"
                 />
+              </div>
+
+              {/* Section 1: Banner email */}
+              <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <Label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  🖼️ Ảnh Banner Email
+                </Label>
+                <Input
+                  value={formBannerImageUrl}
+                  onChange={e => setFormBannerImageUrl(e.target.value)}
+                  placeholder="Nhập URL ảnh banner (https://...)"
+                  className="h-9 text-xs rounded-lg"
+                />
+                {formBannerImageUrl.trim() ? (
+                  <div className="relative w-full h-24 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 flex items-center justify-center">
+                    <img
+                      src={formBannerImageUrl.trim()}
+                      alt="Banner preview"
+                      className="w-full h-full object-cover"
+                      onError={e => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                    <span className="absolute inset-0 flex items-center justify-center text-[10px] text-rose-500 font-medium bg-rose-50/90">
+                      ✕ Không tải được banner (Lỗi URL hoặc chính sách CORS)
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-[10px] text-slate-400 italic block">Chưa có ảnh banner. Email sẽ hiển thị dạng văn bản thuần túy.</span>
+                )}
+              </div>
+
+              {/* Section 2: Nút Kêu gọi Hành động (CTA) */}
+              <div className="space-y-3 p-3 bg-purple-50/30 rounded-xl border border-purple-100">
+                <Label className="text-xs font-bold text-purple-950 flex items-center gap-1.5">
+                  🔘 Nút Kêu gọi Hành động (CTA Button)
+                </Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-[10px] font-bold text-slate-600">Nhãn hiển thị (Label)</Label>
+                    <Input
+                      value={formCtaLabel}
+                      onChange={e => setFormCtaLabel(e.target.value)}
+                      placeholder="vd: Đăng ký ngay"
+                      className="h-9 text-xs rounded-lg mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] font-bold text-slate-600">Đường dẫn đích (URL)</Label>
+                    <Input
+                      value={formCtaUrl}
+                      onChange={e => setFormCtaUrl(e.target.value)}
+                      placeholder="https://..."
+                      className="h-9 text-xs rounded-lg mt-1"
+                    />
+                  </div>
+                </div>
+                {formCtaLabel.trim() && !formCtaUrl.trim() && (
+                  <p className="text-[10px] text-amber-600 bg-amber-50 p-1.5 rounded border border-amber-200">
+                    ⚠ Cảnh báo: Bạn đã nhập Nhãn nút nhưng chưa điền Link đích. Nút CTA sẽ không thể nhấp được.
+                  </p>
+                )}
+                {!formCtaLabel.trim() && formCtaUrl.trim() && (
+                  <p className="text-[10px] text-slate-500 italic">
+                    💡 Gợi ý: Hệ thống sẽ tự động hiển thị nhãn mặc định là <strong className="text-purple-700">"Xem chi tiết"</strong> nếu bạn bỏ trống nhãn.
+                  </p>
+                )}
+              </div>
+
+              {/* Section 3: Tài liệu đính kèm */}
+              <div className="space-y-2 p-3 bg-indigo-50/30 rounded-xl border border-indigo-100">
+                <Label className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                  📎 Link Tài liệu / File đính kèm
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={formAttachmentInput}
+                    onChange={e => setFormAttachmentInput(e.target.value)}
+                    placeholder="https://... (link file pdf, docx, ảnh...)"
+                    className="h-9 text-xs rounded-lg flex-1"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleAddAttachmentUrl}
+                    className="h-9 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-xs font-bold"
+                  >
+                    Thêm link
+                  </Button>
+                </div>
+                {formAttachmentUrls.length > 0 ? (
+                  <div className="space-y-1.5 pt-1">
+                    <span className="text-[10px] font-bold text-slate-500 block">Danh sách đính kèm:</span>
+                    {formAttachmentUrls.map((url, idx) => (
+                      <div key={idx} className="flex items-center justify-between bg-white p-1.5 rounded border border-slate-200 text-[10px] font-mono">
+                        <span className="truncate max-w-[400px] text-indigo-600">{url}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAttachmentUrl(url)}
+                          className="text-rose-500 hover:text-rose-700 px-1 font-sans font-bold"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-[10px] text-slate-400 italic block">Chưa có tài liệu đính kèm.</span>
+                )}
+              </div>
+
+              {/* Section 4: Footer email */}
+              <div className="space-y-1.5 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold text-slate-700">Chân trang (Footer Template)</Label>
+                  <button
+                    type="button"
+                    onClick={() => setFormFooterTemplate("Nếu Anh/Chị không muốn nhận thông tin chương trình từ DESEMBRE, vui lòng phản hồi “DỪNG”.")}
+                    className="text-[9px] text-purple-600 hover:underline font-bold"
+                  >
+                    💡 Dùng mẫu chuẩn Opt-out
+                  </button>
+                </div>
+                <Textarea
+                  value={formFooterTemplate}
+                  onChange={e => setFormFooterTemplate(e.target.value)}
+                  placeholder="Thông tin liên hệ, cam kết bảo mật hoặc hướng dẫn từ chối nhận thư..."
+                  className="h-16 text-xs font-mono rounded-lg p-2 leading-relaxed"
+                />
+              </div>
+
+              {/* Section 5: Preview Email Trực quan */}
+              <div className="mt-4 p-4 bg-slate-900 text-slate-100 rounded-2xl border border-slate-800 space-y-3">
+                <span className="text-[10px] font-black text-purple-400 uppercase tracking-wider block">
+                  👁️ Xem trước Giao diện Thực tế (Live Email Preview)
+                </span>
+
+                <div className="bg-white text-slate-900 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+                  {/* Banner */}
+                  {formChannel !== 'calendar_invite' && formBannerImageUrl.trim() && (
+                    <div className="w-full h-32 bg-slate-100 border-b border-slate-100">
+                      <img src={formBannerImageUrl.trim()} alt="Banner" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+
+                  <div className="p-4 space-y-3">
+                    {/* Subject */}
+                    <div className="border-b border-slate-100 pb-2">
+                      <span className="text-[9px] font-bold text-slate-400 block uppercase">Tiêu đề (Subject):</span>
+                      <h4 className="text-xs font-bold text-purple-950">
+                        {renderTemplate(formSubject || "[Không tiêu đề]", {
+                          customer_name: "Chị Lan Anh",
+                          event_title: "Chuyển giao Phác đồ Điều trị Nám",
+                          event_time: "09:00 ngày 20/05/2026",
+                          event_location: "53 Triều Khúc, Hà Nội",
+                          meeting_url: "https://zoom.us/j/demo123",
+                          sale_name: "Hà Trần",
+                          company_name: "DESEMBRE Việt Nam",
+                          calendar_link: "https://calendar.google.com/..."
+                        })}
+                      </h4>
+                    </div>
+
+                    {/* Body */}
+                    <div className="text-xs font-sans whitespace-pre-wrap text-slate-700 leading-relaxed">
+                      {renderTemplate(formBody || "[Chưa nhập nội dung]", {
+                        customer_name: "Chị Lan Anh",
+                        event_title: "Chuyển giao Phác đồ Điều trị Nám",
+                        event_time: "09:00 ngày 20/05/2026",
+                        event_location: "53 Triều Khúc, Hà Nội",
+                        meeting_url: "https://zoom.us/j/demo123",
+                        sale_name: "Hà Trần",
+                        company_name: "DESEMBRE Việt Nam",
+                        calendar_link: "https://calendar.google.com/..."
+                      })}
+                    </div>
+
+                    {/* CTA */}
+                    {formChannel !== 'calendar_invite' && (formCtaLabel.trim() || formCtaUrl.trim()) && (
+                      <div className="pt-2">
+                        <a
+                          href={formCtaUrl.trim() || "#"}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-block px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold rounded-lg shadow-xs hover:opacity-95"
+                        >
+                          {formCtaLabel.trim() || "Xem chi tiết"}
+                        </a>
+                      </div>
+                    )}
+
+                    {/* Attachments */}
+                    {formChannel !== 'calendar_invite' && formAttachmentUrls.length > 0 && (
+                      <div className="pt-2 border-t border-slate-100 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-500 block">📎 Tệp đính kèm:</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {formAttachmentUrls.map((u, i) => (
+                            <a key={i} href={u} target="_blank" rel="noreferrer" className="text-[10px] text-indigo-600 bg-indigo-50 hover:underline px-2 py-1 rounded border border-indigo-100 block truncate max-w-[200px]">
+                              Tài liệu {i + 1}
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Footer */}
+                    {formChannel !== 'calendar_invite' && formFooterTemplate.trim() && (
+                      <div className="pt-3 border-t border-slate-100 text-[10px] text-slate-400 italic">
+                        {renderTemplate(formFooterTemplate, { company_name: "DESEMBRE Việt Nam" })}
+                      </div>
+                    )}
+
+                    {formChannel === 'calendar_invite' && (
+                      <p className="text-[9px] text-amber-600 bg-amber-50 p-1.5 rounded italic">
+                        💡 Chế độ <strong>Google Calendar Invite</strong>: Thư mời phát hành ngầm qua Lịch Google Server, các thành phần Banner/CTA chuyên biệt sẽ được nén về định dạng sự kiện tiêu chuẩn.
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
