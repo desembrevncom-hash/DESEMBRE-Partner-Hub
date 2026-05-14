@@ -37,7 +37,7 @@ create table if not exists public.event_registrations (
   note text,
   
   checked_in_at timestamptz,
-  converted_order_id uuid references public.orders(id) on delete set null,
+  converted_order_id uuid,
   
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

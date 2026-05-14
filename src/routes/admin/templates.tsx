@@ -333,23 +333,56 @@ function AdminTemplatesPage() {
         testEmail: testEmailInput.trim()
       };
 
-      const { data, error } = await supabase.functions.invoke("send-template-test-invite", {
-        body: payload
-      });
+      let successData: any = null;
 
-      if (error) {
-        let msg = error.message;
-        if (error.context && typeof error.context.json === 'function') {
-          try {
-            const errCtx = await error.context.json();
-            if (errCtx && errCtx.error) msg = errCtx.error;
-          } catch (_) {}
+      try {
+        const { data, error } = await supabase.functions.invoke("send-template-test-invite", {
+          body: payload
+        });
+
+        if (error) {
+          let msg = error.message;
+          if (error.context && typeof error.context.json === 'function') {
+            try {
+              const errCtx = await error.context.json();
+              if (errCtx && errCtx.error) msg = errCtx.error;
+            } catch (_) {}
+          }
+          const customErr = new Error(msg);
+          (customErr as any)._isBusinessError = true;
+          throw customErr;
         }
-        throw new Error(msg);
-      }
 
-      if (data?.error) {
-        throw new Error(data.error);
+        if (data?.error) {
+          const customErr = new Error(data.error);
+          (customErr as any)._isBusinessError = true;
+          throw customErr;
+        }
+
+        successData = data;
+      } catch (sdkErr: any) {
+        if (sdkErr._isBusinessError) {
+          throw sdkErr;
+        }
+
+        console.warn("Lỗi định tuyến Invoke, tự động kích hoạt HTTP fetch fallback cho luồng Test:", sdkErr);
+        const session = (await supabase.auth.getSession()).data?.session;
+        const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-template-test-invite`;
+        const rawRes = await fetch(functionUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY,
+            "Authorization": `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const resData = await rawRes.json().catch(() => null);
+        if (!rawRes.ok || resData?.error) {
+          throw new Error(resData?.error || sdkErr.message || "Lỗi giao tiếp trực tiếp với máy chủ Edge Function");
+        }
+        successData = resData;
       }
 
       toast.success("Gửi thư mời kiểm thử thành công! Kiểm tra ngay hộp thư của bạn.", { id: tid });
