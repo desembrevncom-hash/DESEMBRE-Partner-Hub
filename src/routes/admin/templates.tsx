@@ -708,7 +708,7 @@ function AdminTemplatesPage() {
               <p className="text-xs text-slate-500">
                 Định nghĩa khuôn mẫu truyền thông đồng nhất trên toàn hệ thống DESEMBRE.
               </p>
-            </form>
+            </DialogHeader>
 
             <div className="grid grid-cols-1 gap-4 py-4 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1">
               <div className="grid grid-cols-2 gap-3">
