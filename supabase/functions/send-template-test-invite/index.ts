@@ -123,31 +123,39 @@ serve(async (req) => {
       throw new Error("Chuỗi GOOGLE_SERVICE_ACCOUNT không đúng định dạng JSON.");
     }
 
-    // 5. Xin cấp Access Token từ Google OAuth2
+    // Đọc secret GOOGLE_IMPERSONATE_EMAIL để áp dụng kiến trúc Domain-Wide Delegation
+    const impersonateEmail = Deno.env.get("GOOGLE_IMPERSONATE_EMAIL");
+    let hasAttendees = false;
+    let warningMsg: string | undefined = undefined;
+
+    // 5. Xin cấp Access Token từ Google OAuth2 hỗ trợ tính năng mạo danh (sub)
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-        assertion: await generateJwtAssertion(serviceAccount),
+        assertion: await generateJwtAssertion(serviceAccount, impersonateEmail),
       }),
     });
 
     const tokenData = await tokenResponse.json();
     if (!tokenResponse.ok) {
-      throw new Error(`Xác thực Google Service Account thất bại: ${tokenData.error_description || tokenData.error}`);
+      const tErr = tokenData.error_description || tokenData.error || "";
+      if (tErr.toLowerCase().includes("unauthorized_client") || tErr.toLowerCase().includes("delegation") || tErr.toLowerCase().includes("forbidden")) {
+        throw new Error("Service Account chưa bật Domain-Wide Delegation hoặc chưa impersonate email công ty. Hãy cấu hình GOOGLE_IMPERSONATE_EMAIL hoặc chuyển sang OAuth.");
+      }
+      throw new Error(`Xác thực Google Service Account thất bại: ${tErr}`);
     }
 
     const { access_token } = tokenData;
 
-    // 6. Xây dựng Payload sự kiện với attendees chứa testEmail
-    const googleEventPayload = {
+    // 6. Xây dựng Payload sự kiện với attendees tùy chọn
+    const googleEventPayload: any = {
       summary: renderedSubject,
       description: renderedBody,
       location: finalVars.event_location,
       start: { dateTime: startDt.toISOString() },
       end: { dateTime: endDt.toISOString() },
-      attendees: [{ email: testEmail.trim() }],
       reminders: {
         useDefault: false,
         overrides: [
@@ -156,6 +164,13 @@ serve(async (req) => {
         ],
       },
     };
+
+    if (impersonateEmail && impersonateEmail.trim()) {
+      googleEventPayload.attendees = [{ email: testEmail.trim() }];
+      hasAttendees = true;
+    } else {
+      warningMsg = "chưa gửi email invite vì chưa cấu hình Domain-Wide Delegation.";
+    }
 
     // 7. Gửi yêu cầu tạo sự kiện tới Google Calendar API
     const insertUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(targetCalendarId.trim())}/events?sendUpdates=all`;
@@ -172,12 +187,15 @@ serve(async (req) => {
 
     if (!gcalResponse.ok) {
       const errStatus = gcalResponse.status;
-      const errMsg = gcalData.error?.message || JSON.stringify(gcalData);
+      const errMsg = gcalData?.error?.message || JSON.stringify(gcalData);
 
+      if (errMsg.toLowerCase().includes("delegation") || errMsg.toLowerCase().includes("domain-wide") || errMsg.toLowerCase().includes("service accounts cannot invite attendees") || errMsg.toLowerCase().includes("forbidden")) {
+        throw new Error("Service Account chưa bật Domain-Wide Delegation hoặc chưa impersonate email công ty. Hãy cấu hình GOOGLE_IMPERSONATE_EMAIL hoặc chuyển sang OAuth.");
+      }
       if (errStatus === 404 || errMsg.toLowerCase().includes("not found")) {
         throw new Error(`Calendar not found. Không tìm thấy lịch mang ID "${targetCalendarId}". Vui lòng đảm bảo đã chia sẻ lịch này cho email Service Account (${serviceAccount.client_email}) trong phần Cài đặt của Google Calendar.`);
       }
-      if (errStatus === 403 || errMsg.toLowerCase().includes("permission") || errMsg.toLowerCase().includes("forbidden")) {
+      if (errStatus === 403 || errMsg.toLowerCase().includes("permission")) {
         throw new Error(`insufficient permissions. Service Account (${serviceAccount.client_email}) chưa được cấp quyền "Thực hiện thay đổi đối với sự kiện" (Make changes to events) trên lịch đích.`);
       }
 
@@ -190,12 +208,14 @@ serve(async (req) => {
       calendar_account_id: calendarAccountId || null,
       tested_by: userId,
       test_email: testEmail.trim(),
-      status: "sent",
-      provider_response: gcalData
+      status: hasAttendees ? "sent" : "not_sent",
+      provider_response: { ...gcalData, domain_delegation_warning: warningMsg }
     }]);
 
     return new Response(JSON.stringify({ 
       success: true, 
+      has_attendees: hasAttendees,
+      warning: warningMsg,
       google_event_id: gcalData.id, 
       html_link: gcalData.htmlLink,
       rendered_subject: renderedSubject
@@ -223,17 +243,21 @@ serve(async (req) => {
   }
 });
 
-async function generateJwtAssertion(credentials: any) {
+async function generateJwtAssertion(credentials: any, subjectEmail?: string) {
   const header = { alg: "RS256", typ: "JWT" };
   const iat = Math.floor(Date.now() / 1000);
   const exp = iat + 3600;
-  const payload = {
+  const payload: any = {
     iss: credentials.client_email,
     scope: "https://www.googleapis.com/auth/calendar.events",
     aud: "https://oauth2.googleapis.com/token",
     exp,
     iat,
   };
+
+  if (subjectEmail && subjectEmail.trim()) {
+    payload.sub = subjectEmail.trim();
+  }
 
   const base64Header = btoa(JSON.stringify(header)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
   const base64Payload = btoa(JSON.stringify(payload)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");

@@ -385,42 +385,22 @@ function AdminTemplatesPage() {
         successData = resData;
       }
 
-      toast.success("Gửi thư mời kiểm thử thành công! Kiểm tra ngay hộp thư của bạn.", { id: tid });
+      if (successData?.warning) {
+        toast.warning(successData.warning, { id: tid });
+      } else if (successData?.has_attendees) {
+        toast.success("Đã gửi thư mời test thành công tới email của bạn.", { id: tid });
+      } else {
+        toast.success("Đã tạo event test trên Lịch Google, chưa gửi email invite do thiếu Domain-Wide Delegation.", { id: tid });
+      }
+
       setTestEmailInput("");
       loadData();
     } catch (err: any) {
-      const errMsg = err.message || "";
-      if (errMsg.includes("Failed to send a request") || errMsg.includes("Lỗi giao tiếp trực tiếp") || errMsg.includes("fetch")) {
-        console.warn("Edge Function chưa được deploy lên Supabase cloud. Tự động kích hoạt Local Simulator Engine để nghiệm thu trọn vẹn luồng dữ liệu.");
-        
-        const tpl = templates.find(t => t.id === testTemplateId);
-        const vars = tpl?.sample_variables || {
-          customer_name: "Khách Hàng Thử Nghiệm",
-          event_title: "Sự Kiện Demo Google Calendar",
-          event_time: "09:00 Sáng Ngày Mai",
-          event_location: "Hệ thống Trực tuyến DESEMBRE",
-          meeting_url: "https://meet.google.com/test-demo",
-          sale_name: "Chuyên Viên Quản Trị",
-          company_name: "DESEMBRE Partner Hub",
-        };
-
-        const renderedSub = renderTemplate(tpl?.subject_template || "[DESEMBRE] Thư mời test: {{event_title}}", vars);
-        
-        try {
-          supabase.from("template_test_logs").insert([{
-            template_id: testTemplateId || null,
-            calendar_account_id: testAccountId || null,
-            test_email: testEmailInput.trim(),
-            status: "sent",
-            provider_response: { simulated: true, note: "Local Fallback Engine activated due to undeployed Edge Function", rendered_subject: renderedSub }
-          }]).then();
-        } catch (_) {}
-
-        toast.success(`[Mô phỏng Cục bộ] Đã biên dịch thành công thiệp mời: "${renderedSub}".\n(Lưu ý: Để email Google gửi đi thực tế, vui lòng chạy lệnh "supabase functions deploy send-template-test-invite" trên máy chủ của bạn)`, { id: tid, duration: 8000 });
-        setTestEmailInput("");
-      } else {
-        toast.error(`Gửi test thất bại: ${errMsg}`, { id: tid });
+      let customMsg = err.message || "Lỗi không xác định";
+      if (customMsg.includes("Service accounts cannot invite attendees") || customMsg.includes("Domain-Wide Delegation")) {
+        customMsg = "Service Account chưa bật Domain-Wide Delegation hoặc chưa impersonate email công ty. Hãy cấu hình GOOGLE_IMPERSONATE_EMAIL hoặc chuyển sang OAuth.";
       }
+      toast.error(`Gửi test thất bại: ${customMsg}`, { id: tid });
       loadData();
     } finally {
       setTesting(false);
