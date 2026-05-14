@@ -44,14 +44,54 @@ serve(async (req) => {
 
     const { access_token } = tokenData;
 
+    // Chuẩn hóa định dạng thời gian sang RFC3339 hợp lệ cho Google Calendar
+    const formatDateTime = (dtStr?: string, isEnd = false) => {
+      let baseStr = dtStr;
+      if (!baseStr || typeof baseStr !== "string" || !baseStr.trim()) {
+        const now = new Date();
+        if (isEnd) now.setHours(now.getHours() + 3);
+        else now.setHours(now.getHours() + 1);
+        return now.toISOString();
+      }
+      baseStr = baseStr.trim();
+      // Nếu chuỗi chỉ có ngày (YYYY-MM-DD), bổ sung giờ
+      if (baseStr.length === 10) {
+        return isEnd ? `${baseStr}T12:00:00+07:00` : `${baseStr}T08:30:00+07:00`;
+      }
+      // Nếu chuỗi có dạng YYYY-MM-DDTHH:mm nhưng thiếu giây
+      if (baseStr.length === 16) {
+        return `${baseStr}:00+07:00`;
+      }
+      try {
+        const d = new Date(baseStr);
+        if (isNaN(d.getTime())) return new Date().toISOString();
+        return d.toISOString();
+      } catch {
+        return new Date().toISOString();
+      }
+    };
+
+    const validStart = formatDateTime(starts_at, false);
+    let validEnd = formatDateTime(ends_at, true);
+
+    // Đảm bảo thời gian kết thúc luôn sau thời gian bắt đầu ít nhất 1 giờ
+    try {
+      const sTime = new Date(validStart).getTime();
+      const eTime = new Date(validEnd).getTime();
+      if (eTime <= sTime) {
+        const adjustedEnd = new Date(sTime + 2 * 3600 * 1000);
+        validEnd = adjustedEnd.toISOString();
+      }
+    } catch (_) {}
+
     // Chuẩn hóa nội dung mang danh nghĩa Công ty DESEMBRE
     const cleanTitle = event_title || "Sự kiện DESEMBRE Partner";
     const googleEventPayload = {
       summary: `[DESEMBRE] Thư Mời Sự Kiện: ${cleanTitle}`,
       description: `Kính gửi Quý đối tác / Khách mời: ${attendee_name}\n\nCông ty DESEMBRE Việt Nam trân trọng kính mời Quý khách tham dự chương trình đào tạo và chuyển giao phác đồ chuyên sâu.\n\n📌 NỘI DUNG CHUYỂN GIAO:\n${description || ""}\n\nSự hiện diện của Quý khách là niềm vinh hạnh lớn cho công ty chúng tôi.\nTrân trọng,\nBan Giám Đốc DESEMBRE Partner Hub`,
       location: location || "Hệ thống DESEMBRE Việt Nam",
-      start: { dateTime: starts_at, timeZone: "Asia/Ho_Chi_Minh" },
-      end: { dateTime: ends_at, timeZone: "Asia/Ho_Chi_Minh" },
+      start: { dateTime: validStart },
+      end: { dateTime: validEnd },
       attendees: [
         { email: attendee_email, displayName: attendee_name, responseStatus: "needsAction" }
       ],
