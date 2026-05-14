@@ -72,6 +72,11 @@ export interface CompanyEvent {
   google_synced_at?: string | null;
   google_sync_error?: string | null;
   
+  // Tracking khi hủy sự kiện
+  cancelled_at?: string | null;
+  cancelled_by?: string | null;
+  cancel_reason?: string | null;
+  
   // UI helper: danh sách đăng ký (thường join từ bảng event_registrations)
   registrations?: EventRegistration[];
 }

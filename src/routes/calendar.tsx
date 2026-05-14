@@ -546,19 +546,42 @@ function CalendarPage() {
   };
 
   const handleDeleteEvent = async (id: string, type: 'personal' | 'company') => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa lịch trình này?")) return;
-    try {
-      setSaving(true);
-      const table = type === 'company' ? 'company_events' : 'calendar_events';
-      const { error } = await supabase.from(table).delete().eq("id", id);
-      if (error) throw error;
-      toast.success("Xóa lịch trình thành công");
-      setModalOpen(false);
-      loadEvents();
-    } catch (err: any) {
-      toast.error("Lỗi khi xóa: " + err.message);
-    } finally {
-      setSaving(false);
+    if (type === 'company') {
+      if (!window.confirm("Hủy sự kiện Công ty sẽ đồng thời gỡ bỏ lịch trình này khỏi Google Calendar.\nBạn có chắc chắn muốn tiếp tục không?")) return;
+      const reasonInput = window.prompt("Vui lòng nhập lý do hủy sự kiện (tùy chọn):", "");
+      if (reasonInput === null) return; // Người dùng bấm Hủy
+      
+      try {
+        setSaving(true);
+        const res = await supabase.functions.invoke("cancel-company-event", {
+          body: { companyEventId: id, cancelReason: reasonInput }
+        });
+        if (res.error) throw res.error;
+        if (res.data && !res.data.success) {
+          throw new Error(res.data.error || "Lỗi nội bộ khi hủy sự kiện");
+        }
+        toast.success("Đã hủy sự kiện và gỡ Lịch Google thành công");
+        setModalOpen(false);
+        await loadEvents();
+      } catch (err: any) {
+        toast.error("Hủy thất bại: " + (err.message || JSON.stringify(err)));
+      } finally {
+        setSaving(false);
+      }
+    } else {
+      if (!window.confirm("Bạn có chắc chắn muốn xóa lịch trình cá nhân này?")) return;
+      try {
+        setSaving(true);
+        const { error } = await supabase.from("calendar_events").delete().eq("id", id);
+        if (error) throw error;
+        toast.success("Xóa lịch trình thành công");
+        setModalOpen(false);
+        await loadEvents();
+      } catch (err: any) {
+        toast.error("Lỗi khi xóa: " + err.message);
+      } finally {
+        setSaving(false);
+      }
     }
   };
 
@@ -2366,7 +2389,7 @@ function CalendarPage() {
                     onClick={() => handleDeleteEvent(editEventId, editEventType)}
                     className="h-9 px-4 text-xs font-bold shadow-2xs"
                   >
-                    Xóa
+                    {editEventType === 'company' ? "Hủy sự kiện" : "Xóa"}
                   </Button>
                 )}
                 {!isCompanyEditDisabled && (

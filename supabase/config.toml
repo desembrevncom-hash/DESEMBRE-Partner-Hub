@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.sync-company-event-to-google]
 verify_jwt = false
+
+[functions.cancel-company-event]
+verify_jwt = false
