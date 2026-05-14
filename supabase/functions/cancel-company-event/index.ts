@@ -74,10 +74,14 @@ serve(async (req) => {
         },
       });
 
-      // Nếu Google trả về 404 thì vẫn cho tiếp tục (sự kiện có thể đã bị xóa thủ công)
-      if (!deleteRes.ok && deleteRes.status !== 404) {
+      // Nếu Google trả về 404 (Không tìm thấy) hoặc 410 (Gone - Đã xóa vào thùng rác trước đó) thì vẫn cho tiếp tục
+      if (!deleteRes.ok && deleteRes.status !== 404 && deleteRes.status !== 410) {
         const errData = await deleteRes.json().catch(() => ({}));
-        throw new Error(`Google Calendar API Delete Error: ${errData.error?.message || JSON.stringify(errData)}`);
+        const errMsg = errData.error?.message || JSON.stringify(errData);
+        // Kiểm tra dự phòng chuỗi thông báo
+        if (!errMsg.includes("Resource has been deleted")) {
+          throw new Error(`Google Calendar API Delete Error: ${errMsg}`);
+        }
       }
     }
 
