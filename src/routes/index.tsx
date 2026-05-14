@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, RotateCcw, Plus, Pencil, Trash2, Undo2, LogOut, ShoppingCart, Users, User, X, Calendar } from "lucide-react";
+import { Search, RotateCcw, Plus, Pencil, Trash2, Undo2, LogOut, ShoppingCart, Users, User, X, Calendar, Megaphone } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -298,9 +298,14 @@ function IndexInner({
                   <Link to="/profile"><User className="w-4 h-4 mr-2" /> Profile</Link>
                 </Button>
                 {isManager && (
-                  <Button asChild variant="outline" size="sm">
-                    <Link to="/admin/users"><Users className="w-4 h-4" /> Người dùng</Link>
-                  </Button>
+                  <>
+                    <Button asChild variant="outline" size="sm">
+                      <Link to="/admin/users"><Users className="w-4 h-4 mr-1" /> Người dùng</Link>
+                    </Button>
+                    <Button asChild variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 hover:text-purple-700">
+                      <Link to="/admin/templates"><Megaphone className="w-4 h-4 mr-1 text-purple-600" /> Mẫu tin nhắn</Link>
+                    </Button>
+                  </>
                 )}
               </>
             )}
