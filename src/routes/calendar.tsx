@@ -1177,6 +1177,9 @@ function CalendarPage() {
 
   const isCompanyEditDisabled = !isManager && !!editEventId && editEventType === 'company';
 
+  const currentActiveCompEv = editEventId ? events.find(e => e.id === editEventId) as CompanyEvent | undefined : undefined;
+  const currentSyncStatus = currentActiveCompEv?.google_sync_status || 'not_synced';
+
   return (
     <div className="min-h-screen bg-slate-50/50 pb-12 flex flex-col">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
@@ -1932,13 +1935,9 @@ function CalendarPage() {
                 />
               </div>
 
-              {modalTab === 'company' && editEventId && (() => {
-                const activeCompEv = events.find(e => e.id === editEventId) as CompanyEvent | undefined;
-                const syncStatus = activeCompEv?.google_sync_status || 'not_synced';
-                
-                return (
-                  <div className="space-y-5 pt-5 border-t border-purple-100">
-                    {/* KHỐI ĐỒNG BỘ GOOGLE CALENDAR (GCal Sync Hub) */}
+              {modalTab === 'company' && editEventId && (
+                <div className="space-y-5 pt-5 border-t border-purple-100">
+                  {/* KHỐI ĐỒNG BỘ GOOGLE CALENDAR (GCal Sync Hub) */}
                     <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200/80 space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -1950,11 +1949,11 @@ function CalendarPage() {
                             <div className="flex items-center gap-1.5 mt-0.5">
                               <span className="text-[10px] text-slate-500">Trạng thái:</span>
                               <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
-                                syncStatus === 'synced' ? 'bg-emerald-100 text-emerald-700' :
-                                syncStatus === 'failed' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'
+                                currentSyncStatus === 'synced' ? 'bg-emerald-100 text-emerald-700' :
+                                currentSyncStatus === 'failed' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'
                               }`}>
-                                {syncStatus === 'synced' ? '✓ Đã đồng bộ' :
-                                 syncStatus === 'failed' ? '✕ Lỗi đồng bộ' : '⏳ Chưa đồng bộ'}
+                                {currentSyncStatus === 'synced' ? '✓ Đã đồng bộ' :
+                                 currentSyncStatus === 'failed' ? '✕ Lỗi đồng bộ' : '⏳ Chưa đồng bộ'}
                               </span>
                             </div>
                           </div>
@@ -1963,9 +1962,9 @@ function CalendarPage() {
                         {/* Nút bấm dành cho Admin/Sub-admin */}
                         {(isAdmin || isSubAdmin) && (
                           <div className="flex items-center gap-2">
-                            {activeCompEv?.google_calendar_html_link && (
+                            {currentActiveCompEv?.google_calendar_html_link && (
                               <a
-                                href={activeCompEv.google_calendar_html_link}
+                                href={currentActiveCompEv.google_calendar_html_link}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-blue-300 rounded-lg text-blue-600 font-bold text-[10px] transition-colors flex items-center gap-1 shadow-2xs"
@@ -1993,9 +1992,9 @@ function CalendarPage() {
                       </div>
 
                       {/* Hiển thị chi tiết lỗi nếu có */}
-                      {activeCompEv?.google_sync_error && (
+                      {currentActiveCompEv?.google_sync_error && (
                         <div className="bg-rose-50/80 border border-rose-200 rounded-lg p-2.5 text-[11px] text-rose-700 font-medium">
-                          <span className="font-bold">Chi tiết lỗi từ Google:</span> {activeCompEv.google_sync_error}
+                          <span className="font-bold">Chi tiết lỗi từ Google:</span> {currentActiveCompEv.google_sync_error}
                         </div>
                       )}
                     </div>
