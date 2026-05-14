@@ -101,6 +101,7 @@ function CalendarPage() {
   const [saving, setSaving] = useState(false);
   const [editEventId, setEditEventId] = useState<string | null>(null);
   const [editEventType, setEditEventType] = useState<'personal' | 'company'>('personal');
+  const [isSyncingGCal, setIsSyncingGCal] = useState(false);
   
   // Form Fields
   const [title, setTitle] = useState("");
@@ -363,6 +364,24 @@ function CalendarPage() {
       setModalTab(forcedTab);
     }
     setModalOpen(true);
+  };
+
+  // Hàm kích hoạt Đồng bộ thủ công Chiến dịch Công ty lên Google Calendar
+  const handleTriggerGCalSync = async () => {
+    if (!editEventId) return;
+    setIsSyncingGCal(true);
+    try {
+      const res = await supabase.functions.invoke("sync-company-event-to-google", {
+        body: { companyEventId: editEventId }
+      });
+      if (res.error) throw res.error;
+      toast.success("Đã đồng bộ Google Calendar");
+      await loadEvents();
+    } catch (err: any) {
+      toast.error("Lỗi đồng bộ: " + (err.message || JSON.stringify(err)));
+    } finally {
+      setIsSyncingGCal(false);
+    }
   };
 
   // Gửi form lưu hoặc cập nhật lịch hẹn
@@ -1913,10 +1932,77 @@ function CalendarPage() {
                 />
               </div>
 
-              {modalTab === 'company' && editEventId && (
-                <div className="space-y-5 pt-5 border-t border-purple-100">
-                  {isManager && (
-                    <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-4 shadow-lg border border-slate-700">
+              {modalTab === 'company' && editEventId && (() => {
+                const activeCompEv = events.find(e => e.id === editEventId) as CompanyEvent | undefined;
+                const syncStatus = activeCompEv?.google_sync_status || 'not_synced';
+                
+                return (
+                  <div className="space-y-5 pt-5 border-t border-purple-100">
+                    {/* KHỐI ĐỒNG BỘ GOOGLE CALENDAR (GCal Sync Hub) */}
+                    <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200/80 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-md bg-white shadow-2xs flex items-center justify-center font-bold text-blue-600 text-[10px]">
+                            📅
+                          </div>
+                          <div>
+                            <h5 className="text-xs font-bold text-slate-800">Đồng bộ Google Calendar</h5>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-[10px] text-slate-500">Trạng thái:</span>
+                              <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                                syncStatus === 'synced' ? 'bg-emerald-100 text-emerald-700' :
+                                syncStatus === 'failed' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'
+                              }`}>
+                                {syncStatus === 'synced' ? '✓ Đã đồng bộ' :
+                                 syncStatus === 'failed' ? '✕ Lỗi đồng bộ' : '⏳ Chưa đồng bộ'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Nút bấm dành cho Admin/Sub-admin */}
+                        {(isAdmin || isSubAdmin) && (
+                          <div className="flex items-center gap-2">
+                            {activeCompEv?.google_calendar_html_link && (
+                              <a
+                                href={activeCompEv.google_calendar_html_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-blue-300 rounded-lg text-blue-600 font-bold text-[10px] transition-colors flex items-center gap-1 shadow-2xs"
+                              >
+                                <ExternalLink className="w-3 h-3" /> Mở GCal
+                              </a>
+                            )}
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={isSyncingGCal}
+                              onClick={handleTriggerGCalSync}
+                              className="h-7 text-[10px] bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 shadow-xs"
+                            >
+                              {isSyncingGCal ? (
+                                <span className="flex items-center gap-1.5">
+                                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> Đang đồng bộ...
+                                </span>
+                              ) : (
+                                "🔄 Đồng bộ GCal"
+                              )}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Hiển thị chi tiết lỗi nếu có */}
+                      {activeCompEv?.google_sync_error && (
+                        <div className="bg-rose-50/80 border border-rose-200 rounded-lg p-2.5 text-[11px] text-rose-700 font-medium">
+                          <span className="font-bold">Chi tiết lỗi từ Google:</span> {activeCompEv.google_sync_error}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* KHỐI QUẢN TRỊ NÂNG CAO BAN ĐẦU */}
+                    {isManager && (
+                      <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-4 shadow-lg border border-slate-700">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
                           <Target className="w-4 h-4 text-purple-400" />

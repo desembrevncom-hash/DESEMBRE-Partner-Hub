@@ -65,6 +65,13 @@ export interface CompanyEvent {
   created_at: string;
   updated_at: string;
   
+  // Các trường đồng bộ Google Calendar
+  google_calendar_event_id?: string | null;
+  google_calendar_html_link?: string | null;
+  google_sync_status?: "not_synced" | "synced" | "failed" | "cancelled" | null;
+  google_synced_at?: string | null;
+  google_sync_error?: string | null;
+  
   // UI helper: danh sách đăng ký (thường join từ bảng event_registrations)
   registrations?: EventRegistration[];
 }
