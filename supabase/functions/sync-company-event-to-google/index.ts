@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.182.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 
 const corsHeaders = {
@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "";
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
 
   // Khởi tạo Supabase client quyền Admin để thao tác an toàn với CSDL
@@ -84,30 +84,28 @@ serve(async (req) => {
       finalEndsAt = sDate.toISOString();
     }
 
-    // 6. Lấy Google Access Token từ cơ chế OAuth2 Refresh Token Flow
-    const clientId = Deno.env.get("GOOGLE_CLIENT_ID") || "";
-    const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET") || "";
-    const refreshToken = Deno.env.get("GOOGLE_REFRESH_TOKEN") || "";
+    // 6. Lấy Google Access Token từ cơ chế Service Account JWT Flow (Tương thích 100% với cấu hình hiện tại của bạn)
+    const serviceAccountStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT");
     const calendarId = Deno.env.get("GOOGLE_CALENDAR_ID") || "primary";
 
-    if (!clientId || !clientSecret || !refreshToken) {
-      throw new Error("Google OAuth credentials are not fully configured in Supabase Vault Secrets");
+    if (!serviceAccountStr) {
+      throw new Error("Hệ thống chưa được cấu hình khóa GOOGLE_SERVICE_ACCOUNT trong Vault Secrets");
     }
+
+    const serviceAccount = JSON.parse(serviceAccountStr);
 
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        refresh_token: refreshToken,
-        grant_type: "refresh_token",
+        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        assertion: await generateJwtAssertion(serviceAccount),
       }),
     });
 
     const tokenData = await tokenRes.json();
     if (!tokenRes.ok) {
-      throw new Error(`Google OAuth Token Refresh Error: ${tokenData.error_description || tokenData.error || JSON.stringify(tokenData)}`);
+      throw new Error(`Google Service Account Auth Error: ${tokenData.error_description || tokenData.error}`);
     }
 
     const accessToken = tokenData.access_token;
@@ -199,9 +197,56 @@ serve(async (req) => {
         error: errorMsg,
       }),
       {
-        status: 400, // Trả về lỗi định dạng 400 hoặc 500 để client nắm trọn vẹn
+        status: 400, // Trả về lỗi định dạng 400 để client hiển thị đầy đủ
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
   }
 });
+
+// Hàm tạo mã JWT mạo danh Service Account ký bằng thuật toán RSASSA-PKCS1-v1_5 nội bộ Deno
+async function generateJwtAssertion(credentials: any) {
+  const header = { alg: "RS256", typ: "JWT" };
+  const iat = Math.floor(Date.now() / 1000);
+  const exp = iat + 3600;
+  const payload = {
+    iss: credentials.client_email,
+    scope: "https://www.googleapis.com/auth/calendar.events",
+    aud: "https://oauth2.googleapis.com/token",
+    exp,
+    iat,
+  };
+
+  const base64Header = btoa(JSON.stringify(header)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const base64Payload = btoa(JSON.stringify(payload)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const signatureInput = `${base64Header}.${base64Payload}`;
+
+  const pemHeader = "-----BEGIN PRIVATE KEY-----";
+  const pemFooter = "-----END PRIVATE KEY-----";
+  const pemContents = credentials.private_key.substring(
+    credentials.private_key.indexOf(pemHeader) + pemHeader.length,
+    credentials.private_key.indexOf(pemFooter)
+  ).replace(/\s/g, "");
+  
+  const binaryDer = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0));
+  const cryptoKey = await crypto.subtle.importKey(
+    "pkcs8",
+    binaryDer.buffer,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const signatureBytes = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    cryptoKey,
+    new TextEncoder().encode(signatureInput)
+  );
+
+  const base64Signature = btoa(String.fromCharCode(...new Uint8Array(signatureBytes)))
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+
+  return `${signatureInput}.${base64Signature}`;
+}
