@@ -136,6 +136,7 @@ function CalendarPage() {
   const [pendingFollowUpReg, setPendingFollowUpReg] = useState<EventRegistration | null>(null);
 
   const [modalTab, setModalTab] = useState<"personal" | "company">("personal");
+  const [sendingInviteIds, setSendingInviteIds] = useState<string[]>([]);
 
   // Hàm nạp danh sách dữ liệu nền tảng
   const loadBaseData = async () => {
@@ -924,6 +925,7 @@ function CalendarPage() {
       setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, attendee_email: targetEmail } as any : r));
     }
 
+    setSendingInviteIds(prev => [...prev, reg.id]);
     const tid = toast.loading("Đang kết nối với Google Calendar và gửi thiệp mời từ Công ty...");
     try {
       const payload = {
@@ -978,6 +980,11 @@ function CalendarPage() {
       setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, google_invite_status: "invited", attendee_email: targetEmail } as any : r));
     } catch (err: any) {
       toast.error(`Gửi thất bại: ${err.message}`, { id: tid });
+      // Ghi nhận trạng thái gửi lỗi vào DB và State
+      supabase.from("event_registrations").update({ google_invite_status: "failed" } as any).eq("id", reg.id).then();
+      setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, google_invite_status: "failed" } as any : r));
+    } finally {
+      setSendingInviteIds(prev => prev.filter(id => id !== reg.id));
     }
   };
 
@@ -2243,17 +2250,23 @@ function CalendarPage() {
                                             {statusMeta.label}
                                           </span>
                                           {(() => {
+                                            const eMail = reg.attendee_email;
                                             const gStatus = (reg as any).google_invite_status;
-                                            if (gStatus === 'invited') {
-                                              return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-50 text-purple-600 border border-purple-200">✉️ Đã gửi thư mời Công ty</span>;
+                                            const lSent = (reg as any).calendar_link_sent_at;
+
+                                            if (!eMail) {
+                                              return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-rose-50 text-rose-600 border border-rose-200">⚠️ Thiếu email</span>;
                                             }
-                                            if (gStatus === 'sent') {
-                                              return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-blue-50 text-blue-600 border border-blue-200">Đã gửi Google Calendar</span>;
+                                            if (gStatus === 'invited' || gStatus === 'sent') {
+                                              return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-50 text-purple-600 border border-purple-200">✉️ Đã gửi GCal</span>;
                                             }
-                                            if ((reg as any).calendar_link_sent_at) {
-                                              return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200" title={`Đã gửi lúc: ${new Date((reg as any).calendar_link_sent_at).toLocaleString()}`}>Đã gửi link</span>;
+                                            if (gStatus === 'failed') {
+                                              return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-rose-50 text-rose-600 border border-rose-200">❌ Gửi lỗi</span>;
                                             }
-                                            return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-50 text-slate-400 border border-slate-200">Chưa gửi link</span>;
+                                            if (lSent) {
+                                              return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200" title={`Gửi lúc: ${new Date(lSent).toLocaleString()}`}>🔗 Đã gửi link</span>;
+                                            }
+                                            return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-50 text-slate-400 border border-slate-200">⏳ Chưa gửi</span>;
                                           })()}
                                         </div>
                                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-slate-500 pt-0.5">
@@ -2340,16 +2353,71 @@ function CalendarPage() {
                                           Check-in
                                         </Button>
                                       )}
-                                      {isManager && (reg as any).google_invite_status !== 'invited' && (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleSendRealGCalInvite(reg)}
-                                          title="Hệ thống tự động gửi thư mời chính thức từ Lịch Công ty"
-                                          className="h-8 px-2 flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-bold rounded-lg shadow-2xs transition-all shrink-0"
-                                        >
-                                          📧 <span className="hidden sm:inline">Gửi thư mời Công ty</span>
-                                        </button>
-                                      )}
+                                      {isManager && (() => {
+                                        const gStatus = (reg as any).google_invite_status;
+                                        const isSending = sendingInviteIds.includes(reg.id);
+                                        const calLinkUrl = (reg as any).add_to_calendar_url || "https://calendar.google.com";
+
+                                        if (isSending) {
+                                          return (
+                                            <button
+                                              type="button"
+                                              disabled
+                                              className="h-8 px-2.5 flex items-center justify-center gap-1 bg-slate-200 text-slate-500 text-[10px] font-bold rounded-lg cursor-not-allowed shrink-0"
+                                            >
+                                              ⏳ Đang gửi...
+                                            </button>
+                                          );
+                                        }
+
+                                        if (gStatus === 'invited' || gStatus === 'sent') {
+                                          return (
+                                            <div className="flex items-center gap-1 shrink-0">
+                                              <span className="h-8 px-2 flex items-center justify-center bg-purple-50 text-purple-700 text-[10px] font-bold rounded-lg border border-purple-200">
+                                                ✓ Đã gửi
+                                              </span>
+                                              <a
+                                                href={calLinkUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                title="Mở form sự kiện trên Google Calendar"
+                                                className="h-8 px-2 flex items-center justify-center bg-blue-50 hover:bg-blue-100 text-blue-600 text-[10px] font-bold rounded-lg border border-blue-200 transition-all"
+                                              >
+                                                🌐 Mở GCal
+                                              </a>
+                                            </div>
+                                          );
+                                        }
+
+                                        if (gStatus === 'failed') {
+                                          return (
+                                            <div className="flex items-center gap-1 shrink-0">
+                                              <span className="h-8 px-1.5 flex items-center justify-center bg-rose-50 text-rose-600 text-[10px] font-bold rounded-lg border border-rose-200">
+                                                Lỗi gửi
+                                              </span>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleSendRealGCalInvite(reg)}
+                                                title="Thử kết nối và gửi lại lời mời Google Calendar"
+                                                className="h-8 px-2 flex items-center justify-center gap-1 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold rounded-lg shadow-2xs transition-all"
+                                              >
+                                                🔄 Gửi lại
+                                              </button>
+                                            </div>
+                                          );
+                                        }
+
+                                        return (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleSendRealGCalInvite(reg)}
+                                            title="Hệ thống tự động gửi thư mời chính thức từ Lịch Công ty"
+                                            className="h-8 px-2.5 flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-bold rounded-lg shadow-2xs transition-all shrink-0"
+                                          >
+                                            📧 <span className="hidden sm:inline">Gửi thư mời</span>
+                                          </button>
+                                        );
+                                      })()}
                                       <a
                                         href={(() => {
                                           const targetDatePart = endsAt ? endsAt.slice(0, 10) : startsAt.slice(0, 10);
