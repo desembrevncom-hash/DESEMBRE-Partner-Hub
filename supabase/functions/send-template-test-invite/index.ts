@@ -66,6 +66,18 @@ serve(async (req) => {
     }
     userId = user.id;
 
+    // Kiểm tra phân quyền từ bảng user_roles (Chỉ Admin hoặc Sub-Admin mới được gửi Test)
+    const { data: userRoleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .single();
+
+    const role = userRoleData?.role || user.user_metadata?.role;
+    if (role !== "admin" && role !== "sub_admin") {
+      throw new Error("Hành động bị từ chối: Chỉ Quản trị viên (Admin/Sub-Admin) mới có quyền gửi lịch thử nghiệm.");
+    }
+
     // 3. Tra cứu dữ liệu Mẫu tin nhắn
     const { data: templateData, error: tplErr } = await supabase
       .from("message_templates")

@@ -6,13 +6,27 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper kết xuất nội suy mẫu tin nhắn
+function renderTemplate(templateStr: string, varsObj: Record<string, any>): string {
+  if (!templateStr) return "";
+  return templateStr.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key) => {
+    const val = varsObj[key];
+    return val === null || val === undefined ? "" : String(val);
+  });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  let registrationIdForFallback = "";
+
   try {
-    const { registration_id, event_title, starts_at, ends_at, location, description, attendee_email, attendee_name } = await req.json();
+    const { registration_id, template_id, event_title, starts_at, ends_at, location, description, attendee_email, attendee_name } = await req.json();
+    if (registration_id) {
+      registrationIdForFallback = registration_id;
+    }
 
     if (!attendee_email || !attendee_email.trim()) {
       throw new Error("Khách mời chưa có địa chỉ email hợp lệ.");
@@ -101,10 +115,47 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "";
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // 3. Tra cứu dữ liệu Mẫu tin nhắn (Message Templates) để thống nhất khuôn mẫu truyền thông
+    let templateData: any = null;
+    if (template_id) {
+      const { data } = await supabase.from("message_templates").select("*").eq("id", template_id).single();
+      templateData = data;
+    } else {
+      // Ưu tiên mẫu mặc định đang kích hoạt cho kênh calendar_invite
+      const { data } = await supabase.from("message_templates")
+        .select("*")
+        .eq("channel", "calendar_invite")
+        .eq("is_active", true)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .single();
+      templateData = data;
+    }
+
+    // Nội suy nội dung từ tập biến
+    const finalVars = {
+      customer_name: attendee_name || "Quý khách",
+      event_title: event_title || "Sự kiện DESEMBRE",
+      event_time: starts_at || "Sắp diễn ra",
+      event_location: location || "Hệ thống DESEMBRE Việt Nam",
+      meeting_url: "https://meet.google.com",
+      sale_name: "Chuyên viên Quản trị",
+      company_name: "DESEMBRE Partner Hub",
+      description: description || "",
+    };
+
+    const renderedSubject = templateData?.subject_template
+      ? renderTemplate(templateData.subject_template, finalVars)
+      : `[DESEMBRE] Thư Mời Sự Kiện: ${event_title || "Partner Hub"}`;
+
+    const renderedBody = templateData?.body_template
+      ? renderTemplate(templateData.body_template, finalVars)
+      : `Kính gửi Quý đối tác / Khách mời,\n\nCông ty DESEMBRE Việt Nam trân trọng kính mời Quý khách tham dự chương trình đào tạo và chuyển giao phác đồ chuyên sâu.\n\n📌 NỘI DUNG CHUYỂN GIAO:\n${description || ""}\n\nSự hiện diện của Quý khách là niềm vinh hạnh lớn cho công ty chúng tôi.\nTrân trọng,\nBan Giám Đốc DESEMBRE Partner Hub`;
+
+    // 4. Băm ID sự kiện cố định & chuẩn bị danh sách attendees
     let targetEventId = "mastercampaign" + Math.floor(Date.now() / 1000);
     const attendeesMap = new Map<string, any>();
 
-    // Đảm bảo khách mời hiện tại luôn có mặt trong danh sách attendees
     attendeesMap.set(attendee_email.trim().toLowerCase(), {
       email: attendee_email.trim(),
       displayName: attendee_name || "Khách mời",
@@ -143,10 +194,9 @@ serve(async (req) => {
     const cleanEventId = targetEventId.replace(/-/g, "").toLowerCase().replace(/[^a-v0-9]/g, "0");
     const deterministicGCalId = "guestinvite" + cleanEventId;
 
-    const cleanTitle = event_title || "Sự kiện DESEMBRE Partner";
     const googleEventPayload: any = {
-      summary: `[DESEMBRE] Thư Mời Sự Kiện: ${cleanTitle}`,
-      description: `Kính gửi Quý đối tác / Khách mời,\n\nCông ty DESEMBRE Việt Nam trân trọng kính mời Quý khách tham dự chương trình đào tạo và chuyển giao phác đồ chuyên sâu.\n\n📌 NỘI DUNG CHUYỂN GIAO:\n${description || ""}\n\nSự hiện diện của Quý khách là niềm vinh hạnh lớn cho công ty chúng tôi.\nTrân trọng,\nBan Giám Đốc DESEMBRE Partner Hub`,
+      summary: renderedSubject,
+      description: renderedBody,
       location: location || "Hệ thống DESEMBRE Việt Nam",
       start: { dateTime: validStart },
       end: { dateTime: validEnd },
@@ -210,11 +260,12 @@ serve(async (req) => {
       throw new Error(`Google API Error (${errStatus}): ${errMsg}`);
     }
 
+    // 5. Thống nhất trạng thái cập nhật thành "sent"
     if (registration_id && !registration_id.startsWith("master_")) {
       await supabase
         .from("event_registrations")
         .update({ 
-          google_invite_status: "invited",
+          google_invite_status: "sent",
           calendar_link_sent_at: new Date().toISOString()
         })
         .eq("id", registration_id);
@@ -225,6 +276,20 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
+    // 5b. Thống nhất trạng thái cập nhật thành "failed" khi ném lỗi
+    if (registrationIdForFallback && !registrationIdForFallback.startsWith("master_")) {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+      if (supabaseUrl && supabaseServiceKey) {
+        const fallbackClient = createClient(supabaseUrl, supabaseServiceKey);
+        fallbackClient
+          .from("event_registrations")
+          .update({ google_invite_status: "failed" })
+          .eq("id", registrationIdForFallback)
+          .then();
+      }
+    }
+
     return new Response(JSON.stringify({ success: false, error: error.message }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

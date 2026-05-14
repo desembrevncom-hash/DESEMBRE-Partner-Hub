@@ -1051,7 +1051,7 @@ function CalendarPage() {
 
       toast.success("Đã gửi thư mời Google Calendar", { id: tid });
       
-      setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, google_invite_status: "invited", attendee_email: targetEmail } as any : r));
+      setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, google_invite_status: "sent", attendee_email: targetEmail } as any : r));
       await loadEvents();
     } catch (err: any) {
       toast.error(err.message || "Lỗi gửi thư mời", { id: tid });
