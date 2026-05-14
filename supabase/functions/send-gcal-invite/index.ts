@@ -99,9 +99,7 @@ serve(async (req) => {
       location: location || "Hệ thống DESEMBRE Việt Nam",
       start: { dateTime: validStart },
       end: { dateTime: validEnd },
-      attendees: [
-        { email: attendee_email, displayName: attendee_name, responseStatus: "needsAction" }
-      ],
+
       reminders: {
         useDefault: false,
         overrides: [
@@ -152,7 +150,7 @@ serve(async (req) => {
 
   } catch (error: any) {
     return new Response(JSON.stringify({ success: false, error: error.message }), {
-      status: 400,
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
