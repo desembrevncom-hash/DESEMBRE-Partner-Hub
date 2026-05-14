@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.send-gcal-invite]
 verify_jwt = false
+
+[functions.sync-company-event-to-google]
+verify_jwt = false
