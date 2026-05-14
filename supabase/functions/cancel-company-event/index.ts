@@ -82,7 +82,7 @@ serve(async (req) => {
     }
 
     // 3. Sau khi xóa Google thành công (hoặc 404 / chưa sync), tiến hành cập nhật trạng thái CRM thành 'cancelled'
-    const updatePayload = {
+    const fullPayload = {
       status: "cancelled",
       google_sync_status: "cancelled",
       cancelled_at: new Date().toISOString(),
@@ -91,10 +91,28 @@ serve(async (req) => {
       updated_at: new Date().toISOString(),
     };
 
-    const { error: updateErr } = await supabase
+    let { error: updateErr } = await supabase
       .from("company_events")
-      .update(updatePayload)
+      .update(fullPayload)
       .eq("id", companyEventId);
+
+    // Thích ứng thông minh (Graceful degradation): Nếu CSDL chưa chạy SQL Migration thêm cột mới, tự động fallback cập nhật các cột lõi
+    if (updateErr && updateErr.message?.includes("Could not find the")) {
+      console.warn("CSDL chưa cập nhật cột cancel_reason, tự động kích hoạt fallback cập nhật các cột tiêu chuẩn...");
+      const corePayload = {
+        status: "cancelled",
+        google_sync_status: "cancelled",
+        google_sync_error: null,
+        updated_at: new Date().toISOString(),
+      };
+
+      const fallbackRes = await supabase
+        .from("company_events")
+        .update(corePayload)
+        .eq("id", companyEventId);
+        
+      updateErr = fallbackRes.error;
+    }
 
     if (updateErr) {
       throw new Error(`Lỗi cập nhật CSDL CRM: ${updateErr.message}`);
