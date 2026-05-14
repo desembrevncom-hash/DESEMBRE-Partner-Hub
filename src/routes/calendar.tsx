@@ -700,12 +700,14 @@ function CalendarPage() {
 
   const handleCopyCalendarMessage = async (reg: EventRegistration) => {
     try {
-      const eventDatePart = endsAt ? endsAt.slice(0, 10) : startsAt.slice(0, 10);
+      const startDatePart = startsAt.slice(0, 10);
+      const endDatePart = endsAt ? endsAt.slice(0, 10) : startDatePart;
+
       const startTimePart = startsAt.includes("T") ? startsAt.slice(11, 16) : "08:30";
       const endTimePart = endsAt && endsAt.includes("T") ? endsAt.slice(11, 16) : "12:00";
 
-      const computedTargetStart = `${eventDatePart}T${startTimePart}`;
-      const computedTargetEnd = `${eventDatePart}T${endTimePart}`;
+      const computedTargetStart = `${startDatePart}T${startTimePart}`;
+      const computedTargetEnd = `${endDatePart}T${endTimePart}`;
 
       let calUrl = buildGoogleCalendarLink({
         title: title || "Sự kiện DESEMBRE Partner",
@@ -720,9 +722,18 @@ function CalendarPage() {
         setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, add_to_calendar_url: calUrl } : r));
       }
 
-      const partsD = eventDatePart.split("-");
-      const dayMonthStr = partsD.length === 3 ? `${partsD[2]}/${partsD[1]}` : eventDatePart;
-      const timeLine = `${startTimePart} - ${endTimePart} ngày ${dayMonthStr}`;
+      const formatDM = (dStr: string) => {
+        const p = dStr.split("-");
+        return p.length === 3 ? `${p[2]}/${p[1]}` : dStr;
+      };
+
+      const startDM = formatDM(startDatePart);
+      const endDM = formatDM(endDatePart);
+
+      const timeLine = startDatePart === endDatePart 
+        ? `${startTimePart} - ${endTimePart} ngày ${startDM}`
+        : `Từ ${startTimePart} ngày ${startDM} đến ${endTimePart} ngày ${endDM}`;
+
       const locLine = eventLocation || meetingUrl || "Hệ thống DESEMBRE";
 
       const greeting = reg.customer_name 
@@ -2170,13 +2181,14 @@ function CalendarPage() {
                                       )}
                                       <a
                                         href={(() => {
-                                          const eventDatePart = endsAt ? endsAt.slice(0, 10) : startsAt.slice(0, 10);
+                                          const startDatePart = startsAt.slice(0, 10);
+                                          const endDatePart = endsAt ? endsAt.slice(0, 10) : startDatePart;
                                           const startTimePart = startsAt.includes("T") ? startsAt.slice(11, 16) : "08:30";
                                           const endTimePart = endsAt && endsAt.includes("T") ? endsAt.slice(11, 16) : "12:00";
                                           return buildGoogleCalendarLink({
                                             title: title || "Sự kiện DESEMBRE Partner",
-                                            startsAt: `${eventDatePart}T${startTimePart}`,
-                                            endsAt: `${eventDatePart}T${endTimePart}`,
+                                            startsAt: `${startDatePart}T${startTimePart}`,
+                                            endsAt: `${endDatePart}T${endTimePart}`,
                                             location: eventLocation || meetingUrl || null,
                                             description: formatGCalDescription(reg.customer_name, reg.customer_phone, description)
                                           });
