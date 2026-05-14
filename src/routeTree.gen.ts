@@ -20,6 +20,7 @@ import { Route as OrdersNewRouteImport } from './routes/orders/new'
 import { Route as OrdersIdRouteImport } from './routes/orders/$id'
 import { Route as CustomersIdRouteImport } from './routes/customers/$id'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
+import { Route as AdminTemplatesRouteImport } from './routes/admin/templates'
 import { Route as ReportsCrmRouteImport } from './routes/reports/crm'
 
 const SignupRoute = SignupRouteImport.update({
@@ -77,6 +78,11 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
   path: '/admin/users',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminTemplatesRoute = AdminTemplatesRouteImport.update({
+  id: '/admin/templates',
+  path: '/admin/templates',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReportsCrmRoute = ReportsCrmRouteImport.update({
   id: '/reports/crm',
   path: '/reports/crm',
@@ -90,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/templates': typeof AdminTemplatesRoute
   '/reports/crm': typeof ReportsCrmRoute
   '/customers/$id': typeof CustomersIdRoute
   '/orders/$id': typeof OrdersIdRoute
@@ -104,6 +111,7 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/templates': typeof AdminTemplatesRoute
   '/reports/crm': typeof ReportsCrmRoute
   '/customers/$id': typeof CustomersIdRoute
   '/orders/$id': typeof OrdersIdRoute
@@ -119,6 +127,7 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/templates': typeof AdminTemplatesRoute
   '/reports/crm': typeof ReportsCrmRoute
   '/customers/$id': typeof CustomersIdRoute
   '/orders/$id': typeof OrdersIdRoute
@@ -135,6 +144,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/signup'
     | '/admin/users'
+    | '/admin/templates'
     | '/reports/crm'
     | '/customers/$id'
     | '/orders/$id'
@@ -149,6 +159,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/signup'
     | '/admin/users'
+    | '/admin/templates'
     | '/reports/crm'
     | '/customers/$id'
     | '/orders/$id'
@@ -163,6 +174,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/signup'
     | '/admin/users'
+    | '/admin/templates'
     | '/reports/crm'
     | '/customers/$id'
     | '/orders/$id'
@@ -178,6 +190,7 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   SignupRoute: typeof SignupRoute
   AdminUsersRoute: typeof AdminUsersRoute
+  AdminTemplatesRoute: typeof AdminTemplatesRoute
   ReportsCrmRoute: typeof ReportsCrmRoute
   CustomersIdRoute: typeof CustomersIdRoute
   OrdersIdRoute: typeof OrdersIdRoute
@@ -272,6 +285,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/templates': {
+      id: '/admin/templates'
+      path: '/admin/templates'
+      fullPath: '/admin/templates'
+      preLoaderRoute: typeof AdminTemplatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -282,6 +302,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   SignupRoute: SignupRoute,
   AdminUsersRoute: AdminUsersRoute,
+  AdminTemplatesRoute: AdminTemplatesRoute,
   ReportsCrmRoute: ReportsCrmRoute,
   CustomersIdRoute: CustomersIdRoute,
   OrdersIdRoute: OrdersIdRoute,
