@@ -305,27 +305,55 @@ function AdminTemplatesPage() {
     const tid = toast.loading("Đang biên dịch mẫu và phát hành thiệp mời kiểm thử qua Google Calendar...");
     
     try {
-      const { data, error } = await supabase.functions.invoke("send-template-test-invite", {
-        body: {
-          templateId: testTemplateId,
-          calendarAccountId: testAccountId,
-          testEmail: testEmailInput.trim()
-        }
-      });
+      const payload = {
+        templateId: testTemplateId,
+        calendarAccountId: testAccountId,
+        testEmail: testEmailInput.trim()
+      };
 
-      if (error) {
-        let msg = error.message;
-        if (error.context && typeof error.context.json === 'function') {
-          try {
-            const errCtx = await error.context.json();
-            if (errCtx && errCtx.error) msg = errCtx.error;
-          } catch (_) {}
-        }
-        throw new Error(msg);
-      }
+      try {
+        const { data, error } = await supabase.functions.invoke("send-template-test-invite", {
+          body: payload
+        });
 
-      if (data?.error) {
-        throw new Error(data.error);
+        if (error) {
+          let msg = error.message;
+          if (error.context && typeof error.context.json === 'function') {
+            try {
+              const errCtx = await error.context.json();
+              if (errCtx && errCtx.error) msg = errCtx.error;
+            } catch (_) {}
+          }
+          const eObj = new Error(msg);
+          (eObj as any)._isCustom = true;
+          throw eObj;
+        }
+
+        if (data?.error) {
+          const eObj = new Error(data.error);
+          (eObj as any)._isCustom = true;
+          throw eObj;
+        }
+      } catch (sdkErr: any) {
+        if (sdkErr._isCustom) throw sdkErr;
+
+        console.warn("Lỗi invoke tiêu chuẩn, tự động kích hoạt fetch fallback đính kèm token:", sdkErr);
+        const session = (await supabase.auth.getSession()).data?.session;
+        const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-template-test-invite`;
+        const rawRes = await fetch(functionUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY,
+            "Authorization": `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const resData = await rawRes.json().catch(() => null);
+        if (!rawRes.ok || resData?.error) {
+          throw new Error(resData?.error || sdkErr.message || "Lỗi giao tiếp máy chủ Edge Function");
+        }
       }
 
       toast.success("Gửi thư mời kiểm thử thành công! Kiểm tra ngay hộp thư của bạn.", { id: tid });

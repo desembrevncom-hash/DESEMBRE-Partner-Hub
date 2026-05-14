@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.cancel-company-event]
 verify_jwt = false
+
+[functions.send-template-test-invite]
+verify_jwt = false
