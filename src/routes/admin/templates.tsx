@@ -491,9 +491,9 @@ function AdminTemplatesPage() {
             <div className="absolute right-0 bottom-0 translate-x-4 translate-y-4 w-24 h-24 bg-blue-50 rounded-full -z-0"></div>
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Lịch Google Nguồn</span>
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-slate-900">{accounts.length}</span>
+              <span className="text-3xl font-black text-slate-900">{senderAccounts.length}</span>
               <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                Service Account
+                OAuth Động
               </span>
             </div>
           </div>
