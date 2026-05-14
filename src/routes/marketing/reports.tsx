@@ -27,7 +27,7 @@ import {
   Loader2
 } from "lucide-react";
 
-export const Route = createFileRoute("/marketing/reports" as any)({
+export const Route = createFileRoute("/marketing/reports")({
   component: MarketingReportsPage,
 });
 

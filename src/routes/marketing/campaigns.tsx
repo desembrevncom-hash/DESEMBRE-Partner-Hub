@@ -37,7 +37,7 @@ import {
 
 import { canSendMarketingMessage, ComplianceCustomer, ComplianceTemplate } from "@/lib/messagingRules";
 
-export const Route = createFileRoute("/marketing/campaigns" as any)({
+export const Route = createFileRoute("/marketing/campaigns")({
   component: MarketingCampaignsPage,
 });
 

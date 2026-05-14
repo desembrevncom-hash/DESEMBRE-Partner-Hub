@@ -16,7 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-export const Route = createFileRoute("/customers" as any)({
+export const Route = createFileRoute("/customers")({
   component: CustomersPage,
 });
 

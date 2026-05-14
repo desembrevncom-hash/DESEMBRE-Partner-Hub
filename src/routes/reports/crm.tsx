@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
-export const Route = createFileRoute("/reports/crm" as any)({
+export const Route = createFileRoute("/reports/crm")({
   component: CrmReportPage,
 });
 

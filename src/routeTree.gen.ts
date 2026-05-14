@@ -12,16 +12,19 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as CustomersRouteImport } from './routes/customers'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OrdersIndexRouteImport } from './routes/orders/index'
 import { Route as CustomersIndexRouteImport } from './routes/customers/index'
+import { Route as ReportsCrmRouteImport } from './routes/reports/crm'
 import { Route as OrdersNewRouteImport } from './routes/orders/new'
 import { Route as OrdersIdRouteImport } from './routes/orders/$id'
+import { Route as MarketingReportsRouteImport } from './routes/marketing/reports'
+import { Route as MarketingCampaignsRouteImport } from './routes/marketing/campaigns'
 import { Route as CustomersIdRouteImport } from './routes/customers/$id'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminTemplatesRouteImport } from './routes/admin/templates'
-import { Route as ReportsCrmRouteImport } from './routes/reports/crm'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -36,6 +39,11 @@ const ProfileRoute = ProfileRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CustomersRoute = CustomersRouteImport.update({
+  id: '/customers',
+  path: '/customers',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CalendarRoute = CalendarRouteImport.update({
@@ -54,8 +62,13 @@ const OrdersIndexRoute = OrdersIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const CustomersIndexRoute = CustomersIndexRouteImport.update({
-  id: '/customers/',
-  path: '/customers/',
+  id: '/',
+  path: '/',
+  getParentRoute: () => CustomersRoute,
+} as any)
+const ReportsCrmRoute = ReportsCrmRouteImport.update({
+  id: '/reports/crm',
+  path: '/reports/crm',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OrdersNewRoute = OrdersNewRouteImport.update({
@@ -68,10 +81,20 @@ const OrdersIdRoute = OrdersIdRouteImport.update({
   path: '/orders/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CustomersIdRoute = CustomersIdRouteImport.update({
-  id: '/customers/$id',
-  path: '/customers/$id',
+const MarketingReportsRoute = MarketingReportsRouteImport.update({
+  id: '/marketing/reports',
+  path: '/marketing/reports',
   getParentRoute: () => rootRouteImport,
+} as any)
+const MarketingCampaignsRoute = MarketingCampaignsRouteImport.update({
+  id: '/marketing/campaigns',
+  path: '/marketing/campaigns',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CustomersIdRoute = CustomersIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => CustomersRoute,
 } as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
   id: '/admin/users',
@@ -83,24 +106,22 @@ const AdminTemplatesRoute = AdminTemplatesRouteImport.update({
   path: '/admin/templates',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReportsCrmRoute = ReportsCrmRouteImport.update({
-  id: '/reports/crm',
-  path: '/reports/crm',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/calendar': typeof CalendarRoute
+  '/customers': typeof CustomersRouteWithChildren
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
-  '/admin/users': typeof AdminUsersRoute
   '/admin/templates': typeof AdminTemplatesRoute
-  '/reports/crm': typeof ReportsCrmRoute
+  '/admin/users': typeof AdminUsersRoute
   '/customers/$id': typeof CustomersIdRoute
+  '/marketing/campaigns': typeof MarketingCampaignsRoute
+  '/marketing/reports': typeof MarketingReportsRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
+  '/reports/crm': typeof ReportsCrmRoute
   '/customers/': typeof CustomersIndexRoute
   '/orders/': typeof OrdersIndexRoute
 }
@@ -110,12 +131,14 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
-  '/admin/users': typeof AdminUsersRoute
   '/admin/templates': typeof AdminTemplatesRoute
-  '/reports/crm': typeof ReportsCrmRoute
+  '/admin/users': typeof AdminUsersRoute
   '/customers/$id': typeof CustomersIdRoute
+  '/marketing/campaigns': typeof MarketingCampaignsRoute
+  '/marketing/reports': typeof MarketingReportsRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
+  '/reports/crm': typeof ReportsCrmRoute
   '/customers': typeof CustomersIndexRoute
   '/orders': typeof OrdersIndexRoute
 }
@@ -123,15 +146,18 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/calendar': typeof CalendarRoute
+  '/customers': typeof CustomersRouteWithChildren
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
-  '/admin/users': typeof AdminUsersRoute
   '/admin/templates': typeof AdminTemplatesRoute
-  '/reports/crm': typeof ReportsCrmRoute
+  '/admin/users': typeof AdminUsersRoute
   '/customers/$id': typeof CustomersIdRoute
+  '/marketing/campaigns': typeof MarketingCampaignsRoute
+  '/marketing/reports': typeof MarketingReportsRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
+  '/reports/crm': typeof ReportsCrmRoute
   '/customers/': typeof CustomersIndexRoute
   '/orders/': typeof OrdersIndexRoute
 }
@@ -140,15 +166,18 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/calendar'
+    | '/customers'
     | '/login'
     | '/profile'
     | '/signup'
-    | '/admin/users'
     | '/admin/templates'
-    | '/reports/crm'
+    | '/admin/users'
     | '/customers/$id'
+    | '/marketing/campaigns'
+    | '/marketing/reports'
     | '/orders/$id'
     | '/orders/new'
+    | '/reports/crm'
     | '/customers/'
     | '/orders/'
   fileRoutesByTo: FileRoutesByTo
@@ -158,27 +187,32 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/signup'
-    | '/admin/users'
     | '/admin/templates'
-    | '/reports/crm'
+    | '/admin/users'
     | '/customers/$id'
+    | '/marketing/campaigns'
+    | '/marketing/reports'
     | '/orders/$id'
     | '/orders/new'
+    | '/reports/crm'
     | '/customers'
     | '/orders'
   id:
     | '__root__'
     | '/'
     | '/calendar'
+    | '/customers'
     | '/login'
     | '/profile'
     | '/signup'
-    | '/admin/users'
     | '/admin/templates'
-    | '/reports/crm'
+    | '/admin/users'
     | '/customers/$id'
+    | '/marketing/campaigns'
+    | '/marketing/reports'
     | '/orders/$id'
     | '/orders/new'
+    | '/reports/crm'
     | '/customers/'
     | '/orders/'
   fileRoutesById: FileRoutesById
@@ -186,16 +220,17 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CalendarRoute: typeof CalendarRoute
+  CustomersRoute: typeof CustomersRouteWithChildren
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
   SignupRoute: typeof SignupRoute
-  AdminUsersRoute: typeof AdminUsersRoute
   AdminTemplatesRoute: typeof AdminTemplatesRoute
-  ReportsCrmRoute: typeof ReportsCrmRoute
-  CustomersIdRoute: typeof CustomersIdRoute
+  AdminUsersRoute: typeof AdminUsersRoute
+  MarketingCampaignsRoute: typeof MarketingCampaignsRoute
+  MarketingReportsRoute: typeof MarketingReportsRoute
   OrdersIdRoute: typeof OrdersIdRoute
   OrdersNewRoute: typeof OrdersNewRoute
-  CustomersIndexRoute: typeof CustomersIndexRoute
+  ReportsCrmRoute: typeof ReportsCrmRoute
   OrdersIndexRoute: typeof OrdersIndexRoute
 }
 
@@ -222,6 +257,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/customers': {
+      id: '/customers'
+      path: '/customers'
+      fullPath: '/customers'
+      preLoaderRoute: typeof CustomersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/calendar': {
       id: '/calendar'
       path: '/calendar'
@@ -236,13 +278,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/reports/crm': {
-      id: '/reports/crm'
-      path: '/reports/crm'
-      fullPath: '/reports/crm'
-      preLoaderRoute: typeof ReportsCrmRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/orders/': {
       id: '/orders/'
       path: '/orders'
@@ -252,9 +287,16 @@ declare module '@tanstack/react-router' {
     }
     '/customers/': {
       id: '/customers/'
-      path: '/customers'
+      path: '/'
       fullPath: '/customers/'
       preLoaderRoute: typeof CustomersIndexRouteImport
+      parentRoute: typeof CustomersRoute
+    }
+    '/reports/crm': {
+      id: '/reports/crm'
+      path: '/reports/crm'
+      fullPath: '/reports/crm'
+      preLoaderRoute: typeof ReportsCrmRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/orders/new': {
@@ -271,12 +313,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrdersIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/marketing/reports': {
+      id: '/marketing/reports'
+      path: '/marketing/reports'
+      fullPath: '/marketing/reports'
+      preLoaderRoute: typeof MarketingReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketing/campaigns': {
+      id: '/marketing/campaigns'
+      path: '/marketing/campaigns'
+      fullPath: '/marketing/campaigns'
+      preLoaderRoute: typeof MarketingCampaignsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/customers/$id': {
       id: '/customers/$id'
-      path: '/customers/$id'
+      path: '/$id'
       fullPath: '/customers/$id'
       preLoaderRoute: typeof CustomersIdRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof CustomersRoute
     }
     '/admin/users': {
       id: '/admin/users'
@@ -295,19 +351,34 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface CustomersRouteChildren {
+  CustomersIdRoute: typeof CustomersIdRoute
+  CustomersIndexRoute: typeof CustomersIndexRoute
+}
+
+const CustomersRouteChildren: CustomersRouteChildren = {
+  CustomersIdRoute: CustomersIdRoute,
+  CustomersIndexRoute: CustomersIndexRoute,
+}
+
+const CustomersRouteWithChildren = CustomersRoute._addFileChildren(
+  CustomersRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CalendarRoute: CalendarRoute,
+  CustomersRoute: CustomersRouteWithChildren,
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
   SignupRoute: SignupRoute,
-  AdminUsersRoute: AdminUsersRoute,
   AdminTemplatesRoute: AdminTemplatesRoute,
-  ReportsCrmRoute: ReportsCrmRoute,
-  CustomersIdRoute: CustomersIdRoute,
+  AdminUsersRoute: AdminUsersRoute,
+  MarketingCampaignsRoute: MarketingCampaignsRoute,
+  MarketingReportsRoute: MarketingReportsRoute,
   OrdersIdRoute: OrdersIdRoute,
   OrdersNewRoute: OrdersNewRoute,
-  CustomersIndexRoute: CustomersIndexRoute,
+  ReportsCrmRoute: ReportsCrmRoute,
   OrdersIndexRoute: OrdersIndexRoute,
 }
 export const routeTree = rootRouteImport
