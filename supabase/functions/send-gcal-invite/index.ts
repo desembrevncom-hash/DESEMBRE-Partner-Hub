@@ -14,20 +14,29 @@ serve(async (req) => {
   try {
     const { registration_id, event_title, starts_at, ends_at, location, description, attendee_email, attendee_name } = await req.json();
 
-    if (!attendee_email) {
-      throw new Error("Khách mời chưa có địa chỉ email.");
+    if (!attendee_email || !attendee_email.trim()) {
+      throw new Error("Khách mời chưa có địa chỉ email hợp lệ.");
     }
 
+    // 1. Kiểm tra cấu hình Secrets bắt buộc
     const serviceAccountStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT");
-    const calendarId = Deno.env.get("GOOGLE_CALENDAR_ID") || "primary";
-
-    if (!serviceAccountStr) {
-      throw new Error("Hệ thống chưa được cấu hình khóa GOOGLE_SERVICE_ACCOUNT trong Vault.");
+    if (!serviceAccountStr || !serviceAccountStr.trim()) {
+      throw new Error("Thiếu cấu hình GOOGLE_SERVICE_ACCOUNT trong Supabase Secrets.");
     }
 
-    const serviceAccount = JSON.parse(serviceAccountStr);
+    const targetCalendarId = Deno.env.get("GOOGLE_CALENDAR_ID");
+    if (!targetCalendarId || !targetCalendarId.trim()) {
+      throw new Error("Thiếu cấu hình GOOGLE_CALENDAR_ID trong Supabase Secrets.");
+    }
 
-    // Lấy JWT Access Token từ Google API
+    let serviceAccount: any = null;
+    try {
+      serviceAccount = JSON.parse(serviceAccountStr);
+    } catch (_) {
+      throw new Error("Chuỗi GOOGLE_SERVICE_ACCOUNT không đúng định dạng JSON.");
+    }
+
+    // 2. Lấy Access Token từ Google
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -39,12 +48,12 @@ serve(async (req) => {
 
     const tokenData = await tokenResponse.json();
     if (!tokenResponse.ok) {
-      throw new Error(`Lỗi xác thực Google: ${tokenData.error_description || tokenData.error}`);
+      throw new Error(`Xác thực Google Service Account thất bại: ${tokenData.error_description || tokenData.error}`);
     }
 
     const { access_token } = tokenData;
 
-    // Chuẩn hóa định dạng thời gian sang RFC3339 hợp lệ cho Google Calendar
+    // Chuẩn hóa thời gian
     const formatDateTime = (dtStr?: string, isEnd = false) => {
       let baseStr = dtStr;
       if (!baseStr || typeof baseStr !== "string" || !baseStr.trim()) {
@@ -54,11 +63,9 @@ serve(async (req) => {
         return now.toISOString();
       }
       baseStr = baseStr.trim();
-      // Nếu chuỗi chỉ có ngày (YYYY-MM-DD), bổ sung giờ
       if (baseStr.length === 10) {
         return isEnd ? `${baseStr}T12:00:00+07:00` : `${baseStr}T08:30:00+07:00`;
       }
-      // Nếu chuỗi có dạng YYYY-MM-DDTHH:mm nhưng thiếu giây
       if (baseStr.length === 16) {
         return `${baseStr}:00+07:00`;
       }
@@ -74,14 +81,12 @@ serve(async (req) => {
     let validEnd = formatDateTime(ends_at, true);
     let validStart = formatDateTime(starts_at, false);
 
-    // Nghiệp vụ: Sự kiện diễn ra thực tế vào ngày kết thúc (ends_at). Do đó mốc bắt đầu của sự kiện GCal phải được neo vào CÙNG NGÀY với ends_at.
     if (ends_at && ends_at.trim()) {
       const endDatePart = validEnd.slice(0, 10);
       const startTimePart = validStart.slice(11, 19);
       validStart = `${endDatePart}T${startTimePart}${validStart.slice(19)}`;
     }
 
-    // Đảm bảo thời gian kết thúc luôn sau thời gian bắt đầu ít nhất 1 giờ
     try {
       const sTime = new Date(validStart).getTime();
       const eTime = new Date(validEnd).getTime();
@@ -91,7 +96,7 @@ serve(async (req) => {
       }
     } catch (_) {}
 
-    // Khởi tạo Supabase Client để truy vấn Chiến dịch mẹ và toàn bộ danh sách Khách hàng hợp lệ
+    // Khởi tạo Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "";
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -99,15 +104,12 @@ serve(async (req) => {
     let targetEventId = "mastercampaign" + Math.floor(Date.now() / 1000);
     const attendeesMap = new Map<string, any>();
 
-    // 1. Thêm Khách hiện tại vào danh sách người tham dự
-    if (attendee_email && attendee_email.includes("@")) {
-      attendeesMap.set(attendee_email.trim().toLowerCase(), {
-        email: attendee_email.trim(),
-        displayName: attendee_name || "Khách mời",
-      });
-    }
+    // Đảm bảo khách mời hiện tại luôn có mặt trong danh sách attendees
+    attendeesMap.set(attendee_email.trim().toLowerCase(), {
+      email: attendee_email.trim(),
+      displayName: attendee_name || "Khách mời",
+    });
 
-    // 2. Tra cứu event_id mẹ từ registration_id
     if (registration_id && !registration_id.startsWith("master_")) {
       const { data: currentReg } = await supabase
         .from("event_registrations")
@@ -118,7 +120,6 @@ serve(async (req) => {
       if (currentReg && currentReg.event_id) {
         targetEventId = currentReg.event_id;
 
-        // 3. Tải toàn bộ danh sách khách hàng của Chiến dịch mẹ đã có Email
         const { data: allRegs } = await supabase
           .from("event_registrations")
           .select("customer_name, attendee_email")
@@ -139,12 +140,9 @@ serve(async (req) => {
     }
 
     const finalAttendees = Array.from(attendeesMap.values());
-
-    // 4. Băm ID Sự kiện Cố định (Deterministic Event ID) tuân thủ base32hex (a-v, 0-9) của Google Calendar
     const cleanEventId = targetEventId.replace(/-/g, "").toLowerCase().replace(/[^a-v0-9]/g, "0");
     const deterministicGCalId = "guestinvite" + cleanEventId;
 
-    // Chuẩn hóa nội dung mang danh nghĩa Công ty DESEMBRE
     const cleanTitle = event_title || "Sự kiện DESEMBRE Partner";
     const googleEventPayload: any = {
       summary: `[DESEMBRE] Thư Mời Sự Kiện: ${cleanTitle}`,
@@ -156,17 +154,17 @@ serve(async (req) => {
       reminders: {
         useDefault: false,
         overrides: [
-          { method: "email", minutes: 48 * 60 }, // Google tự động bắn Email nhắc trước đúng 2 ngày (48 tiếng)
-          { method: "popup", minutes: 60 }        // Thông báo đẩy trên app GCal trước 1 tiếng
+          { method: "email", minutes: 48 * 60 },
+          { method: "popup", minutes: 60 }
         ],
       },
       guestsCanModify: false,
       guestsCanInviteOthers: false,
-      guestsCanSeeOtherGuests: false, // BẢO MẬT ĐỈNH CAO: Ẩn danh sách khách hàng, khách nào chỉ thấy mình khách đó!
+      guestsCanSeeOtherGuests: false,
     };
 
-    // 5. Thử cập nhật đè (PUT) Sự kiện Cố định này trước để duy trì duy nhất 1 mốc Xanh lam trên Lịch
-    const updateUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(deterministicGCalId)}?sendUpdates=all`;
+    // Thực thi cập nhật hoặc tạo sự kiện Google Calendar
+    const updateUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(targetCalendarId.trim())}/events/${encodeURIComponent(deterministicGCalId)}?sendUpdates=all`;
     let gcalResponse = await fetch(updateUrl, {
       method: "PUT",
       headers: {
@@ -181,10 +179,8 @@ serve(async (req) => {
     if (gcalResponse.ok) {
       gcalData = await gcalResponse.json();
     } else if (gcalResponse.status === 404) {
-      // Nếu Sự kiện chưa từng tồn tại, thực thi chèn mới (POST) với ID chỉ định
-      console.warn("Sự kiện thư mời cố định chưa tồn tại, kích hoạt chèn POST...");
       googleEventPayload.id = deterministicGCalId;
-      const insertUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=all`;
+      const insertUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(targetCalendarId.trim())}/events?sendUpdates=all`;
       gcalResponse = await fetch(insertUrl, {
         method: "POST",
         headers: {
@@ -193,16 +189,27 @@ serve(async (req) => {
         },
         body: JSON.stringify(googleEventPayload),
       });
+
       gcalData = await gcalResponse.json();
-      if (!gcalResponse.ok) {
-        throw new Error(`Google Calendar Insert API Error: ${gcalData.error?.message || JSON.stringify(gcalData)}`);
-      }
     } else {
-      const errPayload = await gcalResponse.json().catch(() => ({}));
-      throw new Error(`Google Calendar Update API Error: ${errPayload.error?.message || JSON.stringify(errPayload)}`);
+      gcalData = await gcalResponse.json().catch(() => ({}));
     }
 
-    // Cập nhật trạng thái thành công vào Supabase cho khách hiện tại
+    // Xử lý báo lỗi chi tiết nếu API Google thất bại
+    if (!gcalResponse.ok) {
+      const errStatus = gcalResponse.status;
+      const errMsg = gcalData?.error?.message || JSON.stringify(gcalData);
+
+      if (errStatus === 404 || errMsg.toLowerCase().includes("not found")) {
+        throw new Error(`Calendar not found. Không tìm thấy lịch mang ID "${targetCalendarId}". Vui lòng kiểm tra lại cấu hình GOOGLE_CALENDAR_ID hoặc đảm bảo đã chia sẻ lịch cho Service Account (${serviceAccount.client_email}).`);
+      }
+      if (errStatus === 403 || errMsg.toLowerCase().includes("permission") || errMsg.toLowerCase().includes("forbidden")) {
+        throw new Error(`insufficient permissions. Service Account (${serviceAccount.client_email}) chưa được cấp quyền "Thực hiện thay đổi đối với sự kiện" (Make changes to events) trên lịch này.`);
+      }
+
+      throw new Error(`Google API Error (${errStatus}): ${errMsg}`);
+    }
+
     if (registration_id && !registration_id.startsWith("master_")) {
       await supabase
         .from("event_registrations")
@@ -219,7 +226,7 @@ serve(async (req) => {
 
   } catch (error: any) {
     return new Response(JSON.stringify({ success: false, error: error.message }), {
-      status: 400, // Kích hoạt bóc tách client-side qua FunctionsHttpError error.context.json()
+      status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

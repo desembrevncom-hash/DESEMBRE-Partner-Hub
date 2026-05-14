@@ -311,47 +311,26 @@ function AdminTemplatesPage() {
         testEmail: testEmailInput.trim()
       };
 
-      let isSimulated = false;
+      const { data, error } = await supabase.functions.invoke("send-template-test-invite", {
+        body: payload
+      });
 
-      try {
-        // Luồng chính: Gọi Invoke tiêu chuẩn
-        const { data, error } = await supabase.functions.invoke("send-template-test-invite", {
-          body: payload
-        });
-
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
-      } catch (sdkErr: any) {
-        console.warn("Luồng gọi Edge Function từ chối kết nối, tự động chuyển sang luồng mô phỏng trực quan (Simulated Fallback Mode):", sdkErr);
-        isSimulated = true;
-        
-        // Tự động chèn Log mô phỏng thành công để hiển thị bảng điều khiển mượt mà
-        try {
-          if (user?.id) {
-            await supabase.from("template_test_logs").insert([{
-              template_id: testTemplateId,
-              calendar_account_id: testAccountId,
-              tested_by: user.id,
-              test_email: testEmailInput.trim(),
-              status: "sent",
-              provider_response: {
-                simulated: true,
-                mode: "Simulated Test Engine Fallback",
-                message: "Kết xuất giả định thành công. Luồng gửi GCal vật lý tạm ẩn do Deno Function chưa khả dụng trên gateway phân vùng."
-              }
-            }]);
-          }
-        } catch (dbLogErr) {
-          console.warn("Bỏ qua cảnh báo ghi log mô phỏng:", dbLogErr);
+      if (error) {
+        let msg = error.message;
+        if (error.context && typeof error.context.json === 'function') {
+          try {
+            const errCtx = await error.context.json();
+            if (errCtx && errCtx.error) msg = errCtx.error;
+          } catch (_) {}
         }
+        throw new Error(msg);
       }
 
-      if (isSimulated) {
-        toast.success("Đã kết xuất mẫu và phát hành mô phỏng thư mời thành công! (Simulated Mode)", { id: tid });
-      } else {
-        toast.success("Gửi thư mời kiểm thử thành công! Kiểm tra ngay hộp thư của bạn.", { id: tid });
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
+      toast.success("Gửi thư mời kiểm thử thành công! Kiểm tra ngay hộp thư của bạn.", { id: tid });
       setTestEmailInput("");
       loadData();
     } catch (err: any) {

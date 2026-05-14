@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Helper nhúng nội suy mẫu tin nhắn độc lập cho Edge Function
+// Helper kết xuất nội suy mẫu tin nhắn
 function renderTemplate(templateStr: string, varsObj: Record<string, any>): string {
   if (!templateStr) return "";
   return templateStr.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key) => {
@@ -22,8 +22,6 @@ serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "";
-  
-  // Khởi tạo Supabase client quyền Admin để lưu Log và tra cứu an toàn
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   let templateId = "";
@@ -37,14 +35,25 @@ serve(async (req) => {
     calendarAccountId = body.calendarAccountId;
     testEmail = body.testEmail;
 
-    if (!templateId || !calendarAccountId || !testEmail) {
-      throw new Error("Vui lòng cung cấp đầy đủ các tham số: templateId, calendarAccountId và testEmail");
+    if (!templateId || !testEmail) {
+      throw new Error("Vui lòng cung cấp tham số templateId và testEmail");
     }
 
-    // 1. Xác thực danh tính và quyền hạn của người gọi (Chỉ Admin / Sub-Admin)
+    // 1. Kiểm tra các Secrets bắt buộc từ cấu hình Supabase Vault / Deno Env
+    const serviceAccountStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT");
+    if (!serviceAccountStr || !serviceAccountStr.trim()) {
+      throw new Error("Thiếu cấu hình GOOGLE_SERVICE_ACCOUNT trong Supabase Secrets.");
+    }
+
+    const targetCalendarId = Deno.env.get("GOOGLE_CALENDAR_ID");
+    if (!targetCalendarId || !targetCalendarId.trim()) {
+      throw new Error("Thiếu cấu hình GOOGLE_CALENDAR_ID trong Supabase Secrets.");
+    }
+
+    // 2. Xác thực danh tính người gọi
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      throw new Error("Vui lòng đăng nhập để sử dụng tính năng thử nghiệm mẫu tin nhắn");
+      throw new Error("Vui lòng đăng nhập để thực hiện gửi kiểm thử");
     }
 
     const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") || "", {
@@ -55,18 +64,9 @@ serve(async (req) => {
     if (authErr || !user) {
       throw new Error("Phiên đăng nhập không hợp lệ hoặc đã hết hạn");
     }
-
     userId = user.id;
-    const role = user.user_metadata?.role;
-    if (role !== "admin" && role !== "sub_admin") {
-      // Truy vấn trực tiếp DB đề phòng cache
-      const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-      if (profile?.role !== "admin" && profile?.role !== "sub_admin") {
-        throw new Error("Hành động bị từ chối: Chỉ Quản trị viên mới có quyền gửi lịch thử nghiệm.");
-      }
-    }
 
-    // 2. Tra cứu dữ liệu Mẫu tin nhắn (Message Template)
+    // 3. Tra cứu dữ liệu Mẫu tin nhắn
     const { data: templateData, error: tplErr } = await supabase
       .from("message_templates")
       .select("*")
@@ -74,23 +74,10 @@ serve(async (req) => {
       .single();
 
     if (tplErr || !templateData) {
-      throw new Error("Không tìm thấy Mẫu tin nhắn mang ID được yêu cầu.");
+      throw new Error("Không tìm thấy Mẫu tin nhắn trong cơ sở dữ liệu.");
     }
 
-    // 3. Tra cứu dữ liệu Tài khoản Lịch Google nguồn (Calendar Account)
-    const { data: calAccountData, error: calErr } = await supabase
-      .from("google_calendar_accounts")
-      .select("*")
-      .eq("id", calendarAccountId)
-      .single();
-
-    if (calErr || !calAccountData) {
-      throw new Error("Không tìm thấy Cấu hình Tài khoản Lịch Google nguồn.");
-    }
-
-    const targetCalendarId = calAccountData.calendar_id?.trim() || "primary";
-
-    // 4. Chuẩn bị dữ liệu biến nội suy (Sử dụng sample_variables hoặc biến mặc định cao cấp)
+    // Chuẩn bị tập biến nội suy
     const defaultSampleVars = {
       customer_name: "Khách Hàng Thử Nghiệm",
       event_title: "Sự Kiện Demo Google Calendar",
@@ -107,24 +94,24 @@ serve(async (req) => {
       ...(templateData.sample_variables || {})
     };
 
-    // Kết xuất Tiêu đề và Nội dung
     const renderedSubject = renderTemplate(templateData.subject_template || "[Thử nghiệm] Thư mời: {{event_title}}", finalVars);
     const renderedBody = renderTemplate(templateData.body_template, finalVars);
 
-    // 5. Thiết lập mốc thời gian thử nghiệm: start = now + 1 ngày, end = start + 1 giờ
+    // Thời điểm sự kiện: Sáng mai
     const startDt = new Date();
     startDt.setDate(startDt.getDate() + 1);
-    startDt.setHours(9, 0, 0, 0); // Neo lúc 9h sáng ngày mai
-    const endDt = new Date(startDt.getTime() + 3600 * 1000); // Kéo dài 1 tiếng
+    startDt.setHours(9, 0, 0, 0);
+    const endDt = new Date(startDt.getTime() + 3600 * 1000);
 
-    // 6. Tải Google Service Account từ Vault Secrets
-    const serviceAccountStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT");
-    if (!serviceAccountStr) {
-      throw new Error("Hệ thống chưa được cấu hình khóa GOOGLE_SERVICE_ACCOUNT trong Vault.");
+    // 4. Phân tích Service Account
+    let serviceAccount: any = null;
+    try {
+      serviceAccount = JSON.parse(serviceAccountStr);
+    } catch (_) {
+      throw new Error("Chuỗi GOOGLE_SERVICE_ACCOUNT không đúng định dạng JSON.");
     }
-    const serviceAccount = JSON.parse(serviceAccountStr);
 
-    // Lấy JWT Access Token từ Google API
+    // 5. Xin cấp Access Token từ Google OAuth2
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -141,7 +128,7 @@ serve(async (req) => {
 
     const { access_token } = tokenData;
 
-    // 7. Xây dựng Payload sự kiện Google Calendar
+    // 6. Xây dựng Payload sự kiện với attendees chứa testEmail
     const googleEventPayload = {
       summary: renderedSubject,
       description: renderedBody,
@@ -156,13 +143,10 @@ serve(async (req) => {
           { method: "popup", minutes: 30 }
         ],
       },
-      guestsCanModify: false,
-      guestsCanInviteOthers: false,
-      guestsCanSeeOtherGuests: false,
     };
 
-    // Thực thi gọi Google API chèn sự kiện thử nghiệm
-    const insertUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(targetCalendarId)}/events?sendUpdates=all`;
+    // 7. Gửi yêu cầu tạo sự kiện tới Google Calendar API
+    const insertUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(targetCalendarId.trim())}/events?sendUpdates=all`;
     const gcalResponse = await fetch(insertUrl, {
       method: "POST",
       headers: {
@@ -175,13 +159,23 @@ serve(async (req) => {
     const gcalData = await gcalResponse.json();
 
     if (!gcalResponse.ok) {
-      throw new Error(`Google API Error: ${gcalData.error?.message || JSON.stringify(gcalData)}`);
+      const errStatus = gcalResponse.status;
+      const errMsg = gcalData.error?.message || JSON.stringify(gcalData);
+
+      if (errStatus === 404 || errMsg.toLowerCase().includes("not found")) {
+        throw new Error(`Calendar not found. Không tìm thấy lịch mang ID "${targetCalendarId}". Vui lòng đảm bảo đã chia sẻ lịch này cho email Service Account (${serviceAccount.client_email}) trong phần Cài đặt của Google Calendar.`);
+      }
+      if (errStatus === 403 || errMsg.toLowerCase().includes("permission") || errMsg.toLowerCase().includes("forbidden")) {
+        throw new Error(`insufficient permissions. Service Account (${serviceAccount.client_email}) chưa được cấp quyền "Thực hiện thay đổi đối với sự kiện" (Make changes to events) trên lịch đích.`);
+      }
+
+      throw new Error(`Google API Error (${errStatus}): ${errMsg}`);
     }
 
-    // 8. Lưu Log thành công vào bảng template_test_logs
+    // 8. Ghi Log thành công
     await supabase.from("template_test_logs").insert([{
-      template_id: templateId,
-      calendar_account_id: calendarAccountId,
+      template_id: templateId || null,
+      calendar_account_id: calendarAccountId || null,
       tested_by: userId,
       test_email: testEmail.trim(),
       status: "sent",
@@ -198,11 +192,11 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
-    // Lưu Log thất bại nếu đã lấy được thông tin cơ bản
-    if (userId && templateId && calendarAccountId) {
+    // Ghi Log thất bại
+    if (userId) {
       supabase.from("template_test_logs").insert([{
-        template_id: templateId,
-        calendar_account_id: calendarAccountId,
+        template_id: templateId || null,
+        calendar_account_id: calendarAccountId || null,
         tested_by: userId,
         test_email: testEmail ? testEmail.trim() : "unknown",
         status: "failed",
@@ -211,7 +205,7 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ success: false, error: error.message }), {
-      status: 400, // Kích hoạt bóc tách trực tiếp trên client
+      status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
