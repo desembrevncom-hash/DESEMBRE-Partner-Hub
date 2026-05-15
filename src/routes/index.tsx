@@ -53,7 +53,7 @@ function IndexInner({
   setOverrides: React.Dispatch<React.SetStateAction<Record<number, OverrideRow>>>;
 }) {
   const { unlocked } = useEditUnlock();
-  const { user, isAdmin, isSubAdmin, isManager, isSale, signOut } = useAuth();
+  const { user, isAdmin, isSubAdmin, isManager, isSale, isTeleLead, signOut } = useAuth();
   const history = useEditHistory();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
