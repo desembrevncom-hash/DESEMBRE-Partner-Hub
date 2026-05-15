@@ -32,6 +32,9 @@ import { FullCatalogPDF } from "@/components/FullCatalogPDF";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { FileText } from "lucide-react";
 import { NotificationBell } from "@/components/layout/NotificationBell";
+import { SaleWorkspace } from "@/components/workspace/SaleWorkspace";
+import { TeleLeadWorkspace } from "@/components/workspace/TeleLeadWorkspace";
+import { TelesaleWorkspace } from "@/components/workspace/TelesaleWorkspace";
 
 export const Route = createFileRoute("/")({
   component: Page,
@@ -337,6 +340,15 @@ function IndexInner({
           </div>
         </div>
       </header>
+      
+      {user && (
+        <section className="container mx-auto px-4 md:px-6 pt-8 w-full">
+          {isSale && <SaleWorkspace />}
+          {isTeleLead && <TeleLeadWorkspace />}
+          {/* Telesale: User has a role but not Sale/Lead/Admin/SubAdmin */}
+          {!isSale && !isTeleLead && !isAdmin && !isSubAdmin && <TelesaleWorkspace />}
+        </section>
+      )}
 
       <section className="container mx-auto px-4 md:px-6 py-4 w-full">
         <div className="flex flex-wrap gap-2 items-center">
