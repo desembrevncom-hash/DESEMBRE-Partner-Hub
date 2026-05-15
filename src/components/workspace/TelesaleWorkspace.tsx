@@ -32,6 +32,8 @@ export const TelesaleWorkspace: React.FC = () => {
     loading: true
   });
 
+  const [refreshKey, setRefreshKey] = useState(0);
+
   useEffect(() => {
     async function fetchData() {
       if (!user) return;
@@ -56,7 +58,9 @@ export const TelesaleWorkspace: React.FC = () => {
       });
     }
     fetchData();
-  }, [user]);
+  }, [user, refreshKey]);
+
+  const handleRefresh = () => setRefreshKey(prev => prev + 1);
 
   const stats = [
     { label: "Cuộc gọi hôm nay", value: data.todayTasks.length, icon: <Phone className="w-5 h-5" />, color: "text-indigo-600" },

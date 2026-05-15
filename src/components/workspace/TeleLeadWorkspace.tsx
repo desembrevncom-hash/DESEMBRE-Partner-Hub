@@ -31,6 +31,8 @@ export const TeleLeadWorkspace: React.FC = () => {
     loading: true
   });
 
+  const [refreshKey, setRefreshKey] = useState(0);
+
   useEffect(() => {
     async function fetchData() {
       if (!user) return;
@@ -51,7 +53,9 @@ export const TeleLeadWorkspace: React.FC = () => {
       });
     }
     fetchData();
-  }, [user]);
+  }, [user, refreshKey]);
+
+  const handleRefresh = () => setRefreshKey(prev => prev + 1);
 
   const stats = [
     { label: "Khách Tele quản lý", value: data.customers.length, icon: <Users className="w-5 h-5" />, color: "text-indigo-600" },
@@ -102,7 +106,10 @@ export const TeleLeadWorkspace: React.FC = () => {
 
         {/* RIGHT COLUMN */}
         <div className="lg:col-span-2">
-          <WorkspaceCalendarCard events={[...(data.unassignedTasks || []), ...(data.overdueTasks || [])]} />
+          <WorkspaceCalendarCard 
+            events={[...(data.todayTasks || []), ...(data.overdueTasks || []), ...(data.callbackTasks || [])]} 
+            onRefresh={handleRefresh}
+          />
         </div>
       </div>
     </WorkspaceShell>

@@ -34,6 +34,8 @@ export const SaleWorkspace: React.FC = () => {
     loading: true
   });
 
+  const [refreshKey, setRefreshKey] = useState(0);
+
   useEffect(() => {
     async function fetchData() {
       if (!user) return;
@@ -54,7 +56,9 @@ export const SaleWorkspace: React.FC = () => {
       });
     }
     fetchData();
-  }, [user]);
+  }, [user, refreshKey]);
+
+  const handleRefresh = () => setRefreshKey(prev => prev + 1);
 
   const stats = [
     { label: "Lead mới cần gọi", value: data.tasks.filter((t: any) => t.task_type === 'call').length, icon: <Phone className="w-5 h-5" />, color: "text-blue-600" },
