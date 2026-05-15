@@ -1,0 +1,342 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { 
+  Settings, 
+  Palette, 
+  Globe, 
+  ShieldCheck, 
+  Building2, 
+  Mail, 
+  Phone, 
+  CreditCard, 
+  Bell, 
+  Lock, 
+  Save, 
+  ArrowLeft, 
+  Upload, 
+  CheckCircle2, 
+  AlertCircle,
+  Monitor,
+  Moon,
+  Sun,
+  Database,
+  Languages,
+  Zap,
+  Image as ImageIcon
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
+
+export const Route = createFileRoute("/admin/settings")({
+  component: SystemSettingsPage,
+});
+
+function SystemSettingsPage() {
+  const { user, isAdmin } = useAuth();
+  const [busy, setBusy] = useState(false);
+  
+  const [config, setConfig] = useState({
+    companyName: "DESEMBRE VIETNAM",
+    address: "Tầng 5, Tòa nhà Luxury, 123 Kim Mã, Ba Đình, Hà Nội",
+    supportEmail: "support@desembre.vn",
+    supportPhone: "1900 6868",
+    vatRate: 10,
+    defaultDiscount: 35,
+    enableNotifications: true,
+    darkMode: false,
+    systemLanguage: "vi"
+  });
+
+  const handleSave = () => {
+    setBusy(true);
+    setTimeout(() => {
+      setBusy(false);
+      toast.success("Đã cập nhật cấu hình hệ thống thành công!");
+    }, 1000);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#f8fafc] pb-20 font-sans antialiased">
+      {/* HEADER */}
+      <header className="bg-white/80 border-b border-slate-200 sticky top-0 z-20 backdrop-blur-md">
+        <div className="container mx-auto px-4 h-20 flex items-center justify-between max-w-7xl">
+          <div className="flex items-center gap-4">
+             <Link to="/workspace" className="p-2.5 hover:bg-slate-100 rounded-xl transition-all text-slate-400 hover:text-slate-900 border border-transparent hover:border-slate-200">
+                <ArrowLeft className="w-5 h-5" />
+             </Link>
+             <div>
+                <h1 className="text-xl font-black text-slate-900 tracking-tight">Cấu hình Hệ thống</h1>
+                <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest flex items-center gap-1">
+                   <ShieldCheck className="w-3 h-3 fill-indigo-500" /> Global Branding & Policies
+                </p>
+             </div>
+          </div>
+          <div className="flex items-center gap-3">
+             <Button 
+              onClick={handleSave}
+              disabled={busy}
+              className="rounded-xl bg-slate-900 hover:bg-black font-black text-xs h-10 px-8 shadow-lg shadow-slate-200 transition-all hover:scale-105"
+             >
+                <Save className="w-4 h-4 mr-2" /> {busy ? "Đang lưu..." : "Lưu thay đổi"}
+             </Button>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-8 max-w-7xl">
+        <Tabs defaultValue="branding" className="space-y-8">
+           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-white p-2 rounded-[24px] shadow-sm border border-slate-100 overflow-x-auto">
+              <TabsList className="bg-transparent h-auto p-0 flex gap-2">
+                 <TabTrigger value="branding" icon={Palette} label="Thương hiệu" />
+                 <TabTrigger value="company" icon={Building2} label="Doanh nghiệp" />
+                 <TabTrigger value="rules" icon={CreditCard} label="Quy tắc Bán hàng" />
+                 <TabTrigger value="system" icon={Monitor} label="Hệ thống" />
+                 <TabTrigger value="security" icon={Lock} label="Bảo mật" />
+              </TabsList>
+           </div>
+
+           {/* BRANDING TAB */}
+           <TabsContent value="branding">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                 <div className="lg:col-span-2 space-y-8">
+                    <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white">
+                       <CardHeader className="p-8 pb-4">
+                          <CardTitle className="text-lg font-black text-slate-900">Nhận diện Thương hiệu</CardTitle>
+                          <CardDescription>Tùy chỉnh Logo và màu sắc đại diện cho DESEMBRE</CardDescription>
+                       </CardHeader>
+                       <CardContent className="p-8 pt-4 space-y-8">
+                          <div className="flex flex-col md:flex-row gap-12 items-center">
+                             <div className="space-y-4 text-center">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Logo Chính (Light)</label>
+                                <div className="w-32 h-32 rounded-3xl bg-slate-50 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center p-4 group hover:border-indigo-500 transition-all cursor-pointer">
+                                   <ImageIcon className="w-8 h-8 text-slate-300 group-hover:text-indigo-500 transition-colors" />
+                                   <p className="text-[9px] font-bold text-slate-400 mt-2">1024x1024 px</p>
+                                </div>
+                                <Button variant="ghost" size="sm" className="text-[10px] font-bold text-indigo-600">Thay đổi ảnh</Button>
+                             </div>
+                             <div className="space-y-4 text-center">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Logo Phụ (Dark)</label>
+                                <div className="w-32 h-32 rounded-3xl bg-slate-900 border-2 border-dashed border-slate-700 flex flex-col items-center justify-center p-4 group hover:border-indigo-500 transition-all cursor-pointer">
+                                   <ImageIcon className="w-8 h-8 text-slate-600 group-hover:text-indigo-400 transition-colors" />
+                                   <p className="text-[9px] font-bold text-slate-500 mt-2">White Version</p>
+                                </div>
+                                <Button variant="ghost" size="sm" className="text-[10px] font-bold text-indigo-600">Thay đổi ảnh</Button>
+                             </div>
+                             <div className="flex-1 space-y-6">
+                                <div className="space-y-2">
+                                   <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Màu chủ đạo (Primary Color)</Label>
+                                   <div className="flex items-center gap-4">
+                                      <div className="w-12 h-12 rounded-xl bg-indigo-600 shadow-lg shadow-indigo-100"></div>
+                                      <Input value="#6366f1" className="h-10 rounded-xl font-mono text-sm uppercase" />
+                                   </div>
+                                </div>
+                                <div className="space-y-2">
+                                   <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Màu nhấn (Accent Color)</Label>
+                                   <div className="flex items-center gap-4">
+                                      <div className="w-12 h-12 rounded-xl bg-pink-500 shadow-lg shadow-pink-100"></div>
+                                      <Input value="#ec4899" className="h-10 rounded-xl font-mono text-sm uppercase" />
+                                   </div>
+                                </div>
+                             </div>
+                          </div>
+                       </CardContent>
+                    </Card>
+                 </div>
+                 
+                 <div className="space-y-8">
+                    <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white">
+                       <CardHeader className="p-8">
+                          <CardTitle className="text-base font-black text-slate-900">Xem trước (UI Preview)</CardTitle>
+                          <CardDescription>Giao diện sẽ thay đổi theo cấu hình màu sắc</CardDescription>
+                       </CardHeader>
+                       <CardContent className="px-8 pb-8 flex flex-col items-center justify-center space-y-6">
+                          <div className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-3">
+                             <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-indigo-600"></div>
+                                <div className="space-y-1 flex-1">
+                                   <div className="h-2 w-20 bg-slate-200 rounded"></div>
+                                   <div className="h-1.5 w-32 bg-slate-100 rounded"></div>
+                                </div>
+                             </div>
+                             <div className="h-8 w-full bg-indigo-600 rounded-xl"></div>
+                          </div>
+                          <p className="text-[10px] text-slate-400 text-center italic">Đây là ví dụ về cách màu sắc hiển thị trên Dashboard của nhân viên.</p>
+                       </CardContent>
+                    </Card>
+                 </div>
+              </div>
+           </TabsContent>
+
+           {/* COMPANY TAB */}
+           <TabsContent value="company">
+              <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white max-w-3xl mx-auto">
+                 <CardHeader className="p-8">
+                    <CardTitle className="text-lg font-black text-slate-900">Thông tin Pháp lý</CardTitle>
+                    <CardDescription>Thông tin này sẽ xuất hiện trên Hợp đồng và Hóa đơn</CardDescription>
+                 </CardHeader>
+                 <CardContent className="p-8 pt-0 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                       <div className="space-y-2 md:col-span-2">
+                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tên công ty đầy đủ</Label>
+                          <Input value={config.companyName} onChange={e => setConfig({...config, companyName: e.target.value})} className="h-12 rounded-xl font-bold" />
+                       </div>
+                       <div className="space-y-2 md:col-span-2">
+                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Địa chỉ trụ sở chính</Label>
+                          <Input value={config.address} onChange={e => setConfig({...config, address: e.target.value})} className="h-12 rounded-xl" />
+                       </div>
+                       <div className="space-y-2">
+                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Email hỗ trợ</Label>
+                          <Input value={config.supportEmail} onChange={e => setConfig({...config, supportEmail: e.target.value})} className="h-12 rounded-xl" />
+                       </div>
+                       <div className="space-y-2">
+                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hotline tổng đài</Label>
+                          <Input value={config.supportPhone} onChange={e => setConfig({...config, supportPhone: e.target.value})} className="h-12 rounded-xl" />
+                       </div>
+                    </div>
+                 </CardContent>
+              </Card>
+           </TabsContent>
+
+           {/* RULES TAB */}
+           <TabsContent value="rules">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                 <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white">
+                    <CardHeader className="p-8">
+                       <CardTitle className="text-lg font-black text-slate-900">Tài chính & Thuế</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-8 pt-0 space-y-6">
+                       <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                             <div className="space-y-1">
+                                <p className="text-sm font-black text-slate-900">Tỷ lệ VAT mặc định</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Áp dụng cho mọi đơn hàng mới</p>
+                             </div>
+                             <div className="flex items-center gap-2">
+                                <Input value={config.vatRate} className="w-20 h-10 rounded-xl text-center font-bold" />
+                                <span className="font-black text-slate-400">%</span>
+                             </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                             <div className="space-y-1">
+                                <p className="text-sm font-black text-slate-900">Chiết khấu Đại lý cơ sở</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Áp dụng khi chưa có hạng mức riêng</p>
+                             </div>
+                             <div className="flex items-center gap-2">
+                                <Input value={config.defaultDiscount} className="w-20 h-10 rounded-xl text-center font-bold" />
+                                <span className="font-black text-slate-400">%</span>
+                             </div>
+                          </div>
+                       </div>
+                    </CardContent>
+                 </Card>
+
+                 <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white">
+                    <CardHeader className="p-8">
+                       <CardTitle className="text-lg font-black text-slate-900">Tự động hóa (Automations)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-8 pt-0 space-y-6">
+                       <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                             <div className="space-y-1">
+                                <p className="text-sm font-black text-slate-900">Gửi Mail khi có Đơn hàng</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Thông báo tự động cho khách</p>
+                             </div>
+                             <Switch defaultChecked />
+                          </div>
+                          <div className="flex items-center justify-between">
+                             <div className="space-y-1">
+                                <p className="text-sm font-black text-slate-900">Auto-Reactivate Leads</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Nhắc việc khi khách lâu không mua</p>
+                             </div>
+                             <Switch defaultChecked />
+                          </div>
+                       </div>
+                    </CardContent>
+                 </Card>
+              </div>
+           </TabsContent>
+
+           {/* SYSTEM TAB */}
+           <TabsContent value="system">
+              <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white max-w-3xl mx-auto">
+                 <CardHeader className="p-8">
+                    <CardTitle className="text-lg font-black text-slate-900">Tùy chọn Hệ thống</CardTitle>
+                 </CardHeader>
+                 <CardContent className="p-8 pt-0 space-y-8">
+                    <div className="space-y-6">
+                       <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                          <div className="flex items-center gap-4">
+                             <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-indigo-600">
+                                <Languages className="w-5 h-5" />
+                             </div>
+                             <div>
+                                <p className="text-sm font-black text-slate-900">Ngôn ngữ mặc định</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Ngôn ngữ cho toàn bộ nhân viên</p>
+                             </div>
+                          </div>
+                          <select className="bg-transparent font-bold text-sm outline-none">
+                             <option value="vi">Tiếng Việt (VN)</option>
+                             <option value="en">English (US)</option>
+                             <option value="kr">Korean (KR)</option>
+                          </select>
+                       </div>
+
+                       <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                          <div className="flex items-center gap-4">
+                             <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-amber-500">
+                                <Sun className="w-5 h-5" />
+                             </div>
+                             <div>
+                                <p className="text-sm font-black text-slate-900">Chế độ giao diện (Dark Mode)</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Tùy chỉnh theo môi trường làm việc</p>
+                             </div>
+                          </div>
+                          <Switch 
+                            checked={config.darkMode} 
+                            onCheckedChange={checked => setConfig({...config, darkMode: checked})} 
+                          />
+                       </div>
+
+                       <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                          <div className="flex items-center gap-4">
+                             <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-pink-500">
+                                <Bell className="w-5 h-5" />
+                             </div>
+                             <div>
+                                <p className="text-sm font-black text-slate-900">Thông báo Đẩy (Push Notifications)</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Cảnh báo tức thời trên trình duyệt</p>
+                             </div>
+                          </div>
+                          <Switch 
+                            checked={config.enableNotifications} 
+                            onCheckedChange={checked => setConfig({...config, enableNotifications: checked})} 
+                          />
+                       </div>
+                    </div>
+                 </CardContent>
+              </Card>
+           </TabsContent>
+        </Tabs>
+      </main>
+    </div>
+  );
+}
+
+function TabTrigger({ value, icon: Icon, label }: any) {
+  return (
+    <TabsTrigger 
+      value={value} 
+      className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg shadow-indigo-200 rounded-xl px-6 h-12 text-xs font-black transition-all flex items-center gap-2 text-slate-500"
+    >
+       <Icon className="w-4 h-4" />
+       {label}
+    </TabsTrigger>
+  );
+}

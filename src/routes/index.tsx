@@ -1,610 +1,253 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, RotateCcw, Plus, Pencil, Trash2, Undo2, LogOut, ShoppingCart, Users, User, X, Calendar, Megaphone, LayoutDashboard } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { CATEGORIES, PRODUCTS } from "@/data/products";
-import { formatCurrencyVND, getDisplayPrice } from "@/lib/pricing";
-import type { Product, Category, ProductVariant } from "@/types/product";
-import ProductImageCell from "@/components/ProductImageCell";
-import ProductLinkCell from "@/components/ProductLinkCell";
-import ProductEditDialog, { type ProductDialogInitial } from "@/components/ProductEditDialog";
-import { EditUnlockProvider, useEditUnlock } from "@/hooks/useEditUnlock";
-import { EditHistoryProvider, useEditHistory } from "@/hooks/useEditHistory";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
-import { saveProductOverride, type OverrideRow } from "@/lib/saveOverride";
-import { toast } from "sonner";
-import { FullCatalogPDF } from "@/components/FullCatalogPDF";
-import { PDFDownloadLink } from "@react-pdf/renderer";
-import { FileText } from "lucide-react";
-import { NotificationBell } from "@/components/layout/NotificationBell";
-import { SaleWorkspace } from "@/components/workspace/SaleWorkspace";
-import { TeleLeadWorkspace } from "@/components/workspace/TeleLeadWorkspace";
-import { TelesaleWorkspace } from "@/components/workspace/TelesaleWorkspace";
+import { 
+  TrendingUp, 
+  Users, 
+  Package, 
+  Zap, 
+  ChevronRight, 
+  Activity, 
+  Target, 
+  Calendar,
+  Sparkles,
+  ArrowUpRight,
+  LayoutDashboard,
+  ShieldCheck,
+  Bell,
+  Star
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Cell
+} from 'recharts';
 
 export const Route = createFileRoute("/")({
-  component: Page,
+  component: Dashboard,
 });
 
-const ALL = "ALL";
+const REVENUE_DATA = [
+  { name: 'T2', value: 45000000 },
+  { name: 'T3', value: 52000000 },
+  { name: 'T4', value: 48000000 },
+  { name: 'T5', value: 61000000 },
+  { name: 'T6', value: 55000000 },
+  { name: 'T7', value: 72000000 },
+  { name: 'CN', value: 68000000 },
+];
 
-const VAT_RATE = 0.08;
-type VatMode = "with" | "without";
+const FUNNEL_DATA = [
+  { stage: 'Mới', count: 124, color: '#6366f1' },
+  { stage: 'Tư vấn', count: 82, color: '#8b5cf6' },
+  { stage: 'Báo giá', count: 45, color: '#a855f7' },
+  { stage: 'Đã mua', count: 28, color: '#d946ef' },
+];
 
-function IndexInner({
-  overrides,
-  setOverrides,
-}: {
-  overrides: Record<number, OverrideRow>;
-  setOverrides: React.Dispatch<React.SetStateAction<Record<number, OverrideRow>>>;
-}) {
-  const { unlocked } = useEditUnlock();
-  const { user, isAdmin, isSubAdmin, isManager, isSale, isTeleLead, signOut } = useAuth();
-  const history = useEditHistory();
-  const navigate = useNavigate();
-  const [query, setQuery] = useState("");
-  const [section, setSection] = useState<string>(ALL);
-  const [editOpen, setEditOpen] = useState(false);
-  const [editInitial, setEditInitial] = useState<ProductDialogInitial | null>(null);
-  const [vatMode, setVatMode] = useState<VatMode>("without");
-
-  const role = isAdmin ? "admin" : isSubAdmin ? "sub_admin" : isSale ? "sale" : "user";
-
-  const canOrder = true;
-  type PickupItem = { no: number; sizeType: "retail" | "salon" };
-  const PICKUP_KEY = "pickupCart";
-  const [pickup, setPickup] = useState<PickupItem[]>([]);
-  useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(PICKUP_KEY);
-      if (raw) setPickup(JSON.parse(raw));
-    } catch {/* ignore */}
-  }, []);
-  const savePickup = (next: PickupItem[]) => {
-    setPickup(next);
-    try { sessionStorage.setItem(PICKUP_KEY, JSON.stringify(next)); } catch {/* ignore */}
-  };
-  const isPicked = (no: number, st: "retail" | "salon") =>
-    pickup.some((p) => p.no === no && p.sizeType === st);
-  const togglePick = (no: number, st: "retail" | "salon") => {
-    if (isPicked(no, st)) savePickup(pickup.filter((p) => !(p.no === no && p.sizeType === st)));
-    else savePickup([...pickup, { no, sizeType: st }]);
-  };
-  const clearPickup = () => savePickup([]);
-  const goCreateOrder = () => navigate({ to: "/orders/new" });
-
-  const upsertOverride = useCallback(
-    (row: OverrideRow, options?: { snapshotLabel?: string }) => {
-      if (options?.snapshotLabel) {
-        history.snapshot(row.no, overrides[row.no], options.snapshotLabel);
-      }
-      setOverrides((p) => ({ ...p, [row.no]: row }));
-    },
-    [history, overrides, setOverrides],
-  );
-
-  const setImage = useCallback(async (no: number, src: string | undefined) => {
-    history.snapshot(no, overrides[no], `Ảnh #${String(no).padStart(2, "0")}`);
-    setOverrides((p) => ({
-      ...p,
-      [no]: { ...(p[no] ?? { no, deleted: false, is_custom: false }), image_url: src ?? null },
-    }));
-  }, [history, overrides, setOverrides]);
-
-  const setLink = useCallback(async (no: number, href: string | undefined) => {
-    history.snapshot(no, overrides[no], `Liên kết #${String(no).padStart(2, "0")}`);
-    setOverrides((p) => ({
-      ...p,
-      [no]: { ...(p[no] ?? { no, deleted: false, is_custom: false }), link_url: href ?? null },
-    }));
-  }, [history, overrides, setOverrides]);
-
-  const merged: Product[] = useMemo(() => {
-    const list: Product[] = [];
-    for (const p of PRODUCTS) {
-      const o = overrides[p.id];
-      if (o?.deleted) continue;
-      
-      const mergedProduct = {
-        ...p,
-        name: o?.name ?? p.name,
-        description: o?.desc ?? p.description,
-        categoryId: o?.section ?? p.categoryId,
-        linkUrl: o?.link_url ?? p.linkUrl,
-        imageUrl: o?.image_url ?? p.imageUrl,
-      };
-
-      if (o) {
-        mergedProduct.variants = p.variants.map(v => {
-          if (v.type === "retail" && o.retail_price !== null && o.retail_price !== undefined) {
-            return { ...v, price: o.retail_price, size: o.retail_size ?? v.size };
-          }
-          if (v.type === "salon" && o.salon_price !== null && o.salon_price !== undefined) {
-            return { ...v, price: o.salon_price, size: o.salon_size ?? v.size };
-          }
-          return v;
-        });
-      }
-      
-      list.push(mergedProduct);
-    }
-
-    for (const o of Object.values(overrides)) {
-      if (!o.is_custom || o.deleted) continue;
-      
-      const variants: ProductVariant[] = [];
-      if (o.retail_price != null) {
-        variants.push({ id: `${o.no}-retail`, type: "retail", size: o.retail_size ?? "", price: o.retail_price });
-      }
-      if (o.salon_price != null) {
-        variants.push({ id: `${o.no}-salon`, type: "salon", size: o.salon_size ?? "", price: o.salon_price });
-      }
-
-      list.push({
-        id: o.no,
-        name: o.name ?? "(Chưa có tên)",
-        description: o.desc ?? "",
-        categoryId: o.section ?? "OTHER",
-        linkUrl: o.link_url ?? undefined,
-        imageUrl: o.image_url ?? undefined,
-        variants,
-        isCustom: true
-      });
-    }
-    return list;
-  }, [overrides]);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return merged.filter((p) => {
-      const matchesSection = section === ALL || p.categoryId === section;
-      const matchesQuery =
-        !q || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q);
-      return matchesSection && matchesQuery;
-    });
-  }, [query, section, merged]);
-
-  const grouped = useMemo(() => {
-    const map = new Map<string, Product[]>();
-    for (const p of filtered) {
-      const arr = map.get(p.categoryId) ?? [];
-      arr.push(p);
-      map.set(p.categoryId, arr);
-    }
-    return Array.from(map.entries());
-  }, [filtered]);
-
-  const sectionTitles = useMemo(() => {
-    const set = new Set<string>(CATEGORIES.map((s) => s.id));
-    for (const o of Object.values(overrides)) if (o.section) set.add(o.section);
-    return Array.from(set);
-  }, [overrides]);
-
-  const reset = () => {
-    setQuery("");
-    setSection(ALL);
-  };
-
-  const openCreate = useCallback(() => {
-    setEditInitial({ section: section === ALL ? "" : section, name: "", desc: "" });
-    setEditOpen(true);
-  }, [section]);
-
-  const openEdit = useCallback((p: Product) => {
-    const retail = p.variants.find(v => v.type === "retail");
-    const salon = p.variants.find(v => v.type === "salon");
-    setEditInitial({
-      no: p.id,
-      section: p.categoryId,
-      name: p.name,
-      desc: p.description,
-      retail_size: retail?.size ?? null,
-      retail_price: retail?.price ?? null,
-      salon_size: salon?.size ?? null,
-      salon_price: salon?.price ?? null,
-    });
-    setEditOpen(true);
-  }, []);
-
-  const handleDelete = useCallback(async (p: Product) => {
-    if (!isManager) return toast.error("Cần quyền Quản lý (Admin / Phó Admin)");
-    if (!confirm(`Xoá sản phẩm "${p.name}"?`)) return;
-    const prev = overrides[p.id];
-    const isCustom = !!p.isCustom;
-    if (isCustom) {
-      const res = await saveProductOverride({ action: "hard_delete", no: p.id });
-      if (!res.ok) return toast.error(res.error ?? "Xoá thất bại");
-      history.snapshot(p.id, prev, `Xoá "${p.name}"`);
-      setOverrides((prev2) => {
-        const n = { ...prev2 };
-        delete n[p.id];
-        return n;
-      });
-    } else {
-      const res = await saveProductOverride({ no: p.id, deleted: true });
-      if (!res.ok || !res.row) return toast.error(res.error ?? "Xoá thất bại");
-      upsertOverride(res.row, { snapshotLabel: `Xoá "${p.name}"` });
-    }
-    toast.success("Đã xoá — có thể hoàn tác");
-  }, [isManager, overrides, history, setOverrides, upsertOverride]);
+function Dashboard() {
+  const { user, isAdmin } = useAuth();
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border transition-all">
-        <div className="container mx-auto px-4 md:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-lg shadow-sm">
-              D
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-foreground">DESEMBRE Partner Hub</h1>
-              <p className="text-[11px] text-muted-foreground font-medium">Professional Pricing & Ordering System</p>
-            </div>
+    <div className="min-h-screen bg-[#f8fafc] pb-20 font-sans antialiased selection:bg-indigo-100 selection:text-indigo-900">
+      {/* ELITE DASHBOARD HEADER */}
+      <header className="bg-white/80 border-b border-slate-200 sticky top-0 z-40 backdrop-blur-xl">
+        <div className="container mx-auto px-6 h-24 flex items-center justify-between max-w-7xl">
+          <div className="flex items-center gap-6">
+             <div className="w-14 h-14 rounded-[22px] bg-slate-900 flex items-center justify-center text-white shadow-2xl shadow-slate-300 ring-4 ring-slate-50 transition-transform hover:scale-110">
+                <LayoutDashboard className="w-7 h-7" />
+             </div>
+             <div>
+                <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                   CRM Operating System
+                   <Badge className="bg-indigo-50 text-indigo-600 border-indigo-100 text-[9px] font-black tracking-widest px-2.5 py-0.5 rounded-lg">PREMIUM</Badge>
+                </h1>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                   {isAdmin ? <ShieldCheck className="w-3.5 h-3.5 text-indigo-500" /> : <Zap className="w-3.5 h-3.5 text-amber-500" />}
+                   Xin chào, {user?.email?.split('@')[0]} 👋
+                </p>
+             </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {history.canUndo && isManager && (
-              <Button variant="outline" size="sm" onClick={() => history.undo()}>
-                <Undo2 className="w-4 h-4" />
-                Hoàn tác ({history.count})
-              </Button>
-            )}
-            {(isSale || isManager) && (
-              <>
-                <Button asChild variant="ghost" size="sm" className="bg-primary/10 text-primary hover:bg-primary/20 font-bold border-none shadow-none">
-                  <Link to="/workspace"><LayoutDashboard className="w-4 h-4 mr-2" /> Workspace</Link>
-                </Button>
-                <Button asChild variant="outline" size="sm">
-                  <Link to="/calendar"><Calendar className="w-4 h-4 mr-2" /> Lịch hẹn</Link>
-                </Button>
-                <Button asChild variant="outline" size="sm">
-                  <Link to="/customers/"><Users className="w-4 h-4 mr-2" /> Khách hàng</Link>
-                </Button>
-                <Button asChild variant="outline" size="sm">
-                  <Link to="/orders"><ShoppingCart className="w-4 h-4 mr-2" /> Đơn hàng</Link>
-                </Button>
-                <Button asChild variant="outline" size="sm">
-                  <Link to="/profile"><User className="w-4 h-4 mr-2" /> Profile</Link>
-                </Button>
-                {isManager && (
-                  <>
-                    <Button asChild variant="outline" size="sm">
-                      <Link to="/admin/users"><Users className="w-4 h-4 mr-1" /> Người dùng</Link>
-                    </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="border-purple-300 hover:bg-purple-50 hover:text-purple-700 font-bold bg-purple-50/20 text-purple-700">
-                          <Megaphone className="w-3.5 h-3.5 mr-1 text-purple-600 animate-pulse" /> 📢 Marketing CRM
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-52 rounded-xl border-slate-200 bg-white p-1 shadow-lg font-sans">
-                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer focus:bg-purple-50 focus:text-purple-700 text-xs font-bold py-2">
-                          <Link to="/admin/templates">📋 Mẫu truyền thông</Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer focus:bg-indigo-50 focus:text-indigo-700 text-xs font-bold py-2">
-                          <Link to="/marketing/campaigns">🚀 Kích hoạt Chiến dịch</Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer focus:bg-pink-50 focus:text-pink-700 text-xs font-bold py-2">
-                          <Link to="/marketing/reports">📊 Phân tích & Báo cáo</Link>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </>
-                )}
-              </>
-            )}
-            {isManager && (
-              <Button size="sm" onClick={openCreate}>
-                <Plus className="w-4 h-4" /> Thêm
-              </Button>
-            )}
-            {user ? (
-              <div className="flex items-center gap-2 ml-2 pl-2 border-l border-border">
-                <span className="text-xs">
-                  <span className="font-semibold">{user.email}</span>
-                  <span 
-                    className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
-                      isAdmin 
-                        ? "bg-blue-600/10 text-blue-600 dark:text-blue-400" 
-                        : isSubAdmin 
-                        ? "bg-purple-600/10 text-purple-600 dark:text-purple-400" 
-                        : "bg-green-600/10 text-green-600 dark:text-green-400"
-                    }`}
-                  >
-                    {isAdmin ? "ADMIN" : isSubAdmin ? "PHÓ ADMIN" : isSale ? "SALE" : "USER"}
-                  </span>
-                </span>
-                <NotificationBell />
-                <Button variant="ghost" size="sm" onClick={() => signOut()}>
-                  <LogOut className="w-4 h-4" />
-                </Button>
-              </div>
-            ) : (
-              <Button asChild size="sm" variant="outline">
-                <Link to="/login">Đăng nhập</Link>
-              </Button>
-            )}
+          <div className="flex items-center gap-4">
+             <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl bg-white border border-slate-200 shadow-sm text-slate-400 hover:text-slate-900">
+                <Bell className="w-5 h-5" />
+             </Button>
+             <Button className="rounded-2xl bg-slate-900 hover:bg-black font-black text-xs h-12 px-8 shadow-xl shadow-slate-200 transition-all hover:scale-105 uppercase tracking-widest">
+                <PlusIcon className="w-4 h-4 mr-2" /> Tạo dự án mới
+             </Button>
           </div>
         </div>
       </header>
-      
-      {user && (
-        <section className="container mx-auto px-4 md:px-6 pt-8 w-full">
-          {isSale && <SaleWorkspace />}
-          {isTeleLead && <TeleLeadWorkspace />}
-          {/* Telesale: User has a role but not Sale/Lead/Admin/SubAdmin */}
-          {!isSale && !isTeleLead && !isAdmin && !isSubAdmin && <TelesaleWorkspace />}
-        </section>
-      )}
 
-      <section className="container mx-auto px-4 md:px-6 py-4 w-full">
-        <div className="flex flex-wrap gap-2 items-center">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Tìm sản phẩm…"
-              className="pl-9"
-            />
-          </div>
-          <Select value={section} onValueChange={setSection}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>Tất cả nhóm</SelectItem>
-              {sectionTitles.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="icon" onClick={reset} title="Đặt lại">
-            <RotateCcw className="w-4 h-4" />
-          </Button>
-          <div className="inline-flex rounded-md border border-border overflow-hidden ml-auto">
-            <button
-              type="button"
-              onClick={() => setVatMode("without")}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${vatMode === "without" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-accent"}`}
-            >
-              Chưa VAT
-            </button>
-            <button
-              type="button"
-              onClick={() => setVatMode("with")}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-border ${vatMode === "with" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-accent"}`}
-            >
-              Đã VAT (+8%)
-            </button>
-          </div>
+      <main className="container mx-auto px-6 py-10 max-w-7xl space-y-12">
+        {/* KPI OVERVIEW GRID */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+           <KpiCard title="DOANH THU THÁNG" value="482.5M" trend="+12.5%" icon={TrendingUp} color="bg-indigo-500" />
+           <KpiCard title="LEAD MỚI" value="124" trend="+18" icon={Users} color="bg-purple-500" />
+           <KpiCard title="TỶ LỆ CHỐT" value="28.4%" trend="+4.2%" icon={Target} color="bg-rose-500" />
+           <KpiCard title="ĐƠN ĐANG GIAO" value="15" trend="4 Gấp" icon={Package} color="bg-amber-500" />
         </div>
-        <p className="text-xs text-muted-foreground mt-3">
-          Hiển thị <span className="font-semibold text-foreground">{filtered.length}</span> /{" "}
-          {merged.length} sản phẩm
-        </p>
-      </section>
 
-      <main className="container mx-auto px-4 md:px-6 pb-10 flex-1 w-full">
-        <div className="bg-card rounded-lg shadow-sm border border-border overflow-hidden">
-          <div className="table-wrap">
-            <table className="product-table">
-              <thead>
-                <tr>
-                  <th rowSpan={2} style={{ width: "140px" }}>Section</th>
-                  <th rowSpan={2} style={{ width: "60px" }}>No.</th>
-                  <th rowSpan={2} style={{ width: "100px" }}>Hình ảnh</th>
-                  <th rowSpan={2}>Product</th>
-                  <th colSpan={2}>Retail size</th>
-                  <th colSpan={2}>Salon size</th>
-                  {canOrder && <th rowSpan={2} style={{ width: "110px" }}>Chọn</th>}
-                  {unlocked && <th rowSpan={2} style={{ width: "90px" }}>Thao tác</th>}
-                </tr>
-                <tr>
-                  <th style={{ width: "90px" }}>Size</th>
-                  <th style={{ width: "140px" }}>{isSale && !isManager ? "Giá SALE (-40%)" : "Consumer (100%)"}{vatMode === "with" ? " · VAT" : ""}</th>
-                  <th style={{ width: "90px" }}>Size</th>
-                  <th style={{ width: "140px" }}>{isSale && !isManager ? "Giá SALE (-40%)" : "Consumer (100%)"}{vatMode === "with" ? " · VAT" : ""}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {grouped.length === 0 && (
-                  <tr>
-                    <td colSpan={8 + (canOrder ? 1 : 0) + (unlocked ? 1 : 0)} className="text-center py-12 text-muted-foreground text-sm">
-                      Không tìm thấy sản phẩm phù hợp.
-                    </td>
-                  </tr>
-                )}
-                {(() => {
-                  let seq = 0;
-                  return grouped.map(([categoryId, productsInCat]: [string, Product[]]) =>
-                    productsInCat.map((p: Product, idx: number) => {
-                      seq += 1;
-                      const category = CATEGORIES.find((c) => c.id === categoryId);
-                      const retail = p.variants.find((v: ProductVariant) => v.type === "retail");
-                      const salon = p.variants.find((v: ProductVariant) => v.type === "salon");
+        {/* ANALYTICS SECTION */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+           {/* REVENUE CHART */}
+           <Card className="lg:col-span-2 rounded-[40px] border-none shadow-sm bg-white overflow-hidden p-8">
+              <CardHeader className="p-0 mb-8 flex flex-row items-center justify-between">
+                 <div>
+                    <CardTitle className="text-sm font-black text-slate-900 uppercase tracking-widest">Biểu đồ Tăng trưởng</CardTitle>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">Dữ liệu doanh thu 7 ngày gần nhất</p>
+                 </div>
+                 <Badge className="bg-slate-100 text-slate-500 border-none font-bold text-[10px]">REAL-TIME</Badge>
+              </CardHeader>
+              <div className="h-[350px] w-full">
+                 <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={REVENUE_DATA}>
+                       <defs>
+                          <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
+                             <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1}/>
+                             <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                          </linearGradient>
+                       </defs>
+                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                       <XAxis 
+                          dataKey="name" 
+                          axisLine={false} 
+                          tickLine={false} 
+                          tick={{fontSize: 10, fontWeight: 800, fill: '#94a3b8'}}
+                          dy={10}
+                       />
+                       <YAxis hide />
+                       <Tooltip 
+                          contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontWeight: 800}}
+                          formatter={(value) => [new Intl.NumberFormat('vi-VN').format(Number(value)) + 'đ', 'Doanh thu']}
+                       />
+                       <Area 
+                          type="monotone" 
+                          dataKey="value" 
+                          stroke="#6366f1" 
+                          strokeWidth={4} 
+                          fillOpacity={1} 
+                          fill="url(#colorVal)" 
+                       />
+                    </AreaChart>
+                 </ResponsiveContainer>
+              </div>
+           </Card>
 
-                      return (
-                        <tr key={p.id}>
-                          {idx === 0 && (
-                            <td rowSpan={productsInCat.length} className="section-cell">
-                              <div>{category?.name ?? categoryId}</div>
-                              {category?.nameVi && (
-                                <div className="text-[11px] font-normal text-muted-foreground mt-1 normal-case tracking-normal">
-                                  {category.nameVi}
-                                </div>
-                              )}
-                            </td>
-                          )}
-                          <td className="text-center font-semibold">
-                            {String(seq).padStart(2, "0")}
-                          </td>
-                          <td className="overflow-visible">
-                            <ProductImageCell
-                              productNo={p.id}
-                              src={p.imageUrl}
-                              onChange={(src) => setImage(p.id, src)}
-                            />
-                          </td>
-                          <td>
-                            <div className="product-name">{p.name}</div>
-                            <div className="product-desc">{p.description}</div>
-                            {p.linkUrl && (
-                              <div className="mt-1">
-                                <ProductLinkCell
-                                  productNo={p.id}
-                                  href={p.linkUrl}
-                                  onChange={(href) => setLink(p.id, href)}
-                                />
-                              </div>
-                            )}
-                          </td>
-                          <td className="price-cell">{retail?.size ?? ""}</td>
-                          <td className="price-cell">{formatCurrencyVND(getDisplayPrice(retail?.price, vatMode, role))}</td>
-                          <td className="price-cell">{salon?.size ?? ""}</td>
-                          <td className="price-cell">{formatCurrencyVND(getDisplayPrice(salon?.price, vatMode, role))}</td>
-                          {canOrder && (
-                            <td className="text-center">
-                              <div className="inline-flex gap-1">
-                                <button
-                                  type="button"
-                                  disabled={!retail || retail.price === 0}
-                                  onClick={() => togglePick(p.id, "retail")}
-                                  className={`text-[10px] font-bold px-2 py-1 rounded border ${isPicked(p.id, "retail") ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-accent"} disabled:opacity-30 disabled:cursor-not-allowed`}
-                                  title="Thêm Retail vào đơn"
-                                >
-                                  R{isPicked(p.id, "retail") ? " ✓" : ""}
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={!salon || salon.price === 0}
-                                  onClick={() => togglePick(p.id, "salon")}
-                                  className={`text-[10px] font-bold px-2 py-1 rounded border ${isPicked(p.id, "salon") ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-accent"} disabled:opacity-30 disabled:cursor-not-allowed`}
-                                  title="Thêm Salon vào đơn"
-                                >
-                                  S{isPicked(p.id, "salon") ? " ✓" : ""}
-                                </button>
-                              </div>
-                            </td>
-                          )}
-                          {unlocked && (
-                            <td className="text-center">
-                              <div className="inline-flex gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => openEdit(p)}
-                                  className="w-7 h-7 inline-flex items-center justify-center rounded border border-border hover:bg-accent"
-                                  title="Chỉnh sửa"
-                                >
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDelete(p)}
-                                  className="w-7 h-7 inline-flex items-center justify-center rounded border border-border hover:bg-destructive/10 text-destructive"
-                                  title="Xoá"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    }),
-                  );
-                })()}
-              </tbody>
-            </table>
-          </div>
+           {/* CONVERSION FUNNEL */}
+           <Card className="rounded-[40px] border-none shadow-sm bg-white p-8">
+              <CardHeader className="p-0 mb-8">
+                 <CardTitle className="text-sm font-black text-slate-900 uppercase tracking-widest">Phễu Chuyển đổi</CardTitle>
+                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">Tỷ lệ rò rỉ khách hàng</p>
+              </CardHeader>
+              <div className="space-y-6">
+                 {FUNNEL_DATA.map((item, idx) => (
+                    <div key={idx} className="space-y-2">
+                       <div className="flex justify-between items-end">
+                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{item.stage}</span>
+                          <span className="text-xs font-black text-slate-900">{item.count}</span>
+                       </div>
+                       <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                          <div 
+                             className="h-full rounded-full transition-all duration-1000" 
+                             style={{ 
+                                width: `${(item.count / FUNNEL_DATA[0].count) * 100}%`,
+                                backgroundColor: item.color
+                             }} 
+                          />
+                       </div>
+                    </div>
+                 ))}
+              </div>
+              <div className="mt-10 p-6 bg-slate-900 rounded-[28px] text-center space-y-2">
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ROI TRUNG BÌNH</p>
+                 <p className="text-2xl font-black text-white">4.2x</p>
+                 <Badge className="bg-indigo-500/20 text-indigo-300 border-none text-[8px]">HIGHT PERFORMANCE</Badge>
+              </div>
+           </Card>
+        </div>
+
+        {/* QUICK ACTIONS & RECENT ACTIVITY */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+           <div className="space-y-6">
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest px-2">Truy cập Nhanh</h3>
+              <div className="grid grid-cols-2 gap-4">
+                 <QuickActionLink to="/customers" label="KHÁCH HÀNG" icon={Users} color="bg-indigo-600" />
+                 <QuickActionLink to="/orders" label="ĐƠN HÀNG" icon={Package} color="bg-amber-500" />
+                 <QuickActionLink to="/marketing" label="MARKETING" icon={Sparkles} color="bg-purple-600" />
+                 <QuickActionLink to="/admin/settings" label="CÀI ĐẶT" icon={Zap} color="bg-slate-900" />
+              </div>
+           </div>
+           
+           <Card className="rounded-[40px] border-none shadow-sm bg-white p-8">
+              <CardHeader className="p-0 mb-6 flex flex-row items-center justify-between">
+                 <CardTitle className="text-sm font-black text-slate-900 uppercase tracking-widest">Hoạt động Gần đây</CardTitle>
+                 <Button variant="ghost" size="sm" className="text-[10px] font-black text-indigo-600 uppercase">Xem hết</Button>
+              </CardHeader>
+              <div className="space-y-5">
+                 {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center gap-4 group cursor-pointer">
+                       <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 border border-slate-100 group-hover:bg-slate-900 group-hover:text-white transition-all">
+                          <Activity className="w-5 h-5" />
+                       </div>
+                       <div className="flex-1">
+                          <p className="text-xs font-black text-slate-900 uppercase tracking-tight">Mới chốt đơn #ORD-220{i}</p>
+                          <p className="text-[10px] font-bold text-slate-400">Bởi Nguyễn Văn A • 12 phút trước</p>
+                       </div>
+                       <ChevronRight className="w-4 h-4 text-slate-200 group-hover:translate-x-1 transition-all" />
+                    </div>
+                 ))}
+              </div>
+           </Card>
         </div>
       </main>
-
-      <ProductEditDialog
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        initial={editInitial}
-        sectionOptions={sectionTitles}
-        onSaved={(row) => upsertOverride(row, { snapshotLabel: `Sửa #${String(row.no).padStart(2, "0")}` })}
-      />
-
-      {canOrder && pickup.length > 0 && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-card border border-border shadow-lg rounded-full pl-5 pr-2 py-2 flex items-center gap-3">
-          <span className="text-sm">
-            Đã chọn <span className="font-bold text-primary">{pickup.length}</span> mục
-          </span>
-          <Button size="sm" onClick={goCreateOrder}>
-            <ShoppingCart className="w-4 h-4" /> Tạo đơn
-          </Button>
-          <button
-            type="button"
-            onClick={clearPickup}
-            className="w-7 h-7 inline-flex items-center justify-center rounded-full hover:bg-accent text-muted-foreground"
-            title="Bỏ chọn tất cả"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
     </div>
   );
 }
 
-function Page() {
-  const [overrides, setOverrides] = useState<Record<number, OverrideRow>>({});
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const fetchPromise = supabase.from("product_overrides").select("*");
-        const timeoutPromise = new Promise<any>((_, reject) =>
-          setTimeout(() => reject(new Error("Supabase timeout")), 3000)
-        );
-        const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
-        if (error || cancelled) return;
-        const map: Record<number, OverrideRow> = {};
-        for (const r of data ?? []) map[r.no] = r as OverrideRow;
-        setOverrides(map);
-      } catch (err) {
-        console.warn("Supabase load timed out/failed, falling back to clean initial catalog", err);
-        if (!cancelled) setOverrides({});
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const applyRestore = useCallback((no: number, row: OverrideRow | null) => {
-    setOverrides((prev) => {
-      const next = { ...prev };
-      if (row === null) delete next[no];
-      else next[no] = row;
-      return next;
-    });
-  }, []);
-
+function KpiCard({ title, value, trend, icon: Icon, color }: any) {
   return (
-    <EditUnlockProvider>
-      <EditHistoryProvider applyRestore={applyRestore}>
-        <IndexInner overrides={overrides} setOverrides={setOverrides} />
-      </EditHistoryProvider>
-    </EditUnlockProvider>
+    <Card className="rounded-[32px] border-none shadow-sm hover:shadow-xl transition-all duration-300 bg-white group overflow-hidden">
+       <CardContent className="p-8">
+          <div className="flex justify-between items-start mb-6">
+             <div className={`p-4 rounded-[22px] ${color} text-white shadow-lg transition-transform group-hover:scale-110`}>
+                <Icon className="w-6 h-6" />
+             </div>
+             <Badge className="bg-emerald-50 text-emerald-600 border-none font-black text-[10px] px-3 py-1">{trend}</Badge>
+          </div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{title}</p>
+          <p className="text-3xl font-black text-slate-900 tracking-tighter">{value}</p>
+       </CardContent>
+    </Card>
+  );
+}
+
+function QuickActionLink({ to, label, icon: Icon, color }: any) {
+  return (
+    <Link 
+      to={to} 
+      className={`p-6 rounded-[32px] ${color} flex flex-col items-center justify-center gap-3 transition-all hover:scale-105 shadow-lg group active:scale-95`}
+    >
+       <Icon className="w-6 h-6 text-white group-hover:rotate-12 transition-transform" />
+       <span className="text-[10px] font-black text-white uppercase tracking-widest">{label}</span>
+       <ArrowUpRight className="w-4 h-4 text-white/40 absolute top-4 right-4" />
+    </Link>
+  );
+}
+
+function PlusIcon(props: any) {
+  return (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12h14" />
+      <path d="M12 5v14" />
+    </svg>
   );
 }

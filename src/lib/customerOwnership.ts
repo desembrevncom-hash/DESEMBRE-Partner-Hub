@@ -92,7 +92,26 @@ export const CARE_MODEL_OPTIONS = [
   },
 ] as const;
 
-// 4. BỘ HÀM TRA CỨU NHÃN TỰ ĐỘNG (LABEL RESOLVER HELPERS)
+// 4. CHU KỲ KHÁCH HÀNG (CUSTOMER LIFECYCLE - NAMING chuẩn 2026)
+export const LIFECYCLE_STAGE_OPTIONS = [
+  { value: "lead", label: "Lead mới", color: "blue", bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
+  { value: "prospect", label: "Đang tư vấn", color: "purple", bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200" },
+  { value: "customer", label: "Khách đã mua", color: "emerald", bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
+  { value: "active", label: "Khách hoạt động", color: "indigo", bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200" },
+  { value: "loyal", label: "Khách thân thiết", color: "amber", bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
+  { value: "churned", label: "Ngưng hoạt động", color: "slate", bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200" },
+  { value: "lost", label: "Mất khách", color: "red", bg: "bg-red-50", text: "text-red-700", border: "border-red-200" },
+] as const;
+
+// 5. BỘ HÀM TRA CỨU NHÃN TỰ ĐỘNG (LABEL RESOLVER HELPERS)
+
+export function getLifecycleLabel(value?: string | null) {
+  return LIFECYCLE_STAGE_OPTIONS.find((o) => o.value === value)?.label || "Lead mới";
+}
+
+export function getLifecycleConfig(value?: string | null) {
+  return LIFECYCLE_STAGE_OPTIONS.find((o) => o.value === value) || LIFECYCLE_STAGE_OPTIONS[0];
+}
 
 export function getCustomerChannelLabel(value?: string | null) {
   return (
@@ -113,4 +132,33 @@ export function getCareModelLabel(value?: string | null) {
     CARE_MODEL_OPTIONS.find((item) => item.value === value)?.label ||
     "Chưa xác định"
   );
+}
+
+/**
+ * Classify customer lifecycle stage based on customer data and their orders.
+ * Used by the Kanban pipeline view to categorize customers.
+ */
+export function classifyCustomerLifecycle(customer: any, orders: any[]): string {
+  if (customer.lifecycle_stage) return customer.lifecycle_stage;
+
+  if (orders && orders.length > 0) {
+    const hasRecentOrder = orders.some((o: any) => {
+      if (!o.created_at) return false;
+      const daysSince = (Date.now() - new Date(o.created_at).getTime()) / (1000 * 60 * 60 * 24);
+      return daysSince < 90;
+    });
+    if (hasRecentOrder) return "active_customer";
+    return "ordered";
+  }
+  return "new_lead";
+}
+
+/**
+ * Get staff name by ID. Returns a placeholder since this requires an async lookup.
+ * In a real implementation, this would be replaced by a cached staff directory lookup.
+ */
+export function getStaffName(staffId?: string | null): string {
+  if (!staffId) return "";
+  // Return a shortened version of the ID as placeholder
+  return `Staff-${staffId.slice(0, 6)}`;
 }

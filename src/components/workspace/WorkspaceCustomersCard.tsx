@@ -1,6 +1,7 @@
 import React from "react";
 import { Users, Phone, ShieldCheck, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { getLifecycleLabel } from "@/lib/customerOwnership";
 
 interface WorkspaceCustomersCardProps {
   title: string;
@@ -34,7 +35,7 @@ export const WorkspaceCustomersCard: React.FC<WorkspaceCustomersCardProps> = ({ 
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
                   <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 text-[9px] font-bold">
-                    {c.lifecycle_stage === 'lead' ? 'Lead' : 'Đại lý'}
+                    {getLifecycleLabel(c.lifecycle_stage)}
                   </Badge>
                   <span className="text-[10px] text-slate-400 font-bold">{c.phone}</span>
                 </div>

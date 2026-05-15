@@ -42,13 +42,14 @@ import {
 } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { normalizePhone } from "@/lib/phone";
-import {
+import { 
   type CustomerChannel,
   type CustomerDistanceType,
   type CustomerCareModel,
   CUSTOMER_CHANNEL_OPTIONS,
   CUSTOMER_DISTANCE_OPTIONS,
   CARE_MODEL_OPTIONS,
+  LIFECYCLE_STAGE_OPTIONS,
   DEFAULT_CUSTOMER_CHANNEL,
   DEFAULT_CUSTOMER_DISTANCE_TYPE,
   DEFAULT_CARE_MODEL,
@@ -498,6 +499,22 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
                           <SelectItem value="none" className="text-sm italic text-slate-400">— Chưa phân công —</SelectItem>
                           {teleUsers.map(u => (
                             <SelectItem key={u.id} value={u.id} className="text-sm font-medium">🎧 {u.full_name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2 col-span-2 sm:col-span-1">
+                      <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-500" /> Trạng thái khách
+                      </Label>
+                      <Select value={form.lifecycle_stage} onValueChange={(v) => setForm({ ...form, lifecycle_stage: v })}>
+                        <SelectTrigger className="text-sm h-11 rounded-2xl bg-white border-slate-200/60 font-bold">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
+                          {LIFECYCLE_STAGE_OPTIONS.map(o => (
+                            <SelectItem key={o.value} value={o.value} className="text-sm font-bold">{o.label}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>

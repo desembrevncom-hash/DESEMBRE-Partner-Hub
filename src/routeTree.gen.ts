@@ -13,11 +13,14 @@ import { Route as WorkspaceRouteImport } from './routes/workspace'
 import { Route as TasksRouteImport } from './routes/tasks'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CustomersRouteImport } from './routes/customers'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ReportsIndexRouteImport } from './routes/reports/index'
 import { Route as OrdersIndexRouteImport } from './routes/orders/index'
+import { Route as MarketingIndexRouteImport } from './routes/marketing/index'
 import { Route as CustomersIndexRouteImport } from './routes/customers/index'
 import { Route as ReportsCrmRouteImport } from './routes/reports/crm'
 import { Route as OrdersNewRouteImport } from './routes/orders/new'
@@ -27,6 +30,10 @@ import { Route as MarketingCampaignsRouteImport } from './routes/marketing/campa
 import { Route as CustomersIdRouteImport } from './routes/customers/$id'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminTemplatesRouteImport } from './routes/admin/templates'
+import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
+import { Route as AdminSegmentsRouteImport } from './routes/admin/segments'
+import { Route as AdminProductsRouteImport } from './routes/admin/products'
+import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
 
 const WorkspaceRoute = WorkspaceRouteImport.update({
   id: '/workspace',
@@ -46,6 +53,11 @@ const SignupRoute = SignupRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -68,9 +80,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReportsIndexRoute = ReportsIndexRouteImport.update({
+  id: '/reports/',
+  path: '/reports/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OrdersIndexRoute = OrdersIndexRouteImport.update({
   id: '/orders/',
   path: '/orders/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketingIndexRoute = MarketingIndexRouteImport.update({
+  id: '/marketing/',
+  path: '/marketing/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CustomersIndexRoute = CustomersIndexRouteImport.update({
@@ -118,16 +140,41 @@ const AdminTemplatesRoute = AdminTemplatesRouteImport.update({
   path: '/admin/templates',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/admin/settings',
+  path: '/admin/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSegmentsRoute = AdminSegmentsRouteImport.update({
+  id: '/admin/segments',
+  path: '/admin/segments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminProductsRoute = AdminProductsRouteImport.update({
+  id: '/admin/products',
+  path: '/admin/products',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminInventoryRoute = AdminInventoryRouteImport.update({
+  id: '/admin/inventory',
+  path: '/admin/inventory',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/calendar': typeof CalendarRoute
   '/customers': typeof CustomersRouteWithChildren
   '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
   '/workspace': typeof WorkspaceRoute
+  '/admin/inventory': typeof AdminInventoryRoute
+  '/admin/products': typeof AdminProductsRoute
+  '/admin/segments': typeof AdminSegmentsRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/templates': typeof AdminTemplatesRoute
   '/admin/users': typeof AdminUsersRoute
   '/customers/$id': typeof CustomersIdRoute
@@ -137,16 +184,23 @@ export interface FileRoutesByFullPath {
   '/orders/new': typeof OrdersNewRoute
   '/reports/crm': typeof ReportsCrmRoute
   '/customers/': typeof CustomersIndexRoute
+  '/marketing/': typeof MarketingIndexRoute
   '/orders/': typeof OrdersIndexRoute
+  '/reports/': typeof ReportsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/calendar': typeof CalendarRoute
   '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
   '/workspace': typeof WorkspaceRoute
+  '/admin/inventory': typeof AdminInventoryRoute
+  '/admin/products': typeof AdminProductsRoute
+  '/admin/segments': typeof AdminSegmentsRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/templates': typeof AdminTemplatesRoute
   '/admin/users': typeof AdminUsersRoute
   '/customers/$id': typeof CustomersIdRoute
@@ -156,7 +210,9 @@ export interface FileRoutesByTo {
   '/orders/new': typeof OrdersNewRoute
   '/reports/crm': typeof ReportsCrmRoute
   '/customers': typeof CustomersIndexRoute
+  '/marketing': typeof MarketingIndexRoute
   '/orders': typeof OrdersIndexRoute
+  '/reports': typeof ReportsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -164,10 +220,15 @@ export interface FileRoutesById {
   '/calendar': typeof CalendarRoute
   '/customers': typeof CustomersRouteWithChildren
   '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
   '/workspace': typeof WorkspaceRoute
+  '/admin/inventory': typeof AdminInventoryRoute
+  '/admin/products': typeof AdminProductsRoute
+  '/admin/segments': typeof AdminSegmentsRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/templates': typeof AdminTemplatesRoute
   '/admin/users': typeof AdminUsersRoute
   '/customers/$id': typeof CustomersIdRoute
@@ -177,7 +238,9 @@ export interface FileRoutesById {
   '/orders/new': typeof OrdersNewRoute
   '/reports/crm': typeof ReportsCrmRoute
   '/customers/': typeof CustomersIndexRoute
+  '/marketing/': typeof MarketingIndexRoute
   '/orders/': typeof OrdersIndexRoute
+  '/reports/': typeof ReportsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -186,10 +249,15 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/customers'
     | '/login'
+    | '/notifications'
     | '/profile'
     | '/signup'
     | '/tasks'
     | '/workspace'
+    | '/admin/inventory'
+    | '/admin/products'
+    | '/admin/segments'
+    | '/admin/settings'
     | '/admin/templates'
     | '/admin/users'
     | '/customers/$id'
@@ -199,16 +267,23 @@ export interface FileRouteTypes {
     | '/orders/new'
     | '/reports/crm'
     | '/customers/'
+    | '/marketing/'
     | '/orders/'
+    | '/reports/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/calendar'
     | '/login'
+    | '/notifications'
     | '/profile'
     | '/signup'
     | '/tasks'
     | '/workspace'
+    | '/admin/inventory'
+    | '/admin/products'
+    | '/admin/segments'
+    | '/admin/settings'
     | '/admin/templates'
     | '/admin/users'
     | '/customers/$id'
@@ -218,17 +293,24 @@ export interface FileRouteTypes {
     | '/orders/new'
     | '/reports/crm'
     | '/customers'
+    | '/marketing'
     | '/orders'
+    | '/reports'
   id:
     | '__root__'
     | '/'
     | '/calendar'
     | '/customers'
     | '/login'
+    | '/notifications'
     | '/profile'
     | '/signup'
     | '/tasks'
     | '/workspace'
+    | '/admin/inventory'
+    | '/admin/products'
+    | '/admin/segments'
+    | '/admin/settings'
     | '/admin/templates'
     | '/admin/users'
     | '/customers/$id'
@@ -238,7 +320,9 @@ export interface FileRouteTypes {
     | '/orders/new'
     | '/reports/crm'
     | '/customers/'
+    | '/marketing/'
     | '/orders/'
+    | '/reports/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -246,10 +330,15 @@ export interface RootRouteChildren {
   CalendarRoute: typeof CalendarRoute
   CustomersRoute: typeof CustomersRouteWithChildren
   LoginRoute: typeof LoginRoute
+  NotificationsRoute: typeof NotificationsRoute
   ProfileRoute: typeof ProfileRoute
   SignupRoute: typeof SignupRoute
   TasksRoute: typeof TasksRoute
   WorkspaceRoute: typeof WorkspaceRoute
+  AdminInventoryRoute: typeof AdminInventoryRoute
+  AdminProductsRoute: typeof AdminProductsRoute
+  AdminSegmentsRoute: typeof AdminSegmentsRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
   AdminTemplatesRoute: typeof AdminTemplatesRoute
   AdminUsersRoute: typeof AdminUsersRoute
   MarketingCampaignsRoute: typeof MarketingCampaignsRoute
@@ -257,7 +346,9 @@ export interface RootRouteChildren {
   OrdersIdRoute: typeof OrdersIdRoute
   OrdersNewRoute: typeof OrdersNewRoute
   ReportsCrmRoute: typeof ReportsCrmRoute
+  MarketingIndexRoute: typeof MarketingIndexRoute
   OrdersIndexRoute: typeof OrdersIndexRoute
+  ReportsIndexRoute: typeof ReportsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -290,6 +381,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -318,11 +416,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reports/': {
+      id: '/reports/'
+      path: '/reports'
+      fullPath: '/reports/'
+      preLoaderRoute: typeof ReportsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/orders/': {
       id: '/orders/'
       path: '/orders'
       fullPath: '/orders/'
       preLoaderRoute: typeof OrdersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketing/': {
+      id: '/marketing/'
+      path: '/marketing'
+      fullPath: '/marketing/'
+      preLoaderRoute: typeof MarketingIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/customers/': {
@@ -388,6 +500,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminTemplatesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/admin/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/segments': {
+      id: '/admin/segments'
+      path: '/admin/segments'
+      fullPath: '/admin/segments'
+      preLoaderRoute: typeof AdminSegmentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/products': {
+      id: '/admin/products'
+      path: '/admin/products'
+      fullPath: '/admin/products'
+      preLoaderRoute: typeof AdminProductsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/inventory': {
+      id: '/admin/inventory'
+      path: '/admin/inventory'
+      fullPath: '/admin/inventory'
+      preLoaderRoute: typeof AdminInventoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -410,10 +550,15 @@ const rootRouteChildren: RootRouteChildren = {
   CalendarRoute: CalendarRoute,
   CustomersRoute: CustomersRouteWithChildren,
   LoginRoute: LoginRoute,
+  NotificationsRoute: NotificationsRoute,
   ProfileRoute: ProfileRoute,
   SignupRoute: SignupRoute,
   TasksRoute: TasksRoute,
   WorkspaceRoute: WorkspaceRoute,
+  AdminInventoryRoute: AdminInventoryRoute,
+  AdminProductsRoute: AdminProductsRoute,
+  AdminSegmentsRoute: AdminSegmentsRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
   AdminTemplatesRoute: AdminTemplatesRoute,
   AdminUsersRoute: AdminUsersRoute,
   MarketingCampaignsRoute: MarketingCampaignsRoute,
@@ -421,7 +566,9 @@ const rootRouteChildren: RootRouteChildren = {
   OrdersIdRoute: OrdersIdRoute,
   OrdersNewRoute: OrdersNewRoute,
   ReportsCrmRoute: ReportsCrmRoute,
+  MarketingIndexRoute: MarketingIndexRoute,
   OrdersIndexRoute: OrdersIndexRoute,
+  ReportsIndexRoute: ReportsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

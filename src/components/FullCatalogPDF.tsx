@@ -1,5 +1,6 @@
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Font, Image } from '@react-pdf/renderer';
+import type { Product } from '@/types/product';
 
 // Register Vietnamese font
 Font.register({

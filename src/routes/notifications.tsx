@@ -134,7 +134,7 @@ function NotificationsPage() {
             className={`text-xs font-bold rounded-xl px-6 ${filter === "unread" ? "shadow-lg shadow-primary/20" : ""}`}
           >
             Chưa đọc
-          </Badge>
+          </Button>
         </div>
 
         <div className="bg-white rounded-[28px] border border-slate-200/60 shadow-sm overflow-hidden">
