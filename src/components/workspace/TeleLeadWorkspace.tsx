@@ -61,6 +61,7 @@ export const TeleLeadWorkspace: React.FC = () => {
   ];
 
   return (
+    <WorkspaceShell title="Tele Lead Workspace" icon={<LayoutDashboard className="w-6 h-6" />} loading={data.loading}>
       {/* HEADER SECTION: STATS + ACTIONS */}
       <div className="flex flex-wrap items-stretch gap-3 mb-8">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 flex-1">
