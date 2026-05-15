@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, RotateCcw, Plus, Pencil, Trash2, Undo2, LogOut, ShoppingCart, Users, User, X, Calendar, Megaphone } from "lucide-react";
+import { Search, RotateCcw, Plus, Pencil, Trash2, Undo2, LogOut, ShoppingCart, Users, User, X, Calendar, Megaphone, LayoutDashboard } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { FullCatalogPDF } from "@/components/FullCatalogPDF";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { FileText } from "lucide-react";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 
 export const Route = createFileRoute("/")({
   component: Page,
@@ -260,6 +261,9 @@ function IndexInner({
             )}
             {(isSale || isManager) && (
               <>
+                <Button asChild variant="ghost" size="sm" className="bg-primary/10 text-primary hover:bg-primary/20 font-bold border-none shadow-none">
+                  <Link to="/workspace"><LayoutDashboard className="w-4 h-4 mr-2" /> Workspace</Link>
+                </Button>
                 <Button asChild variant="outline" size="sm">
                   <Link to="/calendar"><Calendar className="w-4 h-4 mr-2" /> Lịch hẹn</Link>
                 </Button>
@@ -320,6 +324,7 @@ function IndexInner({
                     {isAdmin ? "ADMIN" : isSubAdmin ? "PHÓ ADMIN" : isSale ? "SALE" : "USER"}
                   </span>
                 </span>
+                <NotificationBell />
                 <Button variant="ghost" size="sm" onClick={() => signOut()}>
                   <LogOut className="w-4 h-4" />
                 </Button>

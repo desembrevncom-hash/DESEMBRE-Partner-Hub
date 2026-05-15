@@ -30,8 +30,11 @@ import {
   Shield,
   History,
   Tag,
-  Mail
+  Mail,
+  LogOut,
+  LayoutDashboard
 } from "lucide-react";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
 import { Link } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
@@ -527,8 +530,8 @@ export function CustomersPage() {
   };
 
   const handleSave = async () => {
-    if (!form.name.trim()) {
-      toast.error("Vui lòng nhập họ và tên khách hàng");
+    if (!form.facility_name.trim() && !form.name.trim()) {
+      toast.error("Vui lòng nhập Tên cơ sở hoặc Tên liên hệ");
       return;
     }
     
@@ -536,18 +539,23 @@ export function CustomersPage() {
     
     // Đóng gói Payload chứa trọn vẹn dải tham số Ownership theo đúng yêu cầu DB
     const payload: any = {
+      // Mapping chuẩn B2B schema
       name: form.name.trim(),
       facility_name: form.facility_name.trim(),
+      contact_name: form.name.trim(),
+      business_name: form.facility_name.trim(),
+      
       phone: form.phone.trim(),
       normalized_phone: normalizePhone(form.phone),
       address: form.address.trim(),
-      user_id: form.owner_sale_id || user?.id,
+      user_id: (form.owner_sale_id && form.owner_sale_id !== "none") ? form.owner_sale_id : (user?.id || null),
       customer_channel: form.customer_channel,
       customer_distance_type: form.customer_distance_type,
       care_model: form.care_model,
       owner_sale_id: (form.owner_sale_id && form.owner_sale_id !== "none") ? form.owner_sale_id : null,
       owner_tele_id: (form.owner_tele_id && form.owner_tele_id !== "none") ? form.owner_tele_id : null,
-      // B2B Elite Fields Payload
+      
+      // B2B CRM Standard Fields
       email: form.email,
       zalo: form.zalo,
       facebook: form.facebook,
@@ -570,14 +578,10 @@ export function CustomersPage() {
       note: form.note,
       tags: form.tags,
       marketing_opt_in: form.marketing_opt_in,
-      tax_code: form.tax_code,
-      bed_count: form.bed_count,
-      staff_count: form.staff_count,
-      tech_equipment: form.tech_equipment,
-      decision_maker_dob: form.decision_maker_dob || null,
-      lifecycle_stage: form.lifecycle_stage,
-      personality_trait: form.personality_trait,
       updated_by: user?.id,
+
+      // NOTE: Các trường chưa có trong DB (tax_code, bed_count, v.v.) 
+      // được tạm thời lược bỏ khỏi payload để tránh lỗi 400 cho đến khi schema được cập nhật.
     };
 
     if (!editingId) {
@@ -765,6 +769,10 @@ export function CustomersPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <Button asChild variant="ghost" size="sm" className="bg-white/10 text-white hover:bg-white/20 font-bold border-none shadow-none h-9">
+              <Link to="/workspace"><LayoutDashboard className="w-4 h-4 mr-1.5 text-primary" /> Workspace</Link>
+            </Button>
+            <NotificationBell />
             <Button 
               variant="outline" 
               onClick={handleExportCsv} 
@@ -1686,13 +1694,22 @@ export function CustomersPage() {
             </Tabs>
           </div>
 
-          <DialogFooter className="pt-2 border-t border-slate-100">
-            <Button variant="outline" onClick={() => setOpen(false)} disabled={saving} className="text-xs h-9 rounded-lg font-bold">
-              Hủy
+          <DialogFooter className="px-8 py-8 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-3 rounded-b-[28px]">
+            <Button 
+              variant="ghost" 
+              onClick={() => setOpen(false)} 
+              disabled={saving} 
+              className="text-xs h-11 px-6 rounded-2xl font-bold text-slate-500 hover:bg-slate-200/50 transition-all"
+            >
+              Hủy bỏ
             </Button>
-            <Button onClick={handleSave} disabled={saving} className="text-xs h-9 rounded-lg font-bold bg-primary hover:bg-primary/90">
-              {saving && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
-              {editingId ? "Lưu Tuyến chăm sóc" : "Hoàn tất Thêm mới"}
+            <Button 
+              onClick={handleSave} 
+              disabled={saving} 
+              className="text-xs h-11 px-8 rounded-2xl font-black bg-slate-900 hover:bg-primary text-white shadow-lg shadow-slate-200/60 hover:shadow-primary/30 transition-all duration-300 active:scale-95"
+            >
+              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {editingId ? "LƯU TUYẾN CHĂM SÓC" : "HOÀN TẤT THÊM MỚI"}
             </Button>
           </DialogFooter>
         </DialogContent>

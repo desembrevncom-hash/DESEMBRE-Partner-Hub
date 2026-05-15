@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WorkspaceRouteImport } from './routes/workspace'
 import { Route as TasksRouteImport } from './routes/tasks'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ProfileRouteImport } from './routes/profile'
@@ -27,6 +28,11 @@ import { Route as CustomersIdRouteImport } from './routes/customers/$id'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminTemplatesRouteImport } from './routes/admin/templates'
 
+const WorkspaceRoute = WorkspaceRouteImport.update({
+  id: '/workspace',
+  path: '/workspace',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TasksRoute = TasksRouteImport.update({
   id: '/tasks',
   path: '/tasks',
@@ -121,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
+  '/workspace': typeof WorkspaceRoute
   '/admin/templates': typeof AdminTemplatesRoute
   '/admin/users': typeof AdminUsersRoute
   '/customers/$id': typeof CustomersIdRoute
@@ -139,6 +146,7 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
+  '/workspace': typeof WorkspaceRoute
   '/admin/templates': typeof AdminTemplatesRoute
   '/admin/users': typeof AdminUsersRoute
   '/customers/$id': typeof CustomersIdRoute
@@ -159,6 +167,7 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
+  '/workspace': typeof WorkspaceRoute
   '/admin/templates': typeof AdminTemplatesRoute
   '/admin/users': typeof AdminUsersRoute
   '/customers/$id': typeof CustomersIdRoute
@@ -180,6 +189,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/signup'
     | '/tasks'
+    | '/workspace'
     | '/admin/templates'
     | '/admin/users'
     | '/customers/$id'
@@ -198,6 +208,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/signup'
     | '/tasks'
+    | '/workspace'
     | '/admin/templates'
     | '/admin/users'
     | '/customers/$id'
@@ -217,6 +228,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/signup'
     | '/tasks'
+    | '/workspace'
     | '/admin/templates'
     | '/admin/users'
     | '/customers/$id'
@@ -237,6 +249,7 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   SignupRoute: typeof SignupRoute
   TasksRoute: typeof TasksRoute
+  WorkspaceRoute: typeof WorkspaceRoute
   AdminTemplatesRoute: typeof AdminTemplatesRoute
   AdminUsersRoute: typeof AdminUsersRoute
   MarketingCampaignsRoute: typeof MarketingCampaignsRoute
@@ -249,6 +262,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/workspace': {
+      id: '/workspace'
+      path: '/workspace'
+      fullPath: '/workspace'
+      preLoaderRoute: typeof WorkspaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tasks': {
       id: '/tasks'
       path: '/tasks'
@@ -393,6 +413,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   SignupRoute: SignupRoute,
   TasksRoute: TasksRoute,
+  WorkspaceRoute: WorkspaceRoute,
   AdminTemplatesRoute: AdminTemplatesRoute,
   AdminUsersRoute: AdminUsersRoute,
   MarketingCampaignsRoute: MarketingCampaignsRoute,
