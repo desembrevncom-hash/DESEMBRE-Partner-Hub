@@ -67,18 +67,18 @@ export const TelesaleWorkspace: React.FC = () => {
 
   return (
     <WorkspaceShell title="Telesale Workspace" icon={<LayoutDashboard className="w-6 h-6" />} loading={data.loading}>
-      {/* HEADER SECTION: STATS + ACTIONS */}
-      <div className="flex flex-wrap items-stretch gap-3 mb-8">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 flex-1">
+      {/* HEADER SECTION: 4 STATS + STACKED BUTTONS */}
+      <div className="flex flex-wrap lg:flex-nowrap gap-4 mb-8 items-stretch">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-[4]">
           {stats.map((stat, i) => (
             <WorkspaceStatCard key={i} {...stat} loading={data.loading} />
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" className="bg-slate-900 hover:bg-primary rounded-xl font-bold px-4 h-full shadow-lg shadow-slate-200">
+        <div className="flex flex-col gap-2 flex-1 min-w-[200px]">
+          <Button size="sm" className="bg-slate-900 hover:bg-primary rounded-xl font-bold flex-1 shadow-lg shadow-slate-200">
             <PlayCircle className="w-4 h-4 mr-2" /> Bắt đầu gọi
           </Button>
-          <Button variant="outline" size="sm" className="border-slate-200 hover:bg-slate-50 rounded-xl font-bold px-4 h-full">
+          <Button variant="outline" size="sm" className="bg-white border-slate-200 hover:bg-slate-50 rounded-xl font-bold flex-1">
             <UserX className="w-4 h-4 mr-2" /> Không nghe máy
           </Button>
         </div>

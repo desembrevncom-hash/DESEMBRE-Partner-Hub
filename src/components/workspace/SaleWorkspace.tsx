@@ -65,18 +65,18 @@ export const SaleWorkspace: React.FC = () => {
 
   return (
     <WorkspaceShell title="Sales Workspace" icon={<LayoutDashboard className="w-6 h-6" />} loading={data.loading}>
-      {/* HEADER SECTION: STATS + ACTIONS */}
-      <div className="flex flex-wrap items-stretch gap-3 mb-8">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 flex-1">
+      {/* HEADER SECTION: 4 STATS + STACKED BUTTONS */}
+      <div className="flex flex-wrap lg:flex-nowrap gap-4 mb-8 items-stretch">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-[4]">
           {stats.map((stat, i) => (
             <WorkspaceStatCard key={i} {...stat} loading={data.loading} />
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          <Button asChild size="sm" className="bg-slate-900 hover:bg-primary rounded-xl font-bold px-4 h-full shadow-lg shadow-slate-200">
+        <div className="flex flex-col gap-2 flex-1 min-w-[200px]">
+          <Button asChild size="sm" className="bg-slate-900 hover:bg-primary rounded-xl font-bold flex-1 shadow-lg shadow-slate-200">
             <Link to="/orders/new"><Plus className="w-4 h-4 mr-2" /> Tạo đơn mới</Link>
           </Button>
-          <Button asChild variant="outline" size="sm" className="border-slate-200 hover:bg-slate-50 rounded-xl font-bold px-4 h-full">
+          <Button asChild variant="outline" size="sm" className="bg-white border-slate-200 hover:bg-slate-50 rounded-xl font-bold flex-1">
             <Link to="/customers"><Plus className="w-4 h-4 mr-2" /> Thêm khách hàng</Link>
           </Button>
         </div>
