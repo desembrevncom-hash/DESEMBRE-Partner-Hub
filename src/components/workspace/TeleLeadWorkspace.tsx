@@ -19,6 +19,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
 
+import { WorkspaceCalendarCard } from "./WorkspaceCalendarCard";
+
 export const TeleLeadWorkspace: React.FC = () => {
   const { user } = useAuth();
   const [data, setData] = useState<any>({
@@ -71,38 +73,35 @@ export const TeleLeadWorkspace: React.FC = () => {
           <Link to="/customers"><Plus className="w-4 h-4 mr-2" /> Tạo task gọi khách</Link>
         </Button>
         <Button asChild variant="outline" size="sm" className="border-slate-200 hover:bg-slate-50 rounded-xl font-bold px-5 py-5">
-          <Link to="/workspace"><Users className="w-4 h-4 mr-2" /> Chia task Telesale</Link>
-        </Button>
-        <Button asChild variant="outline" size="sm" className="border-slate-200 hover:bg-slate-50 rounded-xl font-bold px-5 py-5">
           <Link to="/customers"><PhoneCall className="w-4 h-4 mr-2" /> Mở khách Tele</Link>
-        </Button>
-        <Button asChild variant="outline" size="sm" className="border-slate-200 hover:bg-slate-50 rounded-xl font-bold px-5 py-5">
-          <Link to="/marketing/reports"><BarChart3 className="w-4 h-4 mr-2" /> Báo cáo Tele</Link>
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <WorkspaceCustomersCard 
-          title="Khách Tele cần xử lý" 
-          customers={data.customers} 
-          icon={<Users className="w-4 h-4" />} 
-          color="bg-indigo-600" 
-        />
-        <WorkspaceTasksCard 
-          title="Task team Tele" 
-          tasks={[...data.unassignedTasks, ...data.overdueTasks]} 
-          icon={<AlertCircle className="w-4 h-4" />} 
-          color="bg-orange-600" 
-        />
-        <WorkspaceNotificationsCard 
-          notifications={data.notifications} 
-        />
-        <WorkspaceCustomersCard 
-          title="Khách cần chuyển Sale" 
-          customers={data.customers.filter((c: any) => c.care_model === 'tele_qualified_then_sale')} 
-          icon={<CheckCircle2 className="w-4 h-4" />} 
-          color="bg-emerald-700" 
-        />
+      {/* 2-COLUMN LAYOUT */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* LEFT COLUMN */}
+        <div className="lg:col-span-1 flex flex-col gap-6">
+          <WorkspaceTasksCard 
+            title="Việc hôm nay" 
+            items={[...(data.unassignedTasks || []), ...(data.overdueTasks || [])]} 
+            icon={<AlertCircle className="w-4 h-4" />} 
+            color="bg-orange-600" 
+          />
+          <WorkspaceCustomersCard 
+            title="Khách Tele cần xử lý" 
+            customers={data.customers} 
+            icon={<Users className="w-4 h-4" />} 
+            color="bg-indigo-600" 
+          />
+          <WorkspaceNotificationsCard 
+            notifications={data.notifications} 
+          />
+        </div>
+
+        {/* RIGHT COLUMN */}
+        <div className="lg:col-span-2">
+          <WorkspaceCalendarCard events={[...(data.unassignedTasks || []), ...(data.overdueTasks || [])]} />
+        </div>
       </div>
     </WorkspaceShell>
   );

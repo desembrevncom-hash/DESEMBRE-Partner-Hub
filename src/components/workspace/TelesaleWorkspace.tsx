@@ -19,6 +19,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
 
+import { WorkspaceCalendarCard } from "./WorkspaceCalendarCard";
+
 export const TelesaleWorkspace: React.FC = () => {
   const { user } = useAuth();
   const [data, setData] = useState<any>({
@@ -76,41 +78,35 @@ export const TelesaleWorkspace: React.FC = () => {
           <PlayCircle className="w-4 h-4 mr-2" /> Bắt đầu gọi
         </Button>
         <Button variant="outline" size="sm" className="border-slate-200 hover:bg-slate-50 rounded-xl font-bold px-5 py-5">
-          <CheckCircle2 className="w-4 h-4 mr-2" /> Hoàn thành task
-        </Button>
-        <Button variant="outline" size="sm" className="border-slate-200 hover:bg-slate-50 rounded-xl font-bold px-5 py-5">
           <UserX className="w-4 h-4 mr-2" /> Không nghe máy
-        </Button>
-        <Button variant="outline" size="sm" className="border-slate-200 hover:bg-slate-50 rounded-xl font-bold px-5 py-5">
-          <ChevronRight className="w-4 h-4 mr-2" /> Cần chuyển Sale
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <WorkspaceTasksCard 
-          title="Cuộc gọi hôm nay" 
-          tasks={data.todayTasks} 
-          icon={<Phone className="w-4 h-4" />} 
-          color="bg-indigo-600" 
-        />
-        <WorkspaceTasksCard 
-          title="Task cần xử lý" 
-          tasks={data.overdueTasks} 
-          icon={<AlertCircle className="w-4 h-4" />} 
-          color="bg-red-600" 
-        />
-        <WorkspaceTasksCard 
-          title="Khách quan tâm" 
-          tasks={data.interestedLeads} 
-          icon={<Target className="w-4 h-4" />} 
-          color="bg-pink-600" 
-        />
-        <WorkspaceTasksCard 
-          title="Lịch gọi lại" 
-          tasks={data.callbackTasks} 
-          icon={<Calendar className="w-4 h-4" />} 
-          color="bg-slate-700" 
-        />
+      {/* 2-COLUMN LAYOUT */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* LEFT COLUMN */}
+        <div className="lg:col-span-1 flex flex-col gap-6">
+          <WorkspaceTasksCard 
+            title="Việc hôm nay" 
+            items={[...(data.todayTasks || []), ...(data.overdueTasks || [])]} 
+            icon={<Phone className="w-4 h-4" />} 
+            color="bg-indigo-600" 
+          />
+          <WorkspaceTasksCard 
+            title="Khách quan tâm" 
+            items={data.interestedLeads} 
+            icon={<Target className="w-4 h-4" />} 
+            color="bg-pink-600" 
+          />
+          <WorkspaceNotificationsCard 
+            notifications={data.notifications} 
+          />
+        </div>
+
+        {/* RIGHT COLUMN */}
+        <div className="lg:col-span-2">
+          <WorkspaceCalendarCard events={[...(data.todayTasks || []), ...(data.overdueTasks || []), ...(data.callbackTasks || [])]} />
+        </div>
       </div>
     </WorkspaceShell>
   );

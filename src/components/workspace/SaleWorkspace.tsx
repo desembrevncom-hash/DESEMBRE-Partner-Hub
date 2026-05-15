@@ -22,6 +22,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
 
+import { WorkspaceCalendarCard } from "./WorkspaceCalendarCard";
+
 export const SaleWorkspace: React.FC = () => {
   const { user } = useAuth();
   const [data, setData] = useState<any>({
@@ -38,7 +40,7 @@ export const SaleWorkspace: React.FC = () => {
       
       const [tasksRes, appointmentsRes, notifsRes, customersRes] = await Promise.all([
         supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)").eq("assigned_to", user.id).eq("status", "pending"),
-        supabase.from("calendar_events").select("*").eq("user_id", user.id).gte("start_time", new Date().toISOString()).order("start_time", { ascending: true }).limit(5),
+        supabase.from("calendar_events").select("*").eq("user_id", user.id).gte("start_time", new Date().toISOString()).order("start_time", { ascending: true }).limit(10),
         supabase.from("notifications").select("*").eq("recipient_user_id", user.id).is("read_at", null).order("created_at", { ascending: false }).limit(5),
         supabase.from("customers").select("*").eq("owner_sale_id", user.id).or(`next_follow_up_at.lte.${new Date().toISOString()},next_follow_up_at.is.null`).limit(10)
       ]);
@@ -78,34 +80,33 @@ export const SaleWorkspace: React.FC = () => {
         <Button asChild variant="outline" size="sm" className="border-slate-200 hover:bg-slate-50 rounded-xl font-bold px-5 py-5">
           <Link to="/customers"><Plus className="w-4 h-4 mr-2" /> Thêm khách hàng</Link>
         </Button>
-        <Button asChild variant="outline" size="sm" className="border-slate-200 hover:bg-slate-50 rounded-xl font-bold px-5 py-5">
-          <Link to="/calendar"><Calendar className="w-4 h-4 mr-2" /> Mở lịch biểu</Link>
-        </Button>
-        <Button asChild variant="outline" size="sm" className="border-slate-200 hover:bg-slate-50 rounded-xl font-bold px-5 py-5">
-          <Link to="/customers"><Users className="w-4 h-4 mr-2" /> Khách của tôi</Link>
-        </Button>
       </div>
 
-      {/* CARDS GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <WorkspaceTasksCard 
-          title="Việc hôm nay" 
-          tasks={data.tasks} 
-          icon={<Zap className="w-4 h-4" />} 
-          color="bg-blue-600" 
-        />
-        <WorkspaceAppointmentsCard 
-          appointments={data.appointments} 
-        />
-        <WorkspaceCustomersCard 
-          title="Khách cần chăm sóc" 
-          customers={data.customers} 
-          icon={<UserCheck className="w-4 h-4" />} 
-          color="bg-emerald-600" 
-        />
-        <WorkspaceNotificationsCard 
-          notifications={data.notifications} 
-        />
+      {/* 2-COLUMN LAYOUT (LEFT: 1, RIGHT: 2) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* LEFT COLUMN: LISTS (1 part) */}
+        <div className="lg:col-span-1 flex flex-col gap-6">
+          <WorkspaceTasksCard 
+            title="Việc hôm nay" 
+            items={[...(data.tasks || []), ...(data.appointments || [])]} 
+            icon={<Zap className="w-4 h-4" />} 
+            color="bg-blue-600" 
+          />
+          <WorkspaceCustomersCard 
+            title="Khách cần chăm sóc" 
+            customers={data.customers} 
+            icon={<UserCheck className="w-4 h-4" />} 
+            color="bg-emerald-600" 
+          />
+          <WorkspaceNotificationsCard 
+            notifications={data.notifications} 
+          />
+        </div>
+
+        {/* RIGHT COLUMN: CALENDAR (2 parts) */}
+        <div className="lg:col-span-2">
+          <WorkspaceCalendarCard events={[...(data.tasks || []), ...(data.appointments || [])]} />
+        </div>
       </div>
     </WorkspaceShell>
   );
