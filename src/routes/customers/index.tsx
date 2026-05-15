@@ -1,6 +1,38 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
-import { ArrowLeft, Plus, Pencil, Trash2, Search, Loader2, Download, ShieldCheck, UserCheck, MapPin, Headset, Users, UserMinus, Table, Kanban, Phone } from "lucide-react";
+import { normalizePhone } from "@/lib/phone";
+import { 
+  Users, 
+  Plus, 
+  Search, 
+  ArrowLeft, 
+  Download, 
+  Building2, 
+  MapPin, 
+  Phone, 
+  UserCircle,
+  Headset,
+  UserCheck,
+  UserMinus,
+  ShieldCheck,
+  Target,
+  Map,
+  Sparkles,
+  Pencil,
+  Trash2,
+  CalendarIcon,
+  Loader2,
+  Filter,
+  CheckCircle2,
+  AlertCircle,
+  Table,
+  Kanban,
+  Shield,
+  History,
+  Tag,
+  Mail
+} from "lucide-react";
+import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
 import { Link } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,6 +69,15 @@ import {
   DEFAULT_CUSTOMER_DISTANCE_TYPE,
   DEFAULT_CARE_MODEL,
 } from "@/lib/customerOwnership";
+import { 
+  Tabs, 
+  TabsContent, 
+  TabsList, 
+  TabsTrigger 
+} from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import { vi } from "date-fns/locale";
 
 export const Route = createFileRoute("/customers/")({
   component: CustomersPage,
@@ -56,19 +97,81 @@ type Customer = {
   customer_channel?: CustomerChannel;
   customer_distance_type?: CustomerDistanceType;
   care_model?: CustomerCareModel;
+  
+  // B2B Elite Fields
+  contact_name?: string;
+  business_name?: string;
+  normalized_phone?: string;
+  email?: string;
+  zalo?: string;
+  facebook?: string;
+  city?: string;
+  district?: string;
+  region?: string;
+  business_type?: string;
+  business_size?: string;
+  main_service?: string;
+  skin_concern_focus?: string;
+  interested_products?: string;
+  current_brands?: string;
+  monthly_purchase_potential?: number;
+  decision_maker?: string;
+  decision_role?: string;
+  preferred_contact_channel?: string;
+  source?: string;
+  status?: string;
+  potential_level?: string;
+  note?: string;
+  tags?: string[];
+  last_contacted_at?: string;
+  next_follow_up_at?: string;
+  last_order_at?: string;
+  total_order_amount?: number;
+  total_orders_count?: number;
+  marketing_opt_in?: boolean;
+  marketing_opt_in_at?: string;
+  email_opt_in?: boolean;
+  zalo_opt_in?: boolean;
+  sms_opt_in?: boolean;
+  created_by?: string;
+  lifecycle_stage?: string;
+  tax_code?: string;
+  bed_count?: number;
+  staff_count?: number;
+  tech_equipment?: string;
+  decision_maker_dob?: string;
+  anniversary_date?: string;
 };
 
-function getStaffName(userId: string | null | undefined, list: Array<{ id: string; display_name?: string; full_name?: string; email?: string }>) {
-  if (!userId) return null;
-  const found = list.find(u => u.id === userId);
-  if (found) {
-    return found.display_name || found.full_name || found.email || "ID: " + userId.slice(0, 6);
-  }
-  return null;
-}
+// Global helper removed as it's now handled locally within the component per user request
+
+// Helpers for Elite Badges
+const getLifecycleBadge = (stage?: string) => {
+  const stages: Record<string, { label: string; className: string }> = {
+    lead: { label: "TIỀM NĂNG", className: "bg-blue-50 text-blue-700 border-blue-200" },
+    prospect: { label: "CƠ HỘI", className: "bg-purple-50 text-purple-700 border-purple-200" },
+    customer: { label: "ĐẠI LÝ", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    loyal: { label: "THÂN THIẾT", className: "bg-amber-50 text-amber-700 border-amber-200" },
+    churned: { label: "NGỪNG CHĂM", className: "bg-red-50 text-red-700 border-red-200" },
+  };
+  const config = stages[stage || "lead"] || stages.lead;
+  return <Badge variant="outline" className={`text-[9px] font-bold px-1.5 py-0 ${config.className}`}>{config.label}</Badge>;
+};
+
+const getPotentialBadge = (level?: string) => {
+  const levels: Record<string, { label: string; color: string }> = {
+    cold: { label: "LẠNH", color: "text-slate-400" },
+    warm: { label: "ẤM", color: "text-amber-500" },
+    hot: { label: "NÓNG", color: "text-red-500" },
+  };
+  const config = levels[level || "warm"] || levels.warm;
+  return <span className={`text-[10px] font-extrabold flex items-center gap-0.5 ${config.color}`}>
+    <Sparkles className="w-2.5 h-2.5" /> {config.label}
+  </span>;
+};
 
 export function CustomersPage() {
-  const { user, isSale, isTeleLead, isAdmin } = useAuth();
+  const { user, isSale, isTeleLead, isAdmin, isSubAdmin } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -84,29 +187,53 @@ export function CustomersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   
   // Trạng thái Form đầy đủ bao gồm section "Tuyến chăm sóc"
-  const [form, setForm] = useState<{
-    name: string;
-    facility_name: string;
-    phone: string;
-    address: string;
-    customer_channel: CustomerChannel;
-    customer_distance_type: CustomerDistanceType;
-    care_model: CustomerCareModel;
-    owner_sale_id: string;
-    owner_tele_id: string;
-  }>({
+  const [form, setForm] = useState({
     name: "",
     facility_name: "",
     phone: "",
     address: "",
-    customer_channel: "direct_sales",
-    customer_distance_type: "unknown",
-    care_model: "sale_owned",
-    owner_sale_id: "",
-    owner_tele_id: "",
+    customer_channel: "direct_sales" as CustomerChannel,
+    customer_distance_type: "unknown" as CustomerDistanceType,
+    care_model: "sale_owned" as CustomerCareModel,
+    owner_sale_id: "none",
+    owner_tele_id: "none",
+    // B2B Elite Fields
+    email: "",
+    zalo: "",
+    facebook: "",
+    city: "",
+    district: "",
+    region: "",
+    business_type: "SPA_CLINIC",
+    business_size: "medium",
+    main_service: "",
+    skin_concern_focus: "",
+    interested_products: "",
+    current_brands: "",
+    monthly_purchase_potential: 0,
+    decision_maker: "",
+    decision_role: "OWNER",
+    preferred_contact_channel: "ZALO",
+    source: "FACEBOOK",
+    status: "new",
+    potential_level: "warm",
+    note: "",
+    tags: [] as string[],
+    marketing_opt_in: false,
+    tax_code: "",
+    bed_count: 0,
+    staff_count: 0,
+    tech_equipment: "",
+    decision_maker_dob: "",
+    lifecycle_stage: "lead",
+    personality_trait: "",
   });
 
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  
   const [saving, setSaving] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
   
   // Trạng thái danh sách nhân sự tham chiếu ownership
   const [salesUsers, setSalesUsers] = useState<Array<{ id: string; full_name?: string; email?: string }>>([]);
@@ -146,7 +273,13 @@ export function CustomersPage() {
         const teleList: any[] = [];
 
         rolesData.forEach(ur => {
-          const pInfo = profMap.get(ur.user_id) || { id: ur.user_id, email: "User ID: " + ur.user_id.slice(0,6) };
+          if (!ur.user_id) return;
+          const pInfo = profMap.get(ur.user_id) || { 
+            id: ur.user_id, 
+            display_name: "User ID: " + String(ur.user_id).slice(0,6),
+            full_name: "User ID: " + String(ur.user_id).slice(0,6),
+            email: "User ID: " + String(ur.user_id).slice(0,6) 
+          };
           if (ur.role === "sale") {
             salesList.push(pInfo);
           } else if (ur.role === "tele_lead") {
@@ -200,7 +333,15 @@ export function CustomersPage() {
       return;
     }
 
-    const { data, error } = await supabase.from("customers").select("*").order('created_at', { ascending: false });
+    const query = supabase.from("customers").select("*");
+    
+    if (showDeleted) {
+      query.not("deleted_at", "is", null);
+    } else {
+      query.is("deleted_at", null);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
     if (error) {
       const msg = error.message?.toLowerCase() || "";
       if (error.code === '42P01' || msg.includes("find the table") || msg.includes("schema cache") || msg.includes("does not exist")) {
@@ -224,7 +365,7 @@ export function CustomersPage() {
 
   useEffect(() => {
     loadData();
-  }, [useLocalFallback, user?.id]);
+  }, [useLocalFallback, user?.id, showDeleted]);
 
   const filtered = useMemo(() => {
     return customers.filter(c => {
@@ -280,8 +421,38 @@ export function CustomersPage() {
         customer_channel: c.customer_channel || "direct_sales",
         customer_distance_type: c.customer_distance_type || "unknown",
         care_model: c.care_model || "sale_owned",
-        owner_sale_id: c.owner_sale_id || (c as any).assigned_sale_id || c.user_id || "",
-        owner_tele_id: c.owner_tele_id || "",
+        owner_sale_id: c.owner_sale_id || (c as any).assigned_sale_id || c.user_id || "none",
+        owner_tele_id: c.owner_tele_id || "none",
+        // B2B Elite Fields
+        email: c.email || "",
+        zalo: c.zalo || "",
+        facebook: c.facebook || "",
+        city: c.city || "",
+        district: c.district || "",
+        region: c.region || "",
+        business_type: c.business_type || "SPA_CLINIC",
+        business_size: c.business_size || "medium",
+        main_service: c.main_service || "",
+        skin_concern_focus: c.skin_concern_focus || "",
+        interested_products: c.interested_products || "",
+        current_brands: c.current_brands || "",
+        monthly_purchase_potential: c.monthly_purchase_potential || 0,
+        decision_maker: c.decision_maker || "",
+        decision_role: c.decision_role || "OWNER",
+        preferred_contact_channel: c.preferred_contact_channel || "ZALO",
+        source: c.source || "FACEBOOK",
+        status: c.status || "new",
+        potential_level: c.potential_level || "warm",
+        note: c.note || "",
+        tags: c.tags || [],
+        marketing_opt_in: c.marketing_opt_in || false,
+        tax_code: c.tax_code || "",
+        bed_count: c.bed_count || 0,
+        staff_count: c.staff_count || 0,
+        tech_equipment: c.tech_equipment || "",
+        decision_maker_dob: c.decision_maker_dob || "",
+        lifecycle_stage: c.lifecycle_stage || "lead",
+        personality_trait: (c as any).personality_trait || "",
       });
     } else {
       setEditingId(null);
@@ -313,11 +484,46 @@ export function CustomersPage() {
         customer_channel: defaultChannel,
         customer_distance_type: DEFAULT_CUSTOMER_DISTANCE_TYPE,
         care_model: defaultCareModel,
-        owner_sale_id: defaultOwnerSaleId,
-        owner_tele_id: defaultOwnerTeleId,
+        owner_sale_id: defaultOwnerSaleId || "none",
+        owner_tele_id: defaultOwnerTeleId || "none",
+        // B2B Elite Fields Default
+        email: "",
+        zalo: "",
+        facebook: "",
+        city: "",
+        district: "",
+        region: "",
+        business_type: "SPA_CLINIC",
+        business_size: "medium",
+        main_service: "",
+        skin_concern_focus: "",
+        interested_products: "",
+        current_brands: "",
+        monthly_purchase_potential: 0,
+        decision_maker: "",
+        decision_role: "OWNER",
+        preferred_contact_channel: "ZALO",
+        source: "FACEBOOK",
+        status: "new",
+        potential_level: "warm",
+        note: "",
+        tags: [],
+        marketing_opt_in: false,
+        tax_code: "",
+        bed_count: 0,
+        staff_count: 0,
+        tech_equipment: "",
+        decision_maker_dob: "",
+        lifecycle_stage: "lead",
+        personality_trait: "",
       });
     }
     setOpen(true);
+  };
+
+  const handlePreview = (c: Customer) => {
+    setSelectedCustomer(c);
+    setPreviewOpen(true);
   };
 
   const handleSave = async () => {
@@ -333,14 +539,50 @@ export function CustomersPage() {
       name: form.name.trim(),
       facility_name: form.facility_name.trim(),
       phone: form.phone.trim(),
+      normalized_phone: normalizePhone(form.phone),
       address: form.address.trim(),
       user_id: form.owner_sale_id || user?.id,
       customer_channel: form.customer_channel,
       customer_distance_type: form.customer_distance_type,
       care_model: form.care_model,
-      owner_sale_id: form.owner_sale_id || null,
-      owner_tele_id: form.owner_tele_id || null,
+      owner_sale_id: (form.owner_sale_id && form.owner_sale_id !== "none") ? form.owner_sale_id : null,
+      owner_tele_id: (form.owner_tele_id && form.owner_tele_id !== "none") ? form.owner_tele_id : null,
+      // B2B Elite Fields Payload
+      email: form.email,
+      zalo: form.zalo,
+      facebook: form.facebook,
+      city: form.city,
+      district: form.district,
+      region: form.region,
+      business_type: form.business_type,
+      business_size: form.business_size,
+      main_service: form.main_service,
+      skin_concern_focus: form.skin_concern_focus,
+      interested_products: form.interested_products,
+      current_brands: form.current_brands,
+      monthly_purchase_potential: form.monthly_purchase_potential,
+      decision_maker: form.decision_maker,
+      decision_role: form.decision_role,
+      preferred_contact_channel: form.preferred_contact_channel,
+      source: form.source,
+      status: form.status,
+      potential_level: form.potential_level,
+      note: form.note,
+      tags: form.tags,
+      marketing_opt_in: form.marketing_opt_in,
+      tax_code: form.tax_code,
+      bed_count: form.bed_count,
+      staff_count: form.staff_count,
+      tech_equipment: form.tech_equipment,
+      decision_maker_dob: form.decision_maker_dob || null,
+      lifecycle_stage: form.lifecycle_stage,
+      personality_trait: form.personality_trait,
+      updated_by: user?.id,
     };
+
+    if (!editingId) {
+      payload.created_by = user?.id;
+    }
 
     // Theo yêu cầu: Nếu customer_channel = direct_sales thì ưu tiên owner_sale_id
     if (payload.customer_channel === "direct_sales" && !payload.owner_sale_id) {
@@ -387,21 +629,38 @@ export function CustomersPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa khách hàng này?")) return;
+    const reason = prompt("Nhập lý do xóa khách hàng này (không bắt buộc):");
+    if (reason === null) return; // User cancelled
     
     if (useLocalFallback) {
       let data = JSON.parse(localStorage.getItem("mock_customers") || "[]");
-      data = data.filter((c: any) => c.id !== id);
+      const idx = data.findIndex((c: any) => c.id === id);
+      if (idx >= 0) {
+        data[idx] = { 
+          ...data[idx], 
+          deleted_at: new Date().toISOString(),
+          deleted_by: user?.id,
+          delete_reason: reason || "Xóa bởi người dùng"
+        };
+      }
       localStorage.setItem("mock_customers", JSON.stringify(data));
-      setCustomers(data.filter((c: any) => isAdmin || !c.user_id || c.user_id === user?.id));
-      toast.success("Đã xóa");
+      setCustomers(data.filter((c: any) => (isAdmin || !c.user_id || c.user_id === user?.id) && !c.deleted_at));
+      toast.success("Đã xóa tạm thời (Soft Delete)");
       return;
     }
 
-    const { error } = await supabase.from("customers").delete().eq("id", id);
+    const { error } = await supabase
+      .from("customers")
+      .update({ 
+        deleted_at: new Date().toISOString(),
+        deleted_by: user?.id,
+        delete_reason: reason || "Xóa bởi người dùng"
+      })
+      .eq("id", id);
+
     if (error) toast.error("Lỗi xóa: " + error.message);
     else {
-      toast.success("Đã xóa");
+      toast.success("Đã chuyển vào thùng rác");
       loadData();
     }
   };
@@ -479,39 +738,42 @@ export function CustomersPage() {
   };
 
   // Helper ánh xạ tên nhân sự hiển thị trên bảng
-  const getStaffName = (id?: string | null, list?: Array<{ id: string; full_name?: string; email?: string }>) => {
-    if (!id) return null;
-    const found = list?.find(u => u.id === id);
-    if (!found) return null;
-    return (found as any).display_name || found.full_name || found.email?.split("@")[0] || "ID: " + id.slice(0, 6);
+  const getStaffName = (staffId?: string | null) => {
+    if (!staffId) return "Chưa phân công";
+
+    // Tìm trong cả danh sách Sale và Tele
+    const staff = [...salesUsers, ...teleUsers].find((item) => item.id === staffId);
+
+    return staff?.full_name || (staff as any)?.display_name || staff?.email || "Không rõ";
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-12">
-      <header className="border-b border-border bg-white shadow-2xs sticky top-0 z-20">
+    <div className="min-h-screen bg-slate-50/50 pb-12 font-sans selection:bg-primary/10">
+      <header className="border-b border-white/20 bg-slate-900/95 backdrop-blur-md shadow-lg sticky top-0 z-20">
         <div className="container mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link to="/" className="text-xs font-semibold text-slate-500 hover:text-primary transition-colors flex items-center gap-1 bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-lg">
+          <div className="flex items-center gap-4">
+            <Link to="/" className="text-[11px] font-bold text-white/70 hover:text-white transition-all flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-3 py-2 rounded-xl border border-white/10">
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Trang chủ</span>
             </Link>
-            <div className="h-4 w-[1px] bg-slate-200"></div>
+            <div className="h-6 w-[1px] bg-white/10"></div>
             <div>
-              <h1 className="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2">
-                👥 Quản lý Khách hàng & Tuyến chăm sóc
+              <h1 className="text-base font-extrabold tracking-tight text-white flex items-center gap-2 drop-shadow-sm">
+                <span className="bg-primary/20 p-1.5 rounded-lg border border-primary/30">👥</span>
+                Quản lý Khách hàng & Tuyến chăm sóc
               </h1>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Button 
               variant="outline" 
               onClick={handleExportCsv} 
               size="sm"
-              className="border-slate-200 hover:bg-slate-50 font-bold text-slate-700"
+              className="bg-white/5 border-white/10 hover:bg-white/10 text-white/90 font-bold backdrop-blur-sm transition-all"
             >
-              <Download className="w-3.5 h-3.5 mr-1.5 text-emerald-600" /> Xuất CSV
+              <Download className="w-3.5 h-3.5 mr-1.5 text-emerald-400" /> Xuất CSV
             </Button>
-            <Button onClick={() => handleOpen()} size="sm" className="font-bold bg-primary hover:bg-primary/90 shadow-xs">
+            <Button onClick={() => handleOpen()} size="sm" className="font-bold bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all px-4">
               <Plus className="w-4 h-4 mr-1.5" /> Thêm Khách hàng
             </Button>
           </div>
@@ -520,67 +782,69 @@ export function CustomersPage() {
 
       <main className="container mx-auto px-4 md:px-6 mt-6 space-y-5">
         {/* QUICK STATS CARDS (RICH AESTHETICS / PREMIUM UI) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           {/* Card 1: Tổng khách hàng */}
-          <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm hover:shadow-md hover:border-primary/20 transition-all flex items-center justify-between gap-2 group">
             <div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tổng khách</div>
-              <div className="text-base font-extrabold text-slate-900 mt-0.5">{customers.length}</div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tổng khách</div>
+              <div className="text-xl font-black text-slate-900 mt-1">
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : customers.length}
+              </div>
             </div>
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-              <Users className="w-4 h-4" />
+            <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+              <Users className="w-5 h-5" />
             </div>
           </div>
 
-          {/* Card 2: Khách Sale trực tiếp */}
-          <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2">
+          {/* Card 2: Đại lý chính thức */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all flex items-center justify-between gap-2 group">
             <div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sale trực tiếp</div>
-              <div className="text-base font-extrabold text-emerald-600 mt-0.5">
-                {customers.filter(c => c.customer_channel === "direct_sales" || !c.customer_channel).length}
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Đại lý</div>
+              <div className="text-xl font-black text-emerald-600 mt-1">
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : customers.filter(c => c.lifecycle_stage === "customer" || c.lifecycle_stage === "loyal").length}
               </div>
             </div>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
-              <UserCheck className="w-4 h-4" />
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
+              <ShieldCheck className="w-5 h-5" />
             </div>
           </div>
 
-          {/* Card 3: Khách Tele/Online */}
-          <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2">
+          {/* Card 3: Tiềm năng */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm hover:shadow-md hover:border-blue-200 transition-all flex items-center justify-between gap-2 group">
             <div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tele / Online</div>
-              <div className="text-base font-extrabold text-amber-600 mt-0.5">
-                {customers.filter(c => c.customer_channel === "tele_sales").length}
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tiềm năng</div>
+              <div className="text-xl font-black text-blue-600 mt-1">
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : customers.filter(c => c.lifecycle_stage === "lead" || c.lifecycle_stage === "prospect").length}
               </div>
             </div>
-            <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
-              <Headset className="w-4 h-4" />
+            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
+              <Target className="w-5 h-5" />
             </div>
           </div>
 
-          {/* Card 4: Khách chưa phân công */}
-          <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2">
+          {/* Card 4: Cần phân công */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm hover:shadow-md hover:border-red-200 transition-all flex items-center justify-between gap-2 group">
             <div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Chưa phân công</div>
-              <div className="text-base font-extrabold text-red-600 mt-0.5">
-                {customers.filter(c => !c.owner_sale_id && !c.owner_tele_id && !(c as any).assigned_sale_id && !c.user_id).length}
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-red-400">Cần gán</div>
+              <div className="text-xl font-black text-red-600 mt-1">
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : customers.filter(c => !c.owner_sale_id && !c.owner_tele_id).length}
               </div>
             </div>
-            <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-red-600">
-              <UserMinus className="w-4 h-4" />
+            <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-600 group-hover:scale-110 transition-transform">
+              <UserMinus className="w-5 h-5" />
             </div>
           </div>
 
-          {/* Card 5: Khách tỉnh xa / khách xa */}
-          <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2 col-span-2 sm:col-span-1">
+          {/* Card 5: Khu vực tỉnh */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm hover:shadow-md hover:border-purple-200 transition-all flex items-center justify-between gap-2 group col-span-2 sm:col-span-1">
             <div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Khách tỉnh / Xa</div>
-              <div className="text-base font-extrabold text-purple-600 mt-0.5">
-                {customers.filter(c => c.customer_distance_type === "far_city" || c.customer_distance_type === "province").length}
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Khu vực Tỉnh</div>
+              <div className="text-xl font-black text-purple-600 mt-1">
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : customers.filter(c => c.city && c.city.toLowerCase() !== "hà nội" && c.city.toLowerCase() !== "tp.hcm").length}
               </div>
             </div>
-            <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600">
-              <MapPin className="w-4 h-4" />
+            <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">
+              <Map className="w-5 h-5" />
             </div>
           </div>
         </div>
@@ -692,8 +956,25 @@ export function CustomersPage() {
                     : "border-amber-200 text-amber-700 hover:bg-amber-50"
                 }`}
               >
-                ⚠️ Chỉ xem khách cần phân công
+                {onlyNeedsAssignment ? "⚠️ Chỉ xem khách cần phân công" : "⚠️ Cần phân công"}
               </Button>
+
+              {/* Thùng rác (Chỉ Admin/Sub Admin) */}
+              {(isAdmin || isSubAdmin) && (
+                <Button
+                  variant={showDeleted ? "destructive" : "outline"}
+                  size="sm"
+                  onClick={() => setShowDeleted(!showDeleted)}
+                  className={`h-8 text-xs font-bold rounded-lg transition-all ${
+                    showDeleted 
+                      ? "bg-red-600 hover:bg-red-700 text-white shadow-2xs border-red-600" 
+                      : "border-red-200 text-red-700 hover:bg-red-50"
+                  }`}
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                  {showDeleted ? "Đang xem Thùng rác" : "Xem khách đã xóa"}
+                </Button>
+              )}
             </div>
 
             {/* Nút Xoá bộ lọc */}
@@ -719,9 +1000,9 @@ export function CustomersPage() {
               <table className="w-full text-xs text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 text-slate-600 font-bold border-b border-slate-200">
-                    <th className="p-3.5 pl-4 w-56">Thông tin Khách hàng</th>
-                    <th className="p-3.5 w-44">Cơ sở / Spa</th>
-                    <th className="p-3.5 w-32">Liên hệ</th>
+                    <th className="p-3.5 pl-4 w-64">Thông tin & Cơ sở</th>
+                    <th className="p-3.5 w-44">Phân loại & Tiềm năng</th>
+                    <th className="p-3.5 w-32">Khu vực / Quy mô</th>
                     <th className="p-3.5 min-w-[280px]">Tuyến chăm sóc (Ownership Core)</th>
                     <th className="p-3.5 pr-4 text-right w-20">Thao tác</th>
                   </tr>
@@ -744,8 +1025,8 @@ export function CustomersPage() {
                     filtered.map((c) => {
                       // Chuẩn hóa hiển thị: Ưu tiên owner_sale_id, nếu chưa có thì fallback assigned_sale_id hoặc user_id cũ
                       const effectiveSaleId = c.owner_sale_id || (c as any).assigned_sale_id || c.user_id;
-                      const saleName = getStaffName(effectiveSaleId, salesUsers);
-                      const teleName = getStaffName(c.owner_tele_id, teleUsers);
+                      const saleName = getStaffName(effectiveSaleId);
+                      const teleName = getStaffName(c.owner_tele_id);
                       
                       // Logic nhận diện rủi ro thiếu sót phân công (Needs Assignment)
                       const isAssignmentNeeded = 
@@ -755,23 +1036,35 @@ export function CustomersPage() {
 
                       return (
                         <tr key={c.id} className="hover:bg-slate-50/60 transition-colors">
-                          <td className="p-3.5 pl-4">
-                            <div className="font-bold text-slate-900 text-sm">{c.name}</div>
-                            <div className="text-[11px] text-slate-400 truncate max-w-[200px]" title={c.address}>
-                              {c.address || "Chưa có địa chỉ"}
+                          <td className="p-3.5 pl-4 cursor-pointer group" onClick={() => handlePreview(c)}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shrink-0 border border-slate-200 group-hover:bg-primary/10 group-hover:border-primary/20 transition-all">
+                                <Building2 className="w-4 h-4 group-hover:text-primary transition-colors" />
+                              </div>
+                              <div>
+                                <div className="font-bold text-slate-900 text-sm leading-tight group-hover:text-primary transition-colors">{c.facility_name || "Spa tự do"}</div>
+                                <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                                  <UserCircle className="w-3 h-3" /> {c.name || "Chưa tên"}
+                                </div>
+                              </div>
                             </div>
                           </td>
-                          <td className="p-3.5 font-semibold text-slate-800">
-                            {c.facility_name ? (
-                              <span className="inline-flex items-center gap-1 text-slate-900">
-                                {c.facility_name}
-                              </span>
-                            ) : (
-                              <span className="text-slate-400 italic font-normal">Chưa cập nhật</span>
-                            )}
+                          <td className="p-3.5 cursor-pointer" onClick={() => handlePreview(c)}>
+                            <div className="flex flex-col gap-1.5">
+                              {getLifecycleBadge(c.lifecycle_stage)}
+                              {getPotentialBadge(c.potential_level)}
+                            </div>
                           </td>
-                          <td className="p-3.5 font-mono text-slate-600">
-                            {c.phone || "—"}
+                          <td className="p-3.5 cursor-pointer" onClick={() => handlePreview(c)}>
+                            <div className="flex flex-col gap-0.5">
+                              <div className="font-bold text-slate-700 text-[11px] flex items-center gap-1">
+                                <MapPin className="w-3 h-3 text-red-500" /> {c.city || "Chưa rõ"}
+                              </div>
+                              <div className="text-[10px] text-slate-400 bg-slate-100 px-1 py-0.5 rounded w-fit">
+                                {c.bed_count || 0} giường
+                              </div>
+                              <div className="text-[11px] font-mono text-slate-600 mt-1">{c.phone || "—"}</div>
+                            </div>
                           </td>
                           <td className="p-3.5">
                             {/* KHỐI HIỂN THỊ TUYẾN CHĂM SÓC TUYỆT ĐẸP MẮT */}
@@ -875,15 +1168,24 @@ export function CustomersPage() {
                   <div className="p-2.5 overflow-y-auto space-y-2.5 flex-1 bg-slate-50/30">
                     {filtered.filter(c => c.customer_channel === "direct_sales" || !c.customer_channel).map(c => {
                       const effectiveSaleId = c.owner_sale_id || (c as any).assigned_sale_id || c.user_id;
-                      const sName = getStaffName(effectiveSaleId, salesUsers);
+                      const sName = getStaffName(effectiveSaleId);
                       return (
-                        <div key={c.id} className="p-3 bg-white border border-slate-100 hover:border-emerald-200 rounded-lg shadow-2xs hover:shadow-xs transition-all text-xs group">
-                          <div className="flex items-start justify-between gap-1">
-                            <div className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors line-clamp-1">{c.name}</div>
-                            <button onClick={() => handleOpen(c)} className="text-slate-400 hover:text-slate-900 shrink-0" title="Chỉnh sửa Phân tuyến">✏️</button>
+                        <div key={c.id} className="p-3 bg-white border border-slate-100 hover:border-emerald-200 rounded-lg shadow-2xs hover:shadow-xs transition-all text-xs group relative overflow-hidden cursor-pointer" onClick={() => handlePreview(c)}>
+                          <div className="absolute top-0 right-0 p-1">
+                            {getPotentialBadge(c.potential_level)}
                           </div>
-                          <div className="text-[11px] text-slate-500 font-medium mt-0.5">{c.facility_name || "Spa tự do"}</div>
-                          <div className="mt-2 pt-2 border-t border-slate-50 flex items-center justify-between text-[10px] text-slate-400">
+                          <div className="flex items-start justify-between gap-1">
+                            <div className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors line-clamp-1 pr-8">{c.facility_name || "Spa tự do"}</div>
+                            <button onClick={(e) => { e.stopPropagation(); handleOpen(c); }} className="text-slate-300 hover:text-slate-900 shrink-0" title="Chỉnh sửa">✏️</button>
+                          </div>
+                          <div className="text-[11px] text-slate-500 font-medium mt-0.5 flex items-center gap-1">
+                            <UserCircle className="w-3 h-3" /> {c.name}
+                          </div>
+                          <div className="mt-2 flex items-center gap-1.5">
+                            {getLifecycleBadge(c.lifecycle_stage)}
+                            <span className="text-[9px] text-slate-400 bg-slate-50 px-1 py-0.5 rounded border border-slate-100">{c.city || "N/A"}</span>
+                          </div>
+                          <div className="mt-3 pt-2 border-t border-slate-50 flex items-center justify-between text-[10px] text-slate-400">
                             <span className="flex items-center gap-1 text-slate-600 font-medium truncate max-w-[140px]">
                               <UserCheck className="w-3 h-3 text-emerald-600 shrink-0" />
                               <span className="truncate">{sName || "Sale mặc định"}</span>
@@ -909,12 +1211,12 @@ export function CustomersPage() {
                   </div>
                   <div className="p-2.5 overflow-y-auto space-y-2.5 flex-1 bg-slate-50/30">
                     {filtered.filter(c => c.customer_channel === "tele_sales").map(c => {
-                      const tName = getStaffName(c.owner_tele_id, teleUsers);
+                      const tName = getStaffName(c.owner_tele_id);
                       return (
-                        <div key={c.id} className="p-3 bg-white border border-slate-100 hover:border-amber-200 rounded-lg shadow-2xs hover:shadow-xs transition-all text-xs group">
+                        <div key={c.id} className="p-3 bg-white border border-slate-100 hover:border-amber-200 rounded-lg shadow-2xs hover:shadow-xs transition-all text-xs group cursor-pointer" onClick={() => handlePreview(c)}>
                           <div className="flex items-start justify-between gap-1">
                             <div className="font-bold text-slate-900 group-hover:text-amber-700 transition-colors line-clamp-1">{c.name}</div>
-                            <button onClick={() => handleOpen(c)} className="text-slate-400 hover:text-slate-900 shrink-0" title="Chỉnh sửa Phân tuyến">✏️</button>
+                            <button onClick={(e) => { e.stopPropagation(); handleOpen(c); }} className="text-slate-400 hover:text-slate-900 shrink-0" title="Chỉnh sửa Phân tuyến">✏️</button>
                           </div>
                           <div className="text-[11px] text-slate-500 font-medium mt-0.5">{c.facility_name || "Spa tự do"}</div>
                           <div className="mt-2 pt-2 border-t border-slate-50 flex items-center justify-between text-[10px] text-slate-400">
@@ -944,8 +1246,8 @@ export function CustomersPage() {
                   <div className="p-2.5 overflow-y-auto space-y-2.5 flex-1 bg-slate-50/30">
                     {filtered.filter(c => c.customer_channel === "hybrid").map(c => {
                       const effectiveSaleId = c.owner_sale_id || (c as any).assigned_sale_id || c.user_id;
-                      const sName = getStaffName(effectiveSaleId, salesUsers);
-                      const tName = getStaffName(c.owner_tele_id, teleUsers);
+                      const sName = getStaffName(effectiveSaleId);
+                      const tName = getStaffName(c.owner_tele_id);
                       return (
                         <div key={c.id} className="p-3 bg-white border border-slate-100 hover:border-blue-200 rounded-lg shadow-2xs hover:shadow-xs transition-all text-xs group">
                           <div className="flex items-start justify-between gap-1">
@@ -1013,226 +1315,340 @@ export function CustomersPage() {
 
       {/* DIALOG FORM BỔ SUNG SECTION "TUYẾN CHĂM SÓC" */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-xl p-6 rounded-2xl font-sans max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="pb-3 border-b border-slate-100">
-            <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <span>{editingId ? "✏️ Cập nhật Khách hàng & Tuyến" : "✨ Thêm Khách hàng & Phân tuyến"}</span>
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-5 py-2">
-            {/* KHỐI 1: THÔNG TIN CƠ BẢN */}
-            <div>
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">1. Thông tin liên hệ cơ bản</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                  <Label htmlFor="name" className="text-xs font-bold text-slate-700">Họ và tên <span className="text-red-500">*</span></Label>
-                  <Input
-                    id="name"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="VD: Nguyễn Văn A"
-                    className="text-xs h-9 rounded-lg"
-                  />
-                </div>
-
-                <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                  <Label htmlFor="facility" className="text-xs font-bold text-slate-700">Tên cơ sở (Spa/Salon)</Label>
-                  <Input
-                    id="facility"
-                    value={form.facility_name}
-                    onChange={(e) => setForm({ ...form, facility_name: e.target.value })}
-                    placeholder="VD: Desembre Premium Spa"
-                    className="text-xs h-9 rounded-lg"
-                  />
-                </div>
-
-                <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                  <Label htmlFor="phone" className="text-xs font-bold text-slate-700">Số điện thoại</Label>
-                  <Input
-                    id="phone"
-                    value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    placeholder="0912345678"
-                    className="text-xs h-9 rounded-lg font-mono"
-                  />
-                </div>
-
-                <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                  <Label htmlFor="address" className="text-xs font-bold text-slate-700">Địa chỉ cụ thể</Label>
-                  <Input
-                    id="address"
-                    value={form.address}
-                    onChange={(e) => setForm({ ...form, address: e.target.value })}
-                    placeholder="Số nhà, đường, Thành phố..."
-                    className="text-xs h-9 rounded-lg"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* KHỐI 2: TUYẾN CHĂM SÓC & NGƯỜI PHỤ TRÁCH (OWNERSHIP CORE SECTION) */}
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100/80 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
-                <h3 className="text-xs font-bold text-purple-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Tuyến chăm sóc & Người phụ trách</span>
-                </h3>
-                <span className="text-[10px] bg-purple-100 text-purple-800 font-bold px-2 py-0.5 rounded">
-                  Compliance CRM
+        <DialogContent className="sm:max-w-2xl p-0 rounded-3xl font-sans overflow-hidden border-white/20 shadow-2xl backdrop-blur-xl bg-white/90">
+          <div className="bg-slate-900 px-6 py-5 flex items-center justify-between border-b border-white/10">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
+                <span className="bg-white/10 p-2 rounded-xl border border-white/10">
+                  {editingId ? "✏️" : "✨"}
                 </span>
-              </div>
+                <span>{editingId ? "Cập nhật Khách hàng" : "Thêm Khách hàng & Phân tuyến"}</span>
+              </DialogTitle>
+            </DialogHeader>
+            <button onClick={() => setOpen(false)} className="text-white/40 hover:text-white transition-colors">
+              <Plus className="w-5 h-5 rotate-45" />
+            </button>
+          </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                {/* Kênh chăm sóc */}
-                <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                  <Label className="text-xs font-bold text-slate-700">Kênh tiếp cận</Label>
-                  <Select 
-                    value={form.customer_channel} 
-                    onValueChange={(val: any) => setForm({ ...form, customer_channel: val })}
-                  >
-                    <SelectTrigger className="bg-white text-xs h-9 rounded-lg font-medium">
-                      <SelectValue placeholder="Chọn kênh tiếp cận" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                      {CUSTOMER_CHANNEL_OPTIONS.map(o => (
-                        <SelectItem key={o.value} value={o.value} className="text-xs py-2">
-                          <div className="font-bold text-slate-900">{o.label}</div>
-                          {'description' in o && o.description && (
-                            <div className="text-[10px] text-slate-400 font-normal mt-0.5">{o.description}</div>
-                          )}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+          <div className="px-6 py-6 max-h-[75vh] overflow-y-auto">
+            <Tabs defaultValue="profile" className="w-full">
+              <TabsList className="grid w-full grid-cols-4 mb-6 bg-slate-100/50 p-1 rounded-xl">
+                <TabsTrigger value="profile" className="text-[11px] font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Hồ sơ</TabsTrigger>
+                <TabsTrigger value="business" className="text-[11px] font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Kinh doanh</TabsTrigger>
+                <TabsTrigger value="dm" className="text-[11px] font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Quyết định</TabsTrigger>
+                <TabsTrigger value="care" className="text-[11px] font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Chăm sóc</TabsTrigger>
+              </TabsList>
 
-                {/* Khoảng cách địa lý */}
-                <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                  <Label className="text-xs font-bold text-slate-700">Vùng địa lý (Khoảng cách)</Label>
-                  <Select 
-                    value={form.customer_distance_type} 
-                    onValueChange={(val: any) => setForm({ ...form, customer_distance_type: val })}
-                  >
-                    <SelectTrigger className="bg-white text-xs h-9 rounded-lg font-medium">
-                      <SelectValue placeholder="Chọn khoảng cách" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                      {CUSTOMER_DISTANCE_OPTIONS.map(o => (
-                        <SelectItem key={o.value} value={o.value} className="text-xs py-2">
-                          <div className="font-bold text-slate-900">{o.label}</div>
-                          {'description' in o && o.description && (
-                            <div className="text-[10px] text-slate-400 font-normal mt-0.5">{o.description}</div>
-                          )}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Mô hình chăm sóc */}
-                <div className="space-y-1.5 col-span-2">
-                  <Label className="text-xs font-bold text-slate-700">Mô hình phân quyền chăm sóc</Label>
-                  <Select 
-                    value={form.care_model} 
-                    onValueChange={(val: any) => setForm({ ...form, care_model: val })}
-                  >
-                    <SelectTrigger className="bg-white text-xs h-9 rounded-lg font-semibold text-purple-700">
-                      <SelectValue placeholder="Chọn mô hình quản lý" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                      {CARE_MODEL_OPTIONS.map(o => (
-                        <SelectItem key={o.value} value={o.value} className="text-xs py-2">
-                          <div className="font-bold text-slate-900">{o.label}</div>
-                          {'description' in o && o.description && (
-                            <div className="text-[10px] text-slate-400 font-normal mt-0.5">{o.description}</div>
-                          )}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Phụ trách Sale */}
-                <div className="space-y-1 col-span-2 sm:col-span-1">
-                  <Label className="text-xs font-bold text-slate-700">Sale phụ trách (owner_sale_id)</Label>
-                  <Select 
-                    value={form.owner_sale_id} 
-                    onValueChange={(val) => setForm({ ...form, owner_sale_id: val })}
-                  >
-                    <SelectTrigger className="bg-white text-xs h-9 rounded-lg">
-                      <SelectValue placeholder="Chọn nhân sự Sale" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl max-h-48">
-                      <SelectItem value="" className="text-xs italic text-slate-400">— Chưa phân công —</SelectItem>
-                      {salesUsers.map(u => (
-                        <SelectItem key={u.id} value={u.id} className="text-xs font-medium">
-                          👤 {u.display_name || u.full_name || u.email || "ID: " + u.id.slice(0,6)}
-                        </SelectItem>
-                      ))}
-                      {/* Đảm bảo fallback nạp user hiện tại nếu danh sách trống */}
-                      {salesUsers.length === 0 && user && (
-                        <SelectItem value={user.id} className="text-xs font-medium">
-                          👤 {user.email} (Bạn)
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {/* Validation nhẹ */}
-                  {form.care_model === "sale_owned" && !form.owner_sale_id && (
-                    <div className="text-[10px] text-amber-600 font-medium pt-1 animate-pulse">
-                      ⚠️ Mô hình yêu cầu Sale phụ trách chính, vui lòng chọn để tối ưu quản lý.
-                    </div>
-                  )}
-                </div>
-
-                {/* Phụ trách Tele */}
-                <div className="space-y-1 col-span-2 sm:col-span-1">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-bold text-slate-700">Tele phụ trách (owner_tele_id)</Label>
-                    <span className="text-[9px] text-slate-400 font-normal">Không bắt buộc</span>
+              {/* TAB 1: HỒ SƠ CƠ SỞ & LIÊN HỆ */}
+              <TabsContent value="profile" className="space-y-4 focus-visible:outline-none">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5 col-span-2">
+                    <Label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                      <Building2 className="w-3 h-3 text-primary" /> Tên cơ sở (Spa/Salon/Clinic) <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      value={form.facility_name}
+                      onChange={(e) => setForm({ ...form, facility_name: e.target.value })}
+                      placeholder="VD: Desembre Premium Clinic"
+                      className="text-xs h-9 rounded-lg border-slate-200 focus:ring-1 focus:ring-primary"
+                    />
                   </div>
-                  
-                  {/* Nếu chưa có role tele_lead thì hiển thị text disabled theo yêu cầu */}
-                  {teleUsers.length === 0 ? (
-                    <Select disabled value="">
-                      <SelectTrigger className="bg-slate-100 text-xs h-9 rounded-lg text-slate-400 italic">
-                        <SelectValue placeholder="Chưa có tài khoản Trưởng Tele" />
+                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                    <Label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                      <UserCircle className="w-3 h-3 text-primary" /> Tên người liên hệ
+                    </Label>
+                    <Input
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      placeholder="VD: Chị Lan Anh"
+                      className="text-xs h-9 rounded-lg border-slate-200"
+                    />
+                  </div>
+                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                    <Label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                      <Phone className="w-3 h-3 text-primary" /> Số điện thoại
+                    </Label>
+                    <Input
+                      value={form.phone}
+                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                      placeholder="0912345678"
+                      className="text-xs h-9 rounded-lg border-slate-200 font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1.5 col-span-2">
+                    <Label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-primary" /> Địa chỉ chi tiết
+                    </Label>
+                    <Input
+                      value={form.address}
+                      onChange={(e) => setForm({ ...form, address: e.target.value })}
+                      placeholder="Số nhà, tên đường..."
+                      className="text-xs h-9 rounded-lg border-slate-200"
+                    />
+                  </div>
+                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                    <Label className="text-[11px] font-bold text-slate-700">Tỉnh / Thành phố</Label>
+                    <Input
+                      value={form.city}
+                      onChange={(e) => setForm({ ...form, city: e.target.value })}
+                      placeholder="Hà Nội, TP.HCM..."
+                      className="text-xs h-9 rounded-lg border-slate-200"
+                    />
+                  </div>
+                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                    <Label className="text-[11px] font-bold text-slate-700">Mã số thuế (B2B)</Label>
+                    <Input
+                      value={form.tax_code}
+                      onChange={(e) => setForm({ ...form, tax_code: e.target.value })}
+                      placeholder="Mã số thuế doanh nghiệp"
+                      className="text-xs h-9 rounded-lg border-slate-200 font-mono"
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* TAB 2: NHU CẦU & CHUYÊN MÔN */}
+              <TabsContent value="business" className="space-y-4 focus-visible:outline-none">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                    <Label className="text-[11px] font-bold text-slate-700">Quy mô (Số giường)</Label>
+                    <Input
+                      type="number"
+                      value={form.bed_count}
+                      onChange={(e) => setForm({ ...form, bed_count: parseInt(e.target.value) || 0 })}
+                      className="text-xs h-9 rounded-lg border-slate-200"
+                    />
+                  </div>
+                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                    <Label className="text-[11px] font-bold text-slate-700">Số lượng nhân sự</Label>
+                    <Input
+                      type="number"
+                      value={form.staff_count}
+                      onChange={(e) => setForm({ ...form, staff_count: parseInt(e.target.value) || 0 })}
+                      className="text-xs h-9 rounded-lg border-slate-200"
+                    />
+                  </div>
+                  <div className="space-y-1.5 col-span-2">
+                    <Label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-primary" /> Chuyên môn tập trung
+                    </Label>
+                    <Input
+                      value={form.main_service}
+                      onChange={(e) => setForm({ ...form, main_service: e.target.value })}
+                      placeholder="Nám, mụn, trẻ hóa, tắm trắng..."
+                      className="text-xs h-9 rounded-lg border-slate-200"
+                    />
+                  </div>
+                  <div className="space-y-1.5 col-span-2">
+                    <Label className="text-[11px] font-bold text-slate-700">Thiết bị công nghệ đang dùng</Label>
+                    <Input
+                      value={form.tech_equipment}
+                      onChange={(e) => setForm({ ...form, tech_equipment: e.target.value })}
+                      placeholder="Laser, HIFU, Phi kim..."
+                      className="text-xs h-9 rounded-lg border-slate-200"
+                    />
+                  </div>
+                  <div className="space-y-1.5 col-span-2">
+                    <Label className="text-[11px] font-bold text-slate-700">Nhãn hàng đang sử dụng</Label>
+                    <Input
+                      value={form.current_brands}
+                      onChange={(e) => setForm({ ...form, current_brands: e.target.value })}
+                      placeholder="Các thương hiệu mỹ phẩm hiện có tại cơ sở"
+                      className="text-xs h-9 rounded-lg border-slate-200"
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* TAB 3: NGƯỜI QUYẾT ĐỊNH */}
+              <TabsContent value="dm" className="space-y-4 focus-visible:outline-none">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                    <Label className="text-[11px] font-bold text-slate-700">Tên người quyết định</Label>
+                    <Input
+                      value={form.decision_maker}
+                      onChange={(e) => setForm({ ...form, decision_maker: e.target.value })}
+                      placeholder="Họ tên Chủ Spa"
+                      className="text-xs h-9 rounded-lg border-slate-200"
+                    />
+                  </div>
+                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                    <Label className="text-[11px] font-bold text-slate-700">Vai trò</Label>
+                    <Select value={form.decision_role} onValueChange={(v) => setForm({ ...form, decision_role: v })}>
+                      <SelectTrigger className="text-xs h-9 rounded-lg border-slate-200">
+                        <SelectValue />
                       </SelectTrigger>
-                      <SelectContent />
-                    </Select>
-                  ) : (
-                    <Select 
-                      value={form.owner_tele_id} 
-                      onValueChange={(val) => setForm({ ...form, owner_tele_id: val })}
-                    >
-                      <SelectTrigger className="bg-white text-xs h-9 rounded-lg">
-                        <SelectValue placeholder="Chọn Trưởng Tele" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl max-h-48">
-                        <SelectItem value="" className="text-xs italic text-slate-400">— Không bắt buộc —</SelectItem>
-                        {teleUsers.map(u => (
-                          <SelectItem key={u.id} value={u.id} className="text-xs font-medium">
-                            🎧 {u.display_name || u.full_name || u.email || "ID: " + u.id.slice(0,6)}
-                          </SelectItem>
-                        ))}
+                      <SelectContent>
+                        <SelectItem value="OWNER">Chủ sở hữu</SelectItem>
+                        <SelectItem value="MANAGER">Quản lý điều hành</SelectItem>
+                        <SelectItem value="DOCTOR">Bác sĩ chuyên trách</SelectItem>
                       </SelectContent>
                     </Select>
-                  )}
-                  {/* Validation nhẹ */}
-                  {form.care_model === "tele_owned" && !form.owner_tele_id && (
-                    <div className="text-[10px] text-amber-600 font-medium pt-1 animate-pulse">
-                      ⚠️ Mô hình do Trưởng Tele sở hữu, khuyên dùng chọn để định tuyến chuẩn.
-                    </div>
-                  )}
+                  </div>
+                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                    <Label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                      <CalendarIcon className="w-3 h-3 text-red-500" /> Ngày sinh (Dùng tặng quà)
+                    </Label>
+                    <Input
+                      type="date"
+                      value={form.decision_maker_dob}
+                      onChange={(e) => setForm({ ...form, decision_maker_dob: e.target.value })}
+                      className="text-xs h-9 rounded-lg border-slate-200"
+                    />
+                  </div>
+                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                    <Label className="text-[11px] font-bold text-slate-700">Đặc điểm tính cách</Label>
+                    <Input
+                      value={form.personality_trait}
+                      onChange={(e) => setForm({ ...form, personality_trait: e.target.value })}
+                      placeholder="Khó tính, thích quà, chú trọng chuyên môn..."
+                      className="text-xs h-9 rounded-lg border-slate-200"
+                    />
+                  </div>
+                  <div className="space-y-1.5 col-span-2">
+                    <Label className="text-[11px] font-bold text-slate-700">Email liên hệ</Label>
+                    <Input
+                      value={form.email}
+                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      placeholder="example@gmail.com"
+                      className="text-xs h-9 rounded-lg border-slate-200"
+                    />
+                  </div>
+                  <div className="space-y-1.5 col-span-2">
+                    <Label className="text-[11px] font-bold text-slate-700">Ghi chú đặc biệt cho Sale</Label>
+                    <textarea
+                      value={form.note}
+                      onChange={(e) => setForm({ ...form, note: e.target.value })}
+                      className="w-full min-h-[80px] p-2 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-primary outline-none"
+                      placeholder="Những điều cần lưu ý khi tiếp cận khách hàng này..."
+                    />
+                  </div>
                 </div>
-              </div>
+              </TabsContent>
 
-              {/* Box Ghi chú logic vận hành */}
-              <div className="text-[10px] text-slate-500 bg-white/80 p-2 rounded-lg border border-slate-100 leading-relaxed">
-                💡 <strong>Quy tắc ưu tiên:</strong> Nếu chọn kênh <em>"Sale trực tiếp"</em>, hệ thống ưu tiên gán tài khoản Sale. Kênh <em>"Tele/Online"</em> cho phép chỉ định thêm Trưởng Tele quản lý vòng đời chăm sóc.
-              </div>
-            </div>
+              {/* TAB 4: CHĂM SÓC & PHÂN TUYẾN */}
+              <TabsContent value="care" className="space-y-4 focus-visible:outline-none">
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                      <Label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <Target className="w-3 h-3 text-purple-600" /> Giai đoạn khách hàng
+                      </Label>
+                      <Select value={form.lifecycle_stage} onValueChange={(v) => setForm({ ...form, lifecycle_stage: v })}>
+                        <SelectTrigger className="text-xs h-9 rounded-lg bg-white border-slate-200">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="lead">Lead (Tiềm năng)</SelectItem>
+                          <SelectItem value="prospect">Prospect (Cơ hội)</SelectItem>
+                          <SelectItem value="customer">Customer (Đại lý)</SelectItem>
+                          <SelectItem value="loyal">Loyal (Thân thiết)</SelectItem>
+                          <SelectItem value="churned">Churned (Ngừng chăm)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                      <Label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-amber-500" /> Mức độ ưu tiên
+                      </Label>
+                      <Select value={form.potential_level} onValueChange={(v) => setForm({ ...form, potential_level: v })}>
+                        <SelectTrigger className="text-xs h-9 rounded-lg bg-white border-slate-200 font-bold">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cold" className="text-slate-400">Lạnh</SelectItem>
+                          <SelectItem value="warm" className="text-amber-500">Ấm</SelectItem>
+                          <SelectItem value="hot" className="text-red-500">Nóng 🔥</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                      <Label className="text-[11px] font-bold text-slate-700">Kênh tiếp cận</Label>
+                      <Select value={form.customer_channel} onValueChange={(v: any) => setForm({ ...form, customer_channel: v })}>
+                        <SelectTrigger className="text-xs h-9 rounded-lg bg-white border-slate-200">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CUSTOMER_CHANNEL_OPTIONS.map(o => (
+                            <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                      <Label className="text-[11px] font-bold text-slate-700">Khoảng cách</Label>
+                      <Select value={form.customer_distance_type} onValueChange={(v: any) => setForm({ ...form, customer_distance_type: v })}>
+                        <SelectTrigger className="text-xs h-9 rounded-lg bg-white border-slate-200">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CUSTOMER_DISTANCE_OPTIONS.map(o => (
+                            <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                      <Label className="text-[11px] font-bold text-slate-700">Mô hình chăm sóc</Label>
+                      <Select value={form.care_model} onValueChange={(v: any) => setForm({ ...form, care_model: v })}>
+                        <SelectTrigger className="text-xs h-9 rounded-lg bg-white border-slate-200">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CARE_MODEL_OPTIONS.map(o => (
+                            <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                      <Label className="text-[11px] font-bold text-slate-700">Sale phụ trách chính</Label>
+                      <Select value={form.owner_sale_id} onValueChange={(v) => setForm({ ...form, owner_sale_id: v })}>
+                        <SelectTrigger className="text-xs h-9 rounded-lg bg-white border-slate-200">
+                          <SelectValue placeholder="Chọn nhân sự Sale" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none" className="text-xs italic">— Chưa phân công —</SelectItem>
+                          {salesUsers.map(u => (
+                            <SelectItem key={u.id} value={u.id} className="text-xs">👤 {u.full_name || u.email}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                      <Label className="text-[11px] font-bold text-slate-700">Trưởng Tele phụ trách</Label>
+                      <Select value={form.owner_tele_id} onValueChange={(v) => setForm({ ...form, owner_tele_id: v })}>
+                        <SelectTrigger className="text-xs h-9 rounded-lg bg-white border-slate-200">
+                          <SelectValue placeholder="Chọn nhân sự Tele" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none" className="text-xs italic">— Chưa phân công —</SelectItem>
+                          {teleUsers.map(u => (
+                            <SelectItem key={u.id} value={u.id} className="text-xs">🎧 {u.full_name || u.email}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center space-x-2 pt-2">
+                      <input
+                        type="checkbox"
+                        id="marketing_opt_in"
+                        checked={form.marketing_opt_in}
+                        onChange={(e) => setForm({ ...form, marketing_opt_in: e.target.checked })}
+                        className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
+                      />
+                      <Label htmlFor="marketing_opt_in" className="text-[11px] font-bold text-slate-700 cursor-pointer">Đồng ý nhận tin nhắn Marketing / Khuyến mãi</Label>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
 
           <DialogFooter className="pt-2 border-t border-slate-100">
@@ -1246,6 +1662,13 @@ export function CustomersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CustomerPreviewDrawer 
+        customer={selectedCustomer}
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        getStaffName={getStaffName}
+      />
     </div>
   );
 }
