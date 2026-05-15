@@ -1313,337 +1313,372 @@ export function CustomersPage() {
         </div>
       </main>
 
-      {/* DIALOG FORM BỔ SUNG SECTION "TUYẾN CHĂM SÓC" */}
+      {/* DIALOG FORM BỔ SUNG SECTION "TUYẾN CHĂM SÓC" - OPTIMIZED UX/UI */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-2xl p-0 rounded-3xl font-sans overflow-hidden border-white/20 shadow-2xl backdrop-blur-xl bg-white/90">
-          <div className="bg-slate-900 px-6 py-5 flex items-center justify-between border-b border-white/10">
-            <DialogHeader>
-              <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
-                <span className="bg-white/10 p-2 rounded-xl border border-white/10">
-                  {editingId ? "✏️" : "✨"}
-                </span>
-                <span>{editingId ? "Cập nhật Khách hàng" : "Thêm Khách hàng & Phân tuyến"}</span>
-              </DialogTitle>
-            </DialogHeader>
-            <button onClick={() => setOpen(false)} className="text-white/40 hover:text-white transition-colors">
+        <DialogContent className="sm:max-w-2xl p-0 overflow-hidden border-none shadow-2xl rounded-[28px] bg-white/95 backdrop-blur-xl">
+          {/* Header với Gradient mượt mà */}
+          <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-8 py-6 flex items-center justify-between relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+              <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[120%] bg-primary rotate-12 blur-3xl"></div>
+            </div>
+            
+            <div className="relative z-10">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-black text-white tracking-tight flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center border border-white/20 backdrop-blur-sm shadow-inner">
+                    {editingId ? <Pencil className="w-5 h-5 text-primary" /> : <Plus className="w-5 h-5 text-primary" />}
+                  </div>
+                  <div className="flex flex-col">
+                    <span>{editingId ? "Cập nhật Khách hàng" : "Thêm Khách hàng"}</span>
+                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest mt-0.5">Hồ sơ & Phân tuyến Ownership</span>
+                  </div>
+                </DialogTitle>
+              </DialogHeader>
+            </div>
+            
+            <button 
+              onClick={() => setOpen(false)} 
+              className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/20 flex items-center justify-center text-white/60 hover:text-white transition-all border border-white/10 relative z-10"
+            >
               <Plus className="w-5 h-5 rotate-45" />
             </button>
           </div>
 
-          <div className="px-6 py-6 max-h-[75vh] overflow-y-auto">
+          <div className="px-8 py-6 max-h-[70vh] overflow-y-auto custom-scrollbar bg-slate-50/30">
             <Tabs defaultValue="profile" className="w-full">
-              <TabsList className="grid w-full grid-cols-4 mb-6 bg-slate-100/50 p-1 rounded-xl">
-                <TabsTrigger value="profile" className="text-[11px] font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Hồ sơ</TabsTrigger>
-                <TabsTrigger value="business" className="text-[11px] font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Kinh doanh</TabsTrigger>
-                <TabsTrigger value="dm" className="text-[11px] font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Quyết định</TabsTrigger>
-                <TabsTrigger value="care" className="text-[11px] font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Chăm sóc</TabsTrigger>
+              {/* Tabs thiết kế dạng Segmented Control cao cấp */}
+              <TabsList className="flex w-full mb-8 bg-slate-200/50 p-1.5 rounded-[18px] border border-slate-200/30">
+                <TabsTrigger value="profile" className="flex-1 text-[11px] font-black rounded-[12px] py-2.5 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-lg data-[state=active]:shadow-slate-200/50 transition-all uppercase tracking-wider">Hồ sơ</TabsTrigger>
+                <TabsTrigger value="business" className="flex-1 text-[11px] font-black rounded-[12px] py-2.5 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-lg data-[state=active]:shadow-slate-200/50 transition-all uppercase tracking-wider">Kinh doanh</TabsTrigger>
+                <TabsTrigger value="dm" className="flex-1 text-[11px] font-black rounded-[12px] py-2.5 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-lg data-[state=active]:shadow-slate-200/50 transition-all uppercase tracking-wider">Quyết định</TabsTrigger>
+                <TabsTrigger value="care" className="flex-1 text-[11px] font-black rounded-[12px] py-2.5 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-lg data-[state=active]:shadow-slate-200/50 transition-all uppercase tracking-wider">Chăm sóc</TabsTrigger>
               </TabsList>
 
               {/* TAB 1: HỒ SƠ CƠ SỞ & LIÊN HỆ */}
-              <TabsContent value="profile" className="space-y-4 focus-visible:outline-none">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5 col-span-2">
-                    <Label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                      <Building2 className="w-3 h-3 text-primary" /> Tên cơ sở (Spa/Salon/Clinic) <span className="text-red-500">*</span>
+              <TabsContent value="profile" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="grid grid-cols-2 gap-5">
+                  <div className="space-y-2 col-span-2">
+                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                      <Building2 className="w-3.5 h-3.5 text-primary/70" /> Tên cơ sở (Spa/Clinic) <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       value={form.facility_name}
                       onChange={(e) => setForm({ ...form, facility_name: e.target.value })}
                       placeholder="VD: Desembre Premium Clinic"
-                      className="text-xs h-9 rounded-lg border-slate-200 focus:ring-1 focus:ring-primary"
+                      className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300"
                     />
                   </div>
-                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                    <Label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                      <UserCircle className="w-3 h-3 text-primary" /> Tên người liên hệ
+                  
+                  <div className="space-y-2 col-span-2 sm:col-span-1">
+                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                      <UserCircle className="w-3.5 h-3.5 text-primary/70" /> Người liên hệ
                     </Label>
                     <Input
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
                       placeholder="VD: Chị Lan Anh"
-                      className="text-xs h-9 rounded-lg border-slate-200"
+                      className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300"
                     />
                   </div>
-                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                    <Label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                      <Phone className="w-3 h-3 text-primary" /> Số điện thoại
+                  
+                  <div className="space-y-2 col-span-2 sm:col-span-1">
+                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                      <Phone className="w-3.5 h-3.5 text-primary/70" /> Số điện thoại
                     </Label>
                     <Input
                       value={form.phone}
                       onChange={(e) => setForm({ ...form, phone: e.target.value })}
                       placeholder="0912345678"
-                      className="text-xs h-9 rounded-lg border-slate-200 font-mono"
+                      className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm font-mono focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300"
                     />
                   </div>
-                  <div className="space-y-1.5 col-span-2">
-                    <Label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-primary" /> Địa chỉ chi tiết
+                  
+                  <div className="space-y-2 col-span-2">
+                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                      <MapPin className="w-3.5 h-3.5 text-primary/70" /> Địa chỉ chi tiết
                     </Label>
                     <Input
                       value={form.address}
                       onChange={(e) => setForm({ ...form, address: e.target.value })}
-                      placeholder="Số nhà, tên đường..."
-                      className="text-xs h-9 rounded-lg border-slate-200"
+                      placeholder="Số nhà, tên đường, phường/xã..."
+                      className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300"
                     />
                   </div>
-                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                    <Label className="text-[11px] font-bold text-slate-700">Tỉnh / Thành phố</Label>
+                  
+                  <div className="space-y-2 col-span-2 sm:col-span-1">
+                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                      <Map className="w-3.5 h-3.5 text-primary/70" /> Tỉnh / Thành phố
+                    </Label>
                     <Input
                       value={form.city}
                       onChange={(e) => setForm({ ...form, city: e.target.value })}
                       placeholder="Hà Nội, TP.HCM..."
-                      className="text-xs h-9 rounded-lg border-slate-200"
+                      className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300"
                     />
                   </div>
-                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                    <Label className="text-[11px] font-bold text-slate-700">Mã số thuế (B2B)</Label>
+                  
+                  <div className="space-y-2 col-span-2 sm:col-span-1">
+                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                      <Shield className="w-3.5 h-3.5 text-primary/70" /> Mã số thuế (B2B)
+                    </Label>
                     <Input
                       value={form.tax_code}
                       onChange={(e) => setForm({ ...form, tax_code: e.target.value })}
-                      placeholder="Mã số thuế doanh nghiệp"
-                      className="text-xs h-9 rounded-lg border-slate-200 font-mono"
+                      placeholder="MST doanh nghiệp"
+                      className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm font-mono focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300"
                     />
                   </div>
                 </div>
               </TabsContent>
 
               {/* TAB 2: NHU CẦU & CHUYÊN MÔN */}
-              <TabsContent value="business" className="space-y-4 focus-visible:outline-none">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                    <Label className="text-[11px] font-bold text-slate-700">Quy mô (Số giường)</Label>
+              <TabsContent value="business" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="grid grid-cols-2 gap-5">
+                  <div className="space-y-2 col-span-2 sm:col-span-1">
+                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">Quy mô (Số giường)</Label>
                     <Input
                       type="number"
                       value={form.bed_count}
                       onChange={(e) => setForm({ ...form, bed_count: parseInt(e.target.value) || 0 })}
-                      className="text-xs h-9 rounded-lg border-slate-200"
+                      className="text-sm h-11 rounded-2xl border-slate-200/60 shadow-sm"
                     />
                   </div>
-                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                    <Label className="text-[11px] font-bold text-slate-700">Số lượng nhân sự</Label>
+                  <div className="space-y-2 col-span-2 sm:col-span-1">
+                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">Số lượng nhân sự</Label>
                     <Input
                       type="number"
                       value={form.staff_count}
                       onChange={(e) => setForm({ ...form, staff_count: parseInt(e.target.value) || 0 })}
-                      className="text-xs h-9 rounded-lg border-slate-200"
+                      className="text-sm h-11 rounded-2xl border-slate-200/60 shadow-sm"
                     />
                   </div>
-                  <div className="space-y-1.5 col-span-2">
-                    <Label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-primary" /> Chuyên môn tập trung
+                  <div className="space-y-2 col-span-2">
+                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Chuyên môn tập trung
                     </Label>
                     <Input
                       value={form.main_service}
                       onChange={(e) => setForm({ ...form, main_service: e.target.value })}
-                      placeholder="Nám, mụn, trẻ hóa, tắm trắng..."
-                      className="text-xs h-9 rounded-lg border-slate-200"
+                      placeholder="VD: Nám, mụn, trẻ hóa..."
+                      className="text-sm h-11 rounded-2xl border-slate-200/60 shadow-sm"
                     />
                   </div>
-                  <div className="space-y-1.5 col-span-2">
-                    <Label className="text-[11px] font-bold text-slate-700">Thiết bị công nghệ đang dùng</Label>
+                  <div className="space-y-2 col-span-2">
+                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">Thiết bị công nghệ</Label>
                     <Input
                       value={form.tech_equipment}
                       onChange={(e) => setForm({ ...form, tech_equipment: e.target.value })}
-                      placeholder="Laser, HIFU, Phi kim..."
-                      className="text-xs h-9 rounded-lg border-slate-200"
+                      placeholder="VD: Laser, HIFU, Phi kim..."
+                      className="text-sm h-11 rounded-2xl border-slate-200/60 shadow-sm"
                     />
                   </div>
-                  <div className="space-y-1.5 col-span-2">
-                    <Label className="text-[11px] font-bold text-slate-700">Nhãn hàng đang sử dụng</Label>
+                  <div className="space-y-2 col-span-2">
+                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">Nhãn hàng đang sử dụng</Label>
                     <Input
                       value={form.current_brands}
                       onChange={(e) => setForm({ ...form, current_brands: e.target.value })}
-                      placeholder="Các thương hiệu mỹ phẩm hiện có tại cơ sở"
-                      className="text-xs h-9 rounded-lg border-slate-200"
+                      placeholder="Các thương hiệu mỹ phẩm hiện có..."
+                      className="text-sm h-11 rounded-2xl border-slate-200/60 shadow-sm"
                     />
                   </div>
                 </div>
               </TabsContent>
 
               {/* TAB 3: NGƯỜI QUYẾT ĐỊNH */}
-              <TabsContent value="dm" className="space-y-4 focus-visible:outline-none">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                    <Label className="text-[11px] font-bold text-slate-700">Tên người quyết định</Label>
+              <TabsContent value="dm" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="grid grid-cols-2 gap-5">
+                  <div className="space-y-2 col-span-2 sm:col-span-1">
+                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">Tên người quyết định</Label>
                     <Input
                       value={form.decision_maker}
                       onChange={(e) => setForm({ ...form, decision_maker: e.target.value })}
                       placeholder="Họ tên Chủ Spa"
-                      className="text-xs h-9 rounded-lg border-slate-200"
+                      className="text-sm h-11 rounded-2xl border-slate-200/60 shadow-sm"
                     />
                   </div>
-                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                    <Label className="text-[11px] font-bold text-slate-700">Vai trò</Label>
+                  <div className="space-y-2 col-span-2 sm:col-span-1">
+                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">Vai trò</Label>
                     <Select value={form.decision_role} onValueChange={(v) => setForm({ ...form, decision_role: v })}>
-                      <SelectTrigger className="text-xs h-9 rounded-lg border-slate-200">
+                      <SelectTrigger className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm font-medium">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="OWNER">Chủ sở hữu</SelectItem>
-                        <SelectItem value="MANAGER">Quản lý điều hành</SelectItem>
-                        <SelectItem value="DOCTOR">Bác sĩ chuyên trách</SelectItem>
+                      <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
+                        <SelectItem value="OWNER" className="text-sm font-medium">Chủ sở hữu</SelectItem>
+                        <SelectItem value="MANAGER" className="text-sm font-medium">Quản lý điều hành</SelectItem>
+                        <SelectItem value="DOCTOR" className="text-sm font-medium">Bác sĩ chuyên trách</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                    <Label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                      <CalendarIcon className="w-3 h-3 text-red-500" /> Ngày sinh (Dùng tặng quà)
+                  <div className="space-y-2 col-span-2 sm:col-span-1">
+                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                      <CalendarIcon className="w-3.5 h-3.5 text-red-400" /> Ngày sinh
                     </Label>
                     <Input
                       type="date"
                       value={form.decision_maker_dob}
                       onChange={(e) => setForm({ ...form, decision_maker_dob: e.target.value })}
-                      className="text-xs h-9 rounded-lg border-slate-200"
+                      className="text-sm h-11 rounded-2xl border-slate-200/60 shadow-sm"
                     />
                   </div>
-                  <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                    <Label className="text-[11px] font-bold text-slate-700">Đặc điểm tính cách</Label>
+                  <div className="space-y-2 col-span-2 sm:col-span-1">
+                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">Đặc điểm tính cách</Label>
                     <Input
                       value={form.personality_trait}
                       onChange={(e) => setForm({ ...form, personality_trait: e.target.value })}
-                      placeholder="Khó tính, thích quà, chú trọng chuyên môn..."
-                      className="text-xs h-9 rounded-lg border-slate-200"
+                      placeholder="VD: Chú trọng chuyên môn..."
+                      className="text-sm h-11 rounded-2xl border-slate-200/60 shadow-sm"
                     />
                   </div>
-                  <div className="space-y-1.5 col-span-2">
-                    <Label className="text-[11px] font-bold text-slate-700">Email liên hệ</Label>
+                  <div className="space-y-2 col-span-2">
+                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                      <Mail className="w-3.5 h-3.5 text-blue-400" /> Email liên hệ
+                    </Label>
                     <Input
                       value={form.email}
                       onChange={(e) => setForm({ ...form, email: e.target.value })}
                       placeholder="example@gmail.com"
-                      className="text-xs h-9 rounded-lg border-slate-200"
+                      className="text-sm h-11 rounded-2xl border-slate-200/60 shadow-sm"
                     />
                   </div>
-                  <div className="space-y-1.5 col-span-2">
-                    <Label className="text-[11px] font-bold text-slate-700">Ghi chú đặc biệt cho Sale</Label>
+                  <div className="space-y-2 col-span-2">
+                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">Ghi chú tiếp cận</Label>
                     <textarea
                       value={form.note}
                       onChange={(e) => setForm({ ...form, note: e.target.value })}
-                      className="w-full min-h-[80px] p-2 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-primary outline-none"
-                      placeholder="Những điều cần lưu ý khi tiếp cận khách hàng này..."
+                      className="w-full min-h-[100px] p-4 text-sm border border-slate-200/60 rounded-2xl bg-white shadow-sm focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300"
+                      placeholder="Những điều cần lưu ý khi làm việc với khách hàng..."
                     />
                   </div>
                 </div>
               </TabsContent>
 
               {/* TAB 4: CHĂM SÓC & PHÂN TUYẾN */}
-              <TabsContent value="care" className="space-y-4 focus-visible:outline-none">
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                      <Label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                        <Target className="w-3 h-3 text-purple-600" /> Giai đoạn khách hàng
+              <TabsContent value="care" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm space-y-6">
+                  <div className="grid grid-cols-2 gap-5">
+                    <div className="space-y-2 col-span-2 sm:col-span-1">
+                      <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                        <Target className="w-3.5 h-3.5 text-purple-600" /> Giai đoạn
                       </Label>
                       <Select value={form.lifecycle_stage} onValueChange={(v) => setForm({ ...form, lifecycle_stage: v })}>
-                        <SelectTrigger className="text-xs h-9 rounded-lg bg-white border-slate-200">
+                        <SelectTrigger className="text-sm h-11 rounded-2xl bg-slate-50/50 border-slate-200/60 font-semibold text-slate-700">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="lead">Lead (Tiềm năng)</SelectItem>
-                          <SelectItem value="prospect">Prospect (Cơ hội)</SelectItem>
-                          <SelectItem value="customer">Customer (Đại lý)</SelectItem>
-                          <SelectItem value="loyal">Loyal (Thân thiết)</SelectItem>
-                          <SelectItem value="churned">Churned (Ngừng chăm)</SelectItem>
+                        <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
+                          <SelectItem value="lead" className="text-sm font-medium">Lead (Tiềm năng)</SelectItem>
+                          <SelectItem value="prospect" className="text-sm font-medium">Prospect (Cơ hội)</SelectItem>
+                          <SelectItem value="customer" className="text-sm font-medium">Customer (Đại lý)</SelectItem>
+                          <SelectItem value="loyal" className="text-sm font-medium">Loyal (Thân thiết)</SelectItem>
+                          <SelectItem value="churned" className="text-sm font-medium">Churned (Ngừng chăm)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                      <Label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 text-amber-500" /> Mức độ ưu tiên
+                    
+                    <div className="space-y-2 col-span-2 sm:col-span-1">
+                      <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Độ ưu tiên
                       </Label>
                       <Select value={form.potential_level} onValueChange={(v) => setForm({ ...form, potential_level: v })}>
-                        <SelectTrigger className="text-xs h-9 rounded-lg bg-white border-slate-200 font-bold">
+                        <SelectTrigger className="text-sm h-11 rounded-2xl bg-slate-50/50 border-slate-200/60 font-black">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="cold" className="text-slate-400">Lạnh</SelectItem>
-                          <SelectItem value="warm" className="text-amber-500">Ấm</SelectItem>
-                          <SelectItem value="hot" className="text-red-500">Nóng 🔥</SelectItem>
+                        <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
+                          <SelectItem value="cold" className="text-sm font-bold text-slate-400">LẠNH</SelectItem>
+                          <SelectItem value="warm" className="text-sm font-bold text-amber-500">ẤM</SelectItem>
+                          <SelectItem value="hot" className="text-sm font-bold text-red-500">NÓNG 🔥</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
-                    <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                      <Label className="text-[11px] font-bold text-slate-700">Kênh tiếp cận</Label>
+                    <div className="space-y-2 col-span-2 sm:col-span-1">
+                      <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">Kênh tiếp cận</Label>
                       <Select value={form.customer_channel} onValueChange={(v: any) => setForm({ ...form, customer_channel: v })}>
-                        <SelectTrigger className="text-xs h-9 rounded-lg bg-white border-slate-200">
+                        <SelectTrigger className="text-sm h-11 rounded-2xl bg-white border-slate-200/60 font-medium">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
                           {CUSTOMER_CHANNEL_OPTIONS.map(o => (
-                            <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+                            <SelectItem key={o.value} value={o.value} className="text-sm font-medium">{o.label}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
 
-                    <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                      <Label className="text-[11px] font-bold text-slate-700">Khoảng cách</Label>
+                    <div className="space-y-2 col-span-2 sm:col-span-1">
+                      <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">Khoảng cách</Label>
                       <Select value={form.customer_distance_type} onValueChange={(v: any) => setForm({ ...form, customer_distance_type: v })}>
-                        <SelectTrigger className="text-xs h-9 rounded-lg bg-white border-slate-200">
+                        <SelectTrigger className="text-sm h-11 rounded-2xl bg-white border-slate-200/60 font-medium">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
                           {CUSTOMER_DISTANCE_OPTIONS.map(o => (
-                            <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+                            <SelectItem key={o.value} value={o.value} className="text-sm font-medium">{o.label}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
 
-                    <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                      <Label className="text-[11px] font-bold text-slate-700">Mô hình chăm sóc</Label>
+                    <div className="space-y-2 col-span-2">
+                      <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">Mô hình chăm sóc</Label>
                       <Select value={form.care_model} onValueChange={(v: any) => setForm({ ...form, care_model: v })}>
-                        <SelectTrigger className="text-xs h-9 rounded-lg bg-white border-slate-200">
+                        <SelectTrigger className="text-sm h-11 rounded-2xl bg-white border-slate-200/60 font-bold text-primary">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
                           {CARE_MODEL_OPTIONS.map(o => (
-                            <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+                            <SelectItem key={o.value} value={o.value} className="text-sm font-bold">{o.label}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
 
-                    <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                      <Label className="text-[11px] font-bold text-slate-700">Sale phụ trách chính</Label>
+                    <div className="space-y-2 col-span-2 sm:col-span-1">
+                      <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                        <UserCheck className="w-3.5 h-3.5 text-emerald-600" /> Sale phụ trách
+                      </Label>
                       <Select value={form.owner_sale_id} onValueChange={(v) => setForm({ ...form, owner_sale_id: v })}>
-                        <SelectTrigger className="text-xs h-9 rounded-lg bg-white border-slate-200">
+                        <SelectTrigger className="text-sm h-11 rounded-2xl bg-white border-slate-200/60 font-medium">
                           <SelectValue placeholder="Chọn nhân sự Sale" />
                         </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none" className="text-xs italic">— Chưa phân công —</SelectItem>
+                        <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
+                          <SelectItem value="none" className="text-sm italic text-slate-400">— Chưa phân công —</SelectItem>
                           {salesUsers.map(u => (
-                            <SelectItem key={u.id} value={u.id} className="text-xs">👤 {u.full_name || u.email}</SelectItem>
+                            <SelectItem key={u.id} value={u.id} className="text-sm font-medium">👤 {u.full_name || u.email}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
 
-                    <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                      <Label className="text-[11px] font-bold text-slate-700">Trưởng Tele phụ trách</Label>
+                    <div className="space-y-2 col-span-2 sm:col-span-1">
+                      <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                        <Headset className="w-3.5 h-3.5 text-amber-600" /> Tele phụ trách
+                      </Label>
                       <Select value={form.owner_tele_id} onValueChange={(v) => setForm({ ...form, owner_tele_id: v })}>
-                        <SelectTrigger className="text-xs h-9 rounded-lg bg-white border-slate-200">
+                        <SelectTrigger className="text-sm h-11 rounded-2xl bg-white border-slate-200/60 font-medium">
                           <SelectValue placeholder="Chọn nhân sự Tele" />
                         </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none" className="text-xs italic">— Chưa phân công —</SelectItem>
+                        <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
+                          <SelectItem value="none" className="text-sm italic text-slate-400">— Chưa phân công —</SelectItem>
                           {teleUsers.map(u => (
-                            <SelectItem key={u.id} value={u.id} className="text-xs">🎧 {u.full_name || u.email}</SelectItem>
+                            <SelectItem key={u.id} value={u.id} className="text-sm font-medium">🎧 {u.full_name || u.email}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
 
-                    <div className="flex items-center space-x-2 pt-2">
-                      <input
-                        type="checkbox"
-                        id="marketing_opt_in"
-                        checked={form.marketing_opt_in}
-                        onChange={(e) => setForm({ ...form, marketing_opt_in: e.target.checked })}
-                        className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
-                      />
-                      <Label htmlFor="marketing_opt_in" className="text-[11px] font-bold text-slate-700 cursor-pointer">Đồng ý nhận tin nhắn Marketing / Khuyến mãi</Label>
+                    <div className="col-span-2 pt-2 px-1">
+                      <div className="flex items-center space-x-3 bg-slate-100/50 p-4 rounded-[18px] border border-slate-200/40">
+                        <input
+                          type="checkbox"
+                          id="marketing_opt_in"
+                          checked={form.marketing_opt_in}
+                          onChange={(e) => setForm({ ...form, marketing_opt_in: e.target.checked })}
+                          className="w-5 h-5 rounded-lg border-slate-300 text-primary focus:ring-primary transition-all cursor-pointer"
+                        />
+                        <Label htmlFor="marketing_opt_in" className="text-[11px] font-black text-slate-700 cursor-pointer uppercase tracking-wider">
+                          Đồng ý nhận tin nhắn Marketing / Khuyến mãi
+                        </Label>
+                      </div>
                     </div>
                   </div>
                 </div>
