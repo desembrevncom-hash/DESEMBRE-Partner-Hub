@@ -53,7 +53,16 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ ev
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
 
   const getEventsForDay = (day: Date) => {
-    return events.filter(event => isSameDay(new Date(event.start_time || event.due_at), day));
+    return events.filter(event => {
+      // Đối với sự kiện công ty, ưu tiên hiển thị vào ngày diễn ra sự kiện (ends_at)
+      // Đối với các task/lịch cá nhân, dùng starts_at hoặc due_at
+      const isCompany = event._ui_type === 'company';
+      const eventDate = isCompany 
+        ? (event.ends_at || event.starts_at) 
+        : (event.starts_at || event.start_time || event.due_at);
+        
+      return eventDate ? isSameDay(new Date(eventDate), day) : false;
+    });
   };
 
   const handleDayClick = (day: Date) => {
