@@ -61,20 +61,21 @@ export const TeleLeadWorkspace: React.FC = () => {
   ];
 
   return (
-    <WorkspaceShell title="Tele Lead Workspace" icon={<LayoutDashboard className="w-6 h-6" />} loading={data.loading}>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {stats.map((stat, i) => (
-          <WorkspaceStatCard key={i} {...stat} loading={data.loading} />
-        ))}
-      </div>
-
-      <div className="flex flex-wrap gap-3 mb-8">
-        <Button asChild size="sm" className="bg-slate-900 hover:bg-primary rounded-xl font-bold px-5 py-5 shadow-lg shadow-slate-200">
-          <Link to="/customers"><Plus className="w-4 h-4 mr-2" /> Tạo task gọi khách</Link>
-        </Button>
-        <Button asChild variant="outline" size="sm" className="border-slate-200 hover:bg-slate-50 rounded-xl font-bold px-5 py-5">
-          <Link to="/customers"><PhoneCall className="w-4 h-4 mr-2" /> Mở khách Tele</Link>
-        </Button>
+      {/* HEADER SECTION: STATS + ACTIONS */}
+      <div className="flex flex-wrap items-stretch gap-3 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 flex-1">
+          {stats.map((stat, i) => (
+            <WorkspaceStatCard key={i} {...stat} loading={data.loading} />
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button asChild size="sm" className="bg-slate-900 hover:bg-primary rounded-xl font-bold px-4 h-full shadow-lg shadow-slate-200">
+            <Link to="/customers"><Plus className="w-4 h-4 mr-2" /> Tạo task gọi khách</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="border-slate-200 hover:bg-slate-50 rounded-xl font-bold px-4 h-full">
+            <Link to="/customers"><PhoneCall className="w-4 h-4 mr-2" /> Mở khách Tele</Link>
+          </Button>
+        </div>
       </div>
 
       {/* 2-COLUMN LAYOUT */}
