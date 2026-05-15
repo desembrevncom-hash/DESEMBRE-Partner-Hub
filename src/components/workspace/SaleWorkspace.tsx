@@ -12,10 +12,7 @@ import {
   Clock, 
   UserCheck, 
   FileText, 
-  Target, 
   Plus, 
-  Users, 
-  Calendar,
   LayoutDashboard,
   Zap
 } from "lucide-react";
@@ -23,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
 
 import { WorkspaceCalendarCard } from "./WorkspaceCalendarCard";
+import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 
 export const SaleWorkspace: React.FC = () => {
   const { user } = useAuth();
@@ -35,6 +33,7 @@ export const SaleWorkspace: React.FC = () => {
   });
 
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -43,7 +42,7 @@ export const SaleWorkspace: React.FC = () => {
       const [tasksRes, personalRes, companyRes, notifsRes, customersRes] = await Promise.all([
         supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)").eq("assigned_to", user.id).eq("status", "pending"),
         supabase.from("calendar_events").select("*").eq("assigned_sale_id", user.id).order("starts_at", { ascending: true }),
-        supabase.from("company_events").select("*").eq("status", "published").order("starts_at", { ascending: true }),
+        supabase.from("company_events").select("*").order("starts_at", { ascending: true }),
         supabase.from("notifications").select("*").eq("recipient_user_id", user.id).is("read_at", null).order("created_at", { ascending: false }).limit(5),
         supabase.from("customers").select("*").eq("owner_sale_id", user.id).or(`next_follow_up_at.lte.${new Date().toISOString()},next_follow_up_at.is.null`).limit(10)
       ]);
@@ -82,8 +81,13 @@ export const SaleWorkspace: React.FC = () => {
           <Button asChild size="sm" className="bg-slate-900 hover:bg-primary rounded-xl font-bold flex-1 shadow-lg shadow-slate-200">
             <Link to="/orders/new"><Plus className="w-4 h-4 mr-2" /> Tạo đơn mới</Link>
           </Button>
-          <Button asChild variant="outline" size="sm" className="bg-white border-slate-200 hover:bg-slate-50 rounded-xl font-bold flex-1">
-            <Link to="/customers"><Plus className="w-4 h-4 mr-2" /> Thêm khách hàng</Link>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="bg-white border-slate-200 hover:bg-slate-50 rounded-xl font-bold flex-1"
+            onClick={() => setIsAddCustomerOpen(true)}
+          >
+            <Plus className="w-4 h-4 mr-2 text-primary" /> Thêm khách hàng
           </Button>
         </div>
       </div>
@@ -121,6 +125,12 @@ export const SaleWorkspace: React.FC = () => {
           />
         </div>
       </div>
+
+      <AddCustomerDialog 
+        open={isAddCustomerOpen} 
+        onOpenChange={setIsAddCustomerOpen} 
+        onSuccess={handleRefresh}
+      />
     </WorkspaceShell>
   );
 };

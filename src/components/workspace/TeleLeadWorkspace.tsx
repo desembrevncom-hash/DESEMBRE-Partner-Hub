@@ -13,13 +13,13 @@ import {
   CheckCircle2, 
   LayoutDashboard,
   Plus,
-  BarChart3,
   PhoneCall
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
 
 import { WorkspaceCalendarCard } from "./WorkspaceCalendarCard";
+import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 
 export const TeleLeadWorkspace: React.FC = () => {
   const { user } = useAuth();
@@ -32,6 +32,7 @@ export const TeleLeadWorkspace: React.FC = () => {
   });
 
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -41,7 +42,7 @@ export const TeleLeadWorkspace: React.FC = () => {
         supabase.from("customers").select("*").eq("owner_tele_id", user.id).limit(10),
         supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)").is("assigned_to", null).eq("owner_tele_id", user.id),
         supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)").eq("owner_tele_id", user.id).lt("due_at", new Date().toISOString()).neq("status", "completed"),
-        supabase.from("company_events").select("*").eq("status", "published").order("starts_at", { ascending: true }),
+        supabase.from("company_events").select("*").order("starts_at", { ascending: true }),
         supabase.from("notifications").select("*").eq("recipient_user_id", user.id).is("read_at", null).order("created_at", { ascending: false }).limit(5)
       ]);
 
@@ -76,8 +77,12 @@ export const TeleLeadWorkspace: React.FC = () => {
           ))}
         </div>
         <div className="flex flex-col gap-2 flex-1 min-w-[200px]">
-          <Button asChild size="sm" className="bg-slate-900 hover:bg-primary rounded-xl font-bold flex-1 shadow-lg shadow-slate-200">
-            <Link to="/customers"><Plus className="w-4 h-4 mr-2" /> Tạo task gọi khách</Link>
+          <Button 
+            size="sm" 
+            className="bg-slate-900 hover:bg-primary rounded-xl font-bold flex-1 shadow-lg shadow-slate-200"
+            onClick={() => setIsAddCustomerOpen(true)}
+          >
+            <Plus className="w-4 h-4 mr-2" /> Thêm khách hàng
           </Button>
           <Button asChild variant="outline" size="sm" className="bg-white border-slate-200 hover:bg-slate-50 rounded-xl font-bold flex-1">
             <Link to="/customers"><PhoneCall className="w-4 h-4 mr-2" /> Mở khách Tele</Link>
@@ -118,6 +123,12 @@ export const TeleLeadWorkspace: React.FC = () => {
           />
         </div>
       </div>
+
+      <AddCustomerDialog 
+        open={isAddCustomerOpen} 
+        onOpenChange={setIsAddCustomerOpen} 
+        onSuccess={handleRefresh}
+      />
     </WorkspaceShell>
   );
 };

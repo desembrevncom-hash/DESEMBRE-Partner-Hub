@@ -10,16 +10,15 @@ import {
   AlertCircle, 
   Target, 
   UserX, 
-  ChevronRight,
   LayoutDashboard,
   PlayCircle,
-  CheckCircle2,
-  Calendar
+  Plus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
 
 import { WorkspaceCalendarCard } from "./WorkspaceCalendarCard";
+import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 
 export const TelesaleWorkspace: React.FC = () => {
   const { user } = useAuth();
@@ -33,6 +32,7 @@ export const TelesaleWorkspace: React.FC = () => {
   });
 
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -45,7 +45,7 @@ export const TelesaleWorkspace: React.FC = () => {
         supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)").eq("assigned_to", user.id).lt("due_at", new Date().toISOString()).neq("status", "completed"),
         supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)").eq("assigned_to", user.id).or('result.eq.interested,result.eq.qualified'),
         supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)").eq("assigned_to", user.id).eq("result", "call_back_later"),
-        supabase.from("company_events").select("*").eq("status", "published").order("starts_at", { ascending: true }),
+        supabase.from("company_events").select("*").order("starts_at", { ascending: true }),
         supabase.from("notifications").select("*").eq("recipient_user_id", user.id).is("read_at", null).order("created_at", { ascending: false }).limit(5)
       ]);
 
@@ -81,8 +81,12 @@ export const TelesaleWorkspace: React.FC = () => {
           ))}
         </div>
         <div className="flex flex-col gap-2 flex-1 min-w-[200px]">
-          <Button size="sm" className="bg-slate-900 hover:bg-primary rounded-xl font-bold flex-1 shadow-lg shadow-slate-200">
-            <PlayCircle className="w-4 h-4 mr-2" /> Bắt đầu gọi
+          <Button 
+            size="sm" 
+            className="bg-slate-900 hover:bg-primary rounded-xl font-bold flex-1 shadow-lg shadow-slate-200"
+            onClick={() => setIsAddCustomerOpen(true)}
+          >
+            <Plus className="w-4 h-4 mr-2" /> Thêm khách hàng
           </Button>
           <Button variant="outline" size="sm" className="bg-white border-slate-200 hover:bg-slate-50 rounded-xl font-bold flex-1">
             <UserX className="w-4 h-4 mr-2" /> Không nghe máy
@@ -124,6 +128,12 @@ export const TelesaleWorkspace: React.FC = () => {
           />
         </div>
       </div>
+
+      <AddCustomerDialog 
+        open={isAddCustomerOpen} 
+        onOpenChange={setIsAddCustomerOpen} 
+        onSuccess={handleRefresh}
+      />
     </WorkspaceShell>
   );
 };
