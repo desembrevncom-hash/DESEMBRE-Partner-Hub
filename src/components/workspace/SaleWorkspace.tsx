@@ -40,16 +40,18 @@ export const SaleWorkspace: React.FC = () => {
     async function fetchData() {
       if (!user) return;
       
-      const [tasksRes, appointmentsRes, notifsRes, customersRes] = await Promise.all([
+      const [tasksRes, personalRes, companyRes, notifsRes, customersRes] = await Promise.all([
         supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)").eq("assigned_to", user.id).eq("status", "pending"),
-        supabase.from("calendar_events").select("*").eq("user_id", user.id).gte("start_time", new Date().toISOString()).order("start_time", { ascending: true }).limit(10),
+        supabase.from("calendar_events").select("*").eq("assigned_sale_id", user.id).order("starts_at", { ascending: true }),
+        supabase.from("company_events").select("*").eq("status", "published").order("starts_at", { ascending: true }),
         supabase.from("notifications").select("*").eq("recipient_user_id", user.id).is("read_at", null).order("created_at", { ascending: false }).limit(5),
         supabase.from("customers").select("*").eq("owner_sale_id", user.id).or(`next_follow_up_at.lte.${new Date().toISOString()},next_follow_up_at.is.null`).limit(10)
       ]);
 
       setData({
         tasks: tasksRes.data || [],
-        appointments: appointmentsRes.data || [],
+        appointments: personalRes.data || [],
+        companyEvents: companyRes.data || [],
         notifications: notifsRes.data || [],
         customers: customersRes.data || [],
         loading: false
@@ -109,7 +111,14 @@ export const SaleWorkspace: React.FC = () => {
 
         {/* RIGHT COLUMN: CALENDAR (2 parts) */}
         <div className="lg:col-span-2">
-          <WorkspaceCalendarCard events={[...(data.tasks || []), ...(data.appointments || [])]} />
+          <WorkspaceCalendarCard 
+            events={[
+              ...(data.tasks || []).map((t: any) => ({ ...t, _ui_type: 'task' })), 
+              ...(data.appointments || []).map((a: any) => ({ ...a, _ui_type: 'personal' })),
+              ...(data.companyEvents || []).map((c: any) => ({ ...c, _ui_type: 'company' }))
+            ]} 
+            onRefresh={handleRefresh}
+          />
         </div>
       </div>
     </WorkspaceShell>

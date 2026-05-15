@@ -142,19 +142,26 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ ev
               </div>
               
               <div className="flex flex-col gap-0.5 overflow-hidden mt-1">
-                {dayEvents.slice(0, 3).map((ev, i) => (
-                  <div 
-                    key={i} 
-                    className={`text-[8px] font-bold px-1.5 py-0.5 rounded-md truncate border shadow-[0_1px_2px_rgba(0,0,0,0.02)] ${
-                      ev.task_type === 'call' ? 'bg-blue-50 text-blue-600 border-blue-100' : 
-                      ev.task_type === 'visit' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                      'bg-indigo-50 text-indigo-600 border-indigo-100'
-                    }`}
-                    title={ev.title}
-                  >
-                    {ev.title}
-                  </div>
-                ))}
+                {dayEvents.slice(0, 3).map((ev, i) => {
+                  const isTask = ev._ui_type === 'task' || ev.task_type;
+                  const isCompany = ev._ui_type === 'company';
+                  const isPersonal = ev._ui_type === 'personal';
+
+                  let bgClass = "bg-slate-50 text-slate-600 border-slate-100";
+                  if (isTask) bgClass = "bg-blue-50 text-blue-600 border-blue-100";
+                  if (isCompany) bgClass = "bg-purple-50 text-purple-600 border-purple-100";
+                  if (isPersonal) bgClass = "bg-indigo-50 text-indigo-600 border-indigo-100";
+
+                  return (
+                    <div 
+                      key={i} 
+                      className={`text-[8px] font-bold px-1.5 py-0.5 rounded-md truncate border shadow-[0_1px_2px_rgba(0,0,0,0.02)] ${bgClass}`}
+                      title={`${isCompany ? '[CÔNG TY] ' : ''}${ev.title}`}
+                    >
+                      {isCompany && "🏢 "}{ev.title}
+                    </div>
+                  );
+                })}
                 {dayEvents.length > 3 && (
                   <div className="text-[8px] font-bold text-slate-400 pl-1">
                     +{dayEvents.length - 3} thêm...

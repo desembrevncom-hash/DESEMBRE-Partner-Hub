@@ -37,10 +37,11 @@ export const TeleLeadWorkspace: React.FC = () => {
     async function fetchData() {
       if (!user) return;
       
-      const [customersRes, unassignedRes, overdueRes, notifsRes] = await Promise.all([
+      const [customersRes, unassignedRes, overdueRes, companyRes, notifsRes] = await Promise.all([
         supabase.from("customers").select("*").eq("owner_tele_id", user.id).limit(10),
         supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)").is("assigned_to", null).eq("owner_tele_id", user.id),
         supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)").eq("owner_tele_id", user.id).lt("due_at", new Date().toISOString()).neq("status", "completed"),
+        supabase.from("company_events").select("*").eq("status", "published").order("starts_at", { ascending: true }),
         supabase.from("notifications").select("*").eq("recipient_user_id", user.id).is("read_at", null).order("created_at", { ascending: false }).limit(5)
       ]);
 
@@ -48,6 +49,7 @@ export const TeleLeadWorkspace: React.FC = () => {
         customers: customersRes.data || [],
         unassignedTasks: unassignedRes.data || [],
         overdueTasks: overdueRes.data || [],
+        companyEvents: companyRes.data || [],
         notifications: notifsRes.data || [],
         loading: false
       });
@@ -107,7 +109,11 @@ export const TeleLeadWorkspace: React.FC = () => {
         {/* RIGHT COLUMN */}
         <div className="lg:col-span-2">
           <WorkspaceCalendarCard 
-            events={[...(data.todayTasks || []), ...(data.overdueTasks || []), ...(data.callbackTasks || [])]} 
+            events={[
+              ...(data.unassignedTasks || []).map((t: any) => ({ ...t, _ui_type: 'task' })), 
+              ...(data.overdueTasks || []).map((t: any) => ({ ...t, _ui_type: 'task' })),
+              ...(data.companyEvents || []).map((c: any) => ({ ...c, _ui_type: 'company' }))
+            ]} 
             onRefresh={handleRefresh}
           />
         </div>

@@ -40,11 +40,12 @@ export const TelesaleWorkspace: React.FC = () => {
       
       const today = new Date().toISOString().split('T')[0];
       
-      const [todayRes, overdueRes, interestedRes, callbackRes, notifsRes] = await Promise.all([
+      const [todayRes, overdueRes, interestedRes, callbackRes, companyRes, notifsRes] = await Promise.all([
         supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)").eq("assigned_to", user.id).eq("status", "pending").eq("task_type", "call"),
         supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)").eq("assigned_to", user.id).lt("due_at", new Date().toISOString()).neq("status", "completed"),
         supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)").eq("assigned_to", user.id).or('result.eq.interested,result.eq.qualified'),
         supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)").eq("assigned_to", user.id).eq("result", "call_back_later"),
+        supabase.from("company_events").select("*").eq("status", "published").order("starts_at", { ascending: true }),
         supabase.from("notifications").select("*").eq("recipient_user_id", user.id).is("read_at", null).order("created_at", { ascending: false }).limit(5)
       ]);
 
@@ -53,6 +54,7 @@ export const TelesaleWorkspace: React.FC = () => {
         overdueTasks: overdueRes.data || [],
         interestedLeads: interestedRes.data || [],
         callbackTasks: callbackRes.data || [],
+        companyEvents: companyRes.data || [],
         notifications: notifsRes.data || [],
         loading: false
       });
@@ -111,7 +113,15 @@ export const TelesaleWorkspace: React.FC = () => {
 
         {/* RIGHT COLUMN */}
         <div className="lg:col-span-2">
-          <WorkspaceCalendarCard events={[...(data.todayTasks || []), ...(data.overdueTasks || []), ...(data.callbackTasks || [])]} />
+          <WorkspaceCalendarCard 
+            events={[
+              ...(data.todayTasks || []).map((t: any) => ({ ...t, _ui_type: 'task' })), 
+              ...(data.overdueTasks || []).map((t: any) => ({ ...t, _ui_type: 'task' })), 
+              ...(data.callbackTasks || []).map((t: any) => ({ ...t, _ui_type: 'task' })),
+              ...(data.companyEvents || []).map((c: any) => ({ ...c, _ui_type: 'company' }))
+            ]} 
+            onRefresh={handleRefresh}
+          />
         </div>
       </div>
     </WorkspaceShell>
