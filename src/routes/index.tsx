@@ -50,9 +50,11 @@ function LandingPage() {
       <nav className="border-b border-slate-100 sticky top-0 bg-white/80 backdrop-blur-md z-50">
         <div className="container mx-auto px-6 h-20 flex items-center justify-between max-w-7xl">
           <a href="#hero" className="flex items-center gap-3 cursor-pointer group">
-            <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-xl shadow-slate-200 group-hover:scale-110 transition-transform">
-              <Sparkles className="w-5 h-5" />
-            </div>
+            <img 
+              src="/logo.png" 
+              alt="Desembre Logo" 
+              className="w-12 h-12 rounded-xl object-contain shadow-xl shadow-slate-200 group-hover:scale-110 transition-transform" 
+            />
             <span className="text-xl font-black tracking-tighter">DESEMBRE <span className="text-indigo-600">HUB</span></span>
           </a>
           <div className="flex items-center gap-2">
@@ -220,9 +222,11 @@ function Dashboard() {
       <header className="bg-white/80 border-b border-slate-200 sticky top-0 z-40 backdrop-blur-xl">
         <div className="container mx-auto px-6 h-24 flex items-center justify-between max-w-7xl">
           <div className="flex items-center gap-6">
-             <div className="w-14 h-14 rounded-[22px] bg-slate-900 flex items-center justify-center text-white shadow-2xl shadow-slate-300 ring-4 ring-slate-50 transition-transform hover:scale-110">
-                <LayoutDashboard className="w-7 h-7" />
-             </div>
+             <img 
+               src="/logo.png" 
+               alt="Desembre Logo" 
+               className="w-14 h-14 rounded-[22px] object-contain shadow-2xl shadow-slate-300 ring-4 ring-slate-50 transition-transform hover:scale-110" 
+             />
              <div>
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
                    CRM Operating System
