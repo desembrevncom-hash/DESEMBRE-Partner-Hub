@@ -55,19 +55,18 @@ function LandingPage() {
             </div>
             <span className="text-xl font-black tracking-tighter">DESEMBRE <span className="text-indigo-600">HUB</span></span>
           </a>
-          <div className="flex items-center gap-8">
-            <div className="hidden md:flex items-center gap-6">
-              <a href="#features" className="text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">Tính năng</a>
-              <a href="#contact" className="text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">Liên hệ</a>
-            </div>
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" asChild className="font-bold text-sm rounded-xl">
+          <div className="flex items-center gap-2">
+            <div className="hidden md:flex items-center gap-2 mr-2">
+              <Button variant="ghost" asChild className="font-bold text-sm text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-xl px-5 transition-all">
+                <a href="#features">Tính năng</a>
+              </Button>
+              <Button variant="ghost" asChild className="font-bold text-sm text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-xl px-5 transition-all">
                 <Link to="/login">Đăng nhập</Link>
               </Button>
-              <Button asChild className="bg-slate-900 hover:bg-indigo-600 rounded-xl px-6 font-bold text-sm shadow-xl shadow-slate-200 transition-all cursor-pointer">
-                <a href="#contact">Đăng ký ngay</a>
-              </Button>
             </div>
+            <Button asChild className="bg-slate-900 hover:bg-indigo-600 rounded-xl px-6 font-bold text-sm shadow-xl shadow-slate-200 transition-all cursor-pointer">
+              <a href="#contact">Đăng ký ngay</a>
+            </Button>
           </div>
         </div>
       </nav>
