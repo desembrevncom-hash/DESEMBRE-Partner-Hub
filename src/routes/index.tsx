@@ -55,13 +55,19 @@ function LandingPage() {
             </div>
             <span className="text-xl font-black tracking-tighter">DESEMBRE <span className="text-indigo-600">HUB</span></span>
           </div>
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" asChild className="font-bold text-sm rounded-xl">
-              <Link to="/login">Đăng nhập</Link>
-            </Button>
-            <Button asChild className="bg-slate-900 hover:bg-indigo-600 rounded-xl px-6 font-bold text-sm shadow-xl shadow-slate-200 transition-all">
-              <Link to="/login">Bắt đầu ngay</Link>
-            </Button>
+          <div className="flex items-center gap-8">
+            <div className="hidden md:flex items-center gap-6">
+              <a href="#features" className="text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">Tính năng</a>
+              <a href="#contact" className="text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">Liên hệ</a>
+            </div>
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" asChild className="font-bold text-sm rounded-xl">
+                <Link to="/login">Đăng nhập</Link>
+              </Button>
+              <Button asChild className="bg-slate-900 hover:bg-indigo-600 rounded-xl px-6 font-bold text-sm shadow-xl shadow-slate-200 transition-all">
+                <Link to="/signup">Đăng ký ngay</Link>
+              </Button>
+            </div>
           </div>
         </div>
       </nav>
@@ -92,7 +98,7 @@ function LandingPage() {
       </section>
 
       {/* FEATURES GRID - SHOWING THE "POWERS" */}
-      <section className="py-24 bg-white">
+      <section id="features" className="py-24 bg-white">
         <div className="container mx-auto px-6 max-w-7xl">
           <div className="text-center mb-20">
             <h2 className="text-sm font-black text-indigo-600 uppercase tracking-[0.3em] mb-4">Sức mạnh hệ thống</h2>
@@ -148,6 +154,25 @@ function LandingPage() {
            <Button asChild size="lg" className="bg-white text-slate-900 hover:bg-slate-100 h-16 px-12 rounded-2xl font-black text-lg">
              <Link to="/login">Bắt đầu miễn phí</Link>
            </Button>
+        </div>
+      </section>
+
+      {/* CONTACT SECTION */}
+      <section id="contact" className="py-24 bg-slate-50">
+        <div className="container mx-auto px-6 max-w-7xl text-center">
+           <h2 className="text-sm font-black text-indigo-600 uppercase tracking-[0.3em] mb-4">Liên hệ với chúng tôi</h2>
+           <p className="text-3xl font-black text-slate-900 tracking-tight mb-8">Bạn cần hỗ trợ hoặc muốn hợp tác?</p>
+           <div className="flex flex-col md:flex-row justify-center items-center gap-12 mt-12">
+              <div className="space-y-2">
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Email hỗ trợ</p>
+                 <p className="text-xl font-black text-slate-900">support@desembre.vn</p>
+              </div>
+              <div className="w-px h-12 bg-slate-200 hidden md:block"></div>
+              <div className="space-y-2">
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hotline</p>
+                 <p className="text-xl font-black text-slate-900">1900 xxxx</p>
+              </div>
+           </div>
         </div>
       </section>
 
