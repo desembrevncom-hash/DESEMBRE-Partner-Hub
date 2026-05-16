@@ -61,6 +61,12 @@ function CustomerDetailPage() {
   const [newActivity, setNewActivity] = useState({ type: 'note', content: '' });
   const [filterType, setFilterType] = useState<string>("all");
 
+  // Customer 360 States
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
+
   // Template Dispatcher State
   const [isTemplateOpen, setIsTemplateOpen] = useState(false);
 
@@ -85,7 +91,43 @@ function CustomerDetailPage() {
     }
     fetchCustomer();
     fetchActivities();
+    fetchTasks();
+    fetchOrders();
+    fetchAppointments();
+    fetchEvents();
   }, [id]);
+
+  const fetchTasks = async () => {
+    if (!id) return;
+    try {
+      const { data } = await supabase.from("customer_tasks").select("*").eq("customer_id", id).order("due_at", { ascending: false });
+      if (data) setTasks(data);
+    } catch (e) { console.error("Error fetching tasks:", e); }
+  };
+
+  const fetchOrders = async () => {
+    if (!id) return;
+    try {
+      const { data } = await supabase.from("orders").select("*").eq("customer_id", id).order("created_at", { ascending: false }).limit(5);
+      if (data) setOrders(data);
+    } catch (e) { console.error("Error fetching orders:", e); }
+  };
+
+  const fetchAppointments = async () => {
+    if (!id) return;
+    try {
+      const { data } = await supabase.from("calendar_events").select("*").eq("customer_id", id).order("starts_at", { ascending: false });
+      if (data) setAppointments(data);
+    } catch (e) { console.error("Error fetching appointments:", e); }
+  };
+
+  const fetchEvents = async () => {
+    if (!id) return;
+    try {
+      const { data } = await supabase.from("event_registrations").select("*, company_events(*)").eq("customer_id", id).order("created_at", { ascending: false });
+      if (data) setEvents(data);
+    } catch (e) { console.error("Error fetching events:", e); }
+  };
 
   // Fetch Activities
   const fetchActivities = async () => {
@@ -303,21 +345,30 @@ function CustomerDetailPage() {
 
           {/* RIGHT COLUMN: TIMELINE & TABS */}
           <div className="lg:col-span-2 space-y-8">
-            <Tabs defaultValue="timeline" className="w-full">
-              <TabsList className="bg-white/80 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200/60 shadow-sm mb-8 h-auto inline-flex w-auto sticky top-24 z-20">
-                <TabsTrigger value="timeline" className="rounded-xl px-8 py-3 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all">
-                   <Activity className="mr-2 h-4 w-4" /> Nhật ký
+            <Tabs defaultValue="overview" className="w-full">
+              <TabsList className="bg-white/80 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200/60 shadow-sm mb-8 h-auto flex flex-wrap w-full lg:sticky lg:top-24 z-20">
+                <TabsTrigger value="overview" className="rounded-xl px-4 lg:px-6 py-2 lg:py-3 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all flex-1 text-center">
+                   <Target className="mr-2 h-4 w-4 hidden sm:inline" /> Tổng quan
                 </TabsTrigger>
-                <TabsTrigger value="ownership" className="rounded-xl px-8 py-3 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all">
-                   <Target className="mr-2 h-4 w-4" /> Tuyến Sale
+                <TabsTrigger value="activities" className="rounded-xl px-4 lg:px-6 py-2 lg:py-3 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all flex-1 text-center">
+                   <Activity className="mr-2 h-4 w-4 hidden sm:inline" /> Nhật ký
                 </TabsTrigger>
-                <TabsTrigger value="orders" className="rounded-xl px-8 py-3 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all">
-                   <Package className="mr-2 h-4 w-4" /> Đơn hàng
+                <TabsTrigger value="tasks" className="rounded-xl px-4 lg:px-6 py-2 lg:py-3 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all flex-1 text-center">
+                   <CheckCircle2 className="mr-2 h-4 w-4 hidden sm:inline" /> Việc làm
+                </TabsTrigger>
+                <TabsTrigger value="orders" className="rounded-xl px-4 lg:px-6 py-2 lg:py-3 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all flex-1 text-center">
+                   <Package className="mr-2 h-4 w-4 hidden sm:inline" /> Đơn hàng
+                </TabsTrigger>
+                <TabsTrigger value="appointments" className="rounded-xl px-4 lg:px-6 py-2 lg:py-3 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all flex-1 text-center">
+                   <Calendar className="mr-2 h-4 w-4 hidden sm:inline" /> Lịch hẹn
+                </TabsTrigger>
+                <TabsTrigger value="events" className="rounded-xl px-4 lg:px-6 py-2 lg:py-3 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all flex-1 text-center">
+                   <Star className="mr-2 h-4 w-4 hidden sm:inline" /> Sự kiện
                 </TabsTrigger>
               </TabsList>
 
-              {/* TIMELINE CONTENT */}
-              <TabsContent value="timeline" className="mt-0 space-y-8 outline-none">
+              {/* ACTIVITIES CONTENT */}
+              <TabsContent value="activities" className="mt-0 space-y-8 outline-none">
                 {/* Elite Activity Form */}
                 <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white border border-indigo-100/50 shadow-indigo-100/20">
                   <CardContent className="p-6">
@@ -426,8 +477,8 @@ function CustomerDetailPage() {
                 </div>
               </TabsContent>
 
-              {/* OWNERSHIP TAB */}
-              <TabsContent value="ownership" className="outline-none">
+              {/* OVERVIEW TAB */}
+              <TabsContent value="overview" className="outline-none">
                 <Card className="rounded-[40px] border-none shadow-sm bg-white p-10">
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                       <div className="space-y-8">
@@ -475,18 +526,145 @@ function CustomerDetailPage() {
                 </Card>
               </TabsContent>
 
-              {/* ORDERS TAB (SKELETON) */}
+              {/* TASKS TAB */}
+              <TabsContent value="tasks" className="outline-none">
+                <Card className="rounded-[40px] border-none shadow-sm bg-white overflow-hidden">
+                  <div className="flex items-center justify-between p-8 border-b border-slate-100">
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-primary" /> Việc cần làm
+                    </h3>
+                    <Button size="sm" className="rounded-xl font-bold text-[10px] uppercase tracking-widest bg-slate-900 text-white hover:bg-primary">
+                      <Plus className="w-4 h-4 mr-1" /> Thêm việc
+                    </Button>
+                  </div>
+                  <div className="p-8 space-y-4">
+                    {tasks.length > 0 ? tasks.map(task => (
+                      <div key={task.id} className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-md transition-all">
+                        <div className={`w-3 h-3 rounded-full ${task.status === 'completed' ? 'bg-emerald-500' : task.status === 'in_progress' ? 'bg-amber-500' : 'bg-slate-300'}`} />
+                        <div className="flex-1">
+                          <p className={`text-sm font-bold ${task.status === 'completed' ? 'line-through text-slate-400' : 'text-slate-900'}`}>{task.title}</p>
+                          <div className="flex items-center gap-3 mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            <span>{task.task_type}</span>
+                            <span>•</span>
+                            <span>Hạn: {task.due_at ? format(new Date(task.due_at), "dd/MM/yyyy HH:mm") : "Không có"}</span>
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="text-[9px] uppercase font-black">{task.status}</Badge>
+                      </div>
+                    )) : (
+                      <div className="py-12 text-center text-slate-400 flex flex-col items-center">
+                        <CheckCircle2 className="w-12 h-12 mb-3 text-slate-200" />
+                        <p className="text-xs font-bold uppercase tracking-widest">Chưa có việc cần làm</p>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </TabsContent>
+
+              {/* ORDERS TAB */}
               <TabsContent value="orders" className="outline-none">
-                 <Card className="rounded-[40px] border-none shadow-sm bg-white p-24 text-center border border-slate-100">
-                    <div className="w-28 h-28 rounded-full bg-slate-50 flex items-center justify-center text-slate-100 mx-auto mb-8 shadow-inner">
-                       <Package className="w-14 h-14" />
+                 <Card className="rounded-[40px] border-none shadow-sm bg-white overflow-hidden">
+                    <div className="p-8 border-b border-slate-100">
+                      <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                        <Package className="w-5 h-5 text-primary" /> Đơn hàng gần đây
+                      </h3>
                     </div>
-                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-[0.3em] mb-4">Lịch sử giao dịch</h3>
-                    <p className="text-xs text-slate-400 max-w-[360px] mx-auto leading-relaxed font-medium">
-                      Toàn bộ lịch sử mua hàng, công nợ và tình trạng vận chuyển sẽ được hiển thị tại đây để Sale nắm bắt sức mua của Spa.
-                    </p>
-                    <Button variant="outline" className="mt-10 rounded-xl font-black text-[10px] border-slate-200 uppercase tracking-widest h-11 px-8">Đồng bộ dữ liệu</Button>
+                    <div className="p-0">
+                      {orders.length > 0 ? (
+                        <table className="w-full text-sm text-left">
+                          <thead className="bg-slate-50 text-[10px] uppercase font-black text-slate-400 tracking-wider">
+                            <tr>
+                              <th className="px-8 py-4">Mã đơn</th>
+                              <th className="px-8 py-4">Ngày tạo</th>
+                              <th className="px-8 py-4 text-right">Tổng tiền</th>
+                              <th className="px-8 py-4 text-center">Trạng thái</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {orders.map(order => (
+                              <tr key={order.id} className="hover:bg-slate-50">
+                                <td className="px-8 py-4 font-bold text-slate-900">{order.id.slice(0,8).toUpperCase()}</td>
+                                <td className="px-8 py-4 text-slate-500 font-medium">{format(new Date(order.created_at), "dd/MM/yyyy HH:mm")}</td>
+                                <td className="px-8 py-4 text-right font-black text-slate-900">{order.total?.toLocaleString('vi-VN')} đ</td>
+                                <td className="px-8 py-4 text-center">
+                                  <Badge className="text-[10px] uppercase font-black">{order.status}</Badge>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <div className="py-16 text-center text-slate-400 flex flex-col items-center">
+                          <Package className="w-12 h-12 mb-3 text-slate-200" />
+                          <p className="text-xs font-bold uppercase tracking-widest">Chưa có đơn hàng nào</p>
+                        </div>
+                      )}
+                    </div>
                  </Card>
+              </TabsContent>
+
+              {/* APPOINTMENTS TAB */}
+              <TabsContent value="appointments" className="outline-none">
+                <Card className="rounded-[40px] border-none shadow-sm bg-white overflow-hidden">
+                  <div className="flex items-center justify-between p-8 border-b border-slate-100">
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                      <Calendar className="w-5 h-5 text-indigo-500" /> Lịch hẹn
+                    </h3>
+                  </div>
+                  <div className="p-8 space-y-4">
+                    {appointments.length > 0 ? appointments.map(app => (
+                      <div key={app.id} className="flex gap-4 p-4 rounded-2xl border border-slate-100 hover:bg-slate-50 transition-all">
+                        <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex flex-col items-center justify-center shrink-0">
+                          <span className="text-xs font-black leading-none">{format(new Date(app.starts_at), "dd")}</span>
+                          <span className="text-[8px] font-bold uppercase">{format(new Date(app.starts_at), "MMM", { locale: vi })}</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">{app.title}</p>
+                          <p className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                            <Clock className="w-3 h-3" /> {format(new Date(app.starts_at), "HH:mm")}
+                            {app.location && <><MapPin className="w-3 h-3 ml-2" /> {app.location}</>}
+                          </p>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="py-12 text-center text-slate-400 flex flex-col items-center">
+                        <Calendar className="w-12 h-12 mb-3 text-slate-200" />
+                        <p className="text-xs font-bold uppercase tracking-widest">Không có lịch hẹn</p>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </TabsContent>
+
+              {/* EVENTS TAB */}
+              <TabsContent value="events" className="outline-none">
+                <Card className="rounded-[40px] border-none shadow-sm bg-white overflow-hidden">
+                  <div className="p-8 border-b border-slate-100">
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                      <Star className="w-5 h-5 text-amber-500" /> Sự kiện tham gia
+                    </h3>
+                  </div>
+                  <div className="p-8 space-y-4">
+                    {events.length > 0 ? events.map(ev => (
+                      <div key={ev.id} className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-amber-50/30">
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">{ev.company_events?.title || "Sự kiện không xác định"}</p>
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mt-1">
+                            {ev.company_events?.starts_at ? format(new Date(ev.company_events.starts_at), "dd/MM/yyyy") : ""}
+                          </p>
+                        </div>
+                        <Badge className={`text-[9px] uppercase font-black ${ev.status === 'attended' ? 'bg-emerald-100 text-emerald-700' : ev.status === 'no_show' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'}`}>
+                          {ev.status}
+                        </Badge>
+                      </div>
+                    )) : (
+                      <div className="py-12 text-center text-slate-400 flex flex-col items-center">
+                        <Star className="w-12 h-12 mb-3 text-slate-200" />
+                        <p className="text-xs font-bold uppercase tracking-widest">Chưa đăng ký sự kiện nào</p>
+                      </div>
+                    )}
+                  </div>
+                </Card>
               </TabsContent>
             </Tabs>
           </div>
