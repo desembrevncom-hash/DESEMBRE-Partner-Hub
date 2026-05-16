@@ -140,11 +140,14 @@ function ProductCatalogPage() {
 
   const fmt = (n: number) => {
     // Determine the role to use for pricing
+    const isFieldStaff = roles.some(r => ["sale", "tele_lead", "telesale"].includes(r));
+    const primaryFieldRole = roles.find(r => ["sale", "tele_lead", "telesale"].includes(r));
+    
     // If admin and saleViewMode is ON, use 'sale' role to show 60% price
     // If field staff, they always see their discounted price
-    const effectiveRole = (isAdmin && saleViewMode) ? "sale" : (userRole as UserRole);
+    const effectiveRole = (isAdmin && saleViewMode) ? "sale" : (primaryFieldRole || userRole);
     
-    const price = getDisplayPrice(n, vatOn ? "with" : "without", effectiveRole);
+    const price = getDisplayPrice(n, vatOn ? "with" : "without", effectiveRole as UserRole);
     return new Intl.NumberFormat("vi-VN").format(Math.round(price || 0)) + "đ";
   };
 
