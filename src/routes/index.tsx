@@ -14,7 +14,8 @@ import {
   LayoutDashboard,
   ShieldCheck,
   Bell,
-  Star
+  Star,
+  ShoppingCart
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,9 +33,142 @@ import {
   Cell
 } from 'recharts';
 
-export const Route = createFileRoute("/")({
-  component: Dashboard,
-});
+function HomePage() {
+  const { user } = useAuth();
+
+  if (!user) {
+    return <LandingPage />;
+  }
+
+  return <Dashboard />;
+}
+
+function LandingPage() {
+  return (
+    <div className="min-h-screen bg-white font-sans antialiased text-slate-900">
+      {/* NAVIGATION */}
+      <nav className="border-b border-slate-100 sticky top-0 bg-white/80 backdrop-blur-md z-50">
+        <div className="container mx-auto px-6 h-20 flex items-center justify-between max-w-7xl">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-xl shadow-slate-200">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <span className="text-xl font-black tracking-tighter">DESEMBRE <span className="text-indigo-600">HUB</span></span>
+          </div>
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" asChild className="font-bold text-sm rounded-xl">
+              <Link to="/login">Đăng nhập</Link>
+            </Button>
+            <Button asChild className="bg-slate-900 hover:bg-indigo-600 rounded-xl px-6 font-bold text-sm shadow-xl shadow-slate-200 transition-all">
+              <Link to="/login">Bắt đầu ngay</Link>
+            </Button>
+          </div>
+        </div>
+      </nav>
+
+      {/* HERO SECTION */}
+      <section className="py-24 lg:py-32 overflow-hidden bg-slate-50/50">
+        <div className="container mx-auto px-6 max-w-7xl text-center">
+          <Badge className="bg-indigo-50 text-indigo-600 border-indigo-100 mb-6 px-4 py-1.5 rounded-full font-black text-[10px] tracking-widest uppercase">
+            SỨC MẠNH QUẢN TRỊ 4.0
+          </Badge>
+          <h1 className="text-5xl lg:text-7xl font-black tracking-tight text-slate-900 mb-8 leading-[1.1]">
+            Nền tảng vận hành <br /> 
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">Spa & Mỹ phẩm</span> Toàn diện
+          </h1>
+          <p className="max-w-2xl mx-auto text-lg font-medium text-slate-500 mb-12 leading-relaxed">
+            Hợp nhất Sale, Tele Lead và Quản lý trên một hệ thống thông minh. 
+            Tự động hoá quy trình chăm sóc, tối ưu doanh thu và chuẩn hoá trải nghiệm khách hàng.
+          </p>
+          <div className="flex flex-wrap justify-center gap-4">
+             <Button asChild size="lg" className="h-14 px-10 rounded-2xl bg-slate-900 hover:bg-black font-black text-sm shadow-2xl shadow-slate-300">
+                <Link to="/login">Trải nghiệm Dashboard <ArrowUpRight className="ml-2 w-5 h-5" /></Link>
+             </Button>
+             <Button variant="outline" size="lg" className="h-14 px-10 rounded-2xl border-slate-200 bg-white hover:bg-slate-50 font-black text-sm">
+                Tìm hiểu Giải pháp
+             </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* FEATURES GRID - SHOWING THE "POWERS" */}
+      <section className="py-24 bg-white">
+        <div className="container mx-auto px-6 max-w-7xl">
+          <div className="text-center mb-20">
+            <h2 className="text-sm font-black text-indigo-600 uppercase tracking-[0.3em] mb-4">Sức mạnh hệ thống</h2>
+            <p className="text-3xl font-black text-slate-900 tracking-tight">Vượt xa một phần mềm CRM thông thường</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <FeatureCard 
+              icon={Users} 
+              title="Customer 360 Elite" 
+              desc="Lưu trữ toàn bộ hành trình: từ Lead, lịch sử tư vấn đến liệu trình và hình ảnh trước/sau điều trị." 
+              color="bg-blue-500"
+            />
+            <FeatureCard 
+              icon={Zap} 
+              title="CRM Automation Brain" 
+              desc="Tự động nhắc lịch follow-up, gửi thông báo chăm sóc sau mua và cảnh báo lead tồn đọng 24/7." 
+              color="bg-amber-500"
+            />
+            <FeatureCard 
+              icon={ShoppingCart} 
+              title="Smart Order Engine" 
+              desc="Hệ thống tạo đơn thông minh, tự động tính toán chiết khấu theo Role và quản lý thuế VAT minh bạch." 
+              color="bg-emerald-500"
+            />
+            <FeatureCard 
+              icon={ShieldCheck} 
+              title="Multi-Role Architecture" 
+              desc="Không gian làm việc chuyên biệt cho Admin, Sale, Tele Lead. Phân quyền dữ liệu tuyệt đối an toàn." 
+              color="bg-indigo-600"
+            />
+            <FeatureCard 
+              icon={Calendar} 
+              title="Smart Scheduler" 
+              desc="Lịch hẹn thông minh đồng bộ toàn team. Tự động kiểm tra xung đột và nhắc việc cho nhân sự." 
+              color="bg-purple-600"
+            />
+            <FeatureCard 
+              icon={Activity} 
+              title="Real-time Analytics" 
+              desc="Biểu đồ tăng trưởng, phễu chuyển đổi và KPI được cập nhật tức thì giúp ra quyết định chính xác." 
+              color="bg-rose-500"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* CTA SECTION */}
+      <section className="py-20 bg-slate-900 text-white">
+        <div className="container mx-auto px-6 max-w-5xl text-center space-y-8">
+           <h2 className="text-3xl lg:text-5xl font-black tracking-tight">Sẵn sàng để số hoá hệ thống của bạn?</h2>
+           <p className="text-slate-400 font-medium text-lg">Gia nhập mạng lưới hàng nghìn đối tác cùng Desembre Hub ngay hôm nay.</p>
+           <Button asChild size="lg" className="bg-white text-slate-900 hover:bg-slate-100 h-16 px-12 rounded-2xl font-black text-lg">
+             <Link to="/login">Bắt đầu miễn phí</Link>
+           </Button>
+        </div>
+      </section>
+
+      <footer className="py-12 bg-white border-t border-slate-100 text-center">
+        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">© {new Date().getFullYear()} Desembre Vietnam. Built for Professional Partners.</p>
+      </footer>
+    </div>
+  );
+}
+
+function FeatureCard({ icon: Icon, title, desc, color }: any) {
+  return (
+    <div className="p-8 rounded-[32px] bg-slate-50 border border-slate-100 hover:border-indigo-200 transition-all group hover:-translate-y-2">
+      <div className={`w-14 h-14 rounded-2xl ${color} text-white flex items-center justify-center mb-6 shadow-lg shadow-slate-200 group-hover:scale-110 transition-transform`}>
+        <Icon className="w-6 h-6" />
+      </div>
+      <h3 className="text-lg font-black text-slate-900 mb-3 uppercase tracking-tight">{title}</h3>
+      <p className="text-sm font-medium text-slate-500 leading-relaxed">{desc}</p>
+    </div>
+  );
+}
 
 const REVENUE_DATA = [
   { name: 'T2', value: 45000000 },
@@ -251,3 +385,7 @@ function PlusIcon(props: any) {
     </svg>
   );
 }
+
+export const Route = createFileRoute("/")({
+  component: HomePage,
+});
