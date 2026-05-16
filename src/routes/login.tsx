@@ -60,9 +60,11 @@ function LoginPage() {
            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10"></div>
            
            <div className="relative z-10">
-              <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-white mb-10 border border-white/20 shadow-xl">
-                 <LayoutDashboard className="w-8 h-8" />
-              </div>
+              <img 
+                 src="/logo.png" 
+                 alt="Desembre Logo" 
+                 className="w-16 h-16 rounded-2xl object-contain bg-white/10 backdrop-blur-md border border-white/20 shadow-xl mb-10 transition-transform hover:scale-110" 
+              />
               <h2 className="text-4xl font-black text-white tracking-tight leading-tight mb-6">
                  DESEMBRE <br />
                  <span className="text-indigo-300">CRM Operating System</span>
@@ -141,10 +143,7 @@ function LoginPage() {
 
                  <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
                     <Link to="/" className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-900 flex items-center gap-2">
-                       <ChevronLeft className="w-4 h-4" /> Quay lại
-                    </Link>
-                    <Link to="/signup" className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline flex items-center gap-2">
-                       Tạo tài khoản <Sparkles className="w-3.5 h-3.5" />
+                       <ChevronLeft className="w-4 h-4" /> Quay lại trang chủ
                     </Link>
                  </div>
               </form>
