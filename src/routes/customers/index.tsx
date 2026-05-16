@@ -80,7 +80,8 @@ function CustomersPage() {
 
       setCustomers(processed);
     } catch (e) {
-      toast.error("Lỗi tải danh sách khách hàng");
+      console.error("fetchCustomers error:", e);
+      toast.error("Lỗi tải KH: " + ((e as any).message || String(e)));
     } finally {
       setLoading(false);
     }
