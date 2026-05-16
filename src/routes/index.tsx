@@ -55,7 +55,10 @@ function LandingPage() {
               alt="Desembre Logo" 
               className="w-12 h-12 rounded-xl object-contain shadow-xl shadow-slate-200 group-hover:scale-110 transition-transform" 
             />
-            <span className="text-xl font-black tracking-tighter">DESEMBRE <span className="text-indigo-600">HUB</span></span>
+            <span className="text-xl font-black tracking-tighter flex items-center">
+              DESEMBRE <span className="text-indigo-600 ml-1">HUB</span>
+              <Sparkles className="w-4 h-4 text-indigo-500 ml-1.5 group-hover:rotate-12 transition-transform" />
+            </span>
           </a>
           <div className="flex items-center gap-2">
             <div className="hidden md:flex items-center gap-2 mr-2">
@@ -76,7 +79,8 @@ function LandingPage() {
       {/* HERO SECTION */}
       <section id="hero" className="py-24 lg:py-32 overflow-hidden bg-slate-50/50">
         <div className="container mx-auto px-6 max-w-7xl text-center">
-          <Badge className="bg-indigo-50 text-indigo-600 border-indigo-100 mb-6 px-4 py-1.5 rounded-full font-black text-[10px] tracking-widest uppercase">
+          <Badge className="bg-indigo-50 text-indigo-600 border-indigo-100 mb-6 px-4 py-1.5 rounded-full font-black text-[10px] tracking-widest uppercase flex items-center w-fit mx-auto">
+            <Sparkles className="w-3.5 h-3.5 mr-2 animate-pulse" />
             SỨC MẠNH QUẢN TRỊ 4.0
           </Badge>
           <h1 className="text-5xl lg:text-7xl font-black tracking-tight text-slate-900 mb-8 leading-[1.1]">
