@@ -234,12 +234,12 @@ function CustomersPage() {
                                <td className="px-8 py-5">
                                   <Link to="/customers/$id" params={{id: customer.id}} className="flex items-center gap-4">
                                      <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-200 group-hover:scale-110 transition-transform">
-                                        {customer.name?.slice(0,1) || "C"}
+                                        {(customer.contact_name || customer.name)?.slice(0,1) || "C"}
                                      </div>
                                      <div>
-                                        <p className="text-sm font-black text-slate-900">{customer.facility_name || "Khách lẻ"}</p>
+                                        <p className="text-sm font-black text-slate-900">{customer.business_name || customer.facility_name || "Khách lẻ"}</p>
                                         <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
-                                           <Users className="w-3 h-3" /> {customer.name} • {customer.phone}
+                                           <Users className="w-3 h-3" /> {customer.contact_name || customer.name} • {customer.phone}
                                         </p>
                                      </div>
                                   </Link>
@@ -307,7 +307,7 @@ function CustomerCard({ customer, stage, isAdmin, onQuickLog }: any) {
        <CardContent className="p-5 space-y-4">
           <div className="flex justify-between items-start">
              <div className="space-y-1">
-                <h4 className="text-sm font-black text-slate-900 leading-tight group-hover:text-indigo-600 transition-colors">{customer.facility_name || customer.name}</h4>
+                <h4 className="text-sm font-black text-slate-900 leading-tight group-hover:text-indigo-600 transition-colors">{customer.business_name || customer.facility_name || customer.contact_name || customer.name}</h4>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{customer.city || "Toàn quốc"}</p>
              </div>
              <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-200 group-hover:text-slate-400">

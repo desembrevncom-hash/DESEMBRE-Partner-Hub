@@ -105,7 +105,7 @@ function WorkspacePage() {
             .from("calendar_events" as any)
             .select("*")
             .or(`assigned_sale_id.eq.${user.id},created_by.eq.${user.id}`)
-            .order("start_time", { ascending: true });
+            .order("starts_at", { ascending: true });
           if (eventsData) setEvents(eventsData);
         } catch (e) {
           console.log("Calendar events table might be missing or inaccessible", e);
@@ -438,12 +438,22 @@ function TeleLeadWorkspace({ tasks, customers, notifications }: { tasks: any[]; 
 
   useEffect(() => {
     async function fetchTeleData() {
-      // 1. Fetch Telesale Staff
-      const { data: staff } = await supabase
-        .from("profiles")
-        .select("*")
+      // 1. Fetch Telesale Staff from user_roles
+      const { data: userRoles } = await supabase
+        .from("user_roles")
+        .select("user_id")
         .eq("role", "telesale");
-      if (staff) setTelesaleStaff(staff);
+        
+      if (userRoles && userRoles.length > 0) {
+        const userIds = userRoles.map((r: any) => r.user_id);
+        const { data: staff } = await supabase
+          .from("profiles")
+          .select("*")
+          .in("id", userIds);
+        if (staff) setTelesaleStaff(staff);
+      } else {
+        setTelesaleStaff([]);
+      }
 
       // 2. Fetch Unassigned Leads (from customer_tasks or customers table depending on flow)
       // For now, we query customers that have no owner_tele_id

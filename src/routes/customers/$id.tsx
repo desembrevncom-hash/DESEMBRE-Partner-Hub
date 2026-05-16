@@ -113,7 +113,7 @@ function CustomerDetailPage() {
     try {
       const { error } = await supabase.from("customer_activities").insert([{
         customer_id: id,
-        user_id: user?.id,
+        created_by: user?.id,
         activity_type: newActivity.type,
         content: newActivity.content,
       }]);
@@ -197,12 +197,12 @@ function CustomerDetailPage() {
             </Button>
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">{customer.facility_name || customer.name}</h1>
+                <h1 className="text-2xl font-black text-slate-900 tracking-tight">{customer.business_name || customer.facility_name || customer.contact_name || customer.name}</h1>
                 {renderStatusBadge(customer.lifecycle_stage)}
                 {customer.is_vip && <Badge className="bg-amber-100 text-amber-700 border-none text-[10px] font-black"><Star className="w-3 h-3 mr-1 fill-amber-500 text-amber-500" /> VIP</Badge>}
               </div>
               <div className="flex items-center gap-4 text-xs font-bold text-slate-400 uppercase tracking-widest">
-                <span className="flex items-center gap-1.5"><UserCircle className="w-4 h-4" /> {customer.name}</span>
+                <span className="flex items-center gap-1.5"><UserCircle className="w-4 h-4" /> {customer.contact_name || customer.name}</span>
                 <span className="w-1 h-1 rounded-full bg-slate-300"></span>
                 <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4" /> {customer.city}</span>
               </div>

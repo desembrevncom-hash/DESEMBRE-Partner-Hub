@@ -16,8 +16,8 @@ interface WorkspaceTasksCardProps {
 export const WorkspaceTasksCard: React.FC<WorkspaceTasksCardProps> = ({ title, items = [], icon, color, emptyMessage = "Chưa có việc cần xử lý." }) => {
   // Sắp xếp items theo thời gian
   const sortedItems = [...(items || [])].sort((a, b) => {
-    const dateA = new Date(a.due_at || a.start_time || 0).getTime();
-    const dateB = new Date(b.due_at || b.start_time || 0).getTime();
+    const dateA = new Date(a.due_at || a.starts_at || 0).getTime();
+    const dateB = new Date(b.due_at || b.starts_at || 0).getTime();
     return dateA - dateB;
   });
 
@@ -34,8 +34,8 @@ export const WorkspaceTasksCard: React.FC<WorkspaceTasksCardProps> = ({ title, i
       <div className="flex-1 overflow-y-auto max-h-[400px] divide-y divide-slate-50">
         {sortedItems.length > 0 ? (
           sortedItems.map((item, idx) => {
-            const isAppointment = !!item.start_time;
-            const time = item.due_at || item.start_time;
+            const isAppointment = !!item.starts_at;
+            const time = item.due_at || item.starts_at;
             
             return (
               <div key={item.id || idx} className="p-4 hover:bg-slate-50 transition-colors group cursor-pointer">

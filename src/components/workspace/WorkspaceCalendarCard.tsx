@@ -59,7 +59,7 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ ev
       const isCompany = event._ui_type === 'company';
       const eventDate = isCompany 
         ? (event.ends_at || event.starts_at) 
-        : (event.starts_at || event.start_time || event.due_at);
+        : (event.starts_at || event.due_at);
         
       return eventDate ? isSameDay(new Date(eventDate), day) : false;
     });

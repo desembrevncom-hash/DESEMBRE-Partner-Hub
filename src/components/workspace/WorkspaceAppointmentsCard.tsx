@@ -22,14 +22,14 @@ export const WorkspaceAppointmentsCard: React.FC<WorkspaceAppointmentsCardProps>
             <div key={app.id} className="p-4 hover:bg-indigo-50/30 transition-colors group">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl bg-indigo-50 flex flex-col items-center justify-center text-indigo-600 shrink-0">
-                  <span className="text-[10px] font-black leading-none">{format(new Date(app.start_time), "dd")}</span>
-                  <span className="text-[8px] font-bold uppercase mt-0.5">{format(new Date(app.start_time), "MMM", { locale: vi })}</span>
+                  <span className="text-[10px] font-black leading-none">{format(new Date(app.starts_at), "dd")}</span>
+                  <span className="text-[8px] font-bold uppercase mt-0.5">{format(new Date(app.starts_at), "MMM", { locale: vi })}</span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="text-[13px] font-bold text-slate-800 line-clamp-1">{app.title}</h4>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">
-                      {format(new Date(app.start_time), "HH:mm")}
+                      {format(new Date(app.starts_at), "HH:mm")}
                     </span>
                     <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1 truncate">
                       <MapPin className="w-2.5 h-2.5" /> {app.location || "Online / Call"}

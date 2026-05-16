@@ -425,7 +425,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                       <Badge className="bg-amber-500 text-white border-none text-[8px] uppercase">{ev.status}</Badge>
                     </div>
                     <div className="text-[10px] text-amber-700/70 flex items-center gap-1">
-                      <Calendar className="w-3 h-3" /> {formatDate(ev.company_events?.start_time)}
+                      <Calendar className="w-3 h-3" /> {formatDate(ev.company_events?.starts_at)}
                     </div>
                   </div>
                 ))}

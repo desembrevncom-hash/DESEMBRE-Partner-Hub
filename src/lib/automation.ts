@@ -33,11 +33,11 @@ export const createLeadAssignedAutomation = async (
 
     // B. Tạo Notification cho Sale
     const { error: notifyError } = await supabase.from("notifications").insert([{
-      user_id: saleId,
+      recipient_user_id: saleId,
       title: "🎯 Lead mới được phân bổ",
       message: `Bạn vừa được ${assignedByName} gán lead mới: ${leadName}. Hãy kiểm tra và liên hệ ngay!`,
       type: "lead_assigned",
-      link: `/customers` // Link tới trang danh sách hoặc chi tiết lead
+      action_url: `/customers` // Link tới trang danh sách hoặc chi tiết lead
     }]);
 
     if (notifyError) throw notifyError;
@@ -115,11 +115,11 @@ export const createOverdueTaskNotification = async (
 ) => {
   try {
     const { error } = await supabase.from("notifications").insert([{
-      user_id: userId,
+      recipient_user_id: userId,
       title: "⚠️ Cảnh báo: Task quá hạn",
       message: `Công việc "${taskTitle}" đã quá hạn xử lý. Vui lòng cập nhật trạng thái ngay.`,
       type: "task_overdue",
-      link: `/workspace`
+      action_url: `/workspace`
     }]);
 
     if (error) throw error;
