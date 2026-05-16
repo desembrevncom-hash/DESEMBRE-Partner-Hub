@@ -63,7 +63,7 @@ export function NotificationBell() {
     if (!user) return;
 
     const channel = supabase
-      .channel(`notif-${user.id}-${Date.now()}`)
+      .channel(`notif-${user.id}-${crypto.randomUUID()}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications', filter: `recipient_user_id=eq.${user.id}` },
