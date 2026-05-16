@@ -52,73 +52,91 @@ function WorkspacePage() {
       if (!user) return;
       setLoading(true);
       
-      try {
-        // 1. Fetch Tasks
-        const tasksQuery = supabase
-          .from("customer_tasks")
-          .select(`
+      const fetchTasks = async () => {
+        try {
+          let query = supabase.from("customer_tasks").select(`
             *,
             customer:customers(name, facility_name, phone),
             lead:leads(name, facility_name, phone)
-          `)
-          .order("due_at", { ascending: true });
-        
-        // 2. Fetch Customers (for Pipeline & Stats)
-        const customersQuery = supabase
-          .from("customers")
-          .select("*")
-          .is("deleted_at", null);
-
-        // 3. Fetch Notifications
-        const notificationsQuery = supabase
-          .from("notifications")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(10);
-
-        // 4. Fetch Calendar Events (Try-catch per table to prevent global crash)
-        const [tasksRes, customersRes, notificationsRes] = await Promise.all([
-          tasksQuery,
-          customersQuery,
-          notificationsQuery
-        ]);
-
-        if (tasksRes.data) setTasks(tasksRes.data);
-        
-        // Role-based customer filtering
-        if (customersRes.data) {
-          let filteredCustomers = customersRes.data;
+          `);
+          
           if (isSale) {
-            filteredCustomers = filteredCustomers.filter(c => c.owner_sale_id === user.id);
+            query = query.eq("assigned_to", user.id);
           } else if (isTeleLead) {
-            filteredCustomers = filteredCustomers.filter(c => c.owner_tele_id === user.id);
+            query = query.eq("owner_tele_id", user.id);
+          } else if (!isAdmin && !isSubAdmin) {
+            query = query.eq("assigned_to", user.id);
           }
-          setCustomers(filteredCustomers);
+          
+          const { data, error } = await query.order("due_at", { ascending: true });
+          if (error) throw error;
+          setTasks(data || []);
+        } catch (e) {
+          console.error("Error fetching tasks:", e);
         }
+      };
 
-        if (notificationsRes.data) setNotifications(notificationsRes.data);
-
-        // Separate fetch for events because the table might not exist yet
+      const fetchCustomers = async () => {
         try {
-          const { data: eventsData } = await supabase
+          let query = supabase.from("customers").select("*").is("deleted_at", null);
+          
+          if (isSale) {
+            query = query.eq("owner_sale_id", user.id);
+          } else if (isTeleLead) {
+            query = query.eq("owner_tele_id", user.id);
+          } else if (!isAdmin && !isSubAdmin) {
+            setCustomers([]); 
+            return;
+          }
+          
+          const { data, error } = await query;
+          if (error) throw error;
+          setCustomers(data || []);
+        } catch (e) {
+          console.error("Error fetching customers:", e);
+        }
+      };
+
+      const fetchNotifications = async () => {
+        try {
+          const { data, error } = await supabase
+            .from("notifications")
+            .select("*")
+            .eq("recipient_user_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(10);
+          if (error) throw error;
+          setNotifications(data || []);
+        } catch (e) {
+          console.error("Error fetching notifications:", e);
+        }
+      };
+
+      const fetchEvents = async () => {
+        try {
+          const { data, error } = await supabase
             .from("calendar_events" as any)
             .select("*")
             .or(`assigned_sale_id.eq.${user.id},created_by.eq.${user.id}`)
             .order("starts_at", { ascending: true });
-          if (eventsData) setEvents(eventsData);
+          if (error) throw error;
+          setEvents(data || []);
         } catch (e) {
-          console.log("Calendar events table might be missing or inaccessible", e);
+          console.error("Error fetching events:", e);
         }
+      };
 
-      } catch (error) {
-        console.error("Workspace Data Fetch Error:", error);
-      } finally {
-        setLoading(false);
-      }
+      await Promise.allSettled([
+        fetchTasks(),
+        fetchCustomers(),
+        fetchNotifications(),
+        fetchEvents()
+      ]);
+      
+      setLoading(false);
     }
     fetchData();
-  }, [user, isSale, isTeleLead]);
+  }, [user, isSale, isTeleLead, isAdmin, isSubAdmin]);
 
   if (loading) {
     return (
@@ -138,11 +156,11 @@ function WorkspacePage() {
 
   const commonProps = { tasks, customers, notifications, events };
 
-  if (isAdmin || isSubAdmin) return <ManagerWorkspace {...commonProps} />;
-  if (isTeleLead) return <TeleLeadWorkspace {...commonProps} />;
-  if (isSale) return <SaleWorkspace {...commonProps} />;
+  if (isAdmin || isSubAdmin) return <ManagerWorkspace tasks={tasks} customers={customers} notifications={notifications} />;
+  if (isTeleLead) return <TeleLeadWorkspace tasks={tasks} customers={customers} notifications={notifications} />;
+  if (isSale) return <SaleWorkspace tasks={tasks} customers={customers} notifications={notifications} events={events} />;
   
-  return <TelesaleWorkspace {...commonProps} />;
+  return <TelesaleWorkspace tasks={tasks} notifications={notifications} />;
 }
 
 // --- SHARED UI COMPONENTS ---
@@ -251,7 +269,7 @@ function WorkspaceLayout({ role, icon: Icon, children }: { role: string; icon: a
 
 function SaleWorkspace({ tasks, customers, notifications, events }: { tasks: any[]; customers: any[]; notifications: any[]; events: any[] }) {
   const urgentTasks = tasks.filter(t => t.status === 'pending' && isTaskOverdue(t.due_at, t.status));
-  const todayAppointments = tasks.filter(t => t.status === 'pending' && t.due_at && format(new Date(t.due_at), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd'));
+  const todayAppointments = events.filter(e => e.starts_at && format(new Date(e.starts_at), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd'));
 
   return (
     <WorkspaceLayout role="Sale Workspace" icon={Target}>
@@ -293,14 +311,14 @@ function SaleWorkspace({ tasks, customers, notifications, events }: { tasks: any
             <SectionBlock title="Lịch hẹn & Follow-up hôm nay" icon={CalendarDays} badge={todayAppointments.length}>
               {todayAppointments.length > 0 ? (
                 <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                   {todayAppointments.map(task => (
-                    <div key={task.id} className="p-3 bg-white border border-slate-200/60 rounded-xl shadow-sm hover:border-primary/30 transition-all group">
+                   {todayAppointments.map(event => (
+                    <div key={event.id} className="p-3 bg-white border border-slate-200/60 rounded-xl shadow-sm hover:border-primary/30 transition-all group">
                        <div className="flex items-center justify-between mb-2">
-                         <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-0.5 rounded uppercase border border-primary/10">{format(new Date(task.due_at), "HH:mm")}</span>
-                         <Badge variant="outline" className="text-[9px] font-bold">{getTaskTypeLabel(task.task_type)}</Badge>
+                         <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-0.5 rounded uppercase border border-primary/10">{format(new Date(event.starts_at), "HH:mm")}</span>
+                         <Badge variant="outline" className="text-[9px] font-bold">{event.type || "Hẹn gặp"}</Badge>
                        </div>
-                       <p className="text-xs font-bold text-slate-800 line-clamp-1 group-hover:text-primary transition-colors">{task.customer?.facility_name || task.lead?.facility_name}</p>
-                       <p className="text-[10px] text-slate-500 mt-1 line-clamp-1">{task.title}</p>
+                       <p className="text-xs font-bold text-slate-800 line-clamp-1 group-hover:text-primary transition-colors">{event.title}</p>
+                       {event.description && <p className="text-[10px] text-slate-500 mt-1 line-clamp-1">{event.description}</p>}
                     </div>
                   ))}
                 </div>
@@ -361,16 +379,17 @@ function SaleWorkspace({ tasks, customers, notifications, events }: { tasks: any
   );
 }
 
-function TelesaleWorkspace({ tasks, customers, notifications }: { tasks: any[]; customers: any[]; notifications: any[] }) {
+function TelesaleWorkspace({ tasks, notifications }: { tasks: any[]; notifications: any[] }) {
   const todayCalls = tasks.filter(t => t.status === 'pending' && t.task_type === 'call');
   const overdueTasks = tasks.filter(t => isTaskOverdue(t.due_at, t.status));
+  const relatedCustomers = Array.from(new Set(tasks.map(t => t.customer_id))).filter(Boolean);
 
   return (
     <WorkspaceLayout role="Telesale Operating System" icon={Phone}>
       <div className="space-y-6">
          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard title="Cuộc gọi hôm nay" value={todayCalls.length} subValue="Ưu tiên xử lý ngay" icon={Phone} color="bg-indigo-500 text-white" />
-          <KpiCard title="Khách đang chăm" value={customers.length} subValue="Nguồn lực Tele quản lý" icon={Users} color="bg-emerald-500 text-white" />
+          <KpiCard title="Khách đang chăm" value={relatedCustomers.length} subValue="Theo Task được gán" icon={Users} color="bg-emerald-500 text-white" />
           <KpiCard title="Thông báo mới" value={notifications.length} subValue="Tin nhắn hệ thống" icon={Bell} color="bg-amber-500 text-white" />
           <KpiCard title="Task quá hạn" value={overdueTasks.length} subValue="Cần hoàn thành ngay" icon={AlertCircle} color="bg-red-500 text-white" />
         </div>
@@ -480,7 +499,7 @@ function TeleLeadWorkspace({ tasks, customers, notifications }: { tasks: any[]; 
       if (updateError) throw updateError;
 
       // 2. Trigger Automation (Task & Notification)
-      await createLeadAssignedAutomation(leadId, leadName, staffId, "Trưởng phòng Tele");
+      await createLeadAssignedAutomation(leadId, leadName, staffId, "Trưởng phòng Tele", user?.id || "");
 
       toast.success(`Đã giao Lead ${leadName} cho ${staffName}`);
       

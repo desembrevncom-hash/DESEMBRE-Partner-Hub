@@ -37,6 +37,7 @@ import { toast } from "sonner";
 import { SALES_PIPELINE_STAGES, getPipelineStageColor, getPipelineStageLabel } from "@/lib/salesPipeline";
 import { classifyCustomerLifecycle } from "@/lib/customerOwnership";
 import { QuickLogDialog } from "@/components/customers/QuickLogDialog";
+import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 
 export const Route = createFileRoute("/customers/")({
@@ -53,6 +54,7 @@ function CustomersPage() {
   
   // Quick Log State
   const [logTarget, setLogTarget] = useState<any | null>(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchCustomers();
@@ -132,7 +134,10 @@ function CustomersPage() {
                 </Button>
              </div>
              <NotificationBell />
-             <Button className="rounded-xl bg-slate-900 hover:bg-black font-black text-xs h-10 px-6 shadow-lg shadow-slate-200 transition-all hover:scale-105">
+             <Button 
+               className="rounded-xl bg-slate-900 hover:bg-black font-black text-xs h-10 px-6 shadow-lg shadow-slate-200 transition-all hover:scale-105"
+               onClick={() => setIsAddDialogOpen(true)}
+             >
                 <Plus className="w-4 h-4 mr-2" /> Thêm khách hàng
              </Button>
           </div>
@@ -282,6 +287,12 @@ function CustomersPage() {
         isOpen={!!logTarget} 
         customer={logTarget} 
         onClose={() => setLogTarget(null)} 
+        onSuccess={fetchCustomers}
+      />
+
+      <AddCustomerDialog 
+        open={isAddDialogOpen} 
+        onOpenChange={setIsAddDialogOpen} 
         onSuccess={fetchCustomers}
       />
     </div>

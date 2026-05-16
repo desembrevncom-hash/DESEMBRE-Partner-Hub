@@ -16,6 +16,7 @@ import {
   Mail
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { createLeadAssignedAutomation } from "@/lib/automation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -245,11 +246,33 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
       lifecycle_stage: form.lifecycle_stage,
     };
 
-    const { error } = await supabase.from("customers").insert([payload]);
+    const { data: newCustomer, error } = await supabase.from("customers").insert([payload]).select().single();
     
     if (error) {
       toast.error("Lỗi: " + error.message);
     } else {
+      // Trigger Automation if assigned
+      if (newCustomer) {
+        if (payload.owner_sale_id) {
+           await createLeadAssignedAutomation(
+             newCustomer.id, 
+             newCustomer.facility_name || newCustomer.name, 
+             payload.owner_sale_id, 
+             user?.display_name || user?.email || "Hệ thống",
+             user?.id || ""
+           );
+        }
+        if (payload.owner_tele_id && payload.owner_tele_id !== payload.owner_sale_id) {
+           await createLeadAssignedAutomation(
+             newCustomer.id, 
+             newCustomer.facility_name || newCustomer.name, 
+             payload.owner_tele_id, 
+             user?.display_name || user?.email || "Hệ thống",
+             user?.id || ""
+           );
+        }
+      }
+
       toast.success("Đã thêm khách hàng thành công!");
       onOpenChange(false);
       if (onSuccess) onSuccess();
