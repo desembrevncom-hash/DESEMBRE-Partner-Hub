@@ -90,8 +90,8 @@ function LandingPage() {
              <Button asChild size="lg" className="h-14 px-10 rounded-2xl bg-slate-900 hover:bg-black font-black text-sm shadow-2xl shadow-slate-300">
                 <Link to="/login">Trải nghiệm Dashboard <ArrowUpRight className="ml-2 w-5 h-5" /></Link>
              </Button>
-             <Button variant="outline" size="lg" className="h-14 px-10 rounded-2xl border-slate-200 bg-white hover:bg-slate-50 font-black text-sm">
-                Tìm hiểu Giải pháp
+             <Button asChild variant="outline" size="lg" className="h-14 px-10 rounded-2xl border-slate-200 bg-white hover:bg-slate-50 font-black text-sm transition-all cursor-pointer">
+                <a href="#features">Tìm hiểu Giải pháp</a>
              </Button>
           </div>
         </div>
