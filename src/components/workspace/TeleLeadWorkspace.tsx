@@ -97,6 +97,7 @@ export const TeleLeadWorkspace: React.FC = () => {
     }
   };
 
+  const stats = [
     { label: "Khách Tele quản lý", value: data.customers.length, icon: <Users className="w-5 h-5" />, color: "text-indigo-600" },
     { label: "Lead chưa chia", value: data.unassignedLeads.length, icon: <AlertCircle className="w-5 h-5" />, color: "text-orange-500" },
     { label: "Task team quá hạn", value: data.overdueTasks.length, icon: <Clock className="w-5 h-5" />, color: "text-red-600" },

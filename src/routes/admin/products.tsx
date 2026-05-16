@@ -40,7 +40,8 @@ export const Route = createFileRoute("/admin/products")({
 });
 
 function ProductCatalogPage() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, roles } = useAuth();
+  const userRole = roles[0] || "user";
   const [loading, setLoading] = useState(true);
   const [overrides, setOverrides] = useState<Record<number, any>>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -141,8 +142,7 @@ function ProductCatalogPage() {
     // Determine the role to use for pricing
     // If admin and saleViewMode is ON, use 'sale' role to show 60% price
     // If field staff, they always see their discounted price
-    const { role } = useAuth(); // Re-getting role to be sure
-    const effectiveRole = (isAdmin && saleViewMode) ? "sale" : (role as UserRole);
+    const effectiveRole = (isAdmin && saleViewMode) ? "sale" : (userRole as UserRole);
     
     const price = getDisplayPrice(n, vatOn ? "with" : "without", effectiveRole);
     return new Intl.NumberFormat("vi-VN").format(Math.round(price || 0)) + "đ";
