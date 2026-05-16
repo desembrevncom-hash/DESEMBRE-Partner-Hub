@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,7 +21,8 @@ import {
   Trash2,
   Edit2,
   LayoutGrid,
-  List
+  List,
+  ShoppingCart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,8 @@ function ProductCatalogPage() {
   const [overrides, setOverrides] = useState<Record<number, any>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [cart, setCart] = useState<{ no: number; sizeType: "retail" | "salon" }[]>([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchOverrides();
@@ -138,6 +141,16 @@ function ProductCatalogPage() {
       ...prev,
       [id]: { ...prev[id], [field]: value, no: id }
     }));
+  };
+
+  const handlePick = (no: number, sizeType: "retail" | "salon") => {
+    setCart(prev => [...prev, { no, sizeType }]);
+    toast.success("Đã thêm vào giỏ nháp");
+  };
+
+  const handleCreateOrder = () => {
+    sessionStorage.setItem("pickupCart", JSON.stringify(cart));
+    navigate({ to: "/orders/new" });
   };
 
   return (
@@ -309,6 +322,7 @@ function ProductCatalogPage() {
                                      <div className="space-y-1">
                                         <p className="text-sm font-black text-white tracking-tight">{fmt(retail.price)}</p>
                                         <p className="text-[9px] font-bold text-slate-600 uppercase">NIÊM YẾT LẺ</p>
+                                        <button onClick={() => handlePick(p.id, "retail")} className="text-[10px] px-3 py-1 rounded-md bg-indigo-500/20 text-indigo-400 font-bold uppercase hover:bg-indigo-500 hover:text-white transition-all">CHỌN LÊN ĐƠN</button>
                                      </div>
                                   ) : (
                                      <span className="text-slate-800">—</span>
@@ -319,6 +333,7 @@ function ProductCatalogPage() {
                                      <div className="space-y-1">
                                         <p className="text-sm font-black text-indigo-400 tracking-tight">{fmt(salon.price)}</p>
                                         <p className="text-[9px] font-bold text-slate-600 uppercase">GIÁ CHUYÊN NGHIỆP</p>
+                                        <button onClick={() => handlePick(p.id, "salon")} className="text-[10px] px-3 py-1 rounded-md bg-indigo-500/20 text-indigo-400 font-bold uppercase hover:bg-indigo-500 hover:text-white transition-all">CHỌN LÊN ĐƠN</button>
                                      </div>
                                   ) : (
                                      <span className="text-slate-800">—</span>
@@ -358,6 +373,16 @@ function ProductCatalogPage() {
              </div>
           </div>
         </main>
+
+        {/* FLOATING ACTION CART */}
+        {cart.length > 0 && (
+          <div className="fixed bottom-8 right-8 z-50 animate-fade-in">
+             <Button onClick={handleCreateOrder} className="h-16 px-8 rounded-full shadow-[0_10px_40px_-10px_rgba(99,102,241,0.6)] bg-indigo-600 hover:bg-indigo-500 text-white font-black hover:scale-105 transition-all group">
+                <ShoppingCart className="w-6 h-6 mr-3 group-hover:-rotate-12 transition-transform" />
+                TẠO ĐƠN NHÁP ({cart.length})
+             </Button>
+          </div>
+        )}
       </div>
     </EditUnlockProvider>
   );
