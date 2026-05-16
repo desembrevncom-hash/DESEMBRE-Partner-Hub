@@ -64,8 +64,8 @@ function LandingPage() {
               <Button variant="ghost" asChild className="font-bold text-sm rounded-xl">
                 <Link to="/login">Đăng nhập</Link>
               </Button>
-              <Button asChild className="bg-slate-900 hover:bg-indigo-600 rounded-xl px-6 font-bold text-sm shadow-xl shadow-slate-200 transition-all">
-                <Link to="/signup">Đăng ký ngay</Link>
+              <Button asChild className="bg-slate-900 hover:bg-indigo-600 rounded-xl px-6 font-bold text-sm shadow-xl shadow-slate-200 transition-all cursor-pointer">
+                <a href="#contact">Đăng ký ngay</a>
               </Button>
             </div>
           </div>
