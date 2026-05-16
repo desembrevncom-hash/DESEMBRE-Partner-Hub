@@ -1,7 +1,7 @@
 export const VAT_RATE = 0.08;
 export const DEFAULT_SALE_DISCOUNT = 0.4;
 
-export type UserRole = "admin" | "sale" | "guest";
+export type UserRole = "admin" | "sub_admin" | "sale" | "tele_lead" | "telesale" | "guest";
 
 type CalculatePriceInput = {
   basePrice: number;
@@ -16,7 +16,8 @@ export function calculatePrice({
   includeVat,
   vatRate = 0.08,
 }: CalculatePriceInput) {
-  const discountRate = role === "sale" ? 0.4 : 0;
+   const isFieldStaff = role === "sale" || role === "tele_lead" || role === "telesale";
+   const discountRate = isFieldStaff ? 0.4 : 0;
 
   const priceAfterDiscount = Math.round(basePrice * (1 - discountRate));
 
@@ -66,16 +67,17 @@ export const calculateSalePrice = (price: number | null | undefined): number | n
 export const getDisplayPrice = (
   price: number | null | undefined,
   vatMode: "with" | "without",
-  role: "admin" | "sale" | "user" | "guest" = "user"
+   role: UserRole | "user" = "user"
 ): number | null => {
   if (price == null) return null;
   
   let finalPrice = price;
   
-  // Apply sale discount if role is sale (and not admin)
-  if (role === "sale") {
-    finalPrice = calculateSalePrice(finalPrice) || finalPrice;
-  }
+   // Apply sale discount if role is field staff
+   const isFieldStaff = role === "sale" || role === "tele_lead" || role === "telesale";
+   if (isFieldStaff) {
+     finalPrice = calculateSalePrice(finalPrice) || finalPrice;
+   }
   
   // Apply VAT if requested
   if (vatMode === "with") {

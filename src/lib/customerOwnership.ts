@@ -94,12 +94,12 @@ export const CARE_MODEL_OPTIONS = [
 
 // 4. CHU KỲ KHÁCH HÀNG (CUSTOMER LIFECYCLE - NAMING chuẩn 2026)
 export const LIFECYCLE_STAGE_OPTIONS = [
-  { value: "lead", label: "Lead mới", color: "blue", bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
-  { value: "prospect", label: "Đang tư vấn", color: "purple", bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200" },
-  { value: "customer", label: "Khách đã mua", color: "emerald", bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
-  { value: "active", label: "Khách hoạt động", color: "indigo", bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200" },
-  { value: "loyal", label: "Khách thân thiết", color: "amber", bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
-  { value: "churned", label: "Ngưng hoạt động", color: "slate", bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200" },
+  { value: "new_lead", label: "Lead mới", color: "blue", bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
+  { value: "consulting", label: "Đang tư vấn", color: "purple", bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200" },
+  { value: "ordered", label: "Khách đã mua", color: "emerald", bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
+  { value: "active_customer", label: "Khách hoạt động", color: "indigo", bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200" },
+  { value: "loyal_customer", label: "Khách thân thiết", color: "amber", bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
+  { value: "inactive", label: "Ngưng hoạt động", color: "slate", bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200" },
   { value: "lost", label: "Mất khách", color: "red", bg: "bg-red-50", text: "text-red-700", border: "border-red-200" },
 ] as const;
 
@@ -139,7 +139,17 @@ export function getCareModelLabel(value?: string | null) {
  * Used by the Kanban pipeline view to categorize customers.
  */
 export function classifyCustomerLifecycle(customer: any, orders: any[]): string {
-  if (customer.lifecycle_stage) return customer.lifecycle_stage;
+  let stage = customer.lifecycle_stage;
+
+  // Compatibility mapping for older data labels
+  if (stage === "lead") stage = "new_lead";
+  if (stage === "prospect") stage = "consulting";
+  if (stage === "customer") stage = "ordered";
+  if (stage === "active") stage = "active_customer";
+  if (stage === "loyal") stage = "loyal_customer";
+  if (stage === "churned") stage = "inactive";
+
+  if (stage) return stage;
 
   if (orders && orders.length > 0) {
     const hasRecentOrder = orders.some((o: any) => {

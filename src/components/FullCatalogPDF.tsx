@@ -1,6 +1,7 @@
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Font, Image } from '@react-pdf/renderer';
 import type { Product } from '@/types/product';
+import { getDisplayPrice, UserRole } from '@/lib/pricing';
 
 // Register Vietnamese font
 Font.register({
@@ -126,9 +127,20 @@ const styles = StyleSheet.create({
   }
 });
 
-const fmt = (n: number) => new Intl.NumberFormat('vi-VN').format(Math.round(n));
+const fmt = (n: number, vatOn: boolean, role: UserRole | "user" = "user") => {
+  const price = getDisplayPrice(n, vatOn ? "with" : "without", role);
+  return new Intl.NumberFormat('vi-VN').format(Math.round(price || 0));
+};
 
-export const FullCatalogPDF = ({ products }: { products: Product[] }) => {
+export const FullCatalogPDF = ({ 
+  products, 
+  vatOn = false,
+  role = "user"
+}: { 
+  products: Product[], 
+  vatOn?: boolean,
+  role?: UserRole | "user"
+}) => {
   // Group products by category
   const categories: Record<string, Product[]> = {};
   products.forEach((p) => {
@@ -137,12 +149,16 @@ export const FullCatalogPDF = ({ products }: { products: Product[] }) => {
     categories[cat].push(p);
   });
 
+  const isSaleView = role === "sale" || role === "tele_lead" || role === "telesale";
+
   return (
-    <Document title="Desembre Vietnam - Bảng giá sản phẩm">
+    <Document title={`Desembre Vietnam - Bảng giá sản phẩm ${vatOn ? '(Có VAT)' : '(Chưa VAT)'} ${isSaleView ? '(Giá Sale)' : ''}`}>
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <Text style={styles.logo}>DESEMBRE VIETNAM</Text>
-          <Text style={{ fontSize: 6 }}>BẢNG GIÁ SẢN PHẨM NIÊM YẾT</Text>
+          <Text style={{ fontSize: 6 }}>
+            BẢNG GIÁ NIÊM YẾT {vatOn ? '(ĐÃ CÓ VAT 8%)' : '(CHƯA VAT)'} {isSaleView ? '- CHẾ ĐỘ GIÁ SALE (60%)' : ''}
+          </Text>
         </View>
 
         <Text style={styles.title}>CATALOGUE & BẢNG GIÁ NIÊM YẾT</Text>
@@ -165,14 +181,14 @@ export const FullCatalogPDF = ({ products }: { products: Product[] }) => {
                     
                     {retail && retail.price > 0 && (
                       <View style={styles.priceRow}>
-                        <Text style={styles.priceLabel}>Retail ({retail.size}):</Text>
-                        <Text style={styles.priceValue}>{fmt(retail.price)}</Text>
+                        <Text style={styles.priceLabel}>Retail ({retail.size}){vatOn ? ' (+VAT)' : ''}:</Text>
+                        <Text style={styles.priceValue}>{fmt(retail.price, vatOn, role)}</Text>
                       </View>
                     )}
                     {salon && salon.price > 0 && (
                       <View style={styles.priceRow}>
-                        <Text style={styles.priceLabel}>Professional ({salon.size}):</Text>
-                        <Text style={styles.priceValue}>{fmt(salon.price)}</Text>
+                        <Text style={styles.priceLabel}>Professional ({salon.size}){vatOn ? ' (+VAT)' : ''}:</Text>
+                        <Text style={styles.priceValue}>{fmt(salon.price, vatOn, role)}</Text>
                       </View>
                     )}
                   </View>

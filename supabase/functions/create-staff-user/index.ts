@@ -70,17 +70,8 @@ Deno.serve(async (req) => {
       .eq("user_id", user.id)
       .in("role", ["admin", "sub_admin"]);
 
-    const isPrimaryAdmin = user.email === "desembrevn.com@gmail.com";
-
-    if (managerRoleError) {
-      return json(
-        { error: `Không kiểm tra được quyền quản trị: ${managerRoleError.message}` },
-        400
-      );
-    }
-
     const callerRoleStrings = (managerRoles || []).map((r) => r.role);
-    const isCallerManager = isPrimaryAdmin || callerRoleStrings.includes("admin") || callerRoleStrings.includes("sub_admin");
+    const isCallerManager = callerRoleStrings.includes("admin") || callerRoleStrings.includes("sub_admin");
 
     if (!isCallerManager) {
       return json({ error: "Yêu cầu quyền quản lý (Admin hoặc Phó Admin)" }, 403);

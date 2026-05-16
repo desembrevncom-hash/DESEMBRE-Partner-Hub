@@ -141,7 +141,7 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAd
               <label
                 className={`flex items-center gap-2 p-2 rounded border cursor-pointer text-xs font-bold transition-all ${
                   targetRole === "sale"
-                    ? "bg-green-600/10 border-green-600 text-green-600 dark:text-green-400"
+                    ? "bg-indigo-600/10 border-indigo-600 text-indigo-600"
                     : "border-border text-muted-foreground hover:bg-muted/50"
                 }`}
               >
@@ -153,13 +153,13 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAd
                   onChange={() => setTargetRole("sale")}
                   className="sr-only"
                 />
-                <span>👤 Nhân viên SALE</span>
+                <span>👤 SALE</span>
               </label>
 
               <label
                 className={`flex items-center gap-2 p-2 rounded border cursor-pointer text-xs font-bold transition-all ${
                   targetRole === "tele_lead"
-                    ? "bg-amber-600/10 border-amber-600 text-amber-600 dark:text-amber-400"
+                    ? "bg-amber-600/10 border-amber-600 text-amber-600"
                     : "border-border text-muted-foreground hover:bg-muted/50"
                 }`}
               >
@@ -171,13 +171,13 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAd
                   onChange={() => setTargetRole("tele_lead")}
                   className="sr-only"
                 />
-                <span>🎧 Trưởng Tele (Tele Lead)</span>
+                <span>🎧 TRƯỞNG TELE</span>
               </label>
 
               <label
                 className={`flex items-center gap-2 p-2 rounded border cursor-pointer text-xs font-bold transition-all ${
                   targetRole === "telesale"
-                    ? "bg-amber-100 border-amber-400 text-amber-900"
+                    ? "bg-orange-600/10 border-orange-600 text-orange-600"
                     : "border-border text-muted-foreground hover:bg-muted/50"
                 }`}
               >
@@ -189,14 +189,14 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAd
                   onChange={() => setTargetRole("telesale")}
                   className="sr-only"
                 />
-                <span>📞 Nhân viên Telesale</span>
+                <span>📞 TELESALE</span>
               </label>
 
               {canCreateSubAdmin && (
                 <label
                   className={`flex items-center gap-2 p-2 rounded border cursor-pointer text-xs font-bold transition-all ${
                     targetRole === "sub_admin"
-                      ? "bg-purple-600/10 border-purple-600 text-purple-600 dark:text-purple-400"
+                      ? "bg-purple-600/10 border-purple-600 text-purple-600"
                       : "border-border text-muted-foreground hover:bg-muted/50"
                   }`}
                 >
@@ -208,7 +208,7 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAd
                     onChange={() => setTargetRole("sub_admin")}
                     className="sr-only"
                   />
-                  <span>👑 Phó Admin</span>
+                  <span>👑 PHÓ ADMIN</span>
                 </label>
               )}
             </div>

@@ -16,9 +16,7 @@ type AuthCtx = {
   isTeleLead: boolean;
   isTelesale: boolean;
   isTeleUser: boolean;
-  isSalesUser: boolean;
-  isSalesLine: boolean;
-  isTeleLine: boolean;
+  isFieldUser: boolean;
   canManageUsers: boolean;
   canManageLeads: boolean;
   canViewReports: boolean;
@@ -165,10 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isTelesale = roles.includes("telesale");
 
     const isTeleUser = isTeleLead || isTelesale;
-    const isSalesUser = isSale;
-
-    const isSalesLine = isSale;
-    const isTeleLine = isTeleLead;
+    const isFieldUser = isSale || isTeleLead || isTelesale;
 
     return {
       user,
@@ -182,9 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isTeleLead,
       isTelesale,
       isTeleUser,
-      isSalesUser,
-      isSalesLine,
-      isTeleLine,
+      isFieldUser,
       canManageUsers: isManager,
       canManageLeads: isManager,
       canViewReports: isManager,
@@ -210,4 +203,15 @@ export function useAuth() {
   const ctx = useContext(Ctx);
   if (!ctx) throw new Error("useAuth must be inside AuthProvider");
   return ctx;
+}
+
+export function getRoleLabel(role: AppRole): string {
+  switch (role) {
+    case "admin": return "ADMIN";
+    case "sub_admin": return "PHÓ ADMIN";
+    case "sale": return "SALE";
+    case "tele_lead": return "TRƯỞNG TELE";
+    case "telesale": return "TELESALE";
+    default: return role;
+  }
 }

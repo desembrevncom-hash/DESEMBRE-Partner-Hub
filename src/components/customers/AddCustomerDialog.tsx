@@ -67,7 +67,7 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
   const [saving, setSaving] = useState(false);
   
   const [salesUsers, setSalesUsers] = useState<Array<{ id: string; full_name?: string; email?: string }>>([]);
-  const [teleUsers, setTeleUsers] = useState<Array<{ id: string; full_name?: string; email?: string }>>([]);
+  const [teleLeads, setTeleLeads] = useState<Array<{ id: string; full_name?: string; email?: string }>>([]);
 
   const [form, setForm] = useState({
     name: "",
@@ -106,7 +106,7 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
     staff_count: 0,
     tech_equipment: "",
     decision_maker_dob: "",
-    lifecycle_stage: "lead",
+    lifecycle_stage: "new_lead",
     personality_trait: "",
   });
 
@@ -163,7 +163,7 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
         staff_count: 0,
         tech_equipment: "",
         decision_maker_dob: "",
-        lifecycle_stage: "lead",
+        lifecycle_stage: "new_lead",
         personality_trait: "",
       });
     }
@@ -186,15 +186,15 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
         }
 
         const sList: any[] = [];
-        const tList: any[] = [];
+        const tlList: any[] = [];
         rolesData.forEach(ur => {
           const p = profMap.get(ur.user_id);
           if (!p) return;
           if (ur.role === "sale") sList.push(p);
-          else if (ur.role === "tele_lead" || ur.role === "tele_sale") tList.push(p);
+          else if (ur.role === "tele_lead") tlList.push(p);
         });
         setSalesUsers(sList);
-        setTeleUsers(tList);
+        setTeleLeads(tlList);
       } catch (e) { /* ignore */ }
     }
     fetchStaff();
@@ -249,7 +249,11 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
     const { data: newCustomer, error } = await supabase.from("customers").insert([payload]).select().single();
     
     if (error) {
-      toast.error("Lỗi: " + error.message);
+      if (error.code === "23505") {
+        toast.error("Số điện thoại này đã tồn tại trên hệ thống. Vui lòng kiểm tra lại!");
+      } else {
+        toast.error("Lỗi: " + error.message);
+      }
     } else {
       // Trigger Automation if assigned
       if (newCustomer) {
@@ -480,6 +484,20 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
                     </div>
 
                     <div className="space-y-2 col-span-2 sm:col-span-1">
+                      <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">Khoảng cách công ty</Label>
+                      <Select value={form.customer_distance_type} onValueChange={(v: any) => setForm({ ...form, customer_distance_type: v })}>
+                        <SelectTrigger className="text-sm h-11 rounded-2xl bg-white border-slate-200/60 font-medium">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
+                          {CUSTOMER_DISTANCE_OPTIONS.map(o => (
+                            <SelectItem key={o.value} value={o.value} className="text-sm font-medium">{o.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2 col-span-2 sm:col-span-1">
                       <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">Mô hình chăm sóc</Label>
                       <Select value={form.care_model} onValueChange={(v: any) => setForm({ ...form, care_model: v })}>
                         <SelectTrigger className="text-sm h-11 rounded-2xl bg-white border-slate-200/60 font-bold text-primary">
@@ -516,11 +534,11 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
                       </Label>
                       <Select value={form.owner_tele_id} onValueChange={(v) => setForm({ ...form, owner_tele_id: v })}>
                         <SelectTrigger className="text-sm h-11 rounded-2xl bg-white border-slate-200/60 font-medium">
-                          <SelectValue placeholder="Chọn nhân sự Tele" />
+                          <SelectValue placeholder={teleLeads.length > 0 ? "Chọn Trưởng Tele phụ trách..." : "Chưa có tài khoản Trưởng Tele"} />
                         </SelectTrigger>
                         <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
                           <SelectItem value="none" className="text-sm italic text-slate-400">— Chưa phân công —</SelectItem>
-                          {teleUsers.map(u => (
+                          {teleLeads.map(u => (
                             <SelectItem key={u.id} value={u.id} className="text-sm font-medium">🎧 {u.full_name}</SelectItem>
                           ))}
                         </SelectContent>

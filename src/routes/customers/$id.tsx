@@ -35,7 +35,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   getLifecycleConfig, 
   getStaffName, 
-  getCareModelLabel 
+  getCareModelLabel,
+  getCustomerChannelLabel,
+  getCustomerDistanceLabel
 } from "@/lib/customerOwnership";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -500,6 +502,24 @@ function CustomerDetailPage() {
                          </div>
                       </div>
                       <div className="space-y-8">
+                         <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.2em] flex items-center gap-3">
+                            <MapPin className="w-5 h-5 text-amber-500" /> Phân tuyến & Trạng thái
+                         </h4>
+                         <div className="grid grid-cols-2 gap-4">
+                            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Kênh tiếp cận</p>
+                               <p className="text-xs font-bold text-slate-900">{getCustomerChannelLabel(customer.customer_channel)}</p>
+                            </div>
+                            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Khoảng cách</p>
+                               <p className="text-xs font-bold text-slate-900">{getCustomerDistanceLabel(customer.customer_distance_type)}</p>
+                            </div>
+                            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 col-span-2">
+                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Mô hình chăm sóc</p>
+                               <p className="text-xs font-bold text-slate-900">{getCareModelLabel(customer.care_model)}</p>
+                            </div>
+                         </div>
+
                          <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.2em] flex items-center gap-3">
                             <Users className="w-5 h-5 text-indigo-500" /> Đội ngũ phụ trách
                          </h4>

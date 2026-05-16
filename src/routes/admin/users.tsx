@@ -23,7 +23,7 @@ import {
 import { toast } from "sonner";
 import { FunctionsHttpError, FunctionsFetchError, FunctionsRelayError } from "@supabase/supabase-js";
 
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, getRoleLabel } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -157,9 +157,10 @@ function AdminUsersPage() {
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'admin': return 'bg-rose-50 text-rose-600 border-rose-100';
+      case 'sub_admin': return 'bg-purple-50 text-purple-600 border-purple-100';
       case 'sale': return 'bg-indigo-50 text-indigo-600 border-indigo-100';
-      case 'telesale': return 'bg-amber-50 text-amber-600 border-amber-100';
-      case 'tele_lead': return 'bg-purple-50 text-purple-600 border-purple-100';
+      case 'tele_lead': return 'bg-amber-50 text-amber-600 border-amber-100';
+      case 'telesale': return 'bg-orange-50 text-orange-600 border-orange-100';
       default: return 'bg-slate-50 text-slate-500 border-slate-100';
     }
   };
@@ -192,11 +193,13 @@ function AdminUsersPage() {
 
       <main className="container mx-auto px-4 py-8 max-w-7xl space-y-8">
         {/* TEAM STATS */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
            <StatBox title="Tổng nhân sự" value={profiles.length} icon={Users} color="indigo" />
-           <StatBox title="Quản trị viên" value={roles.filter(r => r.role === 'admin').length} icon={Shield} color="rose" />
-           <StatBox title="Đội ngũ Sale" value={roles.filter(r => r.role === 'sale').length} icon={ShoppingBag} color="amber" />
-           <StatBox title="Đội ngũ Tele" value={roles.filter(r => r.role === 'telesale').length} icon={Phone} color="purple" />
+           <StatBox title="Admin" value={roles.filter(r => r.role === 'admin').length} icon={Shield} color="rose" />
+           <StatBox title="Phó Admin" value={roles.filter(r => r.role === 'sub_admin').length} icon={ShieldCheck} color="purple" />
+           <StatBox title="Sale" value={roles.filter(r => r.role === 'sale').length} icon={ShoppingBag} color="indigo" />
+           <StatBox title="Trưởng Tele" value={roles.filter(r => r.role === 'tele_lead').length} icon={Users} color="amber" />
+           <StatBox title="Telesale" value={roles.filter(r => r.role === 'telesale').length} icon={Phone} color="orange" />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -231,7 +234,9 @@ function AdminUsersPage() {
                        >
                           <option value="all">Tất cả vai trò</option>
                           <option value="admin">Admin</option>
+                          <option value="sub_admin">Phó Admin</option>
                           <option value="sale">Sale</option>
+                          <option value="tele_lead">Trưởng Tele</option>
                           <option value="telesale">Telesale</option>
                        </select>
                     </div>
@@ -268,7 +273,7 @@ function AdminUsersPage() {
                                       </td>
                                       <td className="px-8 py-5">
                                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                                            {['admin', 'sale', 'telesale', 'tele_lead'].map(role => {
+                                            {['admin', 'sub_admin', 'sale', 'tele_lead', 'telesale'].map(role => {
                                                const isActive = userRoles.includes(role);
                                                return (
                                                   <button
@@ -278,7 +283,7 @@ function AdminUsersPage() {
                                                       isActive ? getRoleColor(role) : 'bg-white text-slate-300 border-slate-100 opacity-40 hover:opacity-100'
                                                     }`}
                                                   >
-                                                     {getRoleIcon(role)} {role}
+                                                     {getRoleIcon(role)} {getRoleLabel(role as any)}
                                                   </button>
                                                );
                                             })}

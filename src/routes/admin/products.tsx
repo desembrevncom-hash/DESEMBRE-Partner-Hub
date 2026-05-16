@@ -33,6 +33,7 @@ import ProductLinkCell from "@/components/ProductLinkCell";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { FullCatalogPDF } from "@/components/FullCatalogPDF";
 import { EditUnlockProvider } from "@/hooks/useEditUnlock";
+import { getDisplayPrice, UserRole } from "@/lib/pricing";
 
 export const Route = createFileRoute("/admin/products")({
   component: ProductCatalogPage,
@@ -44,6 +45,8 @@ function ProductCatalogPage() {
   const [overrides, setOverrides] = useState<Record<number, any>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [vatOn, setVatOn] = useState(false);
+  const [saleViewMode, setSaleViewMode] = useState(false);
   const [cart, setCart] = useState<{ no: number; sizeType: "retail" | "salon" }[]>([]);
   const navigate = useNavigate();
 
@@ -134,7 +137,16 @@ function ProductCatalogPage() {
     });
   }, [mergedProducts, searchQuery, categoryFilter]);
 
-  const fmt = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n)) + "đ";
+  const fmt = (n: number) => {
+    // Determine the role to use for pricing
+    // If admin and saleViewMode is ON, use 'sale' role to show 60% price
+    // If field staff, they always see their discounted price
+    const { role } = useAuth(); // Re-getting role to be sure
+    const effectiveRole = (isAdmin && saleViewMode) ? "sale" : (role as UserRole);
+    
+    const price = getDisplayPrice(n, vatOn ? "with" : "without", effectiveRole);
+    return new Intl.NumberFormat("vi-VN").format(Math.round(price || 0)) + "đ";
+  };
 
   const handleUpdate = (id: number, field: string, value: any) => {
     setOverrides(prev => ({
@@ -176,7 +188,13 @@ function ProductCatalogPage() {
 
             <div className="flex items-center gap-3">
                <PDFDownloadLink 
-                  document={<FullCatalogPDF products={mergedProducts} />} 
+                  document={
+                    <FullCatalogPDF 
+                      products={mergedProducts} 
+                      vatOn={vatOn} 
+                      role={(isAdmin && saleViewMode) ? "sale" : undefined}
+                    />
+                  } 
                   fileName={`Desembre_Catalog_${new Date().toISOString().slice(0,10)}.pdf`}
                >
                   {({ loading }) => (
@@ -229,6 +247,22 @@ function ProductCatalogPage() {
                     {cat.name}
                   </button>
                 ))}
+             </div>
+
+             <div className="lg:col-span-12 flex items-center justify-end px-4 py-2 border-t border-slate-800/50 mt-2 gap-4">
+                <div className="flex items-center gap-3 bg-slate-950/50 px-4 py-2 rounded-2xl border border-slate-800">
+                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Hiển thị giá:</span>
+                   <div className="flex items-center gap-2">
+                      <span className={`text-[9px] font-bold uppercase transition-colors ${!vatOn ? 'text-indigo-400' : 'text-slate-600'}`}>Chưa VAT</span>
+                      <button 
+                        onClick={() => setVatOn(!vatOn)}
+                        className={`w-10 h-5 rounded-full p-1 transition-all duration-300 ${vatOn ? 'bg-indigo-600' : 'bg-slate-700'}`}
+                      >
+                         <div className={`w-3 h-3 rounded-full bg-white shadow-sm transition-all duration-300 ${vatOn ? 'translate-x-5' : 'translate-x-0'}`} />
+                      </button>
+                      <span className={`text-[9px] font-bold uppercase transition-colors ${vatOn ? 'text-indigo-400' : 'text-slate-600'}`}>Có VAT (8%)</span>
+                   </div>
+                </div>
              </div>
           </div>
 
@@ -321,7 +355,7 @@ function ProductCatalogPage() {
                                   {retail ? (
                                      <div className="space-y-1">
                                         <p className="text-sm font-black text-white tracking-tight">{fmt(retail.price)}</p>
-                                        <p className="text-[9px] font-bold text-slate-600 uppercase">NIÊM YẾT LẺ</p>
+                                        <p className="text-[9px] font-bold text-slate-600 uppercase">NIÊM YẾT LẺ {vatOn ? "(ĐÃ CÓ VAT)" : ""}</p>
                                         <button onClick={() => handlePick(p.id, "retail")} className="text-[10px] px-3 py-1 rounded-md bg-indigo-500/20 text-indigo-400 font-bold uppercase hover:bg-indigo-500 hover:text-white transition-all">CHỌN LÊN ĐƠN</button>
                                      </div>
                                   ) : (
@@ -332,7 +366,7 @@ function ProductCatalogPage() {
                                   {salon ? (
                                      <div className="space-y-1">
                                         <p className="text-sm font-black text-indigo-400 tracking-tight">{fmt(salon.price)}</p>
-                                        <p className="text-[9px] font-bold text-slate-600 uppercase">GIÁ CHUYÊN NGHIỆP</p>
+                                        <p className="text-[9px] font-bold text-slate-600 uppercase">GIÁ CHUYÊN NGHIỆP {vatOn ? "(ĐÃ CÓ VAT)" : ""}</p>
                                         <button onClick={() => handlePick(p.id, "salon")} className="text-[10px] px-3 py-1 rounded-md bg-indigo-500/20 text-indigo-400 font-bold uppercase hover:bg-indigo-500 hover:text-white transition-all">CHỌN LÊN ĐƠN</button>
                                      </div>
                                   ) : (
