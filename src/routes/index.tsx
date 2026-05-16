@@ -49,12 +49,12 @@ function LandingPage() {
       {/* NAVIGATION */}
       <nav className="border-b border-slate-100 sticky top-0 bg-white/80 backdrop-blur-md z-50">
         <div className="container mx-auto px-6 h-20 flex items-center justify-between max-w-7xl">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-xl shadow-slate-200">
+          <a href="#hero" className="flex items-center gap-3 cursor-pointer group">
+            <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-xl shadow-slate-200 group-hover:scale-110 transition-transform">
               <Sparkles className="w-5 h-5" />
             </div>
             <span className="text-xl font-black tracking-tighter">DESEMBRE <span className="text-indigo-600">HUB</span></span>
-          </div>
+          </a>
           <div className="flex items-center gap-8">
             <div className="hidden md:flex items-center gap-6">
               <a href="#features" className="text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">Tính năng</a>
@@ -73,7 +73,7 @@ function LandingPage() {
       </nav>
 
       {/* HERO SECTION */}
-      <section className="py-24 lg:py-32 overflow-hidden bg-slate-50/50">
+      <section id="hero" className="py-24 lg:py-32 overflow-hidden bg-slate-50/50">
         <div className="container mx-auto px-6 max-w-7xl text-center">
           <Badge className="bg-indigo-50 text-indigo-600 border-indigo-100 mb-6 px-4 py-1.5 rounded-full font-black text-[10px] tracking-widest uppercase">
             SỨC MẠNH QUẢN TRỊ 4.0
