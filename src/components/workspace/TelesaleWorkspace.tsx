@@ -23,10 +23,12 @@ import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 export const TelesaleWorkspace: React.FC = () => {
   const { user } = useAuth();
   const [data, setData] = useState<any>({
+    allTasks: [],
     todayTasks: [],
     overdueTasks: [],
     interestedLeads: [],
     callbackTasks: [],
+    companyEvents: [],
     notifications: [],
     loading: true
   });
@@ -43,33 +45,36 @@ export const TelesaleWorkspace: React.FC = () => {
       const endOfToday = new Date();
       endOfToday.setHours(23, 59, 59, 999);
       
-      const startOfTodayStr = startOfToday.toISOString();
-      const endOfTodayStr = endOfToday.toISOString();
-      
-      const [todayRes, overdueRes, interestedRes, callbackRes, companyRes, notifsRes] = await Promise.all([
+      const [allTasksRes, interestedRes, callbackRes, companyRes, notifsRes] = await Promise.all([
         supabase.from("customer_tasks")
           .select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)")
           .eq("assigned_to", user.id)
           .eq("status", "pending")
-          .eq("task_type", "call")
-          .gte("due_at", startOfTodayStr)
-          .lte("due_at", endOfTodayStr),
-        supabase.from("customer_tasks")
-          .select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)")
-          .eq("assigned_to", user.id)
-          .lt("due_at", startOfTodayStr)
-          .neq("status", "completed")
-          .neq("status", "cancelled")
-          .neq("status", "failed"),
+          .eq("task_type", "call"),
         supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)").eq("assigned_to", user.id).or('result.eq.interested,result.eq.qualified'),
         supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)").eq("assigned_to", user.id).eq("result", "call_back_later"),
         supabase.from("company_events").select("*").order("starts_at", { ascending: true }),
         supabase.from("notifications").select("*").eq("recipient_user_id", user.id).is("read_at", null).order("created_at", { ascending: false }).limit(5)
       ]);
 
+      const allTasks = allTasksRes.data || [];
+      
+      const todayTasks = allTasks.filter((t: any) => {
+        if (!t.due_at) return false;
+        const dueTime = new Date(t.due_at).getTime();
+        return dueTime >= startOfToday.getTime() && dueTime <= endOfToday.getTime();
+      });
+
+      const overdueTasks = allTasks.filter((t: any) => {
+        if (!t.due_at) return false;
+        const dueTime = new Date(t.due_at).getTime();
+        return dueTime < startOfToday.getTime();
+      });
+
       setData({
-        todayTasks: todayRes.data || [],
-        overdueTasks: overdueRes.data || [],
+        allTasks,
+        todayTasks,
+        overdueTasks,
         interestedLeads: interestedRes.data || [],
         callbackTasks: callbackRes.data || [],
         companyEvents: companyRes.data || [],
@@ -137,9 +142,7 @@ export const TelesaleWorkspace: React.FC = () => {
         <div className="lg:col-span-2">
           <WorkspaceCalendarCard 
             events={[
-              ...(data.todayTasks || []).map((t: any) => ({ ...t, _ui_type: 'task' })), 
-              ...(data.overdueTasks || []).map((t: any) => ({ ...t, _ui_type: 'task' })), 
-              ...(data.callbackTasks || []).map((t: any) => ({ ...t, _ui_type: 'task' })),
+              ...(data.allTasks || []).map((t: any) => ({ ...t, _ui_type: 'task' })), 
               ...(data.companyEvents || []).map((c: any) => ({ ...c, _ui_type: 'company' }))
             ]} 
             onRefresh={handleRefresh}

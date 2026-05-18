@@ -25,10 +25,13 @@ import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 export const SaleWorkspace: React.FC = () => {
   const { user } = useAuth();
   const [data, setData] = useState<any>({
-    tasks: [],
-    appointments: [],
+    allTasks: [],
+    todayTasks: [],
+    allAppointments: [],
+    todayAppointments: [],
     notifications: [],
     customers: [],
+    companyEvents: [],
     loading: true
   });
 
@@ -44,29 +47,40 @@ export const SaleWorkspace: React.FC = () => {
       const endOfToday = new Date();
       endOfToday.setHours(23, 59, 59, 999);
       
-      const startOfTodayStr = startOfToday.toISOString();
-      const endOfTodayStr = endOfToday.toISOString();
-      
       const [tasksRes, personalRes, companyRes, notifsRes, customersRes] = await Promise.all([
         supabase.from("customer_tasks")
           .select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)")
           .eq("assigned_to", user.id)
-          .eq("status", "pending")
-          .lte("due_at", endOfTodayStr),
+          .eq("status", "pending"),
         supabase.from("calendar_events")
           .select("*")
           .eq("assigned_sale_id", user.id)
-          .gte("starts_at", startOfTodayStr)
-          .lte("starts_at", endOfTodayStr)
           .order("starts_at", { ascending: true }),
         supabase.from("company_events").select("*").order("starts_at", { ascending: true }),
         supabase.from("notifications").select("*").eq("recipient_user_id", user.id).is("read_at", null).order("created_at", { ascending: false }).limit(5),
         supabase.from("customers").select("*").eq("owner_sale_id", user.id).or(`next_follow_up_at.lte.${new Date().toISOString()},next_follow_up_at.is.null`).limit(10)
       ]);
 
+      const allTasks = tasksRes.data || [];
+      const allAppointments = personalRes.data || [];
+
+      const todayTasks = allTasks.filter((t: any) => {
+        if (!t.due_at) return false;
+        const dueTime = new Date(t.due_at).getTime();
+        return dueTime <= endOfToday.getTime();
+      });
+
+      const todayAppointments = allAppointments.filter((a: any) => {
+        if (!a.starts_at) return false;
+        const startTime = new Date(a.starts_at).getTime();
+        return startTime >= startOfToday.getTime() && startTime <= endOfToday.getTime();
+      });
+
       setData({
-        tasks: tasksRes.data || [],
-        appointments: personalRes.data || [],
+        allTasks,
+        todayTasks,
+        allAppointments,
+        todayAppointments,
         companyEvents: companyRes.data || [],
         notifications: notifsRes.data || [],
         customers: customersRes.data || [],
@@ -79,10 +93,10 @@ export const SaleWorkspace: React.FC = () => {
   const handleRefresh = () => setRefreshKey(prev => prev + 1);
 
   const stats = [
-    { label: "Lead mới cần gọi", value: data.tasks.filter((t: any) => t.task_type === 'call').length, icon: <Phone className="w-5 h-5" />, color: "text-blue-600" },
+    { label: "Lead mới cần gọi", value: data.allTasks.filter((t: any) => t.task_type === 'call').length, icon: <Phone className="w-5 h-5" />, color: "text-blue-600" },
     { label: "Follow-up hôm nay", value: data.customers.length, icon: <Clock className="w-5 h-5" />, color: "text-amber-500" },
-    { label: "Khách cần check-in", value: data.tasks.filter((t: any) => t.task_type === 'visit').length, icon: <UserCheck className="w-5 h-5" />, color: "text-emerald-600" },
-    { label: "Báo giá chưa chốt", value: data.tasks.filter((t: any) => t.task_type === 'quotation').length, icon: <FileText className="w-5 h-5" />, color: "text-slate-800" },
+    { label: "Khách cần check-in", value: data.allTasks.filter((t: any) => t.task_type === 'visit').length, icon: <UserCheck className="w-5 h-5" />, color: "text-emerald-600" },
+    { label: "Báo giá chưa chốt", value: data.allTasks.filter((t: any) => t.task_type === 'quotation').length, icon: <FileText className="w-5 h-5" />, color: "text-slate-800" },
   ];
 
   return (
@@ -115,7 +129,7 @@ export const SaleWorkspace: React.FC = () => {
         <div className="lg:col-span-1 flex flex-col gap-6">
           <WorkspaceTasksCard 
             title="Việc hôm nay" 
-            items={[...(data.tasks || []), ...(data.appointments || [])]} 
+            items={[...(data.todayTasks || []), ...(data.todayAppointments || [])]} 
             icon={<Zap className="w-4 h-4" />} 
             color="bg-blue-600" 
           />
@@ -134,8 +148,8 @@ export const SaleWorkspace: React.FC = () => {
         <div className="lg:col-span-2">
           <WorkspaceCalendarCard 
             events={[
-              ...(data.tasks || []).map((t: any) => ({ ...t, _ui_type: 'task' })), 
-              ...(data.appointments || []).map((a: any) => ({ ...a, _ui_type: 'personal' })),
+              ...(data.allTasks || []).map((t: any) => ({ ...t, _ui_type: 'task' })), 
+              ...(data.allAppointments || []).map((a: any) => ({ ...a, _ui_type: 'personal' })),
               ...(data.companyEvents || []).map((c: any) => ({ ...c, _ui_type: 'company' }))
             ]} 
             onRefresh={handleRefresh}
