@@ -32,13 +32,18 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   const { user, signOut, isAdmin, isTeleLead } = useAuth();
-  const [branding, setBranding] = useState({ primary: "", accent: "" });
+  const [branding, setBranding] = useState({ primary: "", accent: "", logoLight: "", logoDark: "" });
 
   useEffect(() => {
-    supabase.from('system_settings').select('primary_color, accent_color').maybeSingle()
+    supabase.from('system_settings').select('primary_color, accent_color, logo_light_url, logo_dark_url').maybeSingle()
       .then(({data}) => {
         if (data) {
-          setBranding({ primary: data.primary_color, accent: data.accent_color });
+          setBranding({ 
+             primary: data.primary_color, 
+             accent: data.accent_color,
+             logoLight: data.logo_light_url,
+             logoDark: data.logo_dark_url
+          });
         }
       });
   }, []);
@@ -89,7 +94,7 @@ function RootLayout() {
              {/* LOGO AREA */}
              <Link to="/" className="flex items-center gap-3 group">
                 <img 
-                  src="/logo.svg" 
+                  src={branding.logoLight || "/logo.svg"}
                   alt="Desembre Logo" 
                   className="w-10 h-10 rounded-xl object-contain shadow-lg shadow-slate-200 transition-transform group-hover:scale-110" 
                 />

@@ -55,7 +55,9 @@ function SystemSettingsPage() {
     darkMode: false,
     systemLanguage: "vi",
     primaryColor: "#6366f1",
-    accentColor: "#ec4899"
+    accentColor: "#ec4899",
+    logoLightUrl: "",
+    logoDarkUrl: ""
   });
   const [loadingConfig, setLoadingConfig] = useState(true);
 
@@ -76,12 +78,42 @@ function SystemSettingsPage() {
           systemLanguage: data.system_language || "vi",
           primaryColor: data.primary_color || "#6366f1",
           accentColor: data.accent_color || "#ec4899",
+          logoLightUrl: data.logo_light_url || "",
+          logoDarkUrl: data.logo_dark_url || "",
         });
       }
       setLoadingConfig(false);
     }
     loadConfig();
   }, []);
+
+  const handleLogoUpload = async (file: File, type: 'light' | 'dark') => {
+    if (!file) return;
+    try {
+      toast.loading("Đang tải ảnh lên...", { id: "upload-logo" });
+      const fileExt = file.name.split('.').pop();
+      const fileName = `logo-${type}-${Math.random()}.${fileExt}`;
+      const filePath = `brand/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(filePath);
+
+      setConfig((prev: any) => ({
+        ...prev,
+        [type === 'light' ? 'logoLightUrl' : 'logoDarkUrl']: publicUrl
+      }));
+      toast.success("Tải ảnh lên thành công!", { id: "upload-logo" });
+    } catch (error: any) {
+      toast.error("Lỗi tải ảnh: " + error.message, { id: "upload-logo" });
+    }
+  };
 
   const handleSave = async () => {
     setBusy(true);
@@ -96,7 +128,9 @@ function SystemSettingsPage() {
       dark_mode: config.darkMode,
       system_language: config.systemLanguage,
       primary_color: config.primaryColor,
-      accent_color: config.accentColor
+      accent_color: config.accentColor,
+      logo_light_url: config.logoLightUrl,
+      logo_dark_url: config.logoDarkUrl
     };
 
     let error;
@@ -170,19 +204,31 @@ function SystemSettingsPage() {
                           <div className="flex flex-col md:flex-row gap-12 items-center">
                              <div className="space-y-4 text-center">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Logo Chính (Light)</label>
-                                <div className="w-32 h-32 rounded-3xl bg-slate-50 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center p-4 group hover:border-indigo-500 transition-all cursor-pointer">
-                                   <ImageIcon className="w-8 h-8 text-slate-300 group-hover:text-indigo-500 transition-colors" />
-                                   <p className="text-[9px] font-bold text-slate-400 mt-2">1024x1024 px</p>
-                                </div>
-                                <Button variant="ghost" size="sm" className="text-[10px] font-bold text-indigo-600">Thay đổi ảnh</Button>
+                                <label className="w-32 h-32 rounded-3xl bg-slate-50 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center p-4 group hover:border-indigo-500 transition-all cursor-pointer relative overflow-hidden block mx-auto">
+                                   <input type="file" className="hidden" accept="image/*" onChange={(e) => { if(e.target.files?.[0]) handleLogoUpload(e.target.files[0], 'light'); }} />
+                                   {config.logoLightUrl ? (
+                                     <img src={config.logoLightUrl} alt="Logo Light" className="w-full h-full object-contain" />
+                                   ) : (
+                                     <>
+                                       <ImageIcon className="w-8 h-8 text-slate-300 group-hover:text-indigo-500 transition-colors" />
+                                       <p className="text-[9px] font-bold text-slate-400 mt-2">1024x1024 px</p>
+                                     </>
+                                   )}
+                                </label>
                              </div>
                              <div className="space-y-4 text-center">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Logo Phụ (Dark)</label>
-                                <div className="w-32 h-32 rounded-3xl bg-slate-900 border-2 border-dashed border-slate-700 flex flex-col items-center justify-center p-4 group hover:border-indigo-500 transition-all cursor-pointer">
-                                   <ImageIcon className="w-8 h-8 text-slate-600 group-hover:text-indigo-400 transition-colors" />
-                                   <p className="text-[9px] font-bold text-slate-500 mt-2">White Version</p>
-                                </div>
-                                <Button variant="ghost" size="sm" className="text-[10px] font-bold text-indigo-600">Thay đổi ảnh</Button>
+                                <label className="w-32 h-32 rounded-3xl bg-slate-900 border-2 border-dashed border-slate-700 flex flex-col items-center justify-center p-4 group hover:border-indigo-500 transition-all cursor-pointer relative overflow-hidden block mx-auto">
+                                   <input type="file" className="hidden" accept="image/*" onChange={(e) => { if(e.target.files?.[0]) handleLogoUpload(e.target.files[0], 'dark'); }} />
+                                   {config.logoDarkUrl ? (
+                                     <img src={config.logoDarkUrl} alt="Logo Dark" className="w-full h-full object-contain" />
+                                   ) : (
+                                     <>
+                                       <ImageIcon className="w-8 h-8 text-slate-600 group-hover:text-indigo-400 transition-colors" />
+                                       <p className="text-[9px] font-bold text-slate-500 mt-2">White Version</p>
+                                     </>
+                                   )}
+                                </label>
                              </div>
                              <div className="flex-1 space-y-6">
                                 <div className="space-y-2">
