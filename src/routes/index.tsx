@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
 import { 
   TrendingUp, 
@@ -40,7 +40,7 @@ function HomePage() {
     return <LandingPage />;
   }
 
-  return <Dashboard />;
+  return <Navigate to="/workspace" />;
 }
 
 function LandingPage() {

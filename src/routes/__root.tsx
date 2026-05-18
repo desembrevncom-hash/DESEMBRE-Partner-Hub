@@ -61,7 +61,7 @@ function RootLayout() {
 
              {/* MAIN MENU */}
              <div className="hidden lg:flex items-center gap-1">
-                <NavButton to="/" icon={LayoutDashboard} label="Workspace" />
+                <NavButton to="/workspace" icon={LayoutDashboard} label="Workspace" />
                 <NavButton to="/customers" icon={Users} label="Khách hàng" />
                 <NavButton to="/orders" icon={Package} label="Đơn hàng" />
                 <NavButton to="/admin/products" icon={Zap} label="Sản phẩm" />
