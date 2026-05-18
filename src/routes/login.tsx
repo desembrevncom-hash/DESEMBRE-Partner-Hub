@@ -61,7 +61,7 @@ function LoginPage() {
            
            <div className="relative z-10">
               <img 
-                 src="/logo.png" 
+                 src="/logo.svg" 
                  alt="Desembre Logo" 
                  className="w-16 h-16 rounded-2xl object-contain bg-white/10 backdrop-blur-md border border-white/20 shadow-xl mb-10 transition-transform hover:scale-110" 
               />

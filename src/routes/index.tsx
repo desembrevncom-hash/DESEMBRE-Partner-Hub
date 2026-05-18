@@ -51,7 +51,7 @@ function LandingPage() {
         <div className="container mx-auto px-6 h-20 flex items-center justify-between max-w-7xl">
           <a href="#hero" className="flex items-center gap-3 cursor-pointer group">
             <img 
-              src="/logo.png" 
+              src="/logo.svg" 
               alt="Desembre Logo" 
               className="w-12 h-12 rounded-xl object-contain shadow-xl shadow-slate-200 group-hover:scale-110 transition-transform" 
             />
@@ -170,12 +170,12 @@ function LandingPage() {
            <div className="flex flex-col md:flex-row justify-center items-center gap-12 mt-12">
               <div className="space-y-2">
                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Email hỗ trợ</p>
-                 <p className="text-xl font-black text-slate-900">support@desembre.vn</p>
+                 <p className="text-xl font-black text-slate-900">cskh.desembre@gmail.com</p>
               </div>
               <div className="w-px h-12 bg-slate-200 hidden md:block"></div>
               <div className="space-y-2">
                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hotline</p>
-                 <p className="text-xl font-black text-slate-900">1900 xxxx</p>
+                 <p className="text-xl font-black text-slate-900">0333.60.26.26</p>
               </div>
            </div>
         </div>
@@ -227,7 +227,7 @@ function Dashboard() {
         <div className="container mx-auto px-6 h-24 flex items-center justify-between max-w-7xl">
           <div className="flex items-center gap-6">
              <img 
-               src="/logo.png" 
+               src="/logo.svg" 
                alt="Desembre Logo" 
                className="w-14 h-14 rounded-[22px] object-contain shadow-2xl shadow-slate-300 ring-4 ring-slate-50 transition-transform hover:scale-110" 
              />
