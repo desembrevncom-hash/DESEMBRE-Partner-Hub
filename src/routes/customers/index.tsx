@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
+import { formatDistanceToNow, differenceInDays } from "date-fns";
+import { vi } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { 
@@ -55,6 +57,47 @@ function CustomersPage() {
   // Quick Log State
   const [logTarget, setLogTarget] = useState<any | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
+  // Kanban Optimization States
+  const [draggedCustomerId, setDraggedCustomerId] = useState<string | null>(null);
+  const [collapsedColumns, setCollapsedColumns] = useState<Record<string, boolean>>({});
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedCustomerId(id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e: React.DragEvent, newStage: string) => {
+    e.preventDefault();
+    if (!draggedCustomerId) return;
+    
+    // Optimistic update
+    setCustomers(prev => prev.map(c => 
+      c.id === draggedCustomerId ? { ...c, lifecycle_stage: newStage } : c
+    ));
+    
+    try {
+      const { error } = await supabase
+        .from('customers')
+        .update({ lifecycle_stage: newStage })
+        .eq('id', draggedCustomerId);
+      if (error) throw error;
+      toast.success("Đã cập nhật giai đoạn khách hàng");
+    } catch (error: any) {
+      toast.error("Lỗi cập nhật: " + error.message);
+      fetchCustomers(); // revert
+    }
+    setDraggedCustomerId(null);
+  };
+
+  const toggleColumn = (stageValue: string) => {
+    setCollapsedColumns(prev => ({ ...prev, [stageValue]: !prev[stageValue] }));
+  };
 
   useEffect(() => {
     fetchCustomers();
@@ -186,37 +229,66 @@ function CustomersPage() {
         {viewMode === 'kanban' ? (
           /* PERFECT KANBAN UX */
           <div className="flex gap-6 overflow-x-auto pb-10 min-h-[600px] no-scrollbar">
-             {SALES_PIPELINE_STAGES.map(stage => (
-                <div key={stage.value} className="min-w-[320px] w-[320px] space-y-4">
-                   <div className="flex items-center justify-between px-2">
-                      <div className="flex items-center gap-2">
-                         <div className={`w-2 h-6 rounded-full ${getPipelineStageColor(stage.value)}`} />
-                         <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest">{stage.label}</h3>
+             {SALES_PIPELINE_STAGES.map(stage => {
+                const isCollapsed = collapsedColumns[stage.value];
+                const stageCustomers = filteredCustomers.filter(c => c.lifecycle_stage === stage.value);
+                
+                if (isCollapsed) {
+                   return (
+                      <div key={stage.value} className="min-w-[60px] w-[60px] flex flex-col items-center border-r border-slate-200/50 cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => toggleColumn(stage.value)}>
+                         <div className="flex flex-col items-center gap-4 py-4 h-full">
+                            <div className={`w-3 h-3 rounded-full ${getPipelineStageColor(stage.value).replace('bg-', 'bg-').replace('50', '500')}`} />
+                            <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }} className="text-xs font-black text-slate-400 tracking-widest whitespace-nowrap mt-4">
+                               {stage.label} ({stageCustomers.length})
+                            </div>
+                         </div>
                       </div>
-                      <Badge variant="outline" className="text-[10px] font-bold border-slate-200 text-slate-400 bg-white">
-                         {customers.filter(c => c.lifecycle_stage === stage.value).length}
-                      </Badge>
+                   );
+                }
+
+                return (
+                <div 
+                   key={stage.value} 
+                   className="min-w-[320px] w-[320px] space-y-4"
+                   onDragOver={handleDragOver}
+                   onDrop={(e) => handleDrop(e, stage.value)}
+                >
+                   <div className="flex items-center justify-between px-2">
+                      <div className="flex items-center gap-2 cursor-pointer" onClick={() => toggleColumn(stage.value)}>
+                         <div className={`w-2 h-6 rounded-full ${getPipelineStageColor(stage.value)}`} />
+                         <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest hover:text-indigo-600 transition-colors">{stage.label}</h3>
+                      </div>
+                      <div className="flex items-center gap-2">
+                         <Badge variant="outline" className="text-[10px] font-bold border-slate-200 text-slate-400 bg-white">
+                            {stageCustomers.length}
+                         </Badge>
+                         <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:bg-slate-200/50" onClick={() => toggleColumn(stage.value)}>
+                            <ChevronRight className="w-4 h-4 transition-transform hover:-translate-x-1" />
+                         </Button>
+                      </div>
                    </div>
 
-                   <div className="space-y-4 bg-slate-50/50 p-3 rounded-[24px] border border-slate-100 min-h-[500px]">
-                      {filteredCustomers.filter(c => c.lifecycle_stage === stage.value).map(customer => (
+                   <div className={`space-y-4 bg-slate-50/50 p-3 rounded-[24px] border border-slate-100 min-h-[500px] transition-colors ${draggedCustomerId ? 'border-dashed border-indigo-300 bg-indigo-50/30' : ''}`}>
+                      {stageCustomers.map(customer => (
                          <CustomerCard 
                             key={customer.id} 
                             customer={customer} 
                             stage={stage.value} 
                             isAdmin={isAdmin} 
                             onQuickLog={() => setLogTarget(customer)}
+                            draggable={true}
+                            onDragStart={(e: React.DragEvent) => handleDragStart(e, customer.id)}
                          />
                       ))}
-                      {filteredCustomers.filter(c => c.lifecycle_stage === stage.value).length === 0 && (
+                      {stageCustomers.length === 0 && (
                          <div className="h-40 flex flex-col items-center justify-center text-slate-200 border-2 border-dashed border-slate-200 rounded-[20px]">
                             <Layers className="w-8 h-8 mb-2" />
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Trống</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Kéo thả vào đây</p>
                          </div>
                       )}
                    </div>
                 </div>
-             ))}
+             )})}
           </div>
         ) : (
           /* MODERN LIST VIEW */
@@ -299,7 +371,7 @@ function CustomersPage() {
   );
 }
 
-function CustomerCard({ customer, stage, isAdmin, onQuickLog }: any) {
+function CustomerCard({ customer, stage, isAdmin, onQuickLog, draggable, onDragStart }: any) {
   // Logic hành động nhanh tùy theo giai đoạn
   const getAction = () => {
     switch (stage) {
@@ -312,29 +384,56 @@ function CustomerCard({ customer, stage, isAdmin, onQuickLog }: any) {
   };
 
   const action = getAction();
+  const totalValue = customer.orders?.reduce((sum: number, o: any) => sum + (o.total || 0), 0) || 0;
+  
+  // Cảnh báo khách hàng báo giá quá 3 ngày (Đỏ)
+  const isQuotedOverdue = stage === 'quoted' && differenceInDays(new Date(), new Date(customer.updated_at || customer.created_at)) >= 3;
 
   return (
-    <Card className="rounded-[24px] border-none shadow-sm hover:shadow-xl transition-all duration-300 bg-white overflow-hidden group border border-transparent hover:border-slate-100">
+    <Card 
+      draggable={draggable}
+      onDragStart={onDragStart}
+      className={`rounded-[24px] shadow-sm hover:shadow-xl transition-all duration-300 bg-white overflow-hidden group border cursor-grab active:cursor-grabbing relative ${isQuotedOverdue ? 'border-red-400 shadow-red-100 ring-1 ring-red-400/50' : 'border-transparent hover:border-slate-200'}`}
+    >
        <CardContent className="p-5 space-y-4">
           <div className="flex justify-between items-start">
              <div className="space-y-1">
-                <h4 className="text-sm font-black text-slate-900 leading-tight group-hover:text-indigo-600 transition-colors">{customer.business_name || customer.facility_name || customer.contact_name || customer.name}</h4>
+                <div className="flex items-center gap-2">
+                   <h4 className="text-sm font-black text-slate-900 leading-tight group-hover:text-indigo-600 transition-colors">{customer.business_name || customer.facility_name || customer.contact_name || customer.name}</h4>
+                   {totalValue > 50000000 && <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 text-[8px] px-1.5 py-0 border-none h-4">VVIP</Badge>}
+                   {stage === 'new_lead' && <Badge className="bg-red-100 text-red-700 hover:bg-red-200 text-[8px] px-1.5 py-0 border-none h-4">HOT</Badge>}
+                </div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{customer.city || "Toàn quốc"}</p>
              </div>
-             <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-200 group-hover:text-slate-400">
-                <MoreVertical className="w-4 h-4" />
-             </Button>
+             {isQuotedOverdue ? (
+                <AlertCircle className="w-4 h-4 text-red-500 animate-pulse shrink-0" title="Đã báo giá quá 3 ngày, cần chăm sóc!" />
+             ) : (
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-200 group-hover:text-slate-400 shrink-0">
+                   <MoreVertical className="w-4 h-4" />
+                </Button>
+             )}
           </div>
 
-          <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
-             <div className="flex -space-x-2">
-                <div className="w-5 h-5 rounded-full bg-slate-100 border border-white" title="Sale phụ trách" />
-                <div className="w-5 h-5 rounded-full bg-slate-50 border border-white" title="Tele phụ trách" />
+          <div className="flex flex-col gap-2">
+             <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                <div className="flex -space-x-2">
+                   {customer.owner_sale_id && <div className="w-5 h-5 rounded-full bg-indigo-100 border border-white flex items-center justify-center text-[8px] text-indigo-600 font-bold" title="Sale phụ trách">S</div>}
+                   {customer.owner_tele_id && <div className="w-5 h-5 rounded-full bg-teal-100 border border-white flex items-center justify-center text-[8px] text-teal-600 font-bold" title="Tele phụ trách">T</div>}
+                   {!customer.owner_sale_id && !customer.owner_tele_id && <div className="w-5 h-5 rounded-full bg-slate-100 border border-white" />}
+                </div>
+                <span>• {customer.phone ? customer.phone.slice(-4).padStart(customer.phone.length, '*') : 'Chưa có SĐT'}</span>
              </div>
-             <span>• {customer.phone ? customer.phone.slice(-4).padStart(customer.phone.length, '*') : 'Chưa có SĐT'}</span>
+             
+             <div className="flex justify-between items-center text-[9px] font-bold bg-slate-50 p-2 rounded-xl">
+                <span className="text-slate-400 flex items-center gap-1">
+                   <Clock className="w-3 h-3" /> 
+                   {customer.updated_at || customer.created_at ? formatDistanceToNow(new Date(customer.updated_at || customer.created_at), { addSuffix: true, locale: vi }) : 'Mới đây'}
+                </span>
+                {totalValue > 0 && <span className="text-emerald-600 font-black tracking-widest">{new Intl.NumberFormat('vi-VN').format(totalValue)}đ</span>}
+             </div>
           </div>
 
-          <div className="pt-2 flex gap-2">
+          <div className="pt-1 flex gap-2">
              <Button 
                 asChild
                 className={`flex-1 rounded-xl h-8 text-[9px] font-black tracking-widest text-white shadow-sm transition-all hover:scale-105 ${action.color}`}
