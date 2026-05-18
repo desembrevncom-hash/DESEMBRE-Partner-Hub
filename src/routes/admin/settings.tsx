@@ -424,6 +424,59 @@ function SystemSettingsPage() {
                  </CardContent>
               </Card>
            </TabsContent>
+
+           {/* SECURITY TAB */}
+           <TabsContent value="security">
+              <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white max-w-3xl mx-auto">
+                 <CardHeader className="p-8">
+                    <CardTitle className="text-lg font-black text-slate-900">Bảo mật & Quyền riêng tư</CardTitle>
+                    <CardDescription>Các thiết lập bảo mật cấp cao (Sắp ra mắt trong phiên bản tới)</CardDescription>
+                 </CardHeader>
+                 <CardContent className="p-8 pt-0 space-y-6">
+                    <div className="space-y-4">
+                       <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 opacity-70">
+                          <div className="flex items-center gap-4">
+                             <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-emerald-500">
+                                <ShieldCheck className="w-5 h-5" />
+                             </div>
+                             <div>
+                                <p className="text-sm font-black text-slate-900">Xác thực 2 bước (2FA)</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Bắt buộc với Admin & Sub-admin</p>
+                             </div>
+                          </div>
+                          <Switch disabled checked={false} />
+                       </div>
+                       
+                       <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 opacity-70">
+                          <div className="flex items-center gap-4">
+                             <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-rose-500">
+                                <Lock className="w-5 h-5" />
+                             </div>
+                             <div>
+                                <p className="text-sm font-black text-slate-900">Chính sách Mật khẩu mạnh</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Yêu cầu chữ hoa, số và ký tự đặc biệt</p>
+                             </div>
+                          </div>
+                          <Switch disabled checked={true} />
+                       </div>
+
+                       <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 opacity-70">
+                          <div className="flex items-center gap-4">
+                             <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-slate-500">
+                                <Monitor className="w-5 h-5" />
+                             </div>
+                             <div>
+                                <p className="text-sm font-black text-slate-900">Tự động đăng xuất (Timeout)</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Khi không có hoạt động quá 30 phút</p>
+                             </div>
+                          </div>
+                          <Switch disabled checked={false} />
+                       </div>
+                    </div>
+                 </CardContent>
+              </Card>
+           </TabsContent>
+
            {/* USERS TAB */}
            <TabsContent value="users">
               <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white max-w-3xl mx-auto">
