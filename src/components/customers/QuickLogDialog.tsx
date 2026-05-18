@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Phone, 
   MessageCircle, 
@@ -31,10 +31,17 @@ interface QuickLogDialogProps {
 }
 
 export function QuickLogDialog({ customer, isOpen, onClose, onSuccess }: QuickLogDialogProps) {
-  const { user } = useAuth();
+  const { user, isAdmin, isSubAdmin } = useAuth();
+  const isManager = isAdmin || isSubAdmin;
   const [loading, setLoading] = useState(false);
   const [type, setType] = useState<"call" | "zalo_message" | "online_consultation" | "note">("call");
   const [content, setContent] = useState("");
+
+  useEffect(() => {
+    if (isOpen) {
+      setType(isManager ? "note" : "call");
+    }
+  }, [isOpen, isManager]);
 
   const handleSubmit = async () => {
     if (!content.trim()) return toast.error("Vui lòng nhập nội dung ghi chú");
@@ -69,12 +76,20 @@ export function QuickLogDialog({ customer, isOpen, onClose, onSuccess }: QuickLo
     }
   };
 
-  const types = [
+  const allTypes = [
     { id: "call", label: "Gọi điện", icon: Phone, color: "text-amber-500 bg-amber-50" },
     { id: "zalo_message", label: "Chat Zalo", icon: MessageCircle, color: "text-indigo-500 bg-indigo-50" },
     { id: "online_consultation", label: "Tư vấn", icon: User, color: "text-emerald-500 bg-emerald-50" },
     { id: "note", label: "Ghi chú", icon: FileText, color: "text-slate-500 bg-slate-50" },
   ];
+
+  const types = allTypes.filter(t => {
+    if (isManager) {
+      return t.id === "note";
+    } else {
+      return t.id !== "note";
+    }
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -92,7 +107,7 @@ export function QuickLogDialog({ customer, isOpen, onClose, onSuccess }: QuickLo
         </DialogHeader>
 
         <div className="py-6 space-y-6">
-          <div className="grid grid-cols-4 gap-3">
+          <div className={`grid gap-3 ${isManager ? 'grid-cols-1 max-w-[150px] mx-auto' : 'grid-cols-3'}`}>
             {types.map((t) => (
               <button
                 key={t.id}
