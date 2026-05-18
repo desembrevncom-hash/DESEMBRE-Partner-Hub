@@ -131,7 +131,7 @@ export function AssignStaffDialog({ isOpen, onClose, customer, onSuccess }: Assi
               >
                 <option value="">-- Chưa phân công --</option>
                 {salesStaff.map(s => (
-                  <option key={s.id} value={s.id}>{s.full_name || s.email}</option>
+                  <option key={s.id} value={s.id}>{s.display_name || s.email || 'Chưa rõ tên'}</option>
                 ))}
               </select>
             </div>
@@ -147,7 +147,7 @@ export function AssignStaffDialog({ isOpen, onClose, customer, onSuccess }: Assi
               >
                 <option value="">-- Chưa phân công --</option>
                 {teleStaff.map(s => (
-                  <option key={s.id} value={s.id}>{s.full_name || s.email}</option>
+                  <option key={s.id} value={s.id}>{s.display_name || s.email || 'Chưa rõ tên'}</option>
                 ))}
               </select>
             </div>
