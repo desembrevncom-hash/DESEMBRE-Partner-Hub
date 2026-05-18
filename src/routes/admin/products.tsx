@@ -34,6 +34,7 @@ import { PDFDownloadLink } from "@react-pdf/renderer";
 import { FullCatalogPDF } from "@/components/FullCatalogPDF";
 import { EditUnlockProvider } from "@/hooks/useEditUnlock";
 import { getDisplayPrice, UserRole } from "@/lib/pricing";
+import { useSystemSettings } from "@/hooks/useSystemSettings";
 
 export const Route = createFileRoute("/admin/products")({
   component: ProductCatalogPage,
@@ -41,6 +42,7 @@ export const Route = createFileRoute("/admin/products")({
 
 function ProductCatalogPage() {
   const { user, isAdmin, roles } = useAuth();
+  const { vatRate } = useSystemSettings();
   const userRole = roles[0] || "user";
   const [loading, setLoading] = useState(true);
   const [overrides, setOverrides] = useState<Record<number, any>>({});
@@ -192,11 +194,12 @@ function ProductCatalogPage() {
             <div className="flex items-center gap-3">
                <PDFDownloadLink 
                   document={
-                    <FullCatalogPDF 
-                      products={mergedProducts} 
-                      vatOn={vatOn} 
-                      role={(isAdmin && saleViewMode) ? "sale" : undefined}
-                    />
+                      <FullCatalogPDF 
+                        products={mergedProducts} 
+                        vatOn={vatOn} 
+                        vatRate={vatRate}
+                        role={(isAdmin && saleViewMode) ? "sale" : undefined}
+                      />
                   } 
                   fileName={`Desembre_Catalog_${new Date().toISOString().slice(0,10)}.pdf`}
                >
@@ -263,7 +266,7 @@ function ProductCatalogPage() {
                       >
                          <div className={`w-3 h-3 rounded-full bg-white shadow-sm transition-all duration-300 ${vatOn ? 'translate-x-5' : 'translate-x-0'}`} />
                       </button>
-                      <span className={`text-[9px] font-bold uppercase transition-colors ${vatOn ? 'text-indigo-400' : 'text-slate-600'}`}>Có VAT (8%)</span>
+                      <span className={`text-[9px] font-bold uppercase transition-colors ${vatOn ? 'text-indigo-400' : 'text-slate-600'}`}>Có VAT ({Math.round(vatRate * 100)}%)</span>
                    </div>
                 </div>
              </div>

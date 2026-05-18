@@ -1,5 +1,10 @@
-export const VAT_RATE = 0.08;
-export const DEFAULT_SALE_DISCOUNT = 0.4;
+export let VAT_RATE = 0.08;
+export let DEFAULT_SALE_DISCOUNT = 0.4;
+
+export const setPricingSettings = (vatRate: number, discountRate: number) => {
+  VAT_RATE = vatRate;
+  DEFAULT_SALE_DISCOUNT = discountRate;
+};
 
 export type UserRole = "admin" | "sub_admin" | "sale" | "tele_lead" | "telesale" | "guest";
 

@@ -3,7 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { CATEGORIES, PRODUCTS } from "@/data/products";
-import { formatCurrencyVND, VAT_RATE, DEFAULT_SALE_DISCOUNT } from "@/lib/pricing";
+import { formatCurrencyVND } from "@/lib/pricing";
+import { useSystemSettings } from "@/hooks/useSystemSettings";
 import type { Product, Category, ProductVariant } from "@/types/product";
 import type { OverrideRow } from "@/lib/saveOverride";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ type LineItem = {
 
 function NewOrderPage() {
   const { user, isAdmin, isSale, loading } = useAuth();
+  const { vatRate, defaultDiscount } = useSystemSettings();
   const navigate = useNavigate();
   const [overrides, setOverrides] = useState<Record<number, OverrideRow>>({});
   const [customerName, setCustomerName] = useState("");
@@ -192,7 +194,7 @@ function NewOrderPage() {
             image_url: imageUrl,
             size,
             size_type: pk.sizeType,
-            unit_price: basePrice * (isSale && !isAdmin ? (1 - DEFAULT_SALE_DISCOUNT) : 1),
+            unit_price: basePrice * (isSale && !isAdmin ? (1 - defaultDiscount) : 1),
             quantity: 1,
           });
         }
@@ -268,7 +270,7 @@ function NewOrderPage() {
       return;
     }
 
-    const discounted = isGift ? 0 : basePrice * (isSale && !isAdmin ? (1 - DEFAULT_SALE_DISCOUNT) : 1);
+    const discounted = isGift ? 0 : basePrice * (isSale && !isAdmin ? (1 - defaultDiscount) : 1);
     const finalName = isGift ? `[Quà tặng] ${product.name}` : product.name;
     
     setItems((prev) => {
@@ -319,7 +321,7 @@ function NewOrderPage() {
             customer_address: customerAddress.trim() || null,
             note: note.trim() || null,
             subtotal,
-            vat_rate: vatOn ? VAT_RATE : 0,
+            vat_rate: vatOn ? vatRate : 0,
             total,
             status,
             items: items.map(it => ({ ...it, line_total: it.unit_price * it.quantity }))
@@ -339,8 +341,8 @@ function NewOrderPage() {
         customer_address: customerAddress.trim() || null,
         note: note.trim() || null,
         subtotal,
-        discount_rate: user && isSale && !isAdmin ? DEFAULT_SALE_DISCOUNT : 0,
-        vat_rate: vatOn ? VAT_RATE : 0,
+        discount_rate: user && isSale && !isAdmin ? defaultDiscount : 0,
+        vat_rate: vatOn ? vatRate : 0,
         total,
         status,
         created_at: new Date().toISOString(),
@@ -371,7 +373,7 @@ function NewOrderPage() {
         customer_address: customerAddress.trim() || null,
         note: note.trim() || null,
         subtotal,
-        vat_rate: vatOn ? VAT_RATE : 0,
+        vat_rate: vatOn ? vatRate : 0,
         total,
         status,
       };
@@ -417,8 +419,8 @@ function NewOrderPage() {
         customer_address: customerAddress.trim() || null,
         note: note.trim() || null,
         subtotal,
-        discount_rate: isSale && !isAdmin ? DEFAULT_SALE_DISCOUNT : 0,
-        vat_rate: vatOn ? VAT_RATE : 0,
+        discount_rate: isSale && !isAdmin ? defaultDiscount : 0,
+        vat_rate: vatOn ? vatRate : 0,
         total,
         status,
       };
@@ -472,7 +474,7 @@ function NewOrderPage() {
   };
 
   const subtotal = items.reduce((s, it) => s + it.unit_price * it.quantity, 0);
-  const vatAmount = vatOn ? subtotal * VAT_RATE : 0;
+  const vatAmount = vatOn ? subtotal * vatRate : 0;
   const total = subtotal + vatAmount;
 
   return (
@@ -643,7 +645,7 @@ function NewOrderPage() {
                       <tr>
                         <td colSpan={6} className="text-right px-6 py-3">
                           <label className="inline-flex items-center gap-2 cursor-pointer group">
-                            <span className="text-muted-foreground group-hover:text-foreground transition-colors">Tính VAT (8%)</span>
+                            <span className="text-muted-foreground group-hover:text-foreground transition-colors">Tính VAT ({Math.round(vatRate * 100)}%)</span>
                             <div className="relative inline-flex items-center cursor-pointer">
                               <input type="checkbox" className="sr-only peer" checked={vatOn} onChange={(e) => setVatOn(e.target.checked)} />
                               <div className="w-9 h-5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
@@ -774,12 +776,12 @@ function NewOrderPage() {
                   <label className="flex items-center justify-between gap-2 p-2 rounded bg-muted/50 cursor-pointer">
                     <div className="flex items-center gap-2">
                       <input type="checkbox" checked={vatOn} onChange={(e) => setVatOn(e.target.checked)} className="w-4 h-4 accent-primary" />
-                      <span className="text-xs font-bold uppercase tracking-tight">Xuất hóa đơn VAT (8%)</span>
+                      <span className="text-xs font-bold uppercase tracking-tight">Xuất hóa đơn VAT ({Math.round(vatRate * 100)}%)</span>
                     </div>
                   </label>
                   {vatOn && (
                     <div className="flex justify-between text-sm text-blue-600 font-medium">
-                      <span>Thuế VAT (8%)</span>
+                      <span>Thuế VAT ({Math.round(vatRate * 100)}%)</span>
                       <span className="font-mono">+{fmt(vatAmount)}</span>
                     </div>
                   )}
@@ -812,6 +814,7 @@ function NewOrderPage() {
                           quoterName={quoterName}
                           quoterEmail={quoterEmail}
                           quoterPhone={quoterPhone}
+                          vatRate={vatRate}
                         />
                       }
                       fileName={`Bao_Gia_Desembre_${customerName || 'Khach'}.pdf`}

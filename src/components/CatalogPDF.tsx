@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
 
 const fmt = (n: number) => new Intl.NumberFormat('vi-VN').format(Math.round(n));
 
-export const CatalogPDF = ({ items, customerName, subtotal, vatAmount, total, orderNo, quoterName, quoterEmail, quoterPhone }: any) => (
+export const CatalogPDF = ({ items, customerName, subtotal, vatAmount, total, orderNo, quoterName, quoterEmail, quoterPhone, vatRate = 0.08 }: any) => (
   <Document>
     <Page size="A4" style={styles.page}>
       <View style={styles.header}>
@@ -200,7 +200,7 @@ export const CatalogPDF = ({ items, customerName, subtotal, vatAmount, total, or
         </View>
         {vatAmount > 0 && (
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: '#e67e22' }]}>Thuế VAT (8%):</Text>
+            <Text style={[styles.summaryLabel, { color: '#e67e22' }]}>Thuế VAT ({Math.round(vatRate * 100)}%):</Text>
             <Text style={[styles.summaryValue, { color: '#e67e22' }]}>+{fmt(vatAmount)}</Text>
           </View>
         )}

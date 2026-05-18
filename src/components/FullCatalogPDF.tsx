@@ -135,11 +135,13 @@ const fmt = (n: number, vatOn: boolean, role: UserRole | "user" = "user") => {
 export const FullCatalogPDF = ({ 
   products, 
   vatOn = false,
-  role = "user"
+  role = "user",
+  vatRate = 0.08
 }: { 
   products: Product[], 
   vatOn?: boolean,
-  role?: UserRole | "user"
+  role?: UserRole | "user",
+  vatRate?: number
 }) => {
   // Group products by category
   const categories: Record<string, Product[]> = {};
@@ -157,7 +159,7 @@ export const FullCatalogPDF = ({
         <View style={styles.header}>
           <Text style={styles.logo}>DESEMBRE VIETNAM</Text>
           <Text style={{ fontSize: 6 }}>
-            BẢNG GIÁ NIÊM YẾT {vatOn ? '(ĐÃ CÓ VAT 8%)' : '(CHƯA VAT)'} {isSaleView ? '- CHẾ ĐỘ GIÁ SALE (60%)' : ''}
+            BẢNG GIÁ NIÊM YẾT {vatOn ? `(ĐÃ CÓ VAT ${Math.round(vatRate * 100)}%)` : '(CHƯA VAT)'} {isSaleView ? '- CHẾ ĐỘ GIÁ SALE (60%)' : ''}
           </Text>
         </View>
 

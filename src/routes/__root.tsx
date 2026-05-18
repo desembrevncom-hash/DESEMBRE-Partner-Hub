@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { SystemSettingsProvider } from "@/hooks/useSystemSettings";
 import { 
   LayoutDashboard, 
   Users, 
@@ -58,7 +59,8 @@ function RootLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] font-sans antialiased selection:bg-indigo-100 selection:text-indigo-900">
+    <SystemSettingsProvider>
+      <div className="min-h-screen bg-[#f8fafc] font-sans antialiased selection:bg-indigo-100 selection:text-indigo-900">
       <style>{`
         :root {
           ${branding.primary ? `--brand-primary: ${branding.primary};` : ''}
@@ -171,6 +173,7 @@ function RootLayout() {
 
       <Toaster position="top-right" richColors />
     </div>
+    </SystemSettingsProvider>
   );
 }
 

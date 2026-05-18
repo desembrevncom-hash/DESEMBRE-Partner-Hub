@@ -13,10 +13,11 @@ interface QuotationProps {
   note?: string;
   quoterName?: string;
   quoterEmail?: string;
+  vatRate?: number;
 }
 
 export const QuotationPrint = React.forwardRef<HTMLDivElement, QuotationProps>((props, ref) => {
-  const { orderNo, customerName, customerPhone, customerAddress, items, subtotal, vatAmount, total, note, quoterName, quoterEmail } = props;
+  const { orderNo, customerName, customerPhone, customerAddress, items, subtotal, vatAmount, total, note, quoterName, quoterEmail, vatRate = 0.08 } = props;
   const dateStr = new Date().toLocaleDateString("vi-VN");
 
   return (
@@ -119,7 +120,7 @@ export const QuotationPrint = React.forwardRef<HTMLDivElement, QuotationProps>((
             </div>
             {vatAmount > 0 && (
               <div className="flex justify-between text-xs py-1 border-b border-gray-100 text-orange-600">
-                <span className="font-medium">Tax (VAT 8%):</span>
+                <span className="font-medium">Tax (VAT {Math.round(vatRate * 100)}%):</span>
                 <span className="font-mono">+{new Intl.NumberFormat("vi-VN").format(vatAmount)}</span>
               </div>
             )}
