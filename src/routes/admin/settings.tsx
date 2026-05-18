@@ -24,7 +24,8 @@ import {
   Database,
   Languages,
   Zap,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Users
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -99,6 +100,7 @@ function SystemSettingsPage() {
                  <TabTrigger value="rules" icon={CreditCard} label="Quy tắc Bán hàng" />
                  <TabTrigger value="system" icon={Monitor} label="Hệ thống" />
                  <TabTrigger value="security" icon={Lock} label="Bảo mật" />
+                 <TabTrigger value="users" icon={Users} label="Nhân sự" />
               </TabsList>
            </div>
 
@@ -320,6 +322,26 @@ function SystemSettingsPage() {
                           />
                        </div>
                     </div>
+                 </CardContent>
+              </Card>
+           </TabsContent>
+           {/* USERS TAB */}
+           <TabsContent value="users">
+              <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white max-w-3xl mx-auto">
+                 <CardHeader className="p-8 text-center">
+                    <CardTitle className="text-xl font-black text-slate-900">Nhân sự & Phân quyền</CardTitle>
+                    <CardDescription>Quản lý tài khoản và phân quyền truy cập hệ thống</CardDescription>
+                 </CardHeader>
+                 <CardContent className="p-8 pt-0 flex flex-col items-center justify-center space-y-6">
+                    <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-500 mb-2 border-4 border-indigo-100/50">
+                       <Users className="w-10 h-10" />
+                    </div>
+                    <p className="text-sm font-medium text-slate-500 text-center max-w-md">
+                       Tính năng tạo tài khoản và phân quyền (Admin, Sale, Telesale) đã được chuyển sang một không gian chuyên biệt để quản lý trực quan hơn.
+                    </p>
+                    <Button asChild size="lg" className="h-14 px-8 rounded-2xl bg-slate-900 hover:bg-indigo-600 font-black shadow-lg shadow-slate-200 transition-all hover:-translate-y-1 mt-4">
+                       <Link to="/admin/users"><Users className="w-5 h-5 mr-3" /> Mở Quản lý Nhân sự</Link>
+                    </Button>
                  </CardContent>
               </Card>
            </TabsContent>
