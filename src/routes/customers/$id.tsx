@@ -45,6 +45,7 @@ import { vi } from "date-fns/locale";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { TemplateDispatcher } from "@/components/marketing/TemplateDispatcher";
 import { AssignStaffDialog } from "@/components/customers/AssignStaffDialog";
+import { AddTaskDialog } from "@/components/customers/AddTaskDialog";
 
 export const Route = createFileRoute("/customers/$id")({
   component: CustomerDetailPage,
@@ -81,6 +82,7 @@ function CustomerDetailPage() {
   // Template Dispatcher State
   const [isTemplateOpen, setIsTemplateOpen] = useState(false);
   const [isAssignStaffOpen, setIsAssignStaffOpen] = useState(false);
+  const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
 
   // Fetch Core Data
   const fetchCustomer = async () => {
@@ -621,7 +623,11 @@ function CustomerDetailPage() {
                     <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
                       <CheckCircle2 className="w-5 h-5 text-primary" /> Việc cần làm
                     </h3>
-                    <Button size="sm" className="rounded-xl font-bold text-[10px] uppercase tracking-widest bg-slate-900 text-white hover:bg-primary">
+                    <Button 
+                      size="sm" 
+                      onClick={() => setIsAddTaskOpen(true)}
+                      className="rounded-xl font-bold text-[10px] uppercase tracking-widest bg-slate-900 text-white hover:bg-primary"
+                    >
                       <Plus className="w-4 h-4 mr-1" /> Thêm việc
                     </Button>
                   </div>
@@ -763,6 +769,13 @@ function CustomerDetailPage() {
         customer={customer} 
         isOpen={isTemplateOpen} 
         onClose={() => setIsTemplateOpen(false)} 
+      />
+
+      <AddTaskDialog
+        isOpen={isAddTaskOpen}
+        onClose={() => setIsAddTaskOpen(false)}
+        customer={customer}
+        onSuccess={fetchTasks}
       />
 
       <AssignStaffDialog
