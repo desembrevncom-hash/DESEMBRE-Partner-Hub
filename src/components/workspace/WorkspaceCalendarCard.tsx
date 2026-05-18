@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, User, Zap } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, User, Zap, Check, Trash2 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths } from "date-fns";
 import { vi } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,10 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ ev
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Quick detail preview
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<any>(null);
 
   // Form state
   const [title, setTitle] = useState("");
@@ -70,6 +74,11 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ ev
     setIsDialogOpen(true);
   };
 
+  const handleEventClick = (event: any) => {
+    setSelectedEvent(event);
+    setIsDetailDialogOpen(true);
+  };
+
   const handleCreateTask = async () => {
     if (!selectedDay || !title || !customerId) {
       toast.error("Vui lòng điền đầy đủ thông tin");
@@ -100,6 +109,61 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ ev
       if (onRefresh) onRefresh();
     }
     setLoading(false);
+  };
+
+  const handleCompleteTask = async () => {
+    if (!selectedEvent) return;
+    
+    setLoading(true);
+    const table = selectedEvent._ui_type === 'task' ? "customer_tasks" : "calendar_events";
+    
+    const { error } = await supabase
+      .from(table)
+      .update({ status: "completed", updated_at: new Date().toISOString() })
+      .eq("id", selectedEvent.id);
+      
+    if (error) {
+      toast.error("Lỗi khi hoàn thành công việc: " + error.message);
+    } else {
+      toast.success("Chúc mừng! Đã hoàn thành công việc thành công 🎉");
+      setIsDetailDialogOpen(false);
+      if (onRefresh) onRefresh();
+    }
+    setLoading(false);
+  };
+
+  const handleDeleteTask = async () => {
+    if (!selectedEvent) return;
+    
+    if (!window.confirm("Bạn có chắc chắn muốn xóa lịch hẹn/công việc này khỏi hệ thống không?")) return;
+    
+    setLoading(true);
+    const table = selectedEvent._ui_type === 'task' ? "customer_tasks" : "calendar_events";
+    
+    const { error } = await supabase
+      .from(table)
+      .delete()
+      .eq("id", selectedEvent.id);
+      
+    if (error) {
+      toast.error("Lỗi khi xóa công việc: " + error.message);
+    } else {
+      toast.success("Đã xóa công việc thành công");
+      setIsDetailDialogOpen(false);
+      if (onRefresh) onRefresh();
+    }
+    setLoading(false);
+  };
+
+  const formatCalendarTime = (isoString?: string) => {
+    if (!isoString) return "Chưa xác định";
+    try {
+      const date = new Date(isoString);
+      if (isNaN(date.getTime())) return isoString;
+      return format(date, "HH:mm - dd/MM/yyyy", { locale: vi });
+    } catch {
+      return isoString;
+    }
   };
 
   return (
@@ -157,14 +221,22 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ ev
                   const isPersonal = ev._ui_type === 'personal';
 
                   let bgClass = "bg-slate-50 text-slate-600 border-slate-100";
-                  if (isTask) bgClass = "bg-blue-50 text-blue-600 border-blue-100";
-                  if (isCompany) bgClass = "bg-purple-50 text-purple-600 border-purple-100";
-                  if (isPersonal) bgClass = "bg-indigo-50 text-indigo-600 border-indigo-100";
+                  if (ev.status === "completed") {
+                    bgClass = "bg-emerald-50 text-emerald-600 border-emerald-100 line-through opacity-70";
+                  } else {
+                    if (isTask) bgClass = "bg-blue-50 text-blue-600 border-blue-100";
+                    if (isCompany) bgClass = "bg-purple-50 text-purple-600 border-purple-100";
+                    if (isPersonal) bgClass = "bg-indigo-50 text-indigo-600 border-indigo-100";
+                  }
 
                   return (
                     <div 
                       key={i} 
-                      className={`text-[8px] font-bold px-1.5 py-0.5 rounded-md truncate border shadow-[0_1px_2px_rgba(0,0,0,0.02)] ${bgClass}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEventClick(ev);
+                      }}
+                      className={`text-[8px] font-bold px-1.5 py-0.5 rounded-md truncate border shadow-[0_1px_2px_rgba(0,0,0,0.02)] hover:scale-[1.03] active:scale-[0.97] transition-all ${bgClass}`}
                       title={`${isCompany ? '[CÔNG TY] ' : ''}${ev.title}`}
                     >
                       {isCompany && "🏢 "}{ev.title}
@@ -253,6 +325,119 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ ev
               {loading ? "Đang xử lý..." : "Xác nhận đặt lịch"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* QUICK PREVIEW & DETAILS DIALOG */}
+      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+        <DialogContent className="sm:max-w-[450px] rounded-3xl overflow-hidden p-0 border border-slate-100/60 shadow-2xl">
+          {/* Header banner based on event type */}
+          <div className={`p-6 text-white relative ${
+            selectedEvent?._ui_type === 'company' 
+              ? "bg-gradient-to-r from-purple-600 to-indigo-700" 
+              : selectedEvent?._ui_type === 'task'
+                ? "bg-gradient-to-r from-blue-600 to-indigo-600"
+                : "bg-gradient-to-r from-teal-600 to-emerald-600"
+          }`}>
+            <span className="text-[10px] font-black uppercase tracking-widest bg-white/20 px-2.5 py-1 rounded-full backdrop-blur-sm">
+              {selectedEvent?._ui_type === 'company' ? "🏢 Sự kiện Công ty" : selectedEvent?._ui_type === 'task' ? "📞 Công việc CSKH" : "🤝 Lịch hẹn Cá nhân"}
+            </span>
+            <h3 className="text-lg font-black mt-3 leading-snug drop-shadow-sm">
+              {selectedEvent?.title}
+            </h3>
+          </div>
+
+          <div className="p-6 grid gap-5 bg-white">
+            {/* Customer Details */}
+            {(selectedEvent?.customer_id || selectedEvent?.customer) && (
+              <div className="flex items-start gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                <User className="w-5 h-5 text-slate-500 mt-0.5" />
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Khách hàng liên quan</p>
+                  <p className="text-sm font-bold text-slate-800 mt-0.5">
+                    {selectedEvent?.customer?.name || selectedEvent?.customer?.facility_name || selectedEvent?.customer_name || "Khách hàng"}
+                  </p>
+                  {(selectedEvent?.customer?.facility_name || selectedEvent?.customer?.phone) && (
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {selectedEvent?.customer?.facility_name && `🏥 ${selectedEvent?.customer?.facility_name}`}
+                      {selectedEvent?.customer?.phone && ` • 📞 ${selectedEvent?.customer?.phone}`}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Event Info Grid */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 flex items-start gap-3">
+                <Clock className="w-5 h-5 text-slate-500 mt-0.5" />
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Thời gian hẹn</p>
+                  <p className="text-xs font-bold text-slate-800 mt-1">
+                    {selectedEvent && formatCalendarTime(selectedEvent.due_at || selectedEvent.starts_at || selectedEvent.starts_at_date)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 flex items-start gap-3">
+                <Zap className="w-5 h-5 text-slate-500 mt-0.5" />
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Trạng thái việc</p>
+                  <div className="mt-1">
+                    {selectedEvent?.status === 'completed' ? (
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md border border-emerald-200 font-bold">✓ Xong</span>
+                    ) : selectedEvent?.status === 'cancelled' ? (
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-800 px-2 py-0.5 rounded-md border border-rose-200">🚫 Huỷ</span>
+                    ) : (
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md border border-amber-200">⏳ Chờ làm</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Description if any */}
+            {selectedEvent?.description && (
+              <div className="bg-slate-50/50 p-3.5 rounded-2xl border border-slate-100/60">
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Ghi chú chi tiết</p>
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed whitespace-pre-line">
+                  {selectedEvent.description}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+            {selectedEvent?._ui_type !== 'company' && selectedEvent?.status !== 'completed' && (
+              <Button
+                variant="outline"
+                className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 font-bold rounded-xl flex items-center gap-1.5 h-11 transition-all px-4"
+                onClick={handleCompleteTask}
+                disabled={loading}
+              >
+                <Check className="w-4 h-4" /> Hoàn thành
+              </Button>
+            )}
+            
+            {selectedEvent?._ui_type !== 'company' && (
+              <Button
+                variant="outline"
+                className="bg-rose-50 text-rose-700 hover:bg-rose-100 border-rose-200 font-bold rounded-xl flex items-center gap-1.5 h-11 transition-all px-4"
+                onClick={handleDeleteTask}
+                disabled={loading}
+              >
+                <Trash2 className="w-4 h-4" /> Xóa lịch
+              </Button>
+            )}
+
+            <Button 
+              className="bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl h-11 px-5"
+              onClick={() => setIsDetailDialogOpen(false)}
+            >
+              Đóng
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
