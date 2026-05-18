@@ -243,9 +243,7 @@ function Dashboard() {
              </div>
           </div>
           <div className="flex items-center gap-4">
-             <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl bg-white border border-slate-200 shadow-sm text-slate-400 hover:text-slate-900">
-                <Bell className="w-5 h-5" />
-             </Button>
+
              <Button asChild className="rounded-2xl bg-slate-900 hover:bg-black font-black text-xs h-12 px-8 shadow-xl shadow-slate-200 transition-all hover:scale-105 uppercase tracking-widest cursor-pointer">
                 <Link to="/customers"><PlusIcon className="w-4 h-4 mr-2" /> Thêm khách hàng mới</Link>
              </Button>
