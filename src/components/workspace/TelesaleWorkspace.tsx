@@ -38,11 +38,29 @@ export const TelesaleWorkspace: React.FC = () => {
     async function fetchData() {
       if (!user) return;
       
-      const today = new Date().toISOString().split('T')[0];
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const endOfToday = new Date();
+      endOfToday.setHours(23, 59, 59, 999);
+      
+      const startOfTodayStr = startOfToday.toISOString();
+      const endOfTodayStr = endOfToday.toISOString();
       
       const [todayRes, overdueRes, interestedRes, callbackRes, companyRes, notifsRes] = await Promise.all([
-        supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)").eq("assigned_to", user.id).eq("status", "pending").eq("task_type", "call"),
-        supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)").eq("assigned_to", user.id).lt("due_at", new Date().toISOString()).neq("status", "completed"),
+        supabase.from("customer_tasks")
+          .select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)")
+          .eq("assigned_to", user.id)
+          .eq("status", "pending")
+          .eq("task_type", "call")
+          .gte("due_at", startOfTodayStr)
+          .lte("due_at", endOfTodayStr),
+        supabase.from("customer_tasks")
+          .select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)")
+          .eq("assigned_to", user.id)
+          .lt("due_at", startOfTodayStr)
+          .neq("status", "completed")
+          .neq("status", "cancelled")
+          .neq("status", "failed"),
         supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)").eq("assigned_to", user.id).or('result.eq.interested,result.eq.qualified'),
         supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)").eq("assigned_to", user.id).eq("result", "call_back_later"),
         supabase.from("company_events").select("*").order("starts_at", { ascending: true }),

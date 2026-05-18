@@ -39,9 +39,26 @@ export const SaleWorkspace: React.FC = () => {
     async function fetchData() {
       if (!user) return;
       
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const endOfToday = new Date();
+      endOfToday.setHours(23, 59, 59, 999);
+      
+      const startOfTodayStr = startOfToday.toISOString();
+      const endOfTodayStr = endOfToday.toISOString();
+      
       const [tasksRes, personalRes, companyRes, notifsRes, customersRes] = await Promise.all([
-        supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)").eq("assigned_to", user.id).eq("status", "pending"),
-        supabase.from("calendar_events").select("*").eq("assigned_sale_id", user.id).order("starts_at", { ascending: true }),
+        supabase.from("customer_tasks")
+          .select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)")
+          .eq("assigned_to", user.id)
+          .eq("status", "pending")
+          .lte("due_at", endOfTodayStr),
+        supabase.from("calendar_events")
+          .select("*")
+          .eq("assigned_sale_id", user.id)
+          .gte("starts_at", startOfTodayStr)
+          .lte("starts_at", endOfTodayStr)
+          .order("starts_at", { ascending: true }),
         supabase.from("company_events").select("*").order("starts_at", { ascending: true }),
         supabase.from("notifications").select("*").eq("recipient_user_id", user.id).is("read_at", null).order("created_at", { ascending: false }).limit(5),
         supabase.from("customers").select("*").eq("owner_sale_id", user.id).or(`next_follow_up_at.lte.${new Date().toISOString()},next_follow_up_at.is.null`).limit(10)
