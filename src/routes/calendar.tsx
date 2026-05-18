@@ -179,6 +179,9 @@ function CalendarPage() {
 
   // Hàm nạp danh sách sự kiện chính từ nhiều bảng
   const loadEvents = async () => {
+    if (!user?.id) {
+      return;
+    }
     setLoading(true);
     setError(null);
     
