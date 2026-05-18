@@ -48,9 +48,11 @@ function RootLayout() {
           <div className="flex items-center gap-10">
              {/* LOGO AREA */}
              <Link to="/" className="flex items-center gap-3 group">
-                <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-lg transition-transform group-hover:scale-110">
-                   <Zap className="w-6 h-6 fill-indigo-400 text-indigo-400" />
-                </div>
+                <img 
+                  src="/logo.svg" 
+                  alt="Desembre Logo" 
+                  className="w-10 h-10 rounded-xl object-contain shadow-lg shadow-slate-200 transition-transform group-hover:scale-110" 
+                />
                 <div className="hidden md:block">
                    <span className="text-lg font-black text-slate-900 tracking-tighter">DESEMBRE</span>
                    <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest leading-none mt-0.5">Partner Hub OS</p>
