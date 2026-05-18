@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Loader2, Users, PhoneCall, Briefcase } from "lucide-react";
 import { CARE_MODEL_OPTIONS } from "@/lib/customerOwnership";
+import { createNotification } from "@/lib/notifications";
+import { useAuth } from "@/hooks/useAuth";
 
 interface AssignStaffDialogProps {
   isOpen: boolean;
@@ -14,6 +16,7 @@ interface AssignStaffDialogProps {
 }
 
 export function AssignStaffDialog({ isOpen, onClose, customer, onSuccess }: AssignStaffDialogProps) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [staffList, setStaffList] = useState<any[]>([]);
@@ -74,6 +77,33 @@ export function AssignStaffDialog({ isOpen, onClose, customer, onSuccess }: Assi
         .eq("id", customer.id);
 
       if (error) throw error;
+
+      // Gửi thông báo cho Sale nếu được chọn mới
+      if (saleId && saleId !== customer.owner_sale_id) {
+        await createNotification({
+          recipient_user_id: saleId,
+          title: "Bạn được giao Khách hàng mới",
+          message: `Khách hàng ${customer.business_name || customer.name} vừa được chia cho bạn phụ trách (Direct Sale).`,
+          type: "lead_assigned",
+          priority: "high",
+          action_url: `/customers/${customer.id}`,
+          created_by: user?.id
+        });
+      }
+
+      // Gửi thông báo cho Tele nếu được chọn mới
+      if (teleId && teleId !== customer.owner_tele_id) {
+        await createNotification({
+          recipient_user_id: teleId,
+          title: "Bạn được giao Khách hàng mới",
+          message: `Khách hàng ${customer.business_name || customer.name} vừa được chia cho bạn hỗ trợ (Telesale).`,
+          type: "lead_assigned",
+          priority: "high",
+          action_url: `/customers/${customer.id}`,
+          created_by: user?.id
+        });
+      }
+
       toast.success("Đã cập nhật luồng chăm sóc & người phụ trách");
       onSuccess();
       onClose();
