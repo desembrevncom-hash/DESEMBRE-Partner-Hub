@@ -48,7 +48,8 @@ export const Route = createFileRoute("/customers/")({
 });
 
 function CustomersPage() {
-  const { user, isAdmin, isTeleLead, isTelesale, isSale } = useAuth();
+  const { user, isAdmin, isSubAdmin, isTeleLead, isTelesale, isSale } = useAuth();
+  const isManager = isAdmin || isSubAdmin;
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -276,6 +277,7 @@ function CustomersPage() {
                             customer={customer} 
                             stage={stage.value} 
                             isAdmin={isAdmin} 
+                            isManager={isManager}
                             onQuickLog={() => setLogTarget(customer)}
                             draggable={true}
                             onDragStart={(e: React.DragEvent) => handleDragStart(e, customer.id)}
@@ -372,9 +374,17 @@ function CustomersPage() {
   );
 }
 
-function CustomerCard({ customer, stage, isAdmin, onQuickLog, draggable, onDragStart }: any) {
-  // Logic hành động nhanh tùy theo giai đoạn
+function CustomerCard({ customer, stage, isAdmin, isManager, onQuickLog, draggable, onDragStart }: any) {
+  // Logic hành động nhanh tùy theo giai đoạn và vai trò người dùng
   const getAction = () => {
+    // Nếu là Admin hoặc Phó Admin (Manager), họ không gọi điện/nhắc chốt/log ship, mà chỉ có 2 tác vụ: "CHIA LEAD" ở cột new_lead và "CHI TIẾT" ở các cột còn lại
+    if (isManager) {
+      if (stage === 'new_lead') {
+        return { label: 'CHIA LEAD', icon: UserPlus, color: 'bg-indigo-600' };
+      }
+      return { label: 'CHI TIẾT', icon: ArrowRight, color: 'bg-slate-900' };
+    }
+
     switch (stage) {
       case 'new_lead': return { label: 'CHIA LEAD', icon: UserPlus, color: 'bg-indigo-600' };
       case 'assigned': return { label: 'GỌI ĐIỆN', icon: Phone, color: 'bg-amber-500' };
