@@ -52,7 +52,8 @@ export const Route = createFileRoute("/customers/$id")({
 
 function CustomerDetailPage() {
   const { id } = Route.useParams();
-  const { user } = useAuth();
+  const { user, isAdmin, isSubAdmin } = useAuth();
+  const isManager = isAdmin || isSubAdmin;
   const navigate = useNavigate();
   
   const [customer, setCustomer] = useState<any>(null);
@@ -63,6 +64,13 @@ function CustomerDetailPage() {
   const [loadingActivities, setLoadingActivities] = useState(false);
   const [newActivity, setNewActivity] = useState({ type: 'note', content: '' });
   const [filterType, setFilterType] = useState<string>("all");
+
+  useEffect(() => {
+    setNewActivity(prev => ({
+      ...prev,
+      type: isManager ? 'note' : 'call'
+    }));
+  }, [isManager]);
 
   // Customer 360 States
   const [tasks, setTasks] = useState<any[]>([]);
@@ -412,7 +420,13 @@ function CustomerDetailPage() {
                         { id: 'call', label: 'GỌI ĐIỆN', icon: Phone, color: 'text-amber-500' },
                         { id: 'meeting', label: 'GẶP MẶT', icon: Users, color: 'text-purple-500' },
                         { id: 'message', label: 'ZALO', icon: MessageCircle, color: 'text-indigo-500' },
-                      ].map((type) => (
+                      ].filter(t => {
+                        if (isManager) {
+                          return t.id === 'note';
+                        } else {
+                          return t.id !== 'note';
+                        }
+                      }).map((type) => (
                         <Button 
                           key={type.id}
                           variant="ghost"
