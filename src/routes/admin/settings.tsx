@@ -43,7 +43,8 @@ function SystemSettingsPage() {
   const { user, isAdmin } = useAuth();
   const [busy, setBusy] = useState(false);
   
-  const [config, setConfig] = useState({
+  const [config, setConfig] = useState<any>({
+    id: null,
     companyName: "DESEMBRE VIETNAM",
     address: "Tầng 5, Tòa nhà Luxury, 123 Kim Mã, Ba Đình, Hà Nội",
     supportEmail: "support@desembre.vn",
@@ -52,15 +53,67 @@ function SystemSettingsPage() {
     defaultDiscount: 35,
     enableNotifications: true,
     darkMode: false,
-    systemLanguage: "vi"
+    systemLanguage: "vi",
+    primaryColor: "#6366f1",
+    accentColor: "#ec4899"
   });
+  const [loadingConfig, setLoadingConfig] = useState(true);
 
-  const handleSave = () => {
+  useEffect(() => {
+    async function loadConfig() {
+      const { data, error } = await supabase.from('system_settings').select('*').maybeSingle();
+      if (data) {
+        setConfig({
+          id: data.id,
+          companyName: data.company_name || "",
+          address: data.address || "",
+          supportEmail: data.support_email || "",
+          supportPhone: data.support_phone || "",
+          vatRate: data.vat_rate || 10,
+          defaultDiscount: data.default_discount || 35,
+          enableNotifications: data.enable_notifications ?? true,
+          darkMode: data.dark_mode ?? false,
+          systemLanguage: data.system_language || "vi",
+          primaryColor: data.primary_color || "#6366f1",
+          accentColor: data.accent_color || "#ec4899",
+        });
+      }
+      setLoadingConfig(false);
+    }
+    loadConfig();
+  }, []);
+
+  const handleSave = async () => {
     setBusy(true);
-    setTimeout(() => {
-      setBusy(false);
+    const payload = {
+      company_name: config.companyName,
+      address: config.address,
+      support_email: config.supportEmail,
+      support_phone: config.supportPhone,
+      vat_rate: Number(config.vatRate),
+      default_discount: Number(config.defaultDiscount),
+      enable_notifications: config.enableNotifications,
+      dark_mode: config.darkMode,
+      system_language: config.systemLanguage,
+      primary_color: config.primaryColor,
+      accent_color: config.accentColor
+    };
+
+    let error;
+    if (config.id) {
+      const res = await supabase.from('system_settings').update(payload).eq('id', config.id);
+      error = res.error;
+    } else {
+      const res = await supabase.from('system_settings').insert([payload]);
+      error = res.error;
+    }
+
+    setBusy(false);
+    if (error) {
+      toast.error("Lỗi cập nhật cấu hình: " + error.message);
+    } else {
       toast.success("Đã cập nhật cấu hình hệ thống thành công!");
-    }, 1000);
+    }
   };
 
   return (
@@ -135,15 +188,15 @@ function SystemSettingsPage() {
                                 <div className="space-y-2">
                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Màu chủ đạo (Primary Color)</Label>
                                    <div className="flex items-center gap-4">
-                                      <div className="w-12 h-12 rounded-xl bg-indigo-600 shadow-lg shadow-indigo-100"></div>
-                                      <Input value="#6366f1" className="h-10 rounded-xl font-mono text-sm uppercase" />
+                                      <div className="w-12 h-12 rounded-xl shadow-lg shadow-indigo-100" style={{ backgroundColor: config.primaryColor }}></div>
+                                      <Input value={config.primaryColor} onChange={e => setConfig({...config, primaryColor: e.target.value})} className="h-10 rounded-xl font-mono text-sm uppercase" />
                                    </div>
                                 </div>
                                 <div className="space-y-2">
                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Màu nhấn (Accent Color)</Label>
                                    <div className="flex items-center gap-4">
-                                      <div className="w-12 h-12 rounded-xl bg-pink-500 shadow-lg shadow-pink-100"></div>
-                                      <Input value="#ec4899" className="h-10 rounded-xl font-mono text-sm uppercase" />
+                                      <div className="w-12 h-12 rounded-xl shadow-lg shadow-pink-100" style={{ backgroundColor: config.accentColor }}></div>
+                                      <Input value={config.accentColor} onChange={e => setConfig({...config, accentColor: e.target.value})} className="h-10 rounded-xl font-mono text-sm uppercase" />
                                    </div>
                                 </div>
                              </div>
@@ -161,13 +214,13 @@ function SystemSettingsPage() {
                        <CardContent className="px-8 pb-8 flex flex-col items-center justify-center space-y-6">
                           <div className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-3">
                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-indigo-600"></div>
+                                <div className="w-8 h-8 rounded-lg" style={{ backgroundColor: config.primaryColor }}></div>
                                 <div className="space-y-1 flex-1">
                                    <div className="h-2 w-20 bg-slate-200 rounded"></div>
                                    <div className="h-1.5 w-32 bg-slate-100 rounded"></div>
                                 </div>
                              </div>
-                             <div className="h-8 w-full bg-indigo-600 rounded-xl"></div>
+                             <div className="h-8 w-full rounded-xl" style={{ backgroundColor: config.primaryColor }}></div>
                           </div>
                           <p className="text-[10px] text-slate-400 text-center italic">Đây là ví dụ về cách màu sắc hiển thị trên Dashboard của nhân viên.</p>
                        </CardContent>
@@ -221,7 +274,7 @@ function SystemSettingsPage() {
                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Áp dụng cho mọi đơn hàng mới</p>
                              </div>
                              <div className="flex items-center gap-2">
-                                <Input value={config.vatRate} className="w-20 h-10 rounded-xl text-center font-bold" />
+                                <Input value={config.vatRate} onChange={e => setConfig({...config, vatRate: e.target.value})} className="w-20 h-10 rounded-xl text-center font-bold" type="number" />
                                 <span className="font-black text-slate-400">%</span>
                              </div>
                           </div>
@@ -231,7 +284,7 @@ function SystemSettingsPage() {
                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Áp dụng khi chưa có hạng mức riêng</p>
                              </div>
                              <div className="flex items-center gap-2">
-                                <Input value={config.defaultDiscount} className="w-20 h-10 rounded-xl text-center font-bold" />
+                                <Input value={config.defaultDiscount} onChange={e => setConfig({...config, defaultDiscount: e.target.value})} className="w-20 h-10 rounded-xl text-center font-bold" type="number" />
                                 <span className="font-black text-slate-400">%</span>
                              </div>
                           </div>
@@ -283,7 +336,7 @@ function SystemSettingsPage() {
                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Ngôn ngữ cho toàn bộ nhân viên</p>
                              </div>
                           </div>
-                          <select className="bg-transparent font-bold text-sm outline-none">
+                          <select className="bg-transparent font-bold text-sm outline-none" value={config.systemLanguage} onChange={e => setConfig({...config, systemLanguage: e.target.value})}>
                              <option value="vi">Tiếng Việt (VN)</option>
                              <option value="en">English (US)</option>
                              <option value="kr">Korean (KR)</option>
