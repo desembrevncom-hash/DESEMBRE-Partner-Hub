@@ -224,22 +224,14 @@ function Dashboard() {
     <div className="min-h-screen bg-[#f8fafc] pb-20 font-sans antialiased selection:bg-indigo-100 selection:text-indigo-900">
       {/* ELITE DASHBOARD HEADER */}
       <header className="bg-white/80 border-b border-slate-200 sticky top-0 z-40 backdrop-blur-xl">
-        <div className="container mx-auto px-6 h-24 flex items-center justify-between max-w-7xl">
+        <div className="container mx-auto px-6 h-20 flex items-center justify-between max-w-7xl">
           <div className="flex items-center gap-6">
-             <img 
-               src="/logo.svg" 
-               alt="Desembre Logo" 
-               className="w-14 h-14 rounded-[22px] object-contain shadow-2xl shadow-slate-300 ring-4 ring-slate-50 transition-transform hover:scale-110" 
-             />
              <div>
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                   CRM Operating System
-                   <Badge className="bg-indigo-50 text-indigo-600 border-indigo-100 text-[9px] font-black tracking-widest px-2.5 py-0.5 rounded-lg">PREMIUM</Badge>
-                </h1>
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                   {isAdmin ? <ShieldCheck className="w-3.5 h-3.5 text-indigo-500" /> : <Zap className="w-3.5 h-3.5 text-amber-500" />}
+                <p className="text-sm font-black text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                   {isAdmin ? <ShieldCheck className="w-4 h-4 text-indigo-500" /> : <Zap className="w-4 h-4 text-amber-500" />}
                    Xin chào, {user?.email?.split('@')[0]} 👋
                 </p>
+                <p className="text-[10px] font-bold text-slate-400 mt-0.5">Chào mừng bạn quay lại không gian làm việc</p>
              </div>
           </div>
           <div className="flex items-center gap-4">
