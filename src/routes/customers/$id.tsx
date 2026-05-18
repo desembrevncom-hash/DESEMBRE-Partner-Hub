@@ -158,10 +158,27 @@ function CustomerDetailPage() {
       return;
     }
     try {
+      const typeMap: Record<string, string> = {
+        'note': 'note',
+        'call': 'call',
+        'meeting': 'online_consultation',
+        'message': 'zalo_message'
+      };
+      const titleMap: Record<string, string> = {
+        'note': 'Ghi chú',
+        'call': 'Cuộc gọi',
+        'meeting': 'Tác vụ tư vấn',
+        'message': 'Tin nhắn Zalo'
+      };
+
+      const dbType = typeMap[newActivity.type] || 'note';
+      const dbTitle = titleMap[newActivity.type] || 'Nhật ký tương tác';
+
       const { error } = await supabase.from("customer_activities").insert([{
         customer_id: id,
         created_by: user?.id,
-        activity_type: newActivity.type,
+        activity_type: dbType,
+        title: dbTitle,
         content: newActivity.content,
       }]);
       
@@ -185,9 +202,14 @@ function CustomerDetailPage() {
   const getActivityIcon = (type: string) => {
     switch (type) {
       case 'call': return <Phone className="w-3.5 h-3.5" />;
-      case 'meeting': return <Users className="w-3.5 h-3.5" />;
-      case 'message': return <MessageCircle className="w-3.5 h-3.5" />;
-      case 'order': return <Package className="w-3.5 h-3.5" />;
+      case 'meeting':
+      case 'online_consultation':
+      case 'showroom_meeting':
+      case 'direct_visit': return <Users className="w-3.5 h-3.5" />;
+      case 'message':
+      case 'zalo_message': return <MessageCircle className="w-3.5 h-3.5" />;
+      case 'order':
+      case 'order_created': return <Package className="w-3.5 h-3.5" />;
       default: return <FileText className="w-3.5 h-3.5" />;
     }
   };
@@ -195,9 +217,14 @@ function CustomerDetailPage() {
   const getActivityColor = (type: string) => {
     switch (type) {
       case 'call': return 'bg-amber-50 text-amber-600 border-amber-100';
-      case 'meeting': return 'bg-purple-50 text-purple-600 border-purple-100';
-      case 'message': return 'bg-indigo-50 text-indigo-600 border-indigo-100';
-      case 'order': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+      case 'meeting':
+      case 'online_consultation':
+      case 'showroom_meeting':
+      case 'direct_visit': return 'bg-purple-50 text-purple-600 border-purple-100';
+      case 'message':
+      case 'zalo_message': return 'bg-indigo-50 text-indigo-600 border-indigo-100';
+      case 'order':
+      case 'order_created': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
       default: return 'bg-slate-50 text-slate-600 border-slate-100';
     }
   };

@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface QuickLogDialogProps {
   customer: any;
@@ -30,20 +31,28 @@ interface QuickLogDialogProps {
 }
 
 export function QuickLogDialog({ customer, isOpen, onClose, onSuccess }: QuickLogDialogProps) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [type, setType] = useState<"call" | "message" | "meeting" | "note">("call");
+  const [type, setType] = useState<"call" | "zalo_message" | "online_consultation" | "note">("call");
   const [content, setContent] = useState("");
 
   const handleSubmit = async () => {
     if (!content.trim()) return toast.error("Vui lòng nhập nội dung ghi chú");
-    
     setLoading(true);
     try {
+      const typeLabels = {
+        "call": "Gọi điện",
+        "zalo_message": "Chat Zalo",
+        "online_consultation": "Tư vấn",
+        "note": "Ghi chú nhanh"
+      };
+
       const { error } = await supabase.from("customer_activities").insert({
         customer_id: customer.id,
         activity_type: type,
+        title: typeLabels[type] || "Ghi chú mới",
         content: content.trim(),
-        created_by: (await supabase.auth.getUser()).data.user?.id
+        created_by: user?.id
       });
 
       if (error) throw error;
@@ -52,8 +61,9 @@ export function QuickLogDialog({ customer, isOpen, onClose, onSuccess }: QuickLo
       setContent("");
       onSuccess?.();
       onClose();
-    } catch (e) {
-      toast.error("Lỗi khi lưu ghi chú");
+    } catch (e: any) {
+      console.error("Lỗi khi lưu ghi chú:", e);
+      toast.error(`Lỗi khi lưu ghi chú: ${e.message || "Lỗi không xác định"}`);
     } finally {
       setLoading(false);
     }
@@ -61,8 +71,8 @@ export function QuickLogDialog({ customer, isOpen, onClose, onSuccess }: QuickLo
 
   const types = [
     { id: "call", label: "Gọi điện", icon: Phone, color: "text-amber-500 bg-amber-50" },
-    { id: "message", label: "Chat Zalo", icon: MessageCircle, color: "text-indigo-500 bg-indigo-50" },
-    { id: "meeting", label: "Tư vấn", icon: User, color: "text-emerald-500 bg-emerald-50" },
+    { id: "zalo_message", label: "Chat Zalo", icon: MessageCircle, color: "text-indigo-500 bg-indigo-50" },
+    { id: "online_consultation", label: "Tư vấn", icon: User, color: "text-emerald-500 bg-emerald-50" },
     { id: "note", label: "Ghi chú", icon: FileText, color: "text-slate-500 bg-slate-50" },
   ];
 
