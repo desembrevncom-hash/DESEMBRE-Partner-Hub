@@ -80,7 +80,7 @@ export function AssignStaffDialog({ isOpen, onClose, customer, onSuccess }: Assi
 
       // Gửi thông báo cho Sale nếu được chọn mới
       if (saleId && saleId !== customer.owner_sale_id) {
-        await createNotification({
+        const notifRes = await createNotification({
           recipient_user_id: saleId,
           title: "Bạn được giao Khách hàng mới",
           message: `Khách hàng ${customer.business_name || customer.name} vừa được chia cho bạn phụ trách (Direct Sale).`,
@@ -89,11 +89,12 @@ export function AssignStaffDialog({ isOpen, onClose, customer, onSuccess }: Assi
           action_url: `/customers/${customer.id}`,
           created_by: user?.id
         });
+        if (notifRes.error) console.error("Sale notif error:", notifRes.error);
       }
 
       // Gửi thông báo cho Tele nếu được chọn mới
       if (teleId && teleId !== customer.owner_tele_id) {
-        await createNotification({
+        const notifRes = await createNotification({
           recipient_user_id: teleId,
           title: "Bạn được giao Khách hàng mới",
           message: `Khách hàng ${customer.business_name || customer.name} vừa được chia cho bạn hỗ trợ (Telesale).`,
@@ -102,6 +103,7 @@ export function AssignStaffDialog({ isOpen, onClose, customer, onSuccess }: Assi
           action_url: `/customers/${customer.id}`,
           created_by: user?.id
         });
+        if (notifRes.error) console.error("Tele notif error:", notifRes.error);
       }
 
       toast.success("Đã cập nhật luồng chăm sóc & người phụ trách");
