@@ -1239,7 +1239,13 @@ function CalendarPage() {
       return {
         id: ev.id,
         title: `${statusPrefix}${typeMeta.icon} ${ev.title}${custMeta ? ` (${custMeta.name})` : ""}${saleStatsLabel}`,
-        start: ev.starts_at,
+        start: isCompany 
+          ? (() => {
+              const startDay = ev.ends_at ? ev.ends_at.slice(0, 10) : ev.starts_at.slice(0, 10);
+              const startTime = ev.starts_at && ev.starts_at.includes("T") ? ev.starts_at.slice(11) : "08:30:00";
+              return `${startDay}T${startTime}`;
+            })()
+          : ev.starts_at,
         end: ev.ends_at || undefined,
         backgroundColor: color,
         borderColor: color,
