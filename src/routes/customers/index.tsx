@@ -41,6 +41,7 @@ import { classifyCustomerLifecycle } from "@/lib/customerOwnership";
 import { QuickLogDialog } from "@/components/customers/QuickLogDialog";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { NotificationBell } from "@/components/layout/NotificationBell";
+import { useSystemSettings } from "@/hooks/useSystemSettings";
 
 export const Route = createFileRoute("/customers/")({
   component: CustomersPage,
@@ -383,11 +384,12 @@ function CustomerCard({ customer, stage, isAdmin, onQuickLog, draggable, onDragS
     }
   };
 
+  const { leadOverdueDays } = useSystemSettings();
   const action = getAction();
   const totalValue = customer.orders?.reduce((sum: number, o: any) => sum + (o.total || 0), 0) || 0;
   
-  // Cảnh báo khách hàng báo giá quá 3 ngày (Đỏ)
-  const isQuotedOverdue = stage === 'quoted' && differenceInDays(new Date(), new Date(customer.updated_at || customer.created_at)) >= 3;
+  // Cảnh báo khách hàng báo giá quá X ngày (Đỏ)
+  const isQuotedOverdue = stage === 'quoted' && differenceInDays(new Date(), new Date(customer.updated_at || customer.created_at)) >= leadOverdueDays;
 
   return (
     <Card 
@@ -406,7 +408,7 @@ function CustomerCard({ customer, stage, isAdmin, onQuickLog, draggable, onDragS
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{customer.city || "Toàn quốc"}</p>
              </div>
              {isQuotedOverdue ? (
-                <AlertCircle className="w-4 h-4 text-red-500 animate-pulse shrink-0" title="Đã báo giá quá 3 ngày, cần chăm sóc!" />
+                <AlertCircle className="w-4 h-4 text-red-500 animate-pulse shrink-0" title={`Đã báo giá quá ${leadOverdueDays} ngày, cần chăm sóc!`} />
              ) : (
                 <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-200 group-hover:text-slate-400 shrink-0">
                    <MoreVertical className="w-4 h-4" />

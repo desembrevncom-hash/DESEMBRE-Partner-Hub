@@ -57,7 +57,8 @@ function SystemSettingsPage() {
     primaryColor: "#6366f1",
     accentColor: "#ec4899",
     logoLightUrl: "",
-    logoDarkUrl: ""
+    logoDarkUrl: "",
+    leadOverdueDays: 3
   });
   const [loadingConfig, setLoadingConfig] = useState(true);
 
@@ -80,6 +81,7 @@ function SystemSettingsPage() {
           accentColor: data.accent_color || "#ec4899",
           logoLightUrl: data.logo_light_url || "",
           logoDarkUrl: data.logo_dark_url || "",
+          leadOverdueDays: data.lead_overdue_days ?? 3
         });
       }
       setLoadingConfig(false);
@@ -130,7 +132,8 @@ function SystemSettingsPage() {
       primary_color: config.primaryColor,
       accent_color: config.accentColor,
       logo_light_url: config.logoLightUrl,
-      logo_dark_url: config.logoDarkUrl
+      logo_dark_url: config.logoDarkUrl,
+      lead_overdue_days: Number(config.leadOverdueDays)
     };
 
     let error;
@@ -353,10 +356,13 @@ function SystemSettingsPage() {
                           </div>
                           <div className="flex items-center justify-between">
                              <div className="space-y-1">
-                                <p className="text-sm font-black text-slate-900">Auto-Reactivate Leads</p>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Nhắc việc khi khách lâu không mua</p>
+                                <p className="text-sm font-black text-slate-900">Thời gian cảnh báo quá hạn</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Thời gian (ngày) Lead báo giá bị bỏ quên</p>
                              </div>
-                             <Switch defaultChecked />
+                             <div className="flex items-center gap-2">
+                                <Input value={config.leadOverdueDays} onChange={e => setConfig({...config, leadOverdueDays: e.target.value})} className="w-20 h-10 rounded-xl text-center font-bold" type="number" />
+                                <span className="font-black text-slate-400">ngày</span>
+                             </div>
                           </div>
                        </div>
                     </CardContent>

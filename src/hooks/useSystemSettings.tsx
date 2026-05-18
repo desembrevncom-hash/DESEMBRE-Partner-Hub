@@ -8,6 +8,7 @@ type SystemSettings = {
   companyName: string;
   supportPhone: string;
   supportEmail: string;
+  leadOverdueDays: number;
 };
 
 const defaultSettings: SystemSettings = {
@@ -16,6 +17,7 @@ const defaultSettings: SystemSettings = {
   companyName: "DESEMBRE VIETNAM",
   supportPhone: "1900 6868",
   supportEmail: "support@desembre.vn",
+  leadOverdueDays: 3,
 };
 
 const SettingsContext = createContext<SystemSettings>(defaultSettings);
@@ -35,6 +37,7 @@ export function SystemSettingsProvider({ children }: { children: ReactNode }) {
             companyName: data.company_name || defaultSettings.companyName,
             supportPhone: data.support_phone || defaultSettings.supportPhone,
             supportEmail: data.support_email || defaultSettings.supportEmail,
+            leadOverdueDays: data.lead_overdue_days ?? defaultSettings.leadOverdueDays,
           });
           setPricingSettings(vat, discount);
         }
