@@ -40,7 +40,8 @@ const TASK_TYPE_OPTIONS = [
 ];
 
 export function AddTaskDialog({ isOpen, onClose, customer, onSuccess }: AddTaskDialogProps) {
-  const { user } = useAuth();
+  const { user, isAdmin, isSubAdmin } = useAuth();
+  const isManager = isAdmin || isSubAdmin;
   const [saving, setSaving] = useState(false);
   const [loadingStaff, setLoadingStaff] = useState(false);
   const [staffList, setStaffList] = useState<any[]>([]);
@@ -69,6 +70,15 @@ export function AddTaskDialog({ isOpen, onClose, customer, onSuccess }: AddTaskD
   }, [isOpen, customer]);
 
   const fetchStaff = async () => {
+    if (!isManager) {
+      // Nếu là Staff, họ chỉ có quyền giao việc cho chính mình. Tránh gọi API profiles gây lỗi RLS.
+      setStaffList([{
+        id: user?.id,
+        name: user?.user_metadata?.display_name || user?.email?.split("@")[0] || "Tôi"
+      }]);
+      return;
+    }
+
     setLoadingStaff(true);
     try {
       const { data, error } = await supabase
@@ -84,7 +94,11 @@ export function AddTaskDialog({ isOpen, onClose, customer, onSuccess }: AddTaskD
       }
     } catch (e: any) {
       console.error("Error fetching staff:", e);
-      toast.error("Không thể tải danh sách nhân sự");
+      // Fallback cho local demo hoặc khi lỗi mạng/RLS
+      setStaffList([{
+        id: user?.id,
+        name: user?.user_metadata?.display_name || user?.email?.split("@")[0] || "Tôi"
+      }]);
     } finally {
       setLoadingStaff(false);
     }
@@ -187,7 +201,11 @@ export function AddTaskDialog({ isOpen, onClose, customer, onSuccess }: AddTaskD
           {/* Người thực hiện */}
           <div className="space-y-2">
             <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Người thực hiện</Label>
-            <Select value={form.assigned_to} onValueChange={val => setForm({ ...form, assigned_to: val })}>
+            <Select 
+              value={form.assigned_to} 
+              onValueChange={val => setForm({ ...form, assigned_to: val })}
+              disabled={!isManager}
+            >
               <SelectTrigger className="rounded-xl border-slate-100 bg-slate-50 h-11 text-sm font-medium">
                 <SelectValue placeholder="Chọn nhân viên thực hiện" />
               </SelectTrigger>
