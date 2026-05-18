@@ -1,6 +1,8 @@
 import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   LayoutDashboard, 
   Users, 
@@ -30,6 +32,16 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   const { user, signOut, isAdmin, isTeleLead } = useAuth();
+  const [branding, setBranding] = useState({ primary: "", accent: "" });
+
+  useEffect(() => {
+    supabase.from('system_settings').select('primary_color, accent_color').maybeSingle()
+      .then(({data}) => {
+        if (data) {
+          setBranding({ primary: data.primary_color, accent: data.accent_color });
+        }
+      });
+  }, []);
 
   if (!user) {
     return (
@@ -42,6 +54,34 @@ function RootLayout() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] font-sans antialiased selection:bg-indigo-100 selection:text-indigo-900">
+      <style>{`
+        :root {
+          ${branding.primary ? `--brand-primary: ${branding.primary};` : ''}
+          ${branding.accent ? `--brand-accent: ${branding.accent};` : ''}
+        }
+        
+        ${branding.primary ? `
+          .bg-indigo-600, .bg-indigo-500, .bg-primary { background-color: var(--brand-primary) !important; }
+          .text-indigo-600, .text-indigo-500, .text-primary { color: var(--brand-primary) !important; }
+          .border-indigo-600, .border-indigo-500 { border-color: var(--brand-primary) !important; }
+          .bg-indigo-50 { background-color: color-mix(in srgb, var(--brand-primary) 10%, white) !important; }
+          .text-indigo-900 { color: color-mix(in srgb, var(--brand-primary) 80%, black) !important; }
+          .shadow-indigo-100 { box-shadow: 0 4px 6px -1px color-mix(in srgb, var(--brand-primary) 20%, transparent), 0 2px 4px -2px color-mix(in srgb, var(--brand-primary) 20%, transparent) !important; }
+          .shadow-indigo-200 { box-shadow: 0 10px 15px -3px color-mix(in srgb, var(--brand-primary) 30%, transparent), 0 4px 6px -4px color-mix(in srgb, var(--brand-primary) 30%, transparent) !important; }
+          .fill-indigo-500 { fill: var(--brand-primary) !important; }
+          .group:hover\\:text-indigo-500:hover { color: var(--brand-primary) !important; }
+          .hover\\:bg-indigo-600:hover { background-color: color-mix(in srgb, var(--brand-primary) 90%, black) !important; }
+          .hover\\:bg-indigo-50:hover { background-color: color-mix(in srgb, var(--brand-primary) 10%, white) !important; }
+        ` : ''}
+
+        ${branding.accent ? `
+          .bg-pink-500, .bg-rose-500 { background-color: var(--brand-accent) !important; }
+          .text-pink-500, .text-rose-500 { color: var(--brand-accent) !important; }
+          .bg-pink-50, .bg-rose-50 { background-color: color-mix(in srgb, var(--brand-accent) 10%, white) !important; }
+          .shadow-pink-100 { box-shadow: 0 4px 6px -1px color-mix(in srgb, var(--brand-accent) 20%, transparent) !important; }
+        ` : ''}
+      `}</style>
+
       {/* ELITE GLOBAL NAVIGATION */}
       <nav className="bg-white/80 border-b border-slate-200 sticky top-0 z-50 backdrop-blur-xl">
         <div className="container mx-auto px-6 h-20 flex items-center justify-between max-w-7xl">
