@@ -1,0 +1,166 @@
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { Loader2, Users, PhoneCall, Briefcase } from "lucide-react";
+import { CARE_MODEL_OPTIONS } from "@/lib/customerOwnership";
+
+interface AssignStaffDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  customer: any;
+  onSuccess: () => void;
+}
+
+export function AssignStaffDialog({ isOpen, onClose, customer, onSuccess }: AssignStaffDialogProps) {
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [staffList, setStaffList] = useState<any[]>([]);
+  const [rolesList, setRolesList] = useState<any[]>([]);
+
+  const [saleId, setSaleId] = useState<string>(customer?.owner_sale_id || "");
+  const [teleId, setTeleId] = useState<string>(customer?.owner_tele_id || "");
+  const [careModel, setCareModel] = useState<string>(customer?.care_model || "sale_owned");
+
+  useEffect(() => {
+    if (isOpen) {
+      setSaleId(customer?.owner_sale_id || "");
+      setTeleId(customer?.owner_tele_id || "");
+      setCareModel(customer?.care_model || "sale_owned");
+      fetchStaff();
+    }
+  }, [isOpen, customer]);
+
+  const fetchStaff = async () => {
+    setLoading(true);
+    try {
+      const [resP, resR] = await Promise.all([
+        supabase.from("profiles").select("*"),
+        supabase.from("user_roles").select("*")
+      ]);
+
+      if (resP.data) setStaffList(resP.data);
+      if (resR.data) setRolesList(resR.data);
+    } catch (e) {
+      console.error(e);
+      toast.error("Lỗi tải danh sách nhân sự");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStaffByRoles = (allowedRoles: string[]) => {
+    return staffList.filter(staff => {
+      const staffRoles = rolesList.filter(r => r.user_id === staff.id).map(r => r.role);
+      // Admin and sub_admin can take any lead, or specifically the allowed roles
+      return staffRoles.some(r => allowedRoles.includes(r) || r === 'admin' || r === 'sub_admin');
+    });
+  };
+
+  const salesStaff = getStaffByRoles(['sale']);
+  const teleStaff = getStaffByRoles(['tele_lead', 'telesale']);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("customers")
+        .update({
+          owner_sale_id: saleId || null,
+          owner_tele_id: teleId || null,
+          care_model: careModel
+        })
+        .eq("id", customer.id);
+
+      if (error) throw error;
+      toast.success("Đã cập nhật luồng chăm sóc & người phụ trách");
+      onSuccess();
+      onClose();
+    } catch (error: any) {
+      toast.error("Lỗi cập nhật: " + error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[500px] rounded-[32px] p-0 overflow-hidden border-none shadow-2xl">
+        <div className="bg-slate-900 px-8 py-6 text-white flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center">
+            <Users className="w-6 h-6 text-indigo-300" />
+          </div>
+          <div>
+            <DialogTitle className="text-lg font-black tracking-tight">Phân tuyến Khách hàng</DialogTitle>
+            <DialogDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+              {customer?.business_name || customer?.name}
+            </DialogDescription>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="p-10 flex justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-slate-300" />
+          </div>
+        ) : (
+          <div className="p-8 space-y-6 bg-slate-50">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <Briefcase className="w-3.5 h-3.5" /> Mô hình chăm sóc (Care Model)
+              </label>
+              <select 
+                className="w-full bg-white border border-slate-200 rounded-xl h-12 px-4 text-sm font-bold shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                value={careModel}
+                onChange={e => setCareModel(e.target.value)}
+              >
+                {CARE_MODEL_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                <Users className="w-3.5 h-3.5" /> Direct Sale (Sale đi thị trường)
+              </label>
+              <select 
+                className="w-full bg-white border border-slate-200 rounded-xl h-12 px-4 text-sm font-bold shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                value={saleId}
+                onChange={e => setSaleId(e.target.value)}
+              >
+                <option value="">-- Chưa phân công --</option>
+                {salesStaff.map(s => (
+                  <option key={s.id} value={s.id}>{s.full_name || s.email}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-rose-400 uppercase tracking-widest flex items-center gap-2">
+                <PhoneCall className="w-3.5 h-3.5" /> Telesale Hub (Tele hỗ trợ)
+              </label>
+              <select 
+                className="w-full bg-white border border-slate-200 rounded-xl h-12 px-4 text-sm font-bold shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                value={teleId}
+                onChange={e => setTeleId(e.target.value)}
+              >
+                <option value="">-- Chưa phân công --</option>
+                {teleStaff.map(s => (
+                  <option key={s.id} value={s.id}>{s.full_name || s.email}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        <DialogFooter className="p-6 bg-white border-t border-slate-100 flex items-center justify-end">
+          <Button variant="ghost" onClick={onClose} className="rounded-xl font-bold uppercase text-[10px] tracking-widest px-6" disabled={saving}>Hủy</Button>
+          <Button onClick={handleSave} className="rounded-xl bg-slate-900 hover:bg-black font-black uppercase text-[10px] tracking-widest px-8 shadow-lg shadow-slate-200" disabled={saving || loading}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Lưu Thay Đổi"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

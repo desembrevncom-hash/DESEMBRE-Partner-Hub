@@ -44,6 +44,7 @@ import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { TemplateDispatcher } from "@/components/marketing/TemplateDispatcher";
+import { AssignStaffDialog } from "@/components/customers/AssignStaffDialog";
 
 export const Route = createFileRoute("/customers/$id")({
   component: CustomerDetailPage,
@@ -71,26 +72,28 @@ function CustomerDetailPage() {
 
   // Template Dispatcher State
   const [isTemplateOpen, setIsTemplateOpen] = useState(false);
+  const [isAssignStaffOpen, setIsAssignStaffOpen] = useState(false);
 
   // Fetch Core Data
-  useEffect(() => {
-    async function fetchCustomer() {
-      if (!id) return;
-      setLoading(true);
-      const { data, error } = await supabase
-        .from("customers")
-        .select("*")
-        .eq("id", id)
-        .single();
+  const fetchCustomer = async () => {
+    if (!id) return;
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("customers")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-      if (error) {
-        console.error("Error fetching customer:", error);
-        toast.error("Không thể tải thông tin khách hàng");
-      } else {
-        setCustomer(data);
-      }
-      setLoading(false);
+    if (error) {
+      console.error("Error fetching customer:", error);
+      toast.error("Không thể tải thông tin khách hàng");
+    } else {
+      setCustomer(data);
     }
+    setLoading(false);
+  };
+
+  useEffect(() => {
     fetchCustomer();
     fetchActivities();
     fetchTasks();
@@ -524,21 +527,27 @@ function CustomerDetailPage() {
                             <Users className="w-5 h-5 text-indigo-500" /> Đội ngũ phụ trách
                          </h4>
                          <div className="space-y-4">
-                            <div className="flex items-center gap-5 p-6 bg-white border border-slate-100 rounded-[28px] hover:shadow-lg transition-all group">
+                            <div 
+                               className="flex items-center gap-5 p-6 bg-white border border-slate-100 rounded-[28px] hover:shadow-lg hover:border-indigo-200 hover:ring-2 hover:ring-indigo-50 transition-all group cursor-pointer"
+                               onClick={() => setIsAssignStaffOpen(true)}
+                            >
                                <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm font-black border border-indigo-100 shadow-sm group-hover:scale-105 transition-transform uppercase">S</div>
                                <div className="flex-1">
                                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Direct Sale</p>
                                   <p className="text-sm font-black text-slate-900">{getStaffName(customer.owner_sale_id) || "Chưa phân công"}</p>
                                </div>
-                               <Button variant="ghost" size="icon" className="rounded-xl"><ChevronRight className="w-5 h-5 text-slate-300" /></Button>
+                               <Button variant="ghost" size="icon" className="rounded-xl group-hover:bg-indigo-50"><ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-indigo-600" /></Button>
                             </div>
-                            <div className="flex items-center gap-5 p-6 bg-white border border-slate-100 rounded-[28px] hover:shadow-lg transition-all group">
+                            <div 
+                               className="flex items-center gap-5 p-6 bg-white border border-slate-100 rounded-[28px] hover:shadow-lg hover:border-rose-200 hover:ring-2 hover:ring-rose-50 transition-all group cursor-pointer"
+                               onClick={() => setIsAssignStaffOpen(true)}
+                            >
                                <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-sm font-black border border-rose-100 shadow-sm group-hover:scale-105 transition-transform uppercase">T</div>
                                <div className="flex-1">
                                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Telesale Hub</p>
                                   <p className="text-sm font-black text-slate-900">{getStaffName(customer.owner_tele_id) || "Chưa phân công"}</p>
                                </div>
-                               <Button variant="ghost" size="icon" className="rounded-xl"><ChevronRight className="w-5 h-5 text-slate-300" /></Button>
+                               <Button variant="ghost" size="icon" className="rounded-xl group-hover:bg-rose-50"><ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-rose-600" /></Button>
                             </div>
                          </div>
                       </div>
@@ -695,6 +704,13 @@ function CustomerDetailPage() {
         customer={customer} 
         isOpen={isTemplateOpen} 
         onClose={() => setIsTemplateOpen(false)} 
+      />
+
+      <AssignStaffDialog
+        customer={customer}
+        isOpen={isAssignStaffOpen}
+        onClose={() => setIsAssignStaffOpen(false)}
+        onSuccess={fetchCustomer}
       />
     </div>
   );
