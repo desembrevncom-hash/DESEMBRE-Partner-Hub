@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Loader2, Users, PhoneCall, Briefcase } from "lucide-react";
+import { Loader2, Users, PhoneCall, Briefcase, Sparkles } from "lucide-react";
 import { CARE_MODEL_OPTIONS } from "@/lib/customerOwnership";
 import { createNotification } from "@/lib/notifications";
 import { useAuth } from "@/hooks/useAuth";
@@ -25,12 +25,14 @@ export function AssignStaffDialog({ isOpen, onClose, customer, onSuccess }: Assi
   const [saleId, setSaleId] = useState<string>(customer?.owner_sale_id || "");
   const [teleId, setTeleId] = useState<string>(customer?.owner_tele_id || "");
   const [careModel, setCareModel] = useState<string>(customer?.care_model || "sale_owned");
+  const [initialDemand, setInitialDemand] = useState<string>(customer?.note || "");
 
   useEffect(() => {
     if (isOpen) {
       setSaleId(customer?.owner_sale_id || "");
       setTeleId(customer?.owner_tele_id || "");
       setCareModel(customer?.care_model || "sale_owned");
+      setInitialDemand(customer?.note || "");
       fetchStaff();
     }
   }, [isOpen, customer]);
@@ -72,11 +74,26 @@ export function AssignStaffDialog({ isOpen, onClose, customer, onSuccess }: Assi
         .update({
           owner_sale_id: saleId || null,
           owner_tele_id: teleId || null,
-          care_model: careModel
+          care_model: careModel,
+          note: initialDemand.trim() || null
         })
         .eq("id", customer.id);
 
       if (error) throw error;
+
+      // Lưu nhật ký bàn giao nếu ghi chú nhu cầu bị thay đổi hoặc thêm mới
+      if (initialDemand.trim() && initialDemand.trim() !== (customer?.note || "")) {
+        const { error: actError } = await supabase
+          .from("customer_activities")
+          .insert({
+            customer_id: customer.id,
+            activity_type: 'handoff',
+            title: "Bàn giao lead & Ghi chú nhu cầu",
+            content: initialDemand.trim(),
+            created_by: user?.id
+          });
+        if (actError) console.error("Handoff activity log error:", actError);
+      }
 
       // Gửi thông báo cho Sale nếu được chọn mới
       if (saleId && saleId !== customer.owner_sale_id) {
@@ -152,36 +169,50 @@ export function AssignStaffDialog({ isOpen, onClose, customer, onSuccess }: Assi
               </select>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
-                <Users className="w-3.5 h-3.5" /> Direct Sale (Sale đi thị trường)
-              </label>
-              <select 
-                className="w-full bg-white border border-slate-200 rounded-xl h-12 px-4 text-sm font-bold shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                value={saleId}
-                onChange={e => setSaleId(e.target.value)}
-              >
-                <option value="">-- Chưa phân công --</option>
-                {salesStaff.map(s => (
-                  <option key={s.id} value={s.id}>{s.display_name || s.email || 'Chưa rõ tên'}</option>
-                ))}
-              </select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                  <Users className="w-3.5 h-3.5" /> Direct Sale
+                </label>
+                <select 
+                  className="w-full bg-white border border-slate-200 rounded-xl h-12 px-4 text-sm font-bold shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  value={saleId}
+                  onChange={e => setSaleId(e.target.value)}
+                >
+                  <option value="">-- Chưa gán --</option>
+                  {salesStaff.map(s => (
+                    <option key={s.id} value={s.id}>{s.display_name || s.email || 'Chưa rõ tên'}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-rose-400 uppercase tracking-widest flex items-center gap-2">
+                  <PhoneCall className="w-3.5 h-3.5" /> Telesale Hub
+                </label>
+                <select 
+                  className="w-full bg-white border border-slate-200 rounded-xl h-12 px-4 text-sm font-bold shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  value={teleId}
+                  onChange={e => setTeleId(e.target.value)}
+                >
+                  <option value="">-- Chưa gán --</option>
+                  {teleStaff.map(s => (
+                    <option key={s.id} value={s.id}>{s.display_name || s.email || 'Chưa rõ tên'}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-rose-400 uppercase tracking-widest flex items-center gap-2">
-                <PhoneCall className="w-3.5 h-3.5" /> Telesale Hub (Tele hỗ trợ)
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-500" /> Nhu cầu đầu tiên / Ghi chú bàn giao
               </label>
-              <select 
-                className="w-full bg-white border border-slate-200 rounded-xl h-12 px-4 text-sm font-bold shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                value={teleId}
-                onChange={e => setTeleId(e.target.value)}
-              >
-                <option value="">-- Chưa phân công --</option>
-                {teleStaff.map(s => (
-                  <option key={s.id} value={s.id}>{s.display_name || s.email || 'Chưa rõ tên'}</option>
-                ))}
-              </select>
+              <textarea 
+                className="w-full min-h-[90px] bg-white border border-slate-200 rounded-2xl p-4 text-sm font-semibold shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none placeholder:text-slate-300"
+                placeholder="Ví dụ: Khách đang quan tâm bộ mỹ phẩm trị mụn ẩn, muốn làm đại lý và hỏi chính sách chiết khấu..."
+                value={initialDemand}
+                onChange={e => setInitialDemand(e.target.value)}
+              />
             </div>
           </div>
         )}
