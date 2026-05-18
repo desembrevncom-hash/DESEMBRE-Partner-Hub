@@ -205,6 +205,16 @@ function CalendarPage() {
         .select("*");
       if (rErr) throw rErr;
 
+      // 4. Tải danh sách công việc khách hàng (customer_tasks)
+      let taskQuery = supabase.from("customer_tasks")
+        .select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)")
+        .order("due_at", { ascending: true });
+      if (!isManager) {
+        taskQuery = taskQuery.eq("assigned_to", user?.id);
+      }
+      const { data: tData, error: tErr } = await taskQuery;
+      if (tErr) throw tErr;
+
       // Gộp và chuẩn hóa dữ liệu
       const personalEvents: UnifiedCalendarEvent[] = (pData || []).map((ev: any) => ({ ...ev, _ui_type: 'personal' }));
       const companyEvents: UnifiedCalendarEvent[] = (cData || []).map((ev: any) => {
@@ -212,7 +222,40 @@ function CalendarPage() {
         return { ...ev, _ui_type: 'company', registrations };
       });
 
-      const combined = [...personalEvents, ...companyEvents];
+      const mappedTasks: UnifiedCalendarEvent[] = (tData || []).map((t: any) => {
+        let eventType: PersonalEventType = "follow_up";
+        if (t.task_type === 'visit') eventType = "check_in";
+        else if (t.task_type === 'quotation') eventType = "payment";
+        else if (t.task_type === 'follow_up') eventType = "follow_up";
+        else if (t.task_type === 'call') eventType = "follow_up";
+        else eventType = "note";
+
+        const custMeta = t.customer || t.lead || null;
+        const custName = custMeta 
+          ? (custMeta.name || custMeta.facility_name || "Khách hàng")
+          : "";
+
+        return {
+          id: t.id,
+          title: t.title,
+          description: t.description || null,
+          event_type: eventType,
+          status: t.status === 'pending' ? 'pending' : (t.status === 'completed' ? 'completed' : 'cancelled'),
+          starts_at: t.due_at,
+          ends_at: null,
+          customer_id: t.customer_id || null,
+          assigned_sale_id: t.assigned_to || null,
+          created_by: t.created_by || null,
+          remind_before_minutes: 30,
+          created_at: t.created_at || new Date().toISOString(),
+          updated_at: t.updated_at || new Date().toISOString(),
+          customer_name: custName,
+          _ui_type: 'personal',
+          _is_db_task: true
+        };
+      });
+
+      const combined = [...personalEvents, ...companyEvents, ...mappedTasks];
       setEvents(combined);
       
       // Cache lại cho offline mode
@@ -482,20 +525,41 @@ function CalendarPage() {
             }).then();
           } catch (_) {}
         } else {
-          const payload = {
-            title: title.trim(),
-            description: description.trim() || null,
-            event_type: personalType,
-            starts_at: startIso,
-            ends_at: endIso,
-            customer_id: customerId || null,
-            assigned_sale_id: targetSaleId,
-            remind_before_minutes: Number(remindMinutes) || 30,
-            updated_at: new Date().toISOString()
-          };
-          const { error: err } = await supabase.from("calendar_events").update(payload).eq("id", editEventId);
-          if (err) throw err;
-          toast.success("Cập nhật Lịch cá nhân thành công");
+          const isDbTask = events.find(e => e.id === editEventId)?._is_db_task;
+          if (isDbTask) {
+            let taskType = "call";
+            if (personalType === "check_in") taskType = "visit";
+            else if (personalType === "payment") taskType = "quotation";
+            else if (personalType === "follow_up") taskType = "follow_up";
+            
+            const payload = {
+              title: title.trim(),
+              description: description.trim() || null,
+              due_at: startIso,
+              customer_id: customerId || null,
+              assigned_to: targetSaleId,
+              task_type: taskType,
+              updated_at: new Date().toISOString()
+            };
+            const { error: err } = await supabase.from("customer_tasks").update(payload).eq("id", editEventId);
+            if (err) throw err;
+            toast.success("Cập nhật Công việc thành công");
+          } else {
+            const payload = {
+              title: title.trim(),
+              description: description.trim() || null,
+              event_type: personalType,
+              starts_at: startIso,
+              ends_at: endIso,
+              customer_id: customerId || null,
+              assigned_sale_id: targetSaleId,
+              remind_before_minutes: Number(remindMinutes) || 30,
+              updated_at: new Date().toISOString()
+            };
+            const { error: err } = await supabase.from("calendar_events").update(payload).eq("id", editEventId);
+            if (err) throw err;
+            toast.success("Cập nhật Lịch cá nhân thành công");
+          }
         }
       } else {
         // TẠO MỚI
@@ -593,12 +657,15 @@ function CalendarPage() {
         setSaving(false);
       }
     } else {
-      if (!window.confirm("Bạn có chắc chắn muốn xóa lịch trình cá nhân này?")) return;
+      const isDbTask = events.find(e => e.id === id)?._is_db_task;
+      const targetTable = isDbTask ? "customer_tasks" : "calendar_events";
+      
+      if (!window.confirm(isDbTask ? "Bạn có chắc chắn muốn xóa công việc này?" : "Bạn có chắc chắn muốn xóa lịch trình cá nhân này?")) return;
       try {
         setSaving(true);
-        const { error } = await supabase.from("calendar_events").delete().eq("id", id);
+        const { error } = await supabase.from(targetTable).delete().eq("id", id);
         if (error) throw error;
-        toast.success("Xóa lịch trình thành công");
+        toast.success(isDbTask ? "Xóa công việc thành công" : "Xóa lịch trình thành công");
         setModalOpen(false);
         await loadEvents();
       } catch (err: any) {
