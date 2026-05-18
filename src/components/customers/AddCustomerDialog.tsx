@@ -243,7 +243,7 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
       tags: form.tags,
       marketing_opt_in: form.marketing_opt_in,
       created_by: user?.id,
-      lifecycle_stage: form.lifecycle_stage,
+      lifecycle_stage: form.lifecycle_stage === "new_lead" && (form.owner_sale_id !== "none" || form.owner_tele_id !== "none") ? "assigned" : form.lifecycle_stage,
     };
 
     const { data: newCustomer, error } = await supabase.from("customers").insert([payload]).select().single();

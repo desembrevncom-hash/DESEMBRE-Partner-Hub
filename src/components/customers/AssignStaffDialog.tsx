@@ -69,14 +69,21 @@ export function AssignStaffDialog({ isOpen, onClose, customer, onSuccess }: Assi
   const handleSave = async () => {
     setSaving(true);
     try {
+      const updates: any = {
+        owner_sale_id: saleId || null,
+        owner_tele_id: teleId || null,
+        care_model: careModel,
+        note: initialDemand.trim() || null
+      };
+
+      // Tự động chuyển trạng thái sang "assigned" (Đã nhận lead) nếu được phân công và đang ở trạng thái lead mới
+      if ((saleId || teleId) && (customer?.lifecycle_stage === "new_lead" || !customer?.lifecycle_stage)) {
+        updates.lifecycle_stage = "assigned";
+      }
+
       const { error } = await supabase
         .from("customers")
-        .update({
-          owner_sale_id: saleId || null,
-          owner_tele_id: teleId || null,
-          care_model: careModel,
-          note: initialDemand.trim() || null
-        })
+        .update(updates)
         .eq("id", customer.id);
 
       if (error) throw error;
