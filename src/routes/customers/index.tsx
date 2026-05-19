@@ -55,6 +55,7 @@ function CustomersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [activeStage, setActiveStage] = useState<string>("all");
+  const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
   
   // Quick Log State
   const [logTarget, setLogTarget] = useState<any | null>(null);
@@ -138,9 +139,31 @@ function CustomersPage() {
     return customers.filter(c => {
       const matchSearch = (c.name || c.facility_name || "").toLowerCase().includes(searchQuery.toLowerCase());
       const matchStage = activeStage === "all" || c.lifecycle_stage === activeStage;
-      return matchSearch && matchStage;
+      const matchUnassigned = !showUnassignedOnly || (!c.owner_sale_id && !c.owner_tele_id);
+      return matchSearch && matchStage && matchUnassigned;
     });
-  }, [customers, searchQuery, activeStage]);
+  }, [customers, searchQuery, activeStage, showUnassignedOnly]);
+
+  // Executive Admin & SubAdmin Stats
+  const adminStats = useMemo(() => {
+    if (!isManager) return null;
+    const totalRevenue = customers.reduce((sum, c) => {
+      const cValue = c.orders?.reduce((s: number, o: any) => s + (o.total || 0), 0) || 0;
+      return sum + cValue;
+    }, 0);
+    const unassignedLeads = customers.filter(c => !c.owner_sale_id && !c.owner_tele_id).length;
+    const vipCount = customers.filter(c => {
+      const cValue = c.orders?.reduce((s: number, o: any) => s + (o.total || 0), 0) || 0;
+      return cValue >= 50000000;
+    }).length;
+    
+    return {
+      totalRevenue,
+      unassignedLeads,
+      vipCount,
+      totalCustomers: customers.length
+    };
+  }, [customers, isManager]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20 font-sans antialiased">
@@ -190,6 +213,67 @@ function CustomersPage() {
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-7xl space-y-8">
+        {/* EXECUTIVE CONTROL CENTER (ADMIN & SUB-ADMIN ONLY) */}
+        {isManager && adminStats && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+             <div className="p-6 rounded-[32px] bg-white border border-slate-100 shadow-sm flex flex-col justify-between h-36">
+                <div className="flex items-center justify-between">
+                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tổng khách hàng / Spa</span>
+                   <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-500 border border-slate-100">
+                      <Users className="w-4 h-4" />
+                   </div>
+                </div>
+                <div>
+                   <h3 className="text-2xl font-black text-slate-900 leading-none">{adminStats.totalCustomers}</h3>
+                   <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">Cơ sở đăng ký hệ thống</p>
+                </div>
+             </div>
+
+             <button 
+                onClick={() => setShowUnassignedOnly(!showUnassignedOnly)}
+                className={`p-6 rounded-[32px] text-left border flex flex-col justify-between h-36 transition-all duration-300 ${showUnassignedOnly ? 'bg-indigo-600 border-transparent text-white shadow-xl scale-105 shadow-indigo-100' : 'bg-white border-slate-100 shadow-sm hover:border-slate-200'}`}
+             >
+                <div className="flex items-center justify-between w-full">
+                   <span className={`text-[10px] font-black uppercase tracking-widest ${showUnassignedOnly ? 'text-white/80' : 'text-slate-400'}`}>Lead chưa phân công</span>
+                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center border ${showUnassignedOnly ? 'bg-white/20 border-white/10 text-white' : 'bg-rose-50 border-rose-100 text-rose-500'}`}>
+                      <AlertCircle className="w-4 h-4" />
+                   </div>
+                </div>
+                <div>
+                   <h3 className={`text-2xl font-black leading-none ${showUnassignedOnly ? 'text-white' : 'text-slate-900'}`}>{adminStats.unassignedLeads}</h3>
+                   <p className={`text-[9px] font-bold mt-1 uppercase ${showUnassignedOnly ? 'text-white/60' : 'text-slate-400'}`}>
+                      {showUnassignedOnly ? 'Đang lọc xem Lead chưa chia 🎯' : 'Click để lọc nhanh chia lead'}
+                   </p>
+                </div>
+             </button>
+
+             <div className="p-6 rounded-[32px] bg-white border border-slate-100 shadow-sm flex flex-col justify-between h-36">
+                <div className="flex items-center justify-between">
+                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Spa đạt hạng VIP (Gold+)</span>
+                   <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500 border border-amber-100">
+                      <Star className="w-4 h-4 fill-amber-500" />
+                   </div>
+                </div>
+                <div>
+                   <h3 className="text-2xl font-black text-slate-900 leading-none">{adminStats.vipCount}</h3>
+                   <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">Đạt mức LTV &gt;= 50Mđ</p>
+                </div>
+             </div>
+
+             <div className="p-6 rounded-[32px] bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-700 border-none shadow-xl shadow-indigo-100 text-white flex flex-col justify-between h-36">
+                <div className="flex items-center justify-between">
+                   <span className="text-[10px] font-black text-white/80 uppercase tracking-widest">Tổng doanh thu hệ thống</span>
+                   <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-white border border-white/10">
+                      <Zap className="w-4 h-4 fill-white" />
+                   </div>
+                </div>
+                <div>
+                   <h3 className="text-xl font-black leading-none">{adminStats.totalRevenue.toLocaleString('vi-VN')} đ</h3>
+                   <p className="text-[9px] font-bold text-white/60 mt-1 uppercase">Tổng giá trị đơn hàng đã chốt</p>
+                </div>
+             </div>
+          </div>
+        )}
         {/* TOP FILTER BAR */}
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
            <div className="relative w-full md:w-96">
@@ -398,6 +482,19 @@ function CustomerCard({ customer, stage, isAdmin, isManager, onQuickLog, draggab
   const action = getAction();
   const totalValue = customer.orders?.reduce((sum: number, o: any) => sum + (o.total || 0), 0) || 0;
   
+  const getTierBadge = () => {
+    if (totalValue >= 100000000) {
+      return <Badge className="bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 text-white shadow-sm border-none text-[8px] px-1.5 py-0 h-4 font-black">💎 DIAMOND</Badge>;
+    }
+    if (totalValue >= 50000000) {
+      return <Badge className="bg-gradient-to-r from-amber-400 to-amber-600 text-white shadow-sm border-none text-[8px] px-1.5 py-0 h-4 font-black">🥇 GOLD</Badge>;
+    }
+    if (totalValue > 0) {
+      return <Badge className="bg-gradient-to-r from-slate-400 to-slate-600 text-white shadow-sm border-none text-[8px] px-1.5 py-0 h-4 font-black">🥈 SILVER</Badge>;
+    }
+    return null;
+  };
+
   // Cảnh báo khách hàng báo giá quá X ngày (Đỏ)
   const isQuotedOverdue = stage === 'quoted' && differenceInDays(new Date(), new Date(customer.updated_at || customer.created_at)) >= leadOverdueDays;
 
@@ -412,7 +509,7 @@ function CustomerCard({ customer, stage, isAdmin, isManager, onQuickLog, draggab
              <div className="space-y-1">
                 <div className="flex items-center gap-2">
                    <h4 className="text-sm font-black text-slate-900 leading-tight group-hover:text-indigo-600 transition-colors">{customer.business_name || customer.facility_name || customer.contact_name || customer.name}</h4>
-                   {totalValue > 50000000 && <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 text-[8px] px-1.5 py-0 border-none h-4">VVIP</Badge>}
+                   {getTierBadge()}
                    {stage === 'new_lead' && <Badge className="bg-red-100 text-red-700 hover:bg-red-200 text-[8px] px-1.5 py-0 border-none h-4">HOT</Badge>}
                 </div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{customer.city || "Toàn quốc"}</p>

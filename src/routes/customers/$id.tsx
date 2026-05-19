@@ -84,6 +84,36 @@ function CustomerDetailPage() {
   const [isAssignStaffOpen, setIsAssignStaffOpen] = useState(false);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
 
+  // Spa Equipment Profile State (Upsell Phase 1)
+  const [spaEquipment, setSpaEquipment] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(`spa_equipment_${id}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const toggleEquipment = (eqName: string) => {
+    const next = spaEquipment.includes(eqName)
+      ? spaEquipment.filter(x => x !== eqName)
+      : [...spaEquipment, eqName];
+    setSpaEquipment(next);
+    localStorage.setItem(`spa_equipment_${id}`, JSON.stringify(next));
+    toast.success(`Đã cập nhật thiết bị Spa: ${eqName}`);
+  };
+
+  const totalSpend = useMemo(() => {
+    return orders.reduce((sum: number, o: any) => sum + (o.total || 0), 0);
+  }, [orders]);
+
+  const spaTier = useMemo(() => {
+    if (totalSpend >= 100000000) return { label: "💎 DIAMOND", color: "bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 text-white shadow-sm border-none text-[9px]" };
+    if (totalSpend >= 50000000) return { label: "🥇 GOLD", color: "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-white shadow-sm border-none text-[9px]" };
+    if (totalSpend > 0) return { label: "🥈 SILVER", color: "bg-gradient-to-r from-slate-400 via-slate-500 to-slate-600 text-white shadow-sm border-none text-[9px]" };
+    return { label: "NEW CO", color: "bg-slate-100 text-slate-500 border-none text-[9px]" };
+  }, [totalSpend]);
+
   // Fetch Core Data
   const fetchCustomer = async () => {
     if (!id) return;
@@ -285,6 +315,7 @@ function CustomerDetailPage() {
               <div className="flex items-center gap-3 mb-2">
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight">{customer.business_name || customer.facility_name || customer.contact_name || customer.name}</h1>
                 {renderStatusBadge(customer.lifecycle_stage)}
+                <Badge className={`font-black uppercase tracking-wider rounded-lg border-none px-2.5 py-0.5 ${spaTier.color}`}>{spaTier.label}</Badge>
                 {customer.is_vip && <Badge className="bg-amber-100 text-amber-700 border-none text-[10px] font-black"><Star className="w-3 h-3 mr-1 fill-amber-500 text-amber-500" /> VIP</Badge>}
               </div>
               <div className="flex items-center gap-4 text-xs font-bold text-slate-400 uppercase tracking-widest">
@@ -327,9 +358,11 @@ function CustomerDetailPage() {
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Đơn hàng</p>
                     <p className="text-2xl font-black text-slate-900">{customer.total_orders_count || 0}</p>
                   </div>
-                  <div className="p-5 bg-slate-50 rounded-[24px] border border-slate-100">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Mức hạng</p>
-                    <p className="text-2xl font-black text-slate-900">A+</p>
+                  <div className="p-5 bg-slate-50 rounded-[24px] border border-slate-100 flex flex-col justify-between">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Doanh số</p>
+                    <p className="text-base font-black text-indigo-600 truncate" title={`${totalSpend.toLocaleString('vi-VN')} đ`}>
+                      {new Intl.NumberFormat('vi-VN').format(totalSpend)}đ
+                    </p>
                   </div>
                 </div>
                 
@@ -408,6 +441,9 @@ function CustomerDetailPage() {
                 </TabsTrigger>
                 <TabsTrigger value="events" className="rounded-xl px-4 lg:px-6 py-2 lg:py-3 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all flex-1 text-center">
                    <Star className="mr-2 h-4 w-4 hidden sm:inline" /> Sự kiện
+                </TabsTrigger>
+                <TabsTrigger value="upsell" className="rounded-xl px-4 lg:px-6 py-2 lg:py-3 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white transition-all flex-1 text-center bg-indigo-50/40 border border-indigo-100/30 text-indigo-700 hover:bg-indigo-50/80">
+                   <Sparkles className="mr-2 h-4 w-4 hidden sm:inline text-indigo-500" /> Upsell
                 </TabsTrigger>
               </TabsList>
 
@@ -758,6 +794,233 @@ function CustomerDetailPage() {
                       </div>
                     )}
                   </div>
+                </Card>
+              </TabsContent>
+
+              {/* UPSELL & ANALYTICS TAB */}
+              <TabsContent value="upsell" className="outline-none space-y-8">
+                {/* 1. DOANH SỐ TÍCH LŨY & TIẾN TRÌNH THĂNG HẠNG */}
+                <Card className="rounded-[40px] border-none shadow-sm bg-white overflow-hidden">
+                  <div className="p-8 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-indigo-600 animate-pulse" /> Thăng hạng thành viên Spa & Quyền lợi
+                      </h3>
+                      <p className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-wider">Hệ thống cấp hạng đại lý phân phối Desembre</p>
+                    </div>
+                    <Badge className={`font-black uppercase tracking-widest text-[10px] px-3.5 py-1 rounded-xl border-none ${totalSpend >= 100000000 ? 'bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 text-white' : totalSpend >= 50000000 ? 'bg-gradient-to-r from-amber-400 to-amber-600 text-white' : totalSpend > 0 ? 'bg-gradient-to-r from-slate-400 to-slate-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                      Hạng hiện tại: {totalSpend >= 100000000 ? 'DIAMOND' : totalSpend >= 50000000 ? 'GOLD' : totalSpend > 0 ? 'SILVER' : 'NEW CO'}
+                    </Badge>
+                  </div>
+                  <CardContent className="p-8 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="p-6 rounded-3xl bg-slate-50 border border-slate-100/80">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Tích lũy trọn đời (LTV)</span>
+                        <span className="text-xl font-black text-slate-900">{totalSpend.toLocaleString('vi-VN')} đ</span>
+                      </div>
+                      <div className="p-6 rounded-3xl bg-slate-50 border border-slate-100/80">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Chiết khấu Đại lý hiện tại</span>
+                        <span className="text-xl font-black text-indigo-600">{totalSpend >= 100000000 ? '65%' : totalSpend >= 50000000 ? '62%' : '60%'}</span>
+                      </div>
+                      <div className="p-6 rounded-3xl bg-slate-50 border border-slate-100/80">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Mục tiêu thăng hạng tiếp theo</span>
+                        <span className="text-xl font-black text-slate-700">
+                          {totalSpend >= 100000000 ? 'ĐẠT ĐỈNH HẠNG' : totalSpend >= 50000000 ? 'DIAMOND (100M)' : 'GOLD (50M)'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    {totalSpend < 100000000 && (
+                      <div className="space-y-3 bg-indigo-50/20 p-6 rounded-3xl border border-indigo-100/30">
+                        <div className="flex justify-between items-center text-xs font-bold text-slate-500">
+                          <span className="flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-indigo-500" /> Tiến trình thăng cấp</span>
+                          <span className="text-indigo-600 font-black">
+                            Còn thiếu {((totalSpend >= 50000000 ? 100000000 : 50000000) - totalSpend).toLocaleString('vi-VN')}đ để thăng hạng
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                          <div 
+                            className="bg-gradient-to-r from-indigo-500 to-purple-600 h-full rounded-full transition-all duration-500" 
+                            style={{ width: `${Math.min(100, (totalSpend / (totalSpend >= 50000000 ? 100000000 : 50000000)) * 100)}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center mt-1">
+                          Thăng hạng giúp đối tác tăng chiết khấu lên {totalSpend >= 50000000 ? '65%' : '62%'}, kích thích chủ Spa gom đơn lớn để hưởng lợi nhuận tối đa!
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* 2. HỒ SƠ THIẾT BỊ CỦA SPA & GỢI Ý THÔNG MINH */}
+                <Card className="rounded-[40px] border-none shadow-sm bg-white overflow-hidden">
+                  <div className="p-8 border-b border-slate-100">
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                      <Zap className="w-5 h-5 text-amber-500" /> Thiết bị & Công nghệ hiện có tại Spa
+                    </h3>
+                    <p className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-wider">Chọn máy móc Spa đang vận hành để kích hoạt kịch bản gợi ý Upsell phù hợp</p>
+                  </div>
+                  <CardContent className="p-8 space-y-8">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      {[
+                        { id: 'laser', label: 'Máy Laser YAG/CO2', color: 'from-rose-500 to-red-600 shadow-rose-100' },
+                        { id: 'hifu', label: 'Máy HIFU / Nâng cơ', color: 'from-amber-400 to-orange-500 shadow-amber-100' },
+                        { id: 'needle', label: 'Thiết bị Phi kim/Lăn kim', color: 'from-emerald-400 to-teal-500 shadow-emerald-100' },
+                        { id: 'rf', label: 'Máy RF / Giảm béo', color: 'from-cyan-400 to-blue-500 shadow-cyan-100' }
+                      ].map((eq) => {
+                        const isActive = spaEquipment.includes(eq.id);
+                        return (
+                          <button
+                            key={eq.id}
+                            onClick={() => toggleEquipment(eq.id)}
+                            className={`p-5 rounded-3xl border-2 text-left transition-all duration-300 flex flex-col justify-between h-32 relative overflow-hidden group ${isActive ? `bg-gradient-to-br ${eq.color} border-transparent text-white shadow-xl scale-105` : 'bg-slate-50 border-slate-100 hover:border-slate-200 text-slate-700'}`}
+                          >
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${isActive ? 'bg-white/20' : 'bg-slate-200/50'}`}>
+                              {eq.id.toUpperCase().slice(0, 2)}
+                            </div>
+                            <div>
+                              <span className={`text-[10px] font-black tracking-widest uppercase block ${isActive ? 'text-white/70' : 'text-slate-400'}`}>Thiết bị</span>
+                              <span className="text-xs font-black mt-1 leading-tight block">{eq.label}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* AI Smart Recommendation Alerts */}
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kịch bản tư vấn thông minh (AI Sales Scripts)</h4>
+                      
+                      {spaEquipment.length === 0 ? (
+                        <div className="p-6 rounded-3xl border border-dashed border-slate-200 text-center text-slate-400 text-xs font-bold">
+                          💡 Hãy chọn ít nhất một thiết bị Spa ở trên để hiển thị kịch bản Upsell mỹ phẩm gối đầu tương ứng!
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {spaEquipment.includes('laser') && (
+                            <div className="p-6 rounded-3xl bg-rose-50 border border-rose-100/80 flex gap-4 items-start animate-fade-in">
+                              <Sparkles className="w-5 h-5 text-rose-500 shrink-0 mt-0.5 animate-pulse" />
+                              <div>
+                                <span className="text-[9px] font-black text-rose-600 uppercase tracking-widest bg-rose-100 px-2 py-0.5 rounded">TƯ VẤN SAU LASER</span>
+                                <p className="text-xs font-bold text-rose-900 mt-2 leading-relaxed">
+                                  Spa có máy Laser ➡️ Khách hàng điều trị nám, sẹo, tàn nhang rất nhiều. Da sau Laser cực kỳ mỏng yếu và tổn thương.
+                                </p>
+                                <p className="text-xs font-medium text-rose-800 mt-1">
+                                  👉 **Kịch bản Upsell:** Tư vấn ngay **Set Tế bào gốc phục hồi EGF Desembre** (hộp 10 ống) kèm Kem chống nắng vật lý bảo vệ chuyên sâu. Nhấn mạnh hiệu quả tái tạo da tức thì, tránh tăng sắc tố sau Laser.
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
+                          {spaEquipment.includes('needle') && (
+                            <div className="p-6 rounded-3xl bg-emerald-50 border border-emerald-100/80 flex gap-4 items-start animate-fade-in">
+                              <Sparkles className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5 animate-pulse" />
+                              <div>
+                                <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-100 px-2 py-0.5 rounded">TƯ VẤN SAU PHI KIM</span>
+                                <p className="text-xs font-bold text-emerald-900 mt-2 leading-relaxed">
+                                  Spa làm dịch vụ Phi kim / Lăn kim ➡️ Liệu trình collagen cảm ứng rất cần chất dẫn phục hồi biểu bì sâu.
+                                </p>
+                                <p className="text-xs font-medium text-emerald-800 mt-1">
+                                  👉 **Kịch bản Upsell:** Giới thiệu dòng **Mặt nạ thải độc sủi bọt Desembre Oxy Bubble Mask** hoặc Serum đặc trị sẹo rỗ, lỗ chân lông to của Desembre để làm sạch sâu cabin trước và nuôi da sau liệu trình phi kim.
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
+                          {spaEquipment.includes('hifu') && (
+                            <div className="p-6 rounded-3xl bg-amber-50 border border-amber-100/80 flex gap-4 items-start animate-fade-in">
+                              <Sparkles className="w-5 h-5 text-amber-500 shrink-0 mt-0.5 animate-pulse" />
+                              <div>
+                                <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest bg-amber-100 px-2 py-0.5 rounded">TƯ VẤN SAU HIFU / NÂNG CƠ</span>
+                                <p className="text-xs font-bold text-amber-900 mt-2 leading-relaxed">
+                                  Spa làm trẻ hóa nâng cơ bằng HIFU/RF ➡️ Cần bổ sung dưỡng chất nâng cơ, chống nhăn chùng chảy xệ tại nhà để duy trì kết quả máy.
+                                </p>
+                                <p className="text-xs font-medium text-amber-800 mt-1">
+                                  👉 **Kịch bản Upsell:** Chào dòng **Kem dưỡng trẻ hóa peptide 24K Gold Desembre Luxury Gold** cao cấp. Tỷ lệ chốt cực cao vì tệp khách làm HIFU là tệp khách VIP, sẵn sàng chi trả mức giá trị lớn!
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 3. LỊCH SỬ NHÓM MỸ PHẨM ĐÃ MUA & CHƯA MUA */}
+                <Card className="rounded-[40px] border-none shadow-sm bg-white overflow-hidden">
+                  <div className="p-8 border-b border-slate-100">
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                      <Package className="w-5 h-5 text-indigo-500" /> Báo cáo Nhóm sản phẩm mua sắm của Spa
+                    </h3>
+                    <p className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-wider">Hệ thống phân chia 4 nhóm sản phẩm lõi cabin Spa để Sale tìm kiếm lỗ hổng chưa mua nhằm Upsell</p>
+                  </div>
+                  <CardContent className="p-8 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {[
+                        { 
+                          name: 'Dòng Làm sạch & Thải độc (Cleansing)', 
+                          desc: 'Sữa rửa mặt, mặt nạ oxy bong bóng sủi bọt, tẩy tế bào chết enzyme',
+                          purchased: orders.length > 0, 
+                          note: orders.length > 0 ? 'Đã mua đơn hàng trước' : 'Chưa từng mua' 
+                        },
+                        { 
+                          name: 'Dòng Serum & Ampoule Trị liệu (EGF / Vitamin C)', 
+                          desc: 'Tế bào gốc phục hồi, Vitamin C trị nám, serum mụn chuyên sâu',
+                          purchased: false, 
+                          note: 'Spa CHƯA MUA - Tỷ lệ lỗ hổng Upsell cực cao 🎯' 
+                        },
+                        { 
+                          name: 'Dòng Kem dưỡng & Khóa ẩm Cabin (Creams)', 
+                          desc: 'Kem cấp ẩm sâu Hyaluronic, kem phục hồi Hydro lipid bơ hạt mỡ',
+                          purchased: orders.length > 0, 
+                          note: orders.length > 0 ? 'Đã mua đơn hàng trước' : 'Chưa từng mua' 
+                        },
+                        { 
+                          name: 'Dòng Chống nắng & Bảo vệ (Sun Shield)', 
+                          desc: 'Kem chống nắng vật lý SPF 50+, gel làm dịu mát lô hội sau nắng',
+                          purchased: false, 
+                          note: 'Spa CHƯA MUA - Khách hàng đang bỏ ngỏ dòng bảo vệ da 🎯' 
+                        }
+                      ].map((cat, idx) => (
+                        <div key={idx} className={`p-6 rounded-3xl border transition-all ${cat.purchased ? 'bg-emerald-50/10 border-emerald-100/50' : 'bg-slate-50 border-slate-100 hover:shadow-md'}`}>
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h5 className="text-xs font-black text-slate-900 leading-tight">{cat.name}</h5>
+                              <p className="text-[10px] font-bold text-slate-400 mt-1">{cat.desc}</p>
+                            </div>
+                            <Badge className={`text-[8px] font-black uppercase tracking-wider border-none px-2 py-0.5 ${cat.purchased ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700 animate-pulse'}`}>
+                              {cat.purchased ? 'ĐÃ MUA' : 'CHƯA MUA'}
+                            </Badge>
+                          </div>
+                          
+                          <div className="mt-4 flex items-center justify-between text-[9px] font-bold">
+                            <span className={cat.purchased ? 'text-emerald-600' : 'text-rose-500 font-extrabold'}>{cat.note}</span>
+                            {!cat.purchased && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-6 rounded-lg text-[9px] font-black tracking-widest text-indigo-600 bg-white border border-indigo-100 hover:bg-indigo-50/50"
+                                onClick={() => {
+                                  setNewActivity({
+                                    type: 'call',
+                                    content: `📞 Đã tư vấn thêm cho chủ Spa về nhóm sản phẩm "${cat.name}". Spa đang có nhu cầu tìm hiểu thử mẫu test dòng này.`
+                                  });
+                                  // Switch back to activities tab
+                                  const trigger = document.querySelector('[value="activities"]') as HTMLButtonElement;
+                                  if (trigger) trigger.click();
+                                  toast.success(`Đã tự động soạn thảo nhật ký tư vấn Upsell dòng sản phẩm: ${cat.name}`);
+                                }}
+                              >
+                                CHÀO MẪU TEST
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
                 </Card>
               </TabsContent>
             </Tabs>
