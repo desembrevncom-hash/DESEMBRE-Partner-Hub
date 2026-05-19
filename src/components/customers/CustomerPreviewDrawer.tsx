@@ -44,7 +44,9 @@ import {
   UserX,
   Heart,
   CalendarClock,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Navigation,
+  Crosshair
 } from "lucide-react";
 import { 
   getCustomerChannelLabel, 
@@ -68,6 +70,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TaskActionDialog } from "@/components/workspace/TaskActionDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { 
+  hasValidCoordinates, 
+  buildGoogleMapsSearchUrl, 
+  buildGoogleMapsDirectionsUrl,
+  calculateDistanceMeters,
+  isWithinRadius
+} from "@/lib/geo";
 
 interface CustomerPreviewDrawerProps {
   customer: any;
@@ -88,6 +105,12 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [pinning, setPinning] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [currentGps, setCurrentGps] = useState<{ latitude: number; longitude: number; accuracy: number } | null>(null);
+  const [checkinNote, setCheckinNote] = useState("");
+  const [checkinSubmitting, setCheckinSubmitting] = useState(false);
+  const [showCheckinDialog, setShowCheckinDialog] = useState(false);
   
   const [activeCustomer, setActiveCustomer] = useState<any | null>(null);
   const customer = activeCustomer || customerProp || {};
@@ -134,6 +157,9 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       setActiveCustomer(null);
       setQuickAction(initialQuickAction || null);
       setTimelineFilter("all");
+      setCurrentGps(null);
+      setCheckinNote("");
+      setShowCheckinDialog(false);
       fetchCustomerDetails();
     } else {
       setActiveCustomer(null);
@@ -417,6 +443,222 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     const text = `Kính gửi anh/chị ${customer.contact_name || customer.name || 'chủ Spa'}, Desembre xin phép gửi thông tin hỗ trợ...`;
     navigator.clipboard.writeText(text);
     toast.success("Đã copy tin nhắn mẫu!");
+  };
+
+  const handlePinCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Trình duyệt của bạn không hỗ trợ định vị Geolocation.");
+      return;
+    }
+
+    setPinning(true);
+    const geoToastId = toast.loading("Đang xác định tọa độ GPS hiện tại...");
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        toast.dismiss(geoToastId);
+        setPinning(false);
+        const { latitude, longitude, accuracy } = position.coords;
+
+        const confirmPin = window.confirm(
+          `Tìm thấy vị trí hiện tại với độ chính xác +/- ${Math.round(accuracy)} mét.\n\n` +
+          `Bạn có đồng ý dùng vị trí này làm tọa độ định vị cho khách hàng không?`
+        );
+
+        if (!confirmPin) return;
+
+        try {
+          // 1. Update customer location in DB
+          const { error: updateErr } = await supabase
+            .from("customers")
+            .update({
+              latitude,
+              longitude,
+              geo_source: "gps_checkin",
+              geo_verified_at: new Date().toISOString(),
+              geo_verified_by: user?.id
+            })
+            .eq("id", customer.id);
+
+          if (updateErr) throw updateErr;
+
+          // 2. Create customer activity log
+          const { error: actErr } = await supabase
+            .from("customer_activities")
+            .insert({
+              customer_id: customer.id,
+              created_by: user?.id,
+              activity_type: "note",
+              title: "Đã ghim vị trí khách hàng",
+              content: `Toạ độ GPS được ghim trực tiếp: vĩ độ ${latitude.toFixed(6)}, kinh độ ${longitude.toFixed(6)} (Độ chính xác: +/- ${Math.round(accuracy)}m).`
+            });
+
+          if (actErr) throw actErr;
+
+          toast.success("Đã cập nhật vị trí khách hàng thành công!");
+          fetchCustomerDetails();
+        } catch (err: any) {
+          toast.error("Lỗi cập nhật tọa độ: " + err.message);
+        }
+      },
+      (error) => {
+        toast.dismiss(geoToastId);
+        setPinning(false);
+        console.error("Lỗi định vị Geolocation:", error);
+        
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            toast.error("Không được cấp quyền vị trí (Vui lòng cho phép quyền truy cập GPS).");
+            break;
+          case error.POSITION_UNAVAILABLE:
+            toast.error("Không lấy được GPS (Vui lòng bật định vị trên thiết bị).");
+            break;
+          case error.TIMEOUT:
+            toast.error("Thời gian định vị GPS quá hạn.");
+            break;
+          default:
+            toast.error("Lỗi định vị hoặc trình duyệt không hỗ trợ.");
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  };
+
+  const handleGetGpsForCheckin = () => {
+    if (!navigator.geolocation) {
+      toast.error("Trình duyệt của bạn không hỗ trợ định vị Geolocation.");
+      return;
+    }
+
+    setGpsLoading(true);
+    const toastId = toast.loading("Đang xác định vị trí của bạn để check-in...");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        toast.dismiss(toastId);
+        setGpsLoading(false);
+        const { latitude, longitude, accuracy } = position.coords;
+        setCurrentGps({ latitude, longitude, accuracy });
+        if (!showCheckinDialog) {
+          setCheckinNote("");
+        }
+        setShowCheckinDialog(true);
+        toast.success("Đã định vị vị trí GPS thành công!");
+      },
+      (error) => {
+        toast.dismiss(toastId);
+        setGpsLoading(false);
+        console.error("Lỗi định vị check-in:", error);
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            toast.error("Không được cấp quyền vị trí. Vui lòng cho phép trình duyệt truy cập GPS.");
+            break;
+          case error.POSITION_UNAVAILABLE:
+            toast.error("Không lấy được tín hiệu GPS. Vui lòng kiểm tra cài đặt định vị.");
+            break;
+          case error.TIMEOUT:
+            toast.error("Thời gian định vị GPS quá hạn.");
+            break;
+          default:
+            toast.error("Không lấy được vị trí GPS hiện tại.");
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  };
+
+  const handleCheckIn = async () => {
+    if (!currentGps) {
+      toast.error("Thiếu tọa độ định vị GPS hiện tại.");
+      return;
+    }
+
+    const hasCoords = hasValidCoordinates(customer);
+    let distance: number | null = null;
+    let isValid = false;
+
+    if (hasCoords) {
+      distance = calculateDistanceMeters(
+        currentGps.latitude,
+        currentGps.longitude,
+        Number(customer.latitude),
+        Number(customer.longitude)
+      );
+      isValid = isWithinRadius(distance, 200);
+    }
+
+    // Require note for exceptions (no coordinates or out of range)
+    if ((!hasCoords || !isValid) && !checkinNote.trim()) {
+      toast.error("Vui lòng nhập lý do check-in ngoại lệ (khoảng cách > 200m hoặc chưa định vị Spa).");
+      return;
+    }
+
+    setCheckinSubmitting(true);
+    const toastId = toast.loading("Đang ghi nhận lượt check-in...");
+
+    try {
+      // 1. Insert customer_visit_checkins
+      const { error: checkinErr } = await supabase
+        .from("customer_visit_checkins")
+        .insert({
+          customer_id: customer.id,
+          checked_in_by: user?.id,
+          latitude: currentGps.latitude,
+          longitude: currentGps.longitude,
+          accuracy_meters: currentGps.accuracy,
+          customer_latitude: hasCoords ? Number(customer.latitude) : null,
+          customer_longitude: hasCoords ? Number(customer.longitude) : null,
+          distance_meters: distance,
+          is_valid_location: isValid,
+          valid_radius_meters: 200,
+          note: checkinNote
+        });
+
+      if (checkinErr) throw checkinErr;
+
+      // 2. Insert customer_activities (direct_visit)
+      const distanceLabel = distance !== null ? `${Math.round(distance)}m` : "Chưa xác định";
+      const statusLabel = isValid ? "Đúng vị trí (< 200m)" : "Ngoại lệ (Sai lệch hoặc chưa ghim)";
+      const { error: actErr } = await supabase
+        .from("customer_activities")
+        .insert({
+          customer_id: customer.id,
+          created_by: user?.id,
+          activity_type: "direct_visit",
+          title: `Check-in tại khách hàng${isValid ? "" : " (Ngoại lệ)"}`,
+          content: `Nhân viên check-in: ${user?.email || "Staff"}\nKhoảng cách: ${distanceLabel}\nTrạng thái: ${statusLabel}\nGhi chú: ${checkinNote || "Không có"}`
+        });
+
+      if (actErr) throw actErr;
+
+      // 3. Update customer last interaction metadata
+      await supabase
+        .from("customers")
+        .update({
+          last_owner_activity_at: new Date().toISOString()
+        })
+        .eq("id", customer.id);
+
+      toast.dismiss(toastId);
+      toast.success("Check-in thành công!");
+      setShowCheckinDialog(false);
+      setCurrentGps(null);
+      setCheckinNote("");
+      fetchCustomerDetails();
+    } catch (err: any) {
+      toast.dismiss(toastId);
+      toast.error("Lỗi khi check-in: " + err.message);
+    } finally {
+      setCheckinSubmitting(false);
+    }
   };
 
   const getCareModelWarning = () => {
@@ -708,6 +950,111 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                   <div className="text-[11px] font-bold text-red-650">{formatDate(customer.next_follow_up_at)}</div>
                 </div>
               </div>
+            </section>
+
+            {/* GEOGRAPHIC LOCATION SECTION */}
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                <MapPin className="w-4 h-4 text-primary" /> Vị trí khách hàng
+              </div>
+
+              {hasValidCoordinates(customer) ? (
+                <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/80 space-y-3.5 shadow-3xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[11px] font-black text-emerald-800 uppercase tracking-wider">Đã có tọa độ định vị</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-500 bg-white border border-slate-150 px-2.5 py-0.5 rounded-full shadow-3xs">
+                      GPS: {Number(customer.latitude).toFixed(5)}, {Number(customer.longitude).toFixed(5)}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <a
+                      href={buildGoogleMapsSearchUrl(customer)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-center gap-2 h-10 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-bold text-slate-700 shadow-3xs transition-all hover:scale-102"
+                    >
+                      <Crosshair className="w-3.5 h-3.5 text-slate-500" />
+                      Mở Google Maps
+                    </a>
+                    <a
+                      href={buildGoogleMapsDirectionsUrl(Number(customer.latitude), Number(customer.longitude))}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-center gap-2 h-10 px-4 rounded-xl bg-slate-900 hover:bg-black text-[11px] font-black text-white shadow-md shadow-slate-100 transition-all hover:scale-102"
+                    >
+                      <Navigation className="w-3.5 h-3.5 text-white animate-pulse" />
+                      Chỉ đường đi
+                    </a>
+                  </div>
+
+                  <div className="pt-3.5 border-t border-emerald-100/80">
+                    <button
+                      onClick={handleGetGpsForCheckin}
+                      disabled={gpsLoading}
+                      className="w-full flex items-center justify-center gap-2 h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 text-[11px] font-black text-white shadow-lg shadow-emerald-100 transition-all hover:scale-102"
+                    >
+                      {gpsLoading ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Check className="w-3.5 h-3.5 text-white" />
+                      )}
+                      Check-in tại Spa
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 bg-slate-50/60 rounded-2xl border border-slate-150 space-y-3.5 shadow-3xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-slate-350" />
+                      <span className="text-[11px] font-black text-slate-550 uppercase tracking-wider">Chưa có tọa độ định vị</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={handlePinCurrentLocation}
+                      disabled={pinning}
+                      className="flex items-center justify-center gap-2 h-10 px-4 rounded-xl bg-primary hover:bg-primary/95 disabled:bg-slate-200 text-[11px] font-black text-white shadow-lg shadow-primary/10 transition-all hover:scale-102"
+                    >
+                      {pinning ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <MapPin className="w-3.5 h-3.5 text-white" />
+                      )}
+                      Ghim vị trí hiện tại
+                    </button>
+                    <a
+                      href={buildGoogleMapsSearchUrl(customer)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-center gap-2 h-10 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-bold text-slate-700 shadow-3xs transition-all hover:scale-102"
+                    >
+                      <Crosshair className="w-3.5 h-3.5 text-slate-500" />
+                      Tìm địa chỉ Spa
+                    </a>
+                  </div>
+
+                  <div className="pt-3.5 border-t border-slate-200">
+                    <button
+                      onClick={handleGetGpsForCheckin}
+                      disabled={gpsLoading}
+                      className="w-full flex items-center justify-center gap-2 h-10 px-4 rounded-xl border border-dashed border-slate-300 bg-white hover:bg-slate-50 text-[11px] font-bold text-slate-700 transition-all hover:scale-102"
+                    >
+                      {gpsLoading ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Check className="w-3.5 h-3.5 text-slate-500" />
+                      )}
+                      Check-in ngoại lệ (Chưa định vị Spa)
+                    </button>
+                  </div>
+                </div>
+              )}
             </section>
 
             {/* QUICK ACTIONS BLOCK */}
@@ -1237,6 +1584,134 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           fetchCustomerDetails();
         }}
       />
+
+      <Dialog open={showCheckinDialog} onOpenChange={setShowCheckinDialog}>
+        <DialogContent className="max-w-md w-[calc(100%-32px)] rounded-2xl p-5 gap-4">
+          <DialogHeader>
+            <DialogTitle className="text-base font-black text-slate-900 flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-emerald-600 animate-pulse" />
+              HOÀN TẤT CHECK-IN THỰC ĐỊA
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500 font-medium">
+              Hệ thống sẽ lưu lại tọa độ thực địa của bạn để đối chiếu với địa chỉ định vị của Spa.
+            </DialogDescription>
+          </DialogHeader>
+
+          {currentGps && (
+            <div className="space-y-3.5 bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs">
+              <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Độ chính xác GPS</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-slate-800">+/- {Math.round(currentGps.accuracy)} mét</span>
+                  <button 
+                    onClick={handleGetGpsForCheckin}
+                    disabled={gpsLoading}
+                    className="text-[10px] font-bold text-primary hover:text-primary/80 flex items-center gap-1 border border-primary/20 px-2 py-0.5 rounded bg-white"
+                  >
+                    {gpsLoading ? (
+                      <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                    ) : (
+                      <Crosshair className="w-2.5 h-2.5" />
+                    )}
+                    Thử lại vị trí
+                  </button>
+                </div>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Tọa độ thực tế</span>
+                <span className="font-mono text-slate-800">{currentGps.latitude.toFixed(5)}, {currentGps.longitude.toFixed(5)}</span>
+              </div>
+              
+              {hasValidCoordinates(customer) ? (
+                <>
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                    <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Khoảng cách đến Spa</span>
+                    <span className="font-bold text-slate-800">
+                      {Math.round(calculateDistanceMeters(
+                        currentGps.latitude,
+                        currentGps.longitude,
+                        Number(customer.latitude),
+                        Number(customer.longitude)
+                      ))} mét
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Trạng thái vị trí</span>
+                    {isWithinRadius(
+                      calculateDistanceMeters(
+                        currentGps.latitude,
+                        currentGps.longitude,
+                        Number(customer.latitude),
+                        Number(customer.longitude)
+                      ),
+                      200
+                    ) ? (
+                      <span className="inline-flex items-center gap-1 text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 text-[10px]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        Hợp lệ (&lt; 200m)
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-rose-700 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-100 text-[10px] animate-pulse">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                        Ngoại lệ (&gt; 200m)
+                      </span>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Trạng thái vị trí</span>
+                  <span className="inline-flex items-center gap-1 text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-100 text-[10px]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    Chưa ghim Spa (Ngoại lệ)
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Form ghi chú check-in */}
+          <div className="space-y-1.5">
+            <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              Nội dung / Lý do check-in {(!hasValidCoordinates(customer) || (currentGps && !isWithinRadius(calculateDistanceMeters(currentGps.latitude, currentGps.longitude, Number(customer.latitude), Number(customer.longitude)), 200))) && <span className="text-red-500">* (Bắt buộc vì check-in ngoại lệ)</span>}
+            </Label>
+            <Textarea
+              placeholder="Nhập ghi chú viếng thăm khách hàng (VD: Trao đổi chương trình chiết khấu mới, gửi mẫu thử...)"
+              value={checkinNote}
+              onChange={(e) => setCheckinNote(e.target.value)}
+              className="min-h-[80px] text-xs"
+            />
+          </div>
+
+          <DialogFooter className="grid grid-cols-2 gap-3.5 sm:space-x-0 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCheckinDialog(false);
+                setCurrentGps(null);
+                setCheckinNote("");
+              }}
+              className="w-full text-xs font-bold"
+            >
+              Hủy bỏ
+            </Button>
+            <Button
+              onClick={handleCheckIn}
+              disabled={checkinSubmitting}
+              className="w-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {checkinSubmitting ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin mr-1.5" />
+                  Đang gửi...
+                </>
+              ) : (
+                "Xác nhận Check-in"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 };
