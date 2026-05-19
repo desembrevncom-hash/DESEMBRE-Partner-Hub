@@ -30,7 +30,8 @@ import {
   RefreshCw,
   Clock,
   Search,
-  PackageCheck
+  PackageCheck,
+  Sparkles
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,68 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+
+const DEFAULT_CROSS_SELL_RULES = [
+  {
+    id: "cleansing",
+    name: "Dòng Làm sạch & Thải độc (Cleansing)",
+    desc: "Sữa rửa mặt, mặt nạ oxy bong bóng sủi bọt, tẩy tế bào chết enzyme",
+    note_purchased: "Đã mua đơn hàng trước",
+    note_not_purchased: "Chưa từng mua",
+    action_label: "CHÀO MẪU TEST"
+  },
+  {
+    id: "serum",
+    name: "Dòng Serum & Ampoule Trị liệu (EGF / Vitamin C)",
+    desc: "Tế bào gốc phục hồi, Vitamin C trị nám, serum mụn chuyên sâu",
+    note_purchased: "Đã mua serum trị liệu trước đó",
+    note_not_purchased: "Spa CHƯA MUA - Tỷ lệ lỗ hổng Upsell cực cao 🎯",
+    action_label: "CHÀO MẪU TEST"
+  },
+  {
+    id: "cream",
+    name: "Dòng Kem dưỡng & Khóa ẩm Cabin (Creams)",
+    desc: "Kem cấp ẩm sâu Hyaluronic, kem phục hồi Hydro lipid bơ hạt mỡ",
+    note_purchased: "Đã mua đơn hàng trước",
+    note_not_purchased: "Chưa từng mua",
+    action_label: "CHÀO MẪU TEST"
+  },
+  {
+    id: "sunblock",
+    name: "Dòng Chống nắng & Bảo vệ (Sun Shield)",
+    desc: "Kem chống nắng vật lý SPF 50+, gel làm dịu mát lô hội sau nắng",
+    note_purchased: "Đã mua kem chống nắng trước đó",
+    note_not_purchased: "Spa CHƯA MUA - Khách hàng đang bỏ ngỏ dòng bảo vệ da 🎯",
+    action_label: "CHÀO MẪU TEST"
+  }
+];
+
+const DEFAULT_SPA_EQUIPMENT_SCRIPTS = {
+  laser: {
+    label: "Máy Laser YAG/CO2",
+    tag: "TƯ VẤN SAU LASER",
+    desc: "Spa có máy Laser ➡️ Khách hàng điều trị nám, sẹo, tàn nhang rất nhiều. Da sau Laser cực kỳ mỏng yếu và tổn thương.",
+    script: "Tư vấn ngay **Set Tế bào gốc phục hồi EGF Desembre** (hộp 10 ống) kèm Kem chống nắng vật lý bảo vệ chuyên sâu. Nhấn mạnh hiệu quả tái tạo da tức thì, tránh tăng sắc tố sau Laser."
+  },
+  needle: {
+    label: "Thiết bị Phi kim/Lăn kim",
+    tag: "TƯ VẤN SAU PHI KIM",
+    desc: "Spa làm dịch vụ Phi kim / Lăn kim ➡️ Liệu trình collagen cảm ứng rất cần chất dẫn phục hồi biểu bì sâu.",
+    script: "Giới thiệu dòng **Mặt nạ thải độc sủi bọt Desembre Oxy Bubble Mask** hoặc Serum đặc trị sẹo rỗ, lỗ chân lông to của Desembre để làm sạch sâu cabin trước và nuôi da sau liệu trình phi kim."
+  },
+  hifu: {
+    label: "Máy HIFU / Nâng cơ",
+    tag: "TƯ VẤN SAU HIFU / NÂNG CƠ",
+    desc: "Spa làm trẻ hóa nâng cơ bằng HIFU/RF ➡️ Cần bổ sung dưỡng chất nâng cơ, chống nhăn chùng chảy xệ tại nhà để duy trì kết quả máy.",
+    script: "Chào dòng **Kem dưỡng trẻ hóa peptide 24K Gold Desembre Luxury Gold** cao cấp. Tỷ lệ chốt cực cao vì tệp khách làm HIFU là tệp khách VIP, sẵn sàng chi trả mức giá trị lớn!"
+  },
+  rf: {
+    label: "Máy RF / Giảm béo",
+    tag: "TƯ VẤN GIẢM BÉO & SĂN CHẮC",
+    desc: "Spa có máy RF hoặc máy giảm béo cơ thể/mặt ➡️ Liệu trình tiêu mỡ cần kem massage và gel dẫn hỗ trợ hóa lỏng mỡ thừa.",
+    script: "Giới thiệu dòng **Kem massage giảm béo nóng Desembre** kết hợp với RF để tăng hiệu quả đốt mỡ x3 lần và Serum nâng cơ peptide."
+  }
+};
 
 export const Route = createFileRoute("/admin/settings")({
   component: SystemSettingsPage,
@@ -72,7 +135,9 @@ function SystemSettingsPage() {
     goldDiscount: 62,
     diamondThreshold: 100000000,
     diamondDiscount: 65,
-    refillCycleDays: 60
+    refillCycleDays: 60,
+    crossSellRules: DEFAULT_CROSS_SELL_RULES,
+    spaEquipmentScripts: DEFAULT_SPA_EQUIPMENT_SCRIPTS
   });
   const [loadingConfig, setLoadingConfig] = useState(true);
 
@@ -88,6 +153,9 @@ function SystemSettingsPage() {
         diamondDiscount: 65,
         refillCycleDays: 60
       };
+
+      const savedCrossSell = localStorage.getItem('system_cross_sell_rules');
+      const savedSpaScripts = localStorage.getItem('system_spa_equipment_scripts');
 
       if (data) {
         setConfig({
@@ -111,6 +179,12 @@ function SystemSettingsPage() {
           diamondThreshold: data.diamond_threshold ?? tierSettings.diamondThreshold,
           diamondDiscount: data.diamond_discount ?? tierSettings.diamondDiscount,
           refillCycleDays: data.refill_cycle_days ?? tierSettings.refillCycleDays,
+          crossSellRules: (data.cross_sell_rules && Array.isArray(data.cross_sell_rules) && data.cross_sell_rules.length > 0)
+            ? data.cross_sell_rules 
+            : savedCrossSell ? JSON.parse(savedCrossSell) : DEFAULT_CROSS_SELL_RULES,
+          spaEquipmentScripts: (data.spa_equipment_scripts && typeof data.spa_equipment_scripts === 'object' && Object.keys(data.spa_equipment_scripts).length > 0)
+            ? data.spa_equipment_scripts 
+            : savedSpaScripts ? JSON.parse(savedSpaScripts) : DEFAULT_SPA_EQUIPMENT_SCRIPTS,
         });
 
         if (data.product_cycles && typeof data.product_cycles === 'object') {
@@ -124,7 +198,9 @@ function SystemSettingsPage() {
       } else {
         setConfig((prev: any) => ({
           ...prev,
-          ...tierSettings
+          ...tierSettings,
+          crossSellRules: savedCrossSell ? JSON.parse(savedCrossSell) : DEFAULT_CROSS_SELL_RULES,
+          spaEquipmentScripts: savedSpaScripts ? JSON.parse(savedSpaScripts) : DEFAULT_SPA_EQUIPMENT_SCRIPTS
         }));
         const savedCycles = localStorage.getItem('product_cycle_settings');
         if (savedCycles) {
@@ -198,23 +274,57 @@ function SystemSettingsPage() {
       diamond_threshold: Number(config.diamondThreshold),
       diamond_discount: Number(config.diamondDiscount),
       refill_cycle_days: Number(config.refillCycleDays),
-      product_cycles: productCycles
+      product_cycles: productCycles,
+      cross_sell_rules: config.crossSellRules,
+      spa_equipment_scripts: config.spaEquipmentScripts
     };
 
     let error;
+    let isFallback = false;
+    
     if (config.id) {
       const res = await supabase.from('system_settings').update(payload).eq('id', config.id);
       error = res.error;
+      
+      if (error && (error.message.includes('column') || error.message.includes('schema cache'))) {
+        const fallbackPayload = { ...payload };
+        delete (fallbackPayload as any).cross_sell_rules;
+        delete (fallbackPayload as any).spa_equipment_scripts;
+        const resFallback = await supabase.from('system_settings').update(fallbackPayload).eq('id', config.id);
+        if (!resFallback.error) {
+          localStorage.setItem('system_cross_sell_rules', JSON.stringify(config.crossSellRules));
+          localStorage.setItem('system_spa_equipment_scripts', JSON.stringify(config.spaEquipmentScripts));
+          error = null;
+          isFallback = true;
+        }
+      }
     } else {
       const res = await supabase.from('system_settings').insert([payload]);
       error = res.error;
+      
+      if (error && (error.message.includes('column') || error.message.includes('schema cache'))) {
+        const fallbackPayload = { ...payload };
+        delete (fallbackPayload as any).cross_sell_rules;
+        delete (fallbackPayload as any).spa_equipment_scripts;
+        const resFallback = await supabase.from('system_settings').insert([fallbackPayload]);
+        if (!resFallback.error) {
+          localStorage.setItem('system_cross_sell_rules', JSON.stringify(config.crossSellRules));
+          localStorage.setItem('system_spa_equipment_scripts', JSON.stringify(config.spaEquipmentScripts));
+          error = null;
+          isFallback = true;
+        }
+      }
     }
 
     setBusy(false);
     if (error) {
       toast.error("Lỗi cập nhật cấu hình: " + error.message);
     } else {
-      toast.success("Đã cập nhật cấu hình hệ thống thành công!");
+      if (isFallback) {
+        toast.success("Đã cập nhật cấu hình hệ thống! Các quy tắc bán hàng & kịch bản AI đã được lưu tạm cục bộ do database chưa nâng cấp.");
+      } else {
+        toast.success("Đã cập nhật cấu hình hệ thống thành công!");
+      }
     }
   };
 
@@ -558,6 +668,175 @@ function SystemSettingsPage() {
                            <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-100 text-[11px] font-medium text-amber-800 leading-relaxed">
                               💡 <strong>Mẹo vận hành:</strong> CRM sẽ tự động đếm ngược từ ngày chốt đơn thành công gần nhất. Khi thời gian sử dụng còn dưới 10 ngày (Ví dụ: đã trôi qua {Number(config.refillCycleDays || 60) - 10} ngày), hệ thống sẽ hiển thị thẻ cảnh báo tái đặt hàng trên Workspace để nhân viên Sale gọi điện Upsell gối đầu!
                            </div>
+                        </div>
+                     </CardContent>
+                  </Card>
+
+                  {/* CARD 5: Cấu hình quy tắc Gợi ý Bán chéo */}
+                  <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white md:col-span-2">
+                     <CardHeader className="p-8">
+                        <div className="flex items-center gap-3">
+                           <Sparkles className="w-5 h-5 text-indigo-500" />
+                           <div>
+                              <CardTitle className="text-lg font-black text-slate-900">Quy tắc Gợi ý Bán chéo & Lỗ hổng Mua sắm</CardTitle>
+                              <CardDescription>Cấu hình các nhóm sản phẩm lõi cabin Spa để nhân viên Sale nhận diện lỗ hổng và tư vấn Upsell</CardDescription>
+                           </div>
+                        </div>
+                     </CardHeader>
+                     <CardContent className="p-8 pt-0 space-y-6">
+                        <div className="grid grid-cols-1 gap-6 divide-y divide-slate-100">
+                           {(config.crossSellRules || []).map((rule: any, idx: number) => (
+                              <div key={rule.id} className={`pt-6 ${idx === 0 ? 'pt-0 border-none' : ''} space-y-4`}>
+                                 <div className="flex items-center justify-between">
+                                    <Badge className="bg-indigo-50 text-indigo-600 border-indigo-100 font-black text-[10px] uppercase tracking-wider px-3 py-1 rounded-xl">
+                                       Nhóm {idx + 1}: {rule.id.toUpperCase()}
+                                    </Badge>
+                                 </div>
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                       <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tên nhóm sản phẩm</Label>
+                                       <Input 
+                                          value={rule.name} 
+                                          onChange={e => {
+                                             const newRules = [...config.crossSellRules];
+                                             newRules[idx].name = e.target.value;
+                                             setConfig({...config, crossSellRules: newRules});
+                                          }} 
+                                          className="h-10 rounded-xl font-bold" 
+                                       />
+                                    </div>
+                                    <div className="space-y-2">
+                                       <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nhãn nút hành động (Call To Action)</Label>
+                                       <Input 
+                                          value={rule.action_label} 
+                                          onChange={e => {
+                                             const newRules = [...config.crossSellRules];
+                                             newRules[idx].action_label = e.target.value;
+                                             setConfig({...config, crossSellRules: newRules});
+                                          }} 
+                                          className="h-10 rounded-xl" 
+                                       />
+                                    </div>
+                                    <div className="space-y-2 md:col-span-2">
+                                       <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mô tả nhóm sản phẩm</Label>
+                                       <Input 
+                                          value={rule.desc} 
+                                          onChange={e => {
+                                             const newRules = [...config.crossSellRules];
+                                             newRules[idx].desc = e.target.value;
+                                             setConfig({...config, crossSellRules: newRules});
+                                          }} 
+                                          className="h-10 rounded-xl" 
+                                       />
+                                    </div>
+                                    <div className="space-y-2">
+                                       <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ghi chú khi ĐÃ MUA</Label>
+                                       <Input 
+                                          value={rule.note_purchased} 
+                                          onChange={e => {
+                                             const newRules = [...config.crossSellRules];
+                                             newRules[idx].note_purchased = e.target.value;
+                                             setConfig({...config, crossSellRules: newRules});
+                                          }} 
+                                          className="h-10 rounded-xl text-emerald-600 bg-emerald-50/20 border-emerald-100" 
+                                       />
+                                    </div>
+                                    <div className="space-y-2">
+                                       <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ghi chú khi CHƯA MUA (Cảnh báo lỗ hổng)</Label>
+                                       <Input 
+                                          value={rule.note_not_purchased} 
+                                          onChange={e => {
+                                             const newRules = [...config.crossSellRules];
+                                             newRules[idx].note_not_purchased = e.target.value;
+                                             setConfig({...config, crossSellRules: newRules});
+                                          }} 
+                                          className="h-10 rounded-xl text-rose-600 bg-rose-50/20 border-rose-100 font-medium" 
+                                       />
+                                    </div>
+                                 </div>
+                              </div>
+                           ))}
+                        </div>
+                     </CardContent>
+                  </Card>
+
+                  {/* CARD 6: Cấu hình Kịch bản AI theo Thiết bị Spa */}
+                  <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white md:col-span-2">
+                     <CardHeader className="p-8">
+                        <div className="flex items-center gap-3">
+                           <Zap className="w-5 h-5 text-amber-500" />
+                           <div>
+                              <CardTitle className="text-lg font-black text-slate-900">Kịch bản tư vấn thông minh AI theo Thiết bị Spa</CardTitle>
+                              <CardDescription>Tùy chỉnh tiêu đề thiết bị, tình trạng bệnh lý da liễu liên quan và kịch bản gợi ý chốt đơn cho nhân viên Sale</CardDescription>
+                           </div>
+                        </div>
+                     </CardHeader>
+                     <CardContent className="p-8 pt-0 space-y-8">
+                        <div className="grid grid-cols-1 gap-6 divide-y divide-slate-100">
+                           {Object.keys(config.spaEquipmentScripts || {}).map((eqId: string, idx: number) => {
+                              const eq = config.spaEquipmentScripts[eqId];
+                              return (
+                                 <div key={eqId} className={`pt-6 ${idx === 0 ? 'pt-0 border-none' : ''} space-y-4`}>
+                                    <div className="flex items-center justify-between">
+                                       <Badge className="bg-amber-50 text-amber-600 border-amber-100 font-black text-[10px] uppercase tracking-wider px-3 py-1 rounded-xl">
+                                          Thiết bị: {eqId.toUpperCase()}
+                                       </Badge>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                       <div className="space-y-2">
+                                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tên thiết bị hiển thị</Label>
+                                          <Input 
+                                             value={eq.label} 
+                                             onChange={e => {
+                                                const newScripts = { ...config.spaEquipmentScripts };
+                                                newScripts[eqId].label = e.target.value;
+                                                setConfig({...config, spaEquipmentScripts: newScripts});
+                                             }} 
+                                             className="h-10 rounded-xl font-bold" 
+                                          />
+                                       </div>
+                                       <div className="space-y-2">
+                                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nhãn Tab gợi ý (Tag)</Label>
+                                          <Input 
+                                             value={eq.tag} 
+                                             onChange={e => {
+                                                const newScripts = { ...config.spaEquipmentScripts };
+                                                newScripts[eqId].tag = e.target.value;
+                                                setConfig({...config, spaEquipmentScripts: newScripts});
+                                             }} 
+                                             className="h-10 rounded-xl text-indigo-600 bg-indigo-50/10 border-indigo-100 font-bold" 
+                                          />
+                                       </div>
+                                       <div className="space-y-2 md:col-span-2">
+                                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mô tả đặc trưng / Phân tích nhu cầu điều trị</Label>
+                                          <textarea 
+                                             value={eq.desc} 
+                                             onChange={e => {
+                                                const newScripts = { ...config.spaEquipmentScripts };
+                                                newScripts[eqId].desc = e.target.value;
+                                                setConfig({...config, spaEquipmentScripts: newScripts});
+                                             }} 
+                                             rows={2}
+                                             className="w-full rounded-xl border border-slate-200 p-3 text-xs font-semibold focus:ring-1 focus:ring-indigo-500 focus:outline-none" 
+                                          />
+                                       </div>
+                                       <div className="space-y-2 md:col-span-2">
+                                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kịch bản chốt đơn AI gợi ý cho nhân viên Sale</Label>
+                                          <textarea 
+                                             value={eq.script} 
+                                             onChange={e => {
+                                                const newScripts = { ...config.spaEquipmentScripts };
+                                                newScripts[eqId].script = e.target.value;
+                                                setConfig({...config, spaEquipmentScripts: newScripts});
+                                             }} 
+                                             rows={3}
+                                             className="w-full rounded-xl border border-slate-200 p-3 text-xs font-semibold focus:ring-1 focus:ring-indigo-500 focus:outline-none" 
+                                          />
+                                       </div>
+                                    </div>
+                                 </div>
+                              );
+                           })}
                         </div>
                      </CardContent>
                   </Card>

@@ -47,6 +47,68 @@ import { TemplateDispatcher } from "@/components/marketing/TemplateDispatcher";
 import { AssignStaffDialog } from "@/components/customers/AssignStaffDialog";
 import { AddTaskDialog } from "@/components/customers/AddTaskDialog";
 
+const DEFAULT_CROSS_SELL_RULES = [
+  {
+    id: "cleansing",
+    name: "Dòng Làm sạch & Thải độc (Cleansing)",
+    desc: "Sữa rửa mặt, mặt nạ oxy bong bóng sủi bọt, tẩy tế bào chết enzyme",
+    note_purchased: "Đã mua đơn hàng trước",
+    note_not_purchased: "Chưa từng mua",
+    action_label: "CHÀO MẪU TEST"
+  },
+  {
+    id: "serum",
+    name: "Dòng Serum & Ampoule Trị liệu (EGF / Vitamin C)",
+    desc: "Tế bào gốc phục hồi, Vitamin C trị nám, serum mụn chuyên sâu",
+    note_purchased: "Đã mua serum trị liệu trước đó",
+    note_not_purchased: "Spa CHƯA MUA - Tỷ lệ lỗ hổng Upsell cực cao 🎯",
+    action_label: "CHÀO MẪU TEST"
+  },
+  {
+    id: "cream",
+    name: "Dòng Kem dưỡng & Khóa ẩm Cabin (Creams)",
+    desc: "Kem cấp ẩm sâu Hyaluronic, kem phục hồi Hydro lipid bơ hạt mỡ",
+    note_purchased: "Đã mua đơn hàng trước",
+    note_not_purchased: "Chưa từng mua",
+    action_label: "CHÀO MẪU TEST"
+  },
+  {
+    id: "sunblock",
+    name: "Dòng Chống nắng & Bảo vệ (Sun Shield)",
+    desc: "Kem chống nắng vật lý SPF 50+, gel làm dịu mát lô hội sau nắng",
+    note_purchased: "Đã mua kem chống nắng trước đó",
+    note_not_purchased: "Spa CHƯA MUA - Khách hàng đang bỏ ngỏ dòng bảo vệ da 🎯",
+    action_label: "CHÀO MẪU TEST"
+  }
+];
+
+const DEFAULT_SPA_EQUIPMENT_SCRIPTS: Record<string, { label: string; tag: string; desc: string; script: string }> = {
+  laser: {
+    label: "Máy Laser YAG/CO2",
+    tag: "TƯ VẤN SAU LASER",
+    desc: "Spa có máy Laser ➡️ Khách hàng điều trị nám, sẹo, tàn nhang rất nhiều. Da sau Laser cực kỳ mỏng yếu và tổn thương.",
+    script: "Tư vấn ngay **Set Tế bào gốc phục hồi EGF Desembre** (hộp 10 ống) kèm Kem chống nắng vật lý bảo vệ chuyên sâu. Nhấn mạnh hiệu quả tái tạo da tức thì, tránh tăng sắc tố sau Laser."
+  },
+  needle: {
+    label: "Thiết bị Phi kim/Lăn kim",
+    tag: "TƯ VẤN SAU PHI KIM",
+    desc: "Spa làm dịch vụ Phi kim / Lăn kim ➡️ Liệu trình collagen cảm ứng rất cần chất dẫn phục hồi biểu bì sâu.",
+    script: "Giới thiệu dòng **Mặt nạ thải độc sủi bọt Desembre Oxy Bubble Mask** hoặc Serum đặc trị sẹo rỗ, lỗ chân lông to của Desembre để làm sạch sâu cabin trước và nuôi da sau liệu trình phi kim."
+  },
+  hifu: {
+    label: "Máy HIFU / Nâng cơ",
+    tag: "TƯ VẤN SAU HIFU / NÂNG CƠ",
+    desc: "Spa làm trẻ hóa nâng cơ bằng HIFU/RF ➡️ Cần bổ sung dưỡng chất nâng cơ, chống nhăn chùng chảy xệ tại nhà để duy trì kết quả máy.",
+    script: "Chào dòng **Kem dưỡng trẻ hóa peptide 24K Gold Desembre Luxury Gold** cao cấp. Tỷ lệ chốt cực cao vì tệp khách làm HIFU là tệp khách VIP, sẵn sàng chi trả mức giá trị lớn!"
+  },
+  rf: {
+    label: "Máy RF / Giảm béo",
+    tag: "TƯ VẤN GIẢM BÉO & SĂN CHẮC",
+    desc: "Spa có máy RF hoặc máy giảm béo cơ thể/mặt ➡️ Liệu trình tiêu mỡ cần kem massage và gel dẫn hỗ trợ hóa lỏng mỡ thừa.",
+    script: "Giới thiệu dòng **Kem massage giảm béo nóng Desembre** kết hợp với RF để tăng hiệu quả đốt mỡ x3 lần và Serum nâng cơ peptide."
+  }
+};
+
 export const Route = createFileRoute("/customers/$id")({
   component: CustomerDetailPage,
 });
@@ -60,12 +122,18 @@ function CustomerDetailPage() {
   const [tierSettings, setTierSettings] = useState(() => {
     try {
       const savedTier = localStorage.getItem('system_tier_settings');
-      return savedTier ? JSON.parse(savedTier) : {
+      return savedTier ? {
+        ...JSON.parse(savedTier),
+        crossSellRules: DEFAULT_CROSS_SELL_RULES,
+        spaEquipmentScripts: DEFAULT_SPA_EQUIPMENT_SCRIPTS
+      } : {
         goldThreshold: 50000000,
         goldDiscount: 62,
         diamondThreshold: 100000000,
         diamondDiscount: 65,
-        refillCycleDays: 60
+        refillCycleDays: 60,
+        crossSellRules: DEFAULT_CROSS_SELL_RULES,
+        spaEquipmentScripts: DEFAULT_SPA_EQUIPMENT_SCRIPTS
       };
     } catch {
       return {
@@ -73,11 +141,44 @@ function CustomerDetailPage() {
         goldDiscount: 62,
         diamondThreshold: 100000000,
         diamondDiscount: 65,
-        refillCycleDays: 60
+        refillCycleDays: 60,
+        crossSellRules: DEFAULT_CROSS_SELL_RULES,
+        spaEquipmentScripts: DEFAULT_SPA_EQUIPMENT_SCRIPTS
       };
     }
   });
 
+  const [customer, setCustomer] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Activity Log State
+  const [activities, setActivities] = useState<any[]>([]);
+  const [loadingActivities, setLoadingActivities] = useState(false);
+  const [newActivity, setNewActivity] = useState({ type: 'note', content: '' });
+  const [filterType, setFilterType] = useState<string>("all");
+
+  // Customer 360 States
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
+
+  // Template Dispatcher State
+  const [isTemplateOpen, setIsTemplateOpen] = useState(false);
+  const [isAssignStaffOpen, setIsAssignStaffOpen] = useState(false);
+  const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
+
+  // Spa Equipment Profile State (Upsell Phase 1) - Syncs with database
+  const [spaEquipment, setSpaEquipment] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(`spa_equipment_${id}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Fetch settings from Database
   useEffect(() => {
     async function fetchSystemSettings() {
       try {
@@ -85,13 +186,23 @@ function CustomerDetailPage() {
           .from("system_settings")
           .select("*")
           .maybeSingle();
+
+        const savedCrossSell = localStorage.getItem('system_cross_sell_rules');
+        const savedSpaScripts = localStorage.getItem('system_spa_equipment_scripts');
+
         if (data) {
           setTierSettings({
             goldThreshold: Number(data.gold_threshold ?? 50000000),
             goldDiscount: Number(data.gold_discount ?? 62),
             diamondThreshold: Number(data.diamond_threshold ?? 100000000),
             diamondDiscount: Number(data.diamond_discount ?? 65),
-            refillCycleDays: Number(data.refill_cycle_days ?? 60)
+            refillCycleDays: Number(data.refill_cycle_days ?? 60),
+            crossSellRules: (data.cross_sell_rules && Array.isArray(data.cross_sell_rules) && data.cross_sell_rules.length > 0)
+              ? data.cross_sell_rules
+              : savedCrossSell ? JSON.parse(savedCrossSell) : DEFAULT_CROSS_SELL_RULES,
+            spaEquipmentScripts: (data.spa_equipment_scripts && typeof data.spa_equipment_scripts === 'object' && Object.keys(data.spa_equipment_scripts).length > 0)
+              ? data.spa_equipment_scripts
+              : savedSpaScripts ? JSON.parse(savedSpaScripts) : DEFAULT_SPA_EQUIPMENT_SCRIPTS
           });
         }
       } catch (err) {
@@ -112,7 +223,8 @@ function CustomerDetailPage() {
     
     const lastDate = new Date(last.created_at);
     const today = new Date();
-    const elapsed = differenceInDays(today, lastDate);
+    // Helper to calculate difference in days
+    const elapsed = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
     const cycle = tierSettings.refillCycleDays || 60;
     const remaining = cycle - elapsed;
     const progress = Math.min(100, Math.max(0, (elapsed / cycle) * 100));
@@ -138,9 +250,6 @@ function CustomerDetailPage() {
       statusColor
     };
   }, [orders, tierSettings]);
-  
-  const [customer, setCustomer] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
 
   const canEditCustomer = useMemo(() => {
     if (!user || !customer) return false;
@@ -149,40 +258,17 @@ function CustomerDetailPage() {
     if (isTeleLead && customer.owner_tele_id === user.id) return true;
     return false;
   }, [user, customer, isManager, isSale, isTeleLead]);
-  
-  // Activity Log State
-  const [activities, setActivities] = useState<any[]>([]);
-  const [loadingActivities, setLoadingActivities] = useState(false);
-  const [newActivity, setNewActivity] = useState({ type: 'note', content: '' });
-  const [filterType, setFilterType] = useState<string>("all");
 
-  useEffect(() => {
-    setNewActivity(prev => ({
-      ...prev,
-      type: isManager ? 'note' : 'call'
-    }));
-  }, [isManager]);
+  const totalSpend = useMemo(() => {
+    return orders.reduce((sum: number, o: any) => sum + (o.total || 0), 0);
+  }, [orders]);
 
-  // Customer 360 States
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [orders, setOrders] = useState<any[]>([]);
-  const [appointments, setAppointments] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
-
-  // Template Dispatcher State
-  const [isTemplateOpen, setIsTemplateOpen] = useState(false);
-  const [isAssignStaffOpen, setIsAssignStaffOpen] = useState(false);
-  const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
-
-  // Spa Equipment Profile State (Upsell Phase 1) - Syncs with database
-  const [spaEquipment, setSpaEquipment] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem(`spa_equipment_${id}`);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const spaTier = useMemo(() => {
+    if (totalSpend >= 100000000) return { label: "💎 DIAMOND", color: "bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 text-white shadow-sm border-none text-[9px]" };
+    if (totalSpend >= 50000000) return { label: "🥇 GOLD", color: "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-white shadow-sm border-none text-[9px]" };
+    if (totalSpend > 0) return { label: "🥈 SILVER", color: "bg-gradient-to-r from-slate-400 via-slate-500 to-slate-600 text-white shadow-sm border-none text-[9px]" };
+    return { label: "NEW CO", color: "bg-slate-100 text-slate-500 border-none text-[9px]" };
+  }, [totalSpend]);
 
   const toggleEquipment = async (eqName: string) => {
     const next = spaEquipment.includes(eqName)
@@ -206,16 +292,12 @@ function CustomerDetailPage() {
     }
   };
 
-  const totalSpend = useMemo(() => {
-    return orders.reduce((sum: number, o: any) => sum + (o.total || 0), 0);
-  }, [orders]);
-
-  const spaTier = useMemo(() => {
-    if (totalSpend >= 100000000) return { label: "💎 DIAMOND", color: "bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 text-white shadow-sm border-none text-[9px]" };
-    if (totalSpend >= 50000000) return { label: "🥇 GOLD", color: "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-white shadow-sm border-none text-[9px]" };
-    if (totalSpend > 0) return { label: "🥈 SILVER", color: "bg-gradient-to-r from-slate-400 via-slate-500 to-slate-600 text-white shadow-sm border-none text-[9px]" };
-    return { label: "NEW CO", color: "bg-slate-100 text-slate-500 border-none text-[9px]" };
-  }, [totalSpend]);
+  useEffect(() => {
+    setNewActivity(prev => ({
+      ...prev,
+      type: isManager ? 'note' : 'call'
+    }));
+  }, [isManager]);
 
   // Fetch Core Data
   const fetchCustomer = async () => {
@@ -1083,12 +1165,14 @@ function CustomerDetailPage() {
                   <CardContent className="p-8 space-y-8">
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                       {[
-                        { id: 'laser', label: 'Máy Laser YAG/CO2', color: 'from-rose-500 to-red-600 shadow-rose-100' },
-                        { id: 'hifu', label: 'Máy HIFU / Nâng cơ', color: 'from-amber-400 to-orange-500 shadow-amber-100' },
-                        { id: 'needle', label: 'Thiết bị Phi kim/Lăn kim', color: 'from-emerald-400 to-teal-500 shadow-emerald-100' },
-                        { id: 'rf', label: 'Máy RF / Giảm béo', color: 'from-cyan-400 to-blue-500 shadow-cyan-100' }
+                        { id: 'laser', color: 'from-rose-500 to-red-600 shadow-rose-100' },
+                        { id: 'hifu', color: 'from-amber-400 to-orange-500 shadow-amber-100' },
+                        { id: 'needle', color: 'from-emerald-400 to-teal-500 shadow-emerald-100' },
+                        { id: 'rf', color: 'from-cyan-400 to-blue-500 shadow-cyan-100' }
                       ].map((eq) => {
                         const isActive = spaEquipment.includes(eq.id);
+                        const scriptConfig = tierSettings.spaEquipmentScripts?.[eq.id];
+                        const label = scriptConfig?.label || (eq.id === 'laser' ? 'Máy Laser YAG/CO2' : eq.id === 'hifu' ? 'Máy HIFU / Nâng cơ' : eq.id === 'needle' ? 'Thiết bị Phi kim/Lăn kim' : 'Máy RF / Giảm béo');
                         return (
                           <button
                             key={eq.id}
@@ -1106,7 +1190,7 @@ function CustomerDetailPage() {
                             </div>
                             <div>
                               <span className={`text-[10px] font-black tracking-widest uppercase block ${isActive ? 'text-white/70' : 'text-slate-400'}`}>Thiết bị</span>
-                              <span className="text-xs font-black mt-1 leading-tight block">{eq.label}</span>
+                              <span className="text-xs font-black mt-1 leading-tight block">{label}</span>
                             </div>
                           </button>
                         );
@@ -1123,50 +1207,58 @@ function CustomerDetailPage() {
                         </div>
                       ) : (
                         <div className="space-y-4">
-                          {spaEquipment.includes('laser') && (
-                            <div className="p-6 rounded-3xl bg-rose-50 border border-rose-100/80 flex gap-4 items-start animate-fade-in">
-                              <Sparkles className="w-5 h-5 text-rose-500 shrink-0 mt-0.5 animate-pulse" />
-                              <div>
-                                <span className="text-[9px] font-black text-rose-600 uppercase tracking-widest bg-rose-100 px-2 py-0.5 rounded">TƯ VẤN SAU LASER</span>
-                                <p className="text-xs font-bold text-rose-900 mt-2 leading-relaxed">
-                                  Spa có máy Laser ➡️ Khách hàng điều trị nám, sẹo, tàn nhang rất nhiều. Da sau Laser cực kỳ mỏng yếu và tổn thương.
-                                </p>
-                                <p className="text-xs font-medium text-rose-800 mt-1">
-                                  👉 **Kịch bản Upsell:** Tư vấn ngay **Set Tế bào gốc phục hồi EGF Desembre** (hộp 10 ống) kèm Kem chống nắng vật lý bảo vệ chuyên sâu. Nhấn mạnh hiệu quả tái tạo da tức thì, tránh tăng sắc tố sau Laser.
-                                </p>
-                              </div>
-                            </div>
-                          )}
+                          {spaEquipment.map((eqId) => {
+                            const eqScript = tierSettings.spaEquipmentScripts?.[eqId];
+                            if (!eqScript) return null;
+                            
+                            let colorTheme = {
+                              bg: "bg-rose-50 border-rose-100/80",
+                              badge: "bg-rose-100 text-rose-600",
+                              text: "text-rose-900",
+                              textMuted: "text-rose-800",
+                              icon: "text-rose-500"
+                            };
+                            if (eqId === 'needle') {
+                              colorTheme = {
+                                bg: "bg-emerald-50 border-emerald-100/80",
+                                badge: "bg-emerald-100 text-emerald-700",
+                                text: "text-emerald-900",
+                                textMuted: "text-emerald-800",
+                                icon: "text-emerald-500"
+                              };
+                            } else if (eqId === 'hifu') {
+                              colorTheme = {
+                                bg: "bg-amber-50 border-amber-100/80",
+                                badge: "bg-amber-100 text-amber-700",
+                                text: "text-amber-900",
+                                textMuted: "text-amber-800",
+                                icon: "text-amber-500"
+                              };
+                            } else if (eqId === 'rf') {
+                              colorTheme = {
+                                bg: "bg-blue-50 border-blue-100/80",
+                                badge: "bg-blue-100 text-blue-700",
+                                text: "text-blue-900",
+                                textMuted: "text-blue-800",
+                                icon: "text-blue-500"
+                              };
+                            }
 
-                          {spaEquipment.includes('needle') && (
-                            <div className="p-6 rounded-3xl bg-emerald-50 border border-emerald-100/80 flex gap-4 items-start animate-fade-in">
-                              <Sparkles className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5 animate-pulse" />
-                              <div>
-                                <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-100 px-2 py-0.5 rounded">TƯ VẤN SAU PHI KIM</span>
-                                <p className="text-xs font-bold text-emerald-900 mt-2 leading-relaxed">
-                                  Spa làm dịch vụ Phi kim / Lăn kim ➡️ Liệu trình collagen cảm ứng rất cần chất dẫn phục hồi biểu bì sâu.
-                                </p>
-                                <p className="text-xs font-medium text-emerald-800 mt-1">
-                                  👉 **Kịch bản Upsell:** Giới thiệu dòng **Mặt nạ thải độc sủi bọt Desembre Oxy Bubble Mask** hoặc Serum đặc trị sẹo rỗ, lỗ chân lông to của Desembre để làm sạch sâu cabin trước và nuôi da sau liệu trình phi kim.
-                                </p>
+                            return (
+                              <div key={eqId} className={`p-6 rounded-3xl border ${colorTheme.bg} flex gap-4 items-start animate-fade-in`}>
+                                <Sparkles className={`w-5 h-5 ${colorTheme.icon} shrink-0 mt-0.5 animate-pulse`} />
+                                <div>
+                                  <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${colorTheme.badge}`}>{eqScript.tag}</span>
+                                  <p className={`text-xs font-bold ${colorTheme.text} mt-2 leading-relaxed`}>
+                                    {eqScript.desc}
+                                  </p>
+                                  <p className={`text-xs font-medium ${colorTheme.textMuted} mt-2`}>
+                                    👉 <strong>Kịch bản Upsell:</strong> {eqScript.script}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          )}
-
-                          {spaEquipment.includes('hifu') && (
-                            <div className="p-6 rounded-3xl bg-amber-50 border border-amber-100/80 flex gap-4 items-start animate-fade-in">
-                              <Sparkles className="w-5 h-5 text-amber-500 shrink-0 mt-0.5 animate-pulse" />
-                              <div>
-                                <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest bg-amber-100 px-2 py-0.5 rounded">TƯ VẤN SAU HIFU / NÂNG CƠ</span>
-                                <p className="text-xs font-bold text-amber-900 mt-2 leading-relaxed">
-                                  Spa làm trẻ hóa nâng cơ bằng HIFU/RF ➡️ Cần bổ sung dưỡng chất nâng cơ, chống nhăn chùng chảy xệ tại nhà để duy trì kết quả máy.
-                                </p>
-                                <p className="text-xs font-medium text-amber-800 mt-1">
-                                  👉 **Kịch bản Upsell:** Chào dòng **Kem dưỡng trẻ hóa peptide 24K Gold Desembre Luxury Gold** cao cấp. Tỷ lệ chốt cực cao vì tệp khách làm HIFU là tệp khách VIP, sẵn sàng chi trả mức giá trị lớn!
-                                </p>
-                              </div>
-                            </div>
-                          )}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -1183,67 +1275,46 @@ function CustomerDetailPage() {
                   </div>
                   <CardContent className="p-8 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {[
-                        { 
-                          name: 'Dòng Làm sạch & Thải độc (Cleansing)', 
-                          desc: 'Sữa rửa mặt, mặt nạ oxy bong bóng sủi bọt, tẩy tế bào chết enzyme',
-                          purchased: orders.length > 0, 
-                          note: orders.length > 0 ? 'Đã mua đơn hàng trước' : 'Chưa từng mua' 
-                        },
-                        { 
-                          name: 'Dòng Serum & Ampoule Trị liệu (EGF / Vitamin C)', 
-                          desc: 'Tế bào gốc phục hồi, Vitamin C trị nám, serum mụn chuyên sâu',
-                          purchased: false, 
-                          note: 'Spa CHƯA MUA - Tỷ lệ lỗ hổng Upsell cực cao 🎯' 
-                        },
-                        { 
-                          name: 'Dòng Kem dưỡng & Khóa ẩm Cabin (Creams)', 
-                          desc: 'Kem cấp ẩm sâu Hyaluronic, kem phục hồi Hydro lipid bơ hạt mỡ',
-                          purchased: orders.length > 0, 
-                          note: orders.length > 0 ? 'Đã mua đơn hàng trước' : 'Chưa từng mua' 
-                        },
-                        { 
-                          name: 'Dòng Chống nắng & Bảo vệ (Sun Shield)', 
-                          desc: 'Kem chống nắng vật lý SPF 50+, gel làm dịu mát lô hội sau nắng',
-                          purchased: false, 
-                          note: 'Spa CHƯA MUA - Khách hàng đang bỏ ngỏ dòng bảo vệ da 🎯' 
-                        }
-                      ].map((cat, idx) => (
-                        <div key={idx} className={`p-6 rounded-3xl border transition-all ${cat.purchased ? 'bg-emerald-50/10 border-emerald-100/50' : 'bg-slate-50 border-slate-100 hover:shadow-md'}`}>
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h5 className="text-xs font-black text-slate-900 leading-tight">{cat.name}</h5>
-                              <p className="text-[10px] font-bold text-slate-400 mt-1">{cat.desc}</p>
+                      {(tierSettings.crossSellRules || []).map((rule: any, idx: number) => {
+                        const isPurchased = idx === 0 || idx === 2 ? orders.length > 0 : orders.length > 2;
+                        const note = isPurchased ? rule.note_purchased : rule.note_not_purchased;
+                        return (
+                          <div key={rule.id || idx} className={`p-6 rounded-3xl border transition-all ${isPurchased ? 'bg-emerald-50/10 border-emerald-100/50' : 'bg-slate-50 border-slate-100 hover:shadow-md'}`}>
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h5 className="text-xs font-black text-slate-900 leading-tight">{rule.name}</h5>
+                                <p className="text-[10px] font-bold text-slate-400 mt-1">{rule.desc}</p>
+                              </div>
+                              <Badge className={`text-[8px] font-black uppercase tracking-wider border-none px-2 py-0.5 ${isPurchased ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700 animate-pulse'}`}>
+                                {isPurchased ? 'ĐÃ MUA' : 'CHƯA MUA'}
+                              </Badge>
                             </div>
-                            <Badge className={`text-[8px] font-black uppercase tracking-wider border-none px-2 py-0.5 ${cat.purchased ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700 animate-pulse'}`}>
-                              {cat.purchased ? 'ĐÃ MUA' : 'CHƯA MUA'}
-                            </Badge>
+                            
+                            <div className="mt-4 flex items-center justify-between text-[9px] font-bold">
+                              <span className={isPurchased ? 'text-emerald-600' : 'text-rose-500 font-extrabold'}>{note}</span>
+                              {!isPurchased && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-6 rounded-lg text-[9px] font-black tracking-widest text-indigo-600 bg-white border border-indigo-100 hover:bg-indigo-50/50"
+                                  onClick={() => {
+                                    setNewActivity({
+                                      type: 'call',
+                                      content: `📞 Đã tư vấn thêm cho chủ Spa về nhóm sản phẩm "${rule.name}". Spa đang có nhu cầu tìm hiểu thử mẫu test dòng này.`
+                                    });
+                                    // Switch back to activities tab
+                                    const trigger = document.querySelector('[value="activities"]') as HTMLButtonElement;
+                                    if (trigger) trigger.click();
+                                    toast.success(`Đã tự động soạn thảo nhật ký tư vấn Upsell dòng sản phẩm: ${rule.name}`);
+                                  }}
+                                >
+                                  {rule.action_label || "CHÀO MẪU TEST"}
+                                </Button>
+                              )}
+                            </div>
                           </div>
-                          
-                          <div className="mt-4 flex items-center justify-between text-[9px] font-bold">
-                            <span className={cat.purchased ? 'text-emerald-600' : 'text-rose-500 font-extrabold'}>{cat.note}</span>
-                            {!cat.purchased && (
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="h-6 rounded-lg text-[9px] font-black tracking-widest text-indigo-600 bg-white border border-indigo-100 hover:bg-indigo-50/50"
-                                onClick={() => {
-                                  setNewActivity({
-                                    type: 'call',
-                                    content: `📞 Đã tư vấn thêm cho chủ Spa về nhóm sản phẩm "${cat.name}". Spa đang có nhu cầu tìm hiểu thử mẫu test dòng này.`
-                                  });
-                                  // Switch back to activities tab
-                                  const trigger = document.querySelector('[value="activities"]') as HTMLButtonElement;
-                                  if (trigger) trigger.click();
-                                  toast.success(`Đã tự động soạn thảo nhật ký tư vấn Upsell dòng sản phẩm: ${cat.name}`);
-                                }}
-                              >
-                                CHÀO MẪU TEST
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>
