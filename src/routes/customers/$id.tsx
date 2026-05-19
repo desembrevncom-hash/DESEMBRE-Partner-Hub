@@ -56,6 +56,55 @@ function CustomerDetailPage() {
   const { user, isAdmin, isSubAdmin } = useAuth();
   const isManager = isAdmin || isSubAdmin;
   const navigate = useNavigate();
+
+  const tierSettings = useMemo(() => {
+    const savedTier = localStorage.getItem('system_tier_settings');
+    return savedTier ? JSON.parse(savedTier) : {
+      goldThreshold: 50000000,
+      goldDiscount: 62,
+      diamondThreshold: 100000000,
+      diamondDiscount: 65,
+      refillCycleDays: 60
+    };
+  }, []);
+
+  const refillStats = useMemo(() => {
+    if (!orders || orders.length === 0) return null;
+    const completedOrders = orders.filter(o => o.status === 'completed' || o.status === 'delivered' || !o.status);
+    if (completedOrders.length === 0) return null;
+    
+    // Sort by created_at descending
+    const sorted = [...completedOrders].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    const last = sorted[0];
+    
+    const lastDate = new Date(last.created_at);
+    const today = new Date();
+    const elapsed = differenceInDays(today, lastDate);
+    const cycle = tierSettings.refillCycleDays || 60;
+    const remaining = cycle - elapsed;
+    const progress = Math.min(100, Math.max(0, (elapsed / cycle) * 100));
+    
+    let statusLabel = "🟢 AN TOÀN (ĐỦ HÀNG)";
+    let statusColor = "text-emerald-500 bg-emerald-50 border-emerald-100";
+    if (remaining <= 10) {
+      statusLabel = "🔴⚠️ CẢNH BÁO REFILL (SẮP HẾT)";
+      statusColor = "text-rose-500 bg-rose-50 border-rose-100 animate-pulse";
+    } else if (remaining <= 25) {
+      statusLabel = "🟡 ĐANG TIÊU THỤ TRUNG BÌNH";
+      statusColor = "text-amber-500 bg-amber-50 border-amber-100";
+    }
+    
+    return {
+      lastOrder: last,
+      lastDate,
+      elapsed,
+      cycle,
+      remaining,
+      progress,
+      statusLabel,
+      statusColor
+    };
+  }, [orders, tierSettings]);
   
   const [customer, setCustomer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -808,8 +857,8 @@ function CustomerDetailPage() {
                       </h3>
                       <p className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-wider">Hệ thống cấp hạng đại lý phân phối Desembre</p>
                     </div>
-                    <Badge className={`font-black uppercase tracking-widest text-[10px] px-3.5 py-1 rounded-xl border-none ${totalSpend >= 100000000 ? 'bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 text-white' : totalSpend >= 50000000 ? 'bg-gradient-to-r from-amber-400 to-amber-600 text-white' : totalSpend > 0 ? 'bg-gradient-to-r from-slate-400 to-slate-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                      Hạng hiện tại: {totalSpend >= 100000000 ? 'DIAMOND' : totalSpend >= 50000000 ? 'GOLD' : totalSpend > 0 ? 'SILVER' : 'NEW CO'}
+                    <Badge className={`font-black uppercase tracking-widest text-[10px] px-3.5 py-1 rounded-xl border-none ${totalSpend >= tierSettings.diamondThreshold ? 'bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 text-white' : totalSpend >= tierSettings.goldThreshold ? 'bg-gradient-to-r from-amber-400 to-amber-600 text-white' : totalSpend > 0 ? 'bg-gradient-to-r from-slate-400 to-slate-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                      Hạng hiện tại: {totalSpend >= tierSettings.diamondThreshold ? 'DIAMOND' : totalSpend >= tierSettings.goldThreshold ? 'GOLD' : totalSpend > 0 ? 'SILVER' : 'NEW CO'}
                     </Badge>
                   </div>
                   <CardContent className="p-8 space-y-6">
@@ -820,33 +869,121 @@ function CustomerDetailPage() {
                       </div>
                       <div className="p-6 rounded-3xl bg-slate-50 border border-slate-100/80">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Chiết khấu Đại lý hiện tại</span>
-                        <span className="text-xl font-black text-indigo-600">{totalSpend >= 100000000 ? '65%' : totalSpend >= 50000000 ? '62%' : '60%'}</span>
+                        <span className="text-xl font-black text-indigo-600">{totalSpend >= tierSettings.diamondThreshold ? `${tierSettings.diamondDiscount}%` : totalSpend >= tierSettings.goldThreshold ? `${tierSettings.goldDiscount}%` : '60%'}</span>
                       </div>
                       <div className="p-6 rounded-3xl bg-slate-50 border border-slate-100/80">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Mục tiêu thăng hạng tiếp theo</span>
                         <span className="text-xl font-black text-slate-700">
-                          {totalSpend >= 100000000 ? 'ĐẠT ĐỈNH HẠNG' : totalSpend >= 50000000 ? 'DIAMOND (100M)' : 'GOLD (50M)'}
+                          {totalSpend >= tierSettings.diamondThreshold ? 'ĐẠT ĐỈNH HẠNG' : totalSpend >= tierSettings.goldThreshold ? `DIAMOND (${(tierSettings.diamondThreshold / 1000000).toFixed(0)}M)` : `GOLD (${(tierSettings.goldThreshold / 1000000).toFixed(0)}M)`}
                         </span>
                       </div>
                     </div>
 
                     {/* Progress Bar */}
-                    {totalSpend < 100000000 && (
+                    {totalSpend < tierSettings.diamondThreshold && (
                       <div className="space-y-3 bg-indigo-50/20 p-6 rounded-3xl border border-indigo-100/30">
                         <div className="flex justify-between items-center text-xs font-bold text-slate-500">
                           <span className="flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-indigo-500" /> Tiến trình thăng cấp</span>
                           <span className="text-indigo-600 font-black">
-                            Còn thiếu {((totalSpend >= 50000000 ? 100000000 : 50000000) - totalSpend).toLocaleString('vi-VN')}đ để thăng hạng
+                            Còn thiếu {((totalSpend >= tierSettings.goldThreshold ? tierSettings.diamondThreshold : tierSettings.goldThreshold) - totalSpend).toLocaleString('vi-VN')}đ để thăng hạng
                           </span>
                         </div>
                         <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
                           <div 
                             className="bg-gradient-to-r from-indigo-500 to-purple-600 h-full rounded-full transition-all duration-500" 
-                            style={{ width: `${Math.min(100, (totalSpend / (totalSpend >= 50000000 ? 100000000 : 50000000)) * 100)}%` }}
+                            style={{ width: `${Math.min(100, (totalSpend / (totalSpend >= tierSettings.goldThreshold ? tierSettings.diamondThreshold : tierSettings.goldThreshold)) * 100)}%` }}
                           />
                         </div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center mt-1">
-                          Thăng hạng giúp đối tác tăng chiết khấu lên {totalSpend >= 50000000 ? '65%' : '62%'}, kích thích chủ Spa gom đơn lớn để hưởng lợi nhuận tối đa!
+                          Thăng hạng giúp đối tác tăng chiết khấu lên {totalSpend >= tierSettings.goldThreshold ? `${tierSettings.diamondDiscount}%` : `${tierSettings.goldDiscount}%`}, kích thích chủ Spa gom đơn lớn để hưởng lợi nhuận tối đa!
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* 1.5. DỰ BÁO CHU KỲ HẾT HÀNG & TÁI ĐẶT HÀNG (REFILL & DEPLETION ALERT) */}
+                <Card className="rounded-[40px] border-none shadow-sm bg-white overflow-hidden">
+                  <div className="p-8 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                        <Clock className="w-5 h-5 text-indigo-600 animate-pulse" /> Dự báo chu kỳ hết hàng & Tái đặt hàng
+                      </h3>
+                      <p className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-wider">Cảnh báo Refill & Depletion thông minh của Desembre</p>
+                    </div>
+                    {refillStats ? (
+                      <span className={`font-black uppercase tracking-widest text-[9px] px-3 py-1 rounded-xl border ${refillStats.statusColor}`}>
+                        {refillStats.statusLabel}
+                      </span>
+                    ) : (
+                      <span className="font-black uppercase tracking-widest text-[9px] px-3 py-1 rounded-xl bg-slate-100 text-slate-400">
+                        Chưa kích hoạt bộ đếm
+                      </span>
+                    )}
+                  </div>
+                  <CardContent className="p-8 space-y-6">
+                    {refillStats ? (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                          <div className="p-5 rounded-3xl bg-slate-50 border border-slate-100/80">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Chu kỳ cạn kiệt</span>
+                            <span className="text-base font-black text-slate-900">{refillStats.cycle} ngày</span>
+                          </div>
+                          <div className="p-5 rounded-3xl bg-slate-50 border border-slate-100/80">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Đã sử dụng</span>
+                            <span className="text-base font-black text-slate-900">{refillStats.elapsed} ngày trước</span>
+                          </div>
+                          <div className="p-5 rounded-3xl bg-slate-50 border border-slate-100/80">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Chu kỳ còn lại</span>
+                            <span className={`text-base font-black ${refillStats.remaining <= 10 ? 'text-rose-600' : 'text-slate-800'}`}>
+                              {refillStats.remaining > 0 ? `${refillStats.remaining} ngày` : `Quá hạn ${Math.abs(refillStats.remaining)} ngày`}
+                            </span>
+                          </div>
+                          <div className="p-5 rounded-3xl bg-slate-50 border border-slate-100/80">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Đơn hàng kích hoạt gần nhất</span>
+                            <span className="text-xs font-bold text-slate-600 block truncate">
+                              Đơn #{refillStats.lastOrder.id?.substring(0, 8)} ({format(refillStats.lastDate, 'dd/MM/yyyy')})
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Progress display */}
+                        <div className="space-y-3 bg-slate-50/50 p-6 rounded-3xl border border-slate-100/60">
+                          <div className="flex justify-between items-center text-xs font-bold text-slate-500">
+                            <span className="flex items-center gap-1.5">📊 Tiến trình tiêu hao sản phẩm</span>
+                            <span className="font-black text-indigo-600">
+                              Mức độ tiêu thụ: {refillStats.progress.toFixed(0)}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full transition-all duration-500 ${refillStats.remaining <= 10 ? 'bg-rose-500' : refillStats.remaining <= 25 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
+                              style={{ width: `${refillStats.progress}%` }}
+                            />
+                          </div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center mt-1">
+                            {refillStats.remaining <= 10 
+                              ? "⚠️ Lượng mỹ phẩm tại cơ sở ước lượng đã cạn kiệt! Nhân viên Sale cần kết nối ngay lập tức để tránh mất cơ hội bán thêm." 
+                              : `Sản phẩm đang được Spa sử dụng trong liệu trình giường cabin. Ước tính sẽ cần tái đặt hàng trong ${refillStats.remaining} ngày tới.`
+                            }
+                          </p>
+                        </div>
+
+                        <div className="flex justify-end gap-3">
+                          <a 
+                            href={`tel:${customer?.phone}`}
+                            className="inline-flex items-center justify-center rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs h-10 px-6 shadow-sm shadow-indigo-100 transition-all"
+                          >
+                            📞 Gọi điện CSKH & Upsell ngay
+                          </a>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="py-12 text-center text-slate-400 flex flex-col items-center max-w-lg mx-auto">
+                        <Clock className="w-12 h-12 mb-3 text-slate-200" />
+                        <p className="text-xs font-black uppercase tracking-widest text-slate-800">Chưa kích hoạt bộ đếm ngược</p>
+                        <p className="text-[10px] font-bold text-slate-400 mt-2 text-center leading-relaxed">
+                          Spa này chưa phát sinh đơn hàng thành công trên hệ thống. Khi đơn hàng đầu tiên được chốt thành công, CRM sẽ tự động đếm ngược chu kỳ tiêu thụ mỹ phẩm ({tierSettings.refillCycleDays} ngày) và đưa ra gợi ý Upsell gối đầu kịp thời cho Sale!
                         </p>
                       </div>
                     )}

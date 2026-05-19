@@ -58,13 +58,28 @@ function SystemSettingsPage() {
     accentColor: "#ec4899",
     logoLightUrl: "",
     logoDarkUrl: "",
-    leadOverdueDays: 3
+    leadOverdueDays: 3,
+    goldThreshold: 50000000,
+    goldDiscount: 62,
+    diamondThreshold: 100000000,
+    diamondDiscount: 65,
+    refillCycleDays: 60
   });
   const [loadingConfig, setLoadingConfig] = useState(true);
 
   useEffect(() => {
     async function loadConfig() {
-      const { data, error } = await supabase.from('system_settings').select('*').maybeSingle();
+      const { data } = await supabase.from('system_settings').select('*').maybeSingle();
+      
+      const savedTier = localStorage.getItem('system_tier_settings');
+      const tierSettings = savedTier ? JSON.parse(savedTier) : {
+        goldThreshold: 50000000,
+        goldDiscount: 62,
+        diamondThreshold: 100000000,
+        diamondDiscount: 65,
+        refillCycleDays: 60
+      };
+
       if (data) {
         setConfig({
           id: data.id,
@@ -81,8 +96,14 @@ function SystemSettingsPage() {
           accentColor: data.accent_color || "#ec4899",
           logoLightUrl: data.logo_light_url || "",
           logoDarkUrl: data.logo_dark_url || "",
-          leadOverdueDays: data.lead_overdue_days ?? 3
+          leadOverdueDays: data.lead_overdue_days ?? 3,
+          ...tierSettings
         });
+      } else {
+        setConfig((prev: any) => ({
+          ...prev,
+          ...tierSettings
+        }));
       }
       setLoadingConfig(false);
     }
@@ -115,10 +136,18 @@ function SystemSettingsPage() {
     } catch (error: any) {
       toast.error("Lỗi tải ảnh: " + error.message, { id: "upload-logo" });
     }
-  };
-
-  const handleSave = async () => {
+  };  const handleSave = async () => {
     setBusy(true);
+    
+    const tierSettings = {
+      goldThreshold: Number(config.goldThreshold),
+      goldDiscount: Number(config.goldDiscount),
+      diamondThreshold: Number(config.diamondThreshold),
+      diamondDiscount: Number(config.diamondDiscount),
+      refillCycleDays: Number(config.refillCycleDays)
+    };
+    localStorage.setItem('system_tier_settings', JSON.stringify(tierSettings));
+
     const payload = {
       company_name: config.companyName,
       address: config.address,
@@ -152,7 +181,6 @@ function SystemSettingsPage() {
       toast.success("Đã cập nhật cấu hình hệ thống thành công!");
     }
   };
-
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20 font-sans antialiased">
       {/* HEADER */}
@@ -367,8 +395,83 @@ function SystemSettingsPage() {
                        </div>
                     </CardContent>
                  </Card>
-              </div>
-           </TabsContent>
+                  {/* CARD 3: Cấu hình Phân hạng Đại lý */}
+                  <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white">
+                     <CardHeader className="p-8">
+                        <CardTitle className="text-lg font-black text-slate-900">Cấu hình Hạng thành viên Spa</CardTitle>
+                     </CardHeader>
+                     <CardContent className="p-8 pt-0 space-y-6">
+                        <div className="space-y-4">
+                           <div className="flex items-center justify-between">
+                              <div className="space-y-1">
+                                 <p className="text-sm font-black text-slate-900">Doanh số tối thiểu đạt GOLD</p>
+                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Ngưỡng LTV tích lũy để thăng hạng Gold</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                 <Input value={config.goldThreshold || ""} onChange={e => setConfig({...config, goldThreshold: e.target.value})} className="w-32 h-10 rounded-xl text-right font-bold" type="number" />
+                                 <span className="font-black text-slate-400">đ</span>
+                              </div>
+                           </div>
+                           <div className="flex items-center justify-between">
+                              <div className="space-y-1">
+                                 <p className="text-sm font-black text-slate-900">Chiết khấu đặc quyền GOLD</p>
+                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Chiết khấu gối đầu cho đại lý Gold</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                 <Input value={config.goldDiscount || ""} onChange={e => setConfig({...config, goldDiscount: e.target.value})} className="w-20 h-10 rounded-xl text-center font-bold" type="number" />
+                                 <span className="font-black text-slate-400">%</span>
+                              </div>
+                           </div>
+                           <div className="border-t border-slate-100 my-4"></div>
+                           <div className="flex items-center justify-between">
+                              <div className="space-y-1">
+                                 <p className="text-sm font-black text-slate-900">Doanh số tối thiểu đạt DIAMOND</p>
+                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Ngưỡng LTV tích lũy để thăng hạng Diamond</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                 <Input value={config.diamondThreshold || ""} onChange={e => setConfig({...config, diamondThreshold: e.target.value})} className="w-32 h-10 rounded-xl text-right font-bold" type="number" />
+                                 <span className="font-black text-slate-400">đ</span>
+                              </div>
+                           </div>
+                           <div className="flex items-center justify-between">
+                              <div className="space-y-1">
+                                 <p className="text-sm font-black text-slate-900">Chiết khấu đặc quyền DIAMOND</p>
+                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Chiết khấu gối đầu cho đại lý Diamond</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                 <Input value={config.diamondDiscount || ""} onChange={e => setConfig({...config, diamondDiscount: e.target.value})} className="w-20 h-10 rounded-xl text-center font-bold" type="number" />
+                                 <span className="font-black text-slate-400">%</span>
+                              </div>
+                           </div>
+                        </div>
+                     </CardContent>
+                  </Card>
+
+                  {/* CARD 4: Cảnh báo chu kỳ cạn kiệt */}
+                  <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white">
+                     <CardHeader className="p-8">
+                        <CardTitle className="text-lg font-black text-slate-900">Cảnh báo Refill & Cạn kiệt</CardTitle>
+                     </CardHeader>
+                     <CardContent className="p-8 pt-0 space-y-6">
+                        <div className="space-y-4">
+                           <div className="flex items-center justify-between">
+                              <div className="space-y-1">
+                                 <p className="text-sm font-black text-slate-900">Chu kỳ sử dụng hết mỹ phẩm</p>
+                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Số ngày ước lượng chu kỳ tiêu thụ của Spa</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                 <Input value={config.refillCycleDays || ""} onChange={e => setConfig({...config, refillCycleDays: e.target.value})} className="w-24 h-10 rounded-xl text-center font-bold" type="number" />
+                                 <span className="font-black text-slate-400">ngày</span>
+                              </div>
+                           </div>
+                           <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-100 text-[11px] font-medium text-amber-800 leading-relaxed">
+                              💡 <strong>Mẹo vận hành:</strong> CRM sẽ tự động đếm ngược từ ngày chốt đơn thành công gần nhất. Khi thời gian sử dụng còn dưới 10 ngày (Ví dụ: đã trôi qua {Number(config.refillCycleDays || 60) - 10} ngày), hệ thống sẽ hiển thị thẻ cảnh báo tái đặt hàng trên Workspace để nhân viên Sale gọi điện Upsell gối đầu!
+                           </div>
+                        </div>
+                     </CardContent>
+                  </Card>
+               </div>
+            </TabsContent>
 
            {/* SYSTEM TAB */}
            <TabsContent value="system">
