@@ -371,13 +371,39 @@ function UpsellPanel({ items, customerPhone, customerName, orderId, orderStatus 
   orderId: string;
   orderStatus?: string;
 }) {
-    // Per-variant cycle settings: { [productId]: { retail?: number; salon?: number } }
-  const productCycles: Record<number, { retail?: number; salon?: number }> = (() => {
+  const [productCycles, setProductCycles] = useState<Record<number, { retail?: number; salon?: number }>>(() => {
     try { return JSON.parse(localStorage.getItem('product_cycle_settings') || '{}'); } catch { return {}; }
-  })();
-  const tierSettings = (() => {
+  });
+  const [tierSettings, setTierSettings] = useState<any>(() => {
     try { return JSON.parse(localStorage.getItem('system_tier_settings') || '{}'); } catch { return {}; }
-  })();
+  });
+
+  useEffect(() => {
+    async function fetchSystemSettings() {
+      try {
+        const { data } = await supabase
+          .from("system_settings")
+          .select("*")
+          .maybeSingle();
+        if (data) {
+          setTierSettings({
+            goldThreshold: Number(data.gold_threshold ?? 50000000),
+            goldDiscount: Number(data.gold_discount ?? 62),
+            diamondThreshold: Number(data.diamond_threshold ?? 100000000),
+            diamondDiscount: Number(data.diamond_discount ?? 65),
+            refillCycleDays: Number(data.refill_cycle_days ?? 60)
+          });
+          if (data.product_cycles && typeof data.product_cycles === 'object') {
+            setProductCycles(data.product_cycles as any);
+          }
+        }
+      } catch (err) {
+        console.error("Error loading system settings in order detail page:", err);
+      }
+    }
+    fetchSystemSettings();
+  }, []);
+
   const globalCycle = Number(tierSettings.refillCycleDays || 60);
 
   const suggestions = (() => {

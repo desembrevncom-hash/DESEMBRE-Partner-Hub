@@ -244,6 +244,18 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
       marketing_opt_in: form.marketing_opt_in,
       created_by: user?.id,
       lifecycle_stage: form.lifecycle_stage === "new_lead" && (form.owner_sale_id !== "none" || form.owner_tele_id !== "none") ? "assigned" : form.lifecycle_stage,
+      bed_count: form.bed_count,
+      staff_count: form.staff_count,
+      tech_equipment: form.tech_equipment,
+      spa_equipment: (() => {
+        const equipments: string[] = [];
+        const techLower = form.tech_equipment.toLowerCase();
+        if (techLower.includes("laser") || techLower.includes("co2") || techLower.includes("yag")) equipments.push("laser");
+        if (techLower.includes("hifu") || techLower.includes("nâng cơ")) equipments.push("hifu");
+        if (techLower.includes("phi kim") || techLower.includes("lăn kim") || techLower.includes("needle")) equipments.push("needle");
+        if (techLower.includes("rf") || techLower.includes("giảm béo")) equipments.push("rf");
+        return equipments;
+      })(),
     };
 
     const { data: newCustomer, error } = await supabase.from("customers").insert([payload]).select().single();

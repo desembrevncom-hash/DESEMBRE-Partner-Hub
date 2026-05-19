@@ -57,15 +57,48 @@ function CustomerDetailPage() {
   const isManager = isAdmin || isSubAdmin;
   const navigate = useNavigate();
 
-  const tierSettings = useMemo(() => {
-    const savedTier = localStorage.getItem('system_tier_settings');
-    return savedTier ? JSON.parse(savedTier) : {
-      goldThreshold: 50000000,
-      goldDiscount: 62,
-      diamondThreshold: 100000000,
-      diamondDiscount: 65,
-      refillCycleDays: 60
-    };
+  const [tierSettings, setTierSettings] = useState(() => {
+    try {
+      const savedTier = localStorage.getItem('system_tier_settings');
+      return savedTier ? JSON.parse(savedTier) : {
+        goldThreshold: 50000000,
+        goldDiscount: 62,
+        diamondThreshold: 100000000,
+        diamondDiscount: 65,
+        refillCycleDays: 60
+      };
+    } catch {
+      return {
+        goldThreshold: 50000000,
+        goldDiscount: 62,
+        diamondThreshold: 100000000,
+        diamondDiscount: 65,
+        refillCycleDays: 60
+      };
+    }
+  });
+
+  useEffect(() => {
+    async function fetchSystemSettings() {
+      try {
+        const { data } = await supabase
+          .from("system_settings")
+          .select("*")
+          .maybeSingle();
+        if (data) {
+          setTierSettings({
+            goldThreshold: Number(data.gold_threshold ?? 50000000),
+            goldDiscount: Number(data.gold_discount ?? 62),
+            diamondThreshold: Number(data.diamond_threshold ?? 100000000),
+            diamondDiscount: Number(data.diamond_discount ?? 65),
+            refillCycleDays: Number(data.refill_cycle_days ?? 60)
+          });
+        }
+      } catch (err) {
+        console.error("Error loading system settings from DB:", err);
+      }
+    }
+    fetchSystemSettings();
   }, []);
 
   const refillStats = useMemo(() => {
@@ -133,7 +166,7 @@ function CustomerDetailPage() {
   const [isAssignStaffOpen, setIsAssignStaffOpen] = useState(false);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
 
-  // Spa Equipment Profile State (Upsell Phase 1)
+  // Spa Equipment Profile State (Upsell Phase 1) - Syncs with database
   const [spaEquipment, setSpaEquipment] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem(`spa_equipment_${id}`);
@@ -143,13 +176,26 @@ function CustomerDetailPage() {
     }
   });
 
-  const toggleEquipment = (eqName: string) => {
+  const toggleEquipment = async (eqName: string) => {
     const next = spaEquipment.includes(eqName)
       ? spaEquipment.filter(x => x !== eqName)
       : [...spaEquipment, eqName];
+    
+    // Update local state instantly for smooth UX
     setSpaEquipment(next);
     localStorage.setItem(`spa_equipment_${id}`, JSON.stringify(next));
-    toast.success(`Đã cập nhật thiết bị Spa: ${eqName}`);
+
+    try {
+      const { error } = await supabase
+        .from("customers")
+        .update({ spa_equipment: next })
+        .eq("id", id);
+      if (error) throw error;
+      toast.success(`Đã cập nhật thiết bị Spa: ${eqName}`);
+    } catch (e: any) {
+      console.error("Error saving spa equipment to DB:", e);
+      toast.error("Không thể đồng bộ lên Cloud, đã lưu tạm cục bộ trên thiết bị");
+    }
   };
 
   const totalSpend = useMemo(() => {
@@ -178,6 +224,22 @@ function CustomerDetailPage() {
       toast.error("Không thể tải thông tin khách hàng");
     } else {
       setCustomer(data);
+      // Sync spa equipment from database if available, else fallback to localStorage
+      if (data.spa_equipment && Array.isArray(data.spa_equipment)) {
+        setSpaEquipment(data.spa_equipment);
+      } else {
+        try {
+          const saved = localStorage.getItem(`spa_equipment_${id}`);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            setSpaEquipment(parsed);
+            // Proactively backfill to database in the background
+            await supabase.from("customers").update({ spa_equipment: parsed }).eq("id", id);
+          }
+        } catch (err) {
+          console.error("Failed to parse local spa equipment:", err);
+        }
+      }
     }
     setLoading(false);
   };

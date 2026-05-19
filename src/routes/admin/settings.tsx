@@ -106,20 +106,32 @@ function SystemSettingsPage() {
           logoLightUrl: data.logo_light_url || "",
           logoDarkUrl: data.logo_dark_url || "",
           leadOverdueDays: data.lead_overdue_days ?? 3,
-          ...tierSettings
+          goldThreshold: data.gold_threshold ?? tierSettings.goldThreshold,
+          goldDiscount: data.gold_discount ?? tierSettings.goldDiscount,
+          diamondThreshold: data.diamond_threshold ?? tierSettings.diamondThreshold,
+          diamondDiscount: data.diamond_discount ?? tierSettings.diamondDiscount,
+          refillCycleDays: data.refill_cycle_days ?? tierSettings.refillCycleDays,
         });
+
+        if (data.product_cycles && typeof data.product_cycles === 'object') {
+          setProductCycles(data.product_cycles as any);
+        } else {
+          const savedCycles = localStorage.getItem('product_cycle_settings');
+          if (savedCycles) {
+            try { setProductCycles(JSON.parse(savedCycles)); } catch {}
+          }
+        }
       } else {
         setConfig((prev: any) => ({
           ...prev,
           ...tierSettings
         }));
+        const savedCycles = localStorage.getItem('product_cycle_settings');
+        if (savedCycles) {
+          try { setProductCycles(JSON.parse(savedCycles)); } catch {}
+        }
       }
       setLoadingConfig(false);
-    }
-    // Load per-product cycle settings from localStorage
-    const savedCycles = localStorage.getItem('product_cycle_settings');
-    if (savedCycles) {
-      try { setProductCycles(JSON.parse(savedCycles)); } catch {}
     }
     loadConfig();
   }, []);
@@ -180,7 +192,13 @@ function SystemSettingsPage() {
       accent_color: config.accentColor,
       logo_light_url: config.logoLightUrl,
       logo_dark_url: config.logoDarkUrl,
-      lead_overdue_days: Number(config.leadOverdueDays)
+      lead_overdue_days: Number(config.leadOverdueDays),
+      gold_threshold: Number(config.goldThreshold),
+      gold_discount: Number(config.goldDiscount),
+      diamond_threshold: Number(config.diamondThreshold),
+      diamond_discount: Number(config.diamondDiscount),
+      refill_cycle_days: Number(config.refillCycleDays),
+      product_cycles: productCycles
     };
 
     let error;
