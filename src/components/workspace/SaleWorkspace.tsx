@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { getReclaimDeadlineLabel } from "@/lib/customerReclaimRules";
 import { WorkspaceShell } from "./WorkspaceShell";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
@@ -71,6 +72,7 @@ export const SaleWorkspace: React.FC = () => {
 
   // Drawer Preview
   const [previewCustomerId, setPreviewCustomerId] = useState<string | null>(null);
+  const [previewCustomerAction, setPreviewCustomerAction] = useState<"note" | "task" | "followup" | null>(null);
 
   // Active Queue Dialog
   const [activeQueue, setActiveQueue] = useState<{ title: string; items: any[]; type: 'task' | 'customer' | 'order' } | null>(null);
@@ -284,6 +286,117 @@ export const SaleWorkspace: React.FC = () => {
 
       </div>
 
+      {/* KHÁCH SẮP BỊ THU HỒI WIDGET */}
+      {(() => {
+        const atRiskCustomers = data.customers.filter((c: any) => c.ownership_status === 'at_risk');
+        
+        return (
+          <div className="bg-gradient-to-r from-red-50/70 to-amber-50/70 rounded-3xl border border-red-200 p-6 shadow-xs mb-8">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-red-600 animate-pulse shrink-0" />
+                <h3 className="text-sm font-black uppercase tracking-wider text-red-900">
+                  ⚠️ Khách sắp bị thu hồi ({atRiskCustomers.length})
+                </h3>
+              </div>
+              <Badge className="bg-red-600 hover:bg-red-700 text-white text-[10px] font-black uppercase tracking-wide px-2.5 py-1">
+                Nguy cơ cao
+              </Badge>
+            </div>
+
+            {atRiskCustomers.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {atRiskCustomers.map((c: any) => {
+                  const deadline = getReclaimDeadlineLabel(c);
+                  
+                  return (
+                    <div key={c.id} className="bg-white rounded-2xl border border-red-100 p-4 shadow-2xs flex flex-col justify-between space-y-4 hover:shadow-xs hover:border-red-200 transition-all duration-200">
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <h4 className="text-xs font-black text-slate-900 leading-snug">
+                              {c.name || c.contact_name || "Chủ Spa"}
+                            </h4>
+                            <p className="text-[10px] font-bold text-slate-500 mt-1">
+                              🏢 {c.facility_name || c.business_name || "Cơ sở tự do"}
+                            </p>
+                          </div>
+                          <Badge className={`text-[9px] font-black uppercase tracking-wider shrink-0 px-2 py-0.5 ${
+                            deadline.variant === 'danger' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}>
+                            {deadline.text}
+                          </Badge>
+                        </div>
+
+                        <div className="text-[10px] text-slate-700 space-y-2 font-medium bg-red-50/30 p-3 rounded-xl border border-red-100/50">
+                          <p className="text-red-700 font-bold leading-relaxed">
+                            ⚠️ Lý do: {c.reclaim_reason || "Lâu ngày chưa phát sinh tương tác mới."}
+                          </p>
+                          <div className="h-px bg-red-100/50 my-1" />
+                          <p className="text-slate-500 text-[9px] flex items-center gap-1 font-semibold">
+                            📞 SĐT: <span className="text-slate-700 font-bold">{c.phone || "Chưa cập nhật"}</span>
+                          </p>
+                          {c.at_risk_at && (
+                            <p className="text-slate-500 text-[9px] flex items-center gap-1">
+                              ⏰ Cảnh báo: <span className="text-slate-750 font-bold">{format(new Date(c.at_risk_at), "HH:mm dd/MM/yyyy", { locale: vi })}</span>
+                            </p>
+                          )}
+                          {c.reclaimable_at && (
+                            <p className="text-slate-500 text-[9px] flex items-center gap-1">
+                              ⏱️ Sẽ thu hồi: <span className="text-red-600 font-bold">{format(new Date(c.reclaimable_at), "HH:mm dd/MM/yyyy", { locale: vi })}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <Button
+                          size="sm"
+                          className="bg-red-600 hover:bg-red-750 text-white rounded-xl text-[10px] font-black uppercase h-8 py-0 px-1"
+                          onClick={() => {
+                            setPreviewCustomerAction(null);
+                            setPreviewCustomerId(c.id);
+                          }}
+                        >
+                          Chăm sóc
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-red-205 text-red-700 hover:bg-red-50 rounded-xl text-[10px] font-black uppercase h-8 py-0 px-1"
+                          onClick={() => {
+                            setPreviewCustomerAction("note");
+                            setPreviewCustomerId(c.id);
+                          }}
+                        >
+                          Ghi chú
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-red-205 text-red-700 hover:bg-red-50 rounded-xl text-[10px] font-black uppercase h-8 py-0 px-1"
+                          onClick={() => {
+                            setPreviewCustomerAction("task");
+                            setPreviewCustomerId(c.id);
+                          }}
+                        >
+                          Tạo task
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="py-10 text-center bg-white/60 rounded-2xl border border-dashed border-red-200">
+                <Check className="w-7 h-7 text-red-500 mx-auto mb-2" />
+                <p className="text-xs text-red-800 font-bold">Không có khách nào sắp bị thu hồi.</p>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* PRIORITY TASKS SECTION */}
       <div className="bg-white rounded-3xl border border-slate-200/60 p-6 shadow-xs mb-8">
         <div className="flex items-center gap-2 mb-6">
@@ -477,8 +590,14 @@ export const SaleWorkspace: React.FC = () => {
       <CustomerPreviewDrawer 
         customer={{ id: previewCustomerId }}
         open={!!previewCustomerId}
-        onOpenChange={(o) => !o && setPreviewCustomerId(null)}
+        onOpenChange={(o) => {
+          if (!o) {
+            setPreviewCustomerId(null);
+            setPreviewCustomerAction(null);
+          }
+        }}
         getStaffName={getStaffName}
+        initialQuickAction={previewCustomerAction}
       />
 
       <AddCustomerDialog 

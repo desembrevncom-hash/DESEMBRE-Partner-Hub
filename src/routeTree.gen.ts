@@ -32,6 +32,7 @@ import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminTemplatesRouteImport } from './routes/admin/templates'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminSegmentsRouteImport } from './routes/admin/segments'
+import { Route as AdminReclamationRouteImport } from './routes/admin/reclamation'
 import { Route as AdminProductsRouteImport } from './routes/admin/products'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
 
@@ -150,6 +151,11 @@ const AdminSegmentsRoute = AdminSegmentsRouteImport.update({
   path: '/admin/segments',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminReclamationRoute = AdminReclamationRouteImport.update({
+  id: '/admin/reclamation',
+  path: '/admin/reclamation',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminProductsRoute = AdminProductsRouteImport.update({
   id: '/admin/products',
   path: '/admin/products',
@@ -173,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/workspace': typeof WorkspaceRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/reclamation': typeof AdminReclamationRoute
   '/admin/segments': typeof AdminSegmentsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/templates': typeof AdminTemplatesRoute
@@ -199,6 +206,7 @@ export interface FileRoutesByTo {
   '/workspace': typeof WorkspaceRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/reclamation': typeof AdminReclamationRoute
   '/admin/segments': typeof AdminSegmentsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/templates': typeof AdminTemplatesRoute
@@ -227,6 +235,7 @@ export interface FileRoutesById {
   '/workspace': typeof WorkspaceRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/reclamation': typeof AdminReclamationRoute
   '/admin/segments': typeof AdminSegmentsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/templates': typeof AdminTemplatesRoute
@@ -256,6 +265,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/admin/inventory'
     | '/admin/products'
+    | '/admin/reclamation'
     | '/admin/segments'
     | '/admin/settings'
     | '/admin/templates'
@@ -282,6 +292,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/admin/inventory'
     | '/admin/products'
+    | '/admin/reclamation'
     | '/admin/segments'
     | '/admin/settings'
     | '/admin/templates'
@@ -309,6 +320,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/admin/inventory'
     | '/admin/products'
+    | '/admin/reclamation'
     | '/admin/segments'
     | '/admin/settings'
     | '/admin/templates'
@@ -337,6 +349,7 @@ export interface RootRouteChildren {
   WorkspaceRoute: typeof WorkspaceRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminProductsRoute: typeof AdminProductsRoute
+  AdminReclamationRoute: typeof AdminReclamationRoute
   AdminSegmentsRoute: typeof AdminSegmentsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminTemplatesRoute: typeof AdminTemplatesRoute
@@ -514,6 +527,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSegmentsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/reclamation': {
+      id: '/admin/reclamation'
+      path: '/admin/reclamation'
+      fullPath: '/admin/reclamation'
+      preLoaderRoute: typeof AdminReclamationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/products': {
       id: '/admin/products'
       path: '/admin/products'
@@ -557,6 +577,7 @@ const rootRouteChildren: RootRouteChildren = {
   WorkspaceRoute: WorkspaceRoute,
   AdminInventoryRoute: AdminInventoryRoute,
   AdminProductsRoute: AdminProductsRoute,
+  AdminReclamationRoute: AdminReclamationRoute,
   AdminSegmentsRoute: AdminSegmentsRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminTemplatesRoute: AdminTemplatesRoute,

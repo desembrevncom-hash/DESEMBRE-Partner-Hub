@@ -74,13 +74,15 @@ interface CustomerPreviewDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   getStaffName?: (id?: string | null) => string;
+  initialQuickAction?: "note" | "task" | "followup" | null;
 }
 
 export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   customer: customerProp,
   open,
   onOpenChange,
-  getStaffName: getStaffNameProp
+  getStaffName: getStaffNameProp,
+  initialQuickAction
 }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -130,13 +132,13 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   useEffect(() => {
     if (open && customerProp?.id) {
       setActiveCustomer(null);
-      setQuickAction(null);
+      setQuickAction(initialQuickAction || null);
       setTimelineFilter("all");
       fetchCustomerDetails();
     } else {
       setActiveCustomer(null);
     }
-  }, [open, customerProp?.id]);
+  }, [open, customerProp?.id, initialQuickAction]);
 
   const fetchCustomerDetails = async () => {
     if (!customerProp?.id) return;
