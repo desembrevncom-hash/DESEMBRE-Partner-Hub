@@ -62,6 +62,14 @@ type TaskItem = {
   // Bổ sung dữ liệu join/map tĩnh
   customer_name?: string;
   customer_phone?: string;
+  customer?: {
+    id: string;
+    contact_name?: string | null;
+    name?: string | null;
+    business_name?: string | null;
+    facility_name?: string | null;
+    phone?: string | null;
+  } | null;
 };
 
 const TASK_TYPE_LABELS: Record<string, string> = {
@@ -93,7 +101,7 @@ const RESULT_LABELS: Record<string, string> = {
 };
 
 export function TasksPage() {
-  const { user, isAdmin, isSubAdmin, isTeleLead } = useAuth();
+  const { user, isAdmin, isSubAdmin, isTeleLead, isSale, isTelesale } = useAuth();
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -124,26 +132,48 @@ export function TasksPage() {
   // Tải danh sách nhân sự tham chiếu
   useEffect(() => {
     async function fetchReferences() {
+      if (!user) return;
       try {
         const { data: profs } = await supabase.from("profiles").select("id, display_name, full_name, email");
         if (profs) {
-          setStaffList(profs.map(p => ({
+          setStaffList(profs.map((p: any) => ({
             id: p.id,
             display_name: p.display_name || p.full_name || p.email?.split("@")[0],
             email: p.email
           })));
         }
 
-        const { data: custs } = await supabase.from("customers").select("id, name, phone").limit(100);
-        if (custs) {
-          setCustomersList(custs as any);
+        let fetchedCustomers: any[] = [];
+        let query = supabase.from("customers").select("id, name, phone").is("deleted_at", null);
+
+        if (isAdmin || isSubAdmin) {
+          const { data } = await query;
+          fetchedCustomers = data || [];
+        } else if (isTeleLead) {
+          const { data } = await query.eq("owner_tele_id", user.id);
+          fetchedCustomers = data || [];
+        } else if (isSale) {
+          const { data } = await query.eq("owner_sale_id", user.id);
+          fetchedCustomers = data || [];
+        } else if (isTelesale) {
+          const { data: tasksData } = await supabase
+            .from("customer_tasks")
+            .select("customer_id")
+            .eq("assigned_to", user.id);
+          
+          const customerIds = Array.from(new Set((tasksData || []).map(t => t.customer_id).filter(Boolean)));
+          if (customerIds.length > 0) {
+            const { data: custData } = await query.in("id", customerIds);
+            fetchedCustomers = custData || [];
+          }
         }
-      } catch {
-        /* ignore */
+        setCustomersList(fetchedCustomers);
+      } catch (err) {
+        console.error("Error loading references in tasks board:", err);
       }
     }
     fetchReferences();
-  }, []);
+  }, [user, isAdmin, isSubAdmin, isTeleLead, isSale, isTelesale]);
 
   const loadTasks = async () => {
     setLoading(true);
@@ -188,27 +218,34 @@ export function TasksPage() {
       // Tối ưu hóa truy vấn RLS: Lấy toàn bộ task mà dải bảo mật cho phép đọc
       const { data, error } = await supabase
         .from("customer_tasks")
-        .select("*")
+        .select(`
+          *,
+          customer:customers(
+            id,
+            contact_name,
+            name,
+            business_name,
+            facility_name,
+            phone
+          )
+        `)
         .order("created_at", { ascending: false });
 
       if (error) {
         throw error;
       }
 
-      // Hậu xử lý ánh xạ thông tin khách hàng nếu join không khả dụng
+      // Hậu xử lý ánh xạ thông tin khách hàng từ DB Join
       const finalTasks: TaskItem[] = [];
-      const loaded = data || [];
+      const loaded = (data as any) || [];
 
       for (const t of loaded) {
         let cName = "Khách tự do";
         let cPhone = "—";
 
-        if (t.customer_id) {
-          const matched = customersList.find(c => c.id === t.customer_id);
-          if (matched) {
-            cName = matched.name;
-            cPhone = matched.phone || "—";
-          }
+        if (t.customer) {
+          cName = t.customer.contact_name || t.customer.name || "Khách hàng";
+          cPhone = t.customer.phone || "—";
         }
 
         finalTasks.push({
@@ -554,9 +591,14 @@ export function TasksPage() {
                     <div className="bg-slate-50/80 p-2.5 rounded-lg border border-slate-100 space-y-1 text-xs">
                       <div className="flex items-center justify-between font-semibold text-slate-800">
                         <span className="truncate flex items-center gap-1">
-                          👤 <span>{t.customer_name || "Khách vãng lai"}</span>
+                          👤 <span>{t.customer_name}</span>
                         </span>
                       </div>
+                      {t.customer && (
+                        <div className="text-[11px] text-slate-500 font-medium">
+                          🏢 {t.customer.business_name || t.customer.facility_name || "Chưa có cơ sở"}
+                        </div>
+                      )}
                       <div className="text-[11px] text-slate-500 font-mono">
                         Liên hệ: <strong className="text-slate-700">{t.customer_phone || "—"}</strong>
                       </div>

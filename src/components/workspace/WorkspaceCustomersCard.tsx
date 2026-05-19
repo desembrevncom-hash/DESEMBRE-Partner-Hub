@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { Users, Phone, ShieldCheck, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { getLifecycleLabel } from "@/lib/customerOwnership";
+import { getLifecycleLabel, getStaffName } from "@/lib/customerOwnership";
+import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
 
 interface WorkspaceCustomersCardProps {
   title: string;
@@ -12,6 +13,8 @@ interface WorkspaceCustomersCardProps {
 }
 
 export const WorkspaceCustomersCard: React.FC<WorkspaceCustomersCardProps> = ({ title, customers, icon, color, emptyMessage = "Chưa có khách cần chăm hôm nay." }) => {
+  const [previewCustomer, setPreviewCustomer] = useState<any | null>(null);
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden flex flex-col h-full">
       <div className={`${color} p-4 text-white flex items-center justify-between`}>
@@ -25,13 +28,17 @@ export const WorkspaceCustomersCard: React.FC<WorkspaceCustomersCardProps> = ({ 
       <div className="flex-1 overflow-y-auto max-h-[300px] divide-y divide-slate-50">
         {customers.length > 0 ? (
           customers.map(c => (
-            <div key={c.id} className="p-4 hover:bg-slate-50 transition-colors group cursor-pointer">
+            <div 
+              key={c.id} 
+              onClick={() => setPreviewCustomer(c)}
+              className="p-4 hover:bg-slate-50 transition-colors group cursor-pointer block"
+            >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <h4 className="text-[13px] font-bold text-slate-800 line-clamp-1 group-hover:text-primary transition-colors">
-                    {c.facility_name}
+                    {c.facility_name || c.name || "Khách hàng"}
                   </h4>
-                  <p className="text-[10px] text-slate-500 font-medium mt-0.5">{c.name}</p>
+                  <p className="text-[10px] text-slate-500 font-medium mt-0.5">{c.name || c.contact_name}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
                   <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 text-[9px] font-bold">
@@ -49,6 +56,13 @@ export const WorkspaceCustomersCard: React.FC<WorkspaceCustomersCardProps> = ({ 
           </div>
         )}
       </div>
+
+      <CustomerPreviewDrawer
+        customer={previewCustomer}
+        open={!!previewCustomer}
+        onOpenChange={(open) => !open && setPreviewCustomer(null)}
+        getStaffName={getStaffName}
+      />
     </div>
   );
 };

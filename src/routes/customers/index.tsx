@@ -38,11 +38,12 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { SALES_PIPELINE_STAGES, getPipelineStageColor, getPipelineStageLabel } from "@/lib/salesPipeline";
-import { classifyCustomerLifecycle } from "@/lib/customerOwnership";
+import { classifyCustomerLifecycle, getStaffName } from "@/lib/customerOwnership";
 import { QuickLogDialog } from "@/components/customers/QuickLogDialog";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
+import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
 
 export const Route = createFileRoute("/customers/")({
   component: CustomersPage,
@@ -61,6 +62,7 @@ function CustomersPage() {
   // Quick Log State
   const [logTarget, setLogTarget] = useState<any | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [previewCustomer, setPreviewCustomer] = useState<any | null>(null);
 
   // Kanban Optimization States
   const [draggedCustomerId, setDraggedCustomerId] = useState<string | null>(null);
@@ -364,6 +366,7 @@ function CustomersPage() {
                             isAdmin={isAdmin} 
                             isManager={isManager}
                             onQuickLog={() => setLogTarget(customer)}
+                            onPreview={() => setPreviewCustomer(customer)}
                             draggable={true}
                             onDragStart={(e: React.DragEvent) => handleDragStart(e, customer.id)}
                          />
@@ -397,7 +400,10 @@ function CustomersPage() {
                          {filteredCustomers.map(customer => (
                             <tr key={customer.id} className="hover:bg-slate-50/50 transition-all group">
                                <td className="px-8 py-5">
-                                  <Link to="/customers/$id" params={{id: customer.id}} className="flex items-center gap-4">
+                                  <div 
+                                     onClick={() => setPreviewCustomer(customer)} 
+                                     className="flex items-center gap-4 cursor-pointer"
+                                  >
                                      <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-200 group-hover:scale-110 transition-transform">
                                         {(customer.contact_name || customer.name)?.slice(0,1) || "C"}
                                      </div>
@@ -407,7 +413,7 @@ function CustomersPage() {
                                            <Users className="w-3 h-3" /> {customer.contact_name || customer.name} • {customer.phone}
                                         </p>
                                      </div>
-                                  </Link>
+                                  </div>
                                </td>
                                <td className="px-8 py-5 text-center">
                                   <Badge variant="outline" className={`rounded-lg font-black text-[9px] uppercase border-none ${getPipelineStageColor(customer.lifecycle_stage)} bg-opacity-10 text-opacity-100`}>
@@ -455,11 +461,18 @@ function CustomersPage() {
         onOpenChange={setIsAddDialogOpen} 
         onSuccess={fetchCustomers}
       />
+
+      <CustomerPreviewDrawer
+        customer={previewCustomer}
+        open={!!previewCustomer}
+        onOpenChange={(open) => !open && setPreviewCustomer(null)}
+        getStaffName={getStaffName}
+      />
     </div>
   );
 }
 
-function CustomerCard({ customer, stage, isAdmin, isManager, onQuickLog, draggable, onDragStart }: any) {
+function CustomerCard({ customer, stage, isAdmin, isManager, onQuickLog, draggable, onDragStart, onPreview }: any) {
   // Logic hành động nhanh tùy theo giai đoạn và vai trò người dùng
   const getAction = () => {
     // Nếu là Admin hoặc Phó Admin (Manager), họ không gọi điện/nhắc chốt/log ship, mà chỉ có 2 tác vụ: "CHIA LEAD" ở cột new_lead và "CHI TIẾT" ở các cột còn lại
@@ -503,6 +516,7 @@ function CustomerCard({ customer, stage, isAdmin, isManager, onQuickLog, draggab
     <Card 
       draggable={draggable}
       onDragStart={onDragStart}
+      onClick={() => onPreview && onPreview(customer)}
       className={`rounded-[24px] shadow-sm hover:shadow-xl transition-all duration-300 bg-white overflow-hidden group border cursor-grab active:cursor-grabbing relative ${isQuotedOverdue ? 'border-red-400 shadow-red-100 ring-1 ring-red-400/50' : 'border-transparent hover:border-slate-200'}`}
     >
        <CardContent className="p-5 space-y-4">
@@ -545,16 +559,20 @@ function CustomerCard({ customer, stage, isAdmin, isManager, onQuickLog, draggab
 
           <div className="pt-1 flex gap-2">
              <Button 
-                asChild
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPreview && onPreview(customer);
+                }}
                 className={`flex-1 rounded-xl h-8 text-[9px] font-black tracking-widest text-white shadow-sm transition-all hover:scale-105 ${action.color}`}
              >
-                <Link to="/customers/$id" params={{id: customer.id}}>
-                   <action.icon className="w-3 h-3 mr-1.5" /> {action.label}
-                </Link>
+                <action.icon className="w-3 h-3 mr-1.5" /> {action.label}
              </Button>
              <Button 
                 variant="outline" 
-                onClick={onQuickLog}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onQuickLog();
+                }}
                 className="w-8 h-8 rounded-xl border-slate-100 p-0 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-100 transition-all"
              >
                 <MessageSquare className="w-3.5 h-3.5" />

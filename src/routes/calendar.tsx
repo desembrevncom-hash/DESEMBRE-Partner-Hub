@@ -79,7 +79,7 @@ export const Route = createFileRoute("/calendar")({
 });
 
 function CalendarPage() {
-  const { user, isAdmin, isSubAdmin, isManager } = useAuth();
+  const { user, isAdmin, isSubAdmin, isTeleLead, isTelesale, isSale, isManager } = useAuth();
   
   // Dữ liệu danh sách
   const [events, setEvents] = useState<UnifiedCalendarEvent[]>([]);
@@ -146,8 +146,32 @@ function CalendarPage() {
   // Hàm nạp danh sách dữ liệu nền tảng
   const loadBaseData = async () => {
     try {
-      // 1. Tải danh sách khách hàng kèm số điện thoại và email
-      const { data: custData } = await supabase.from("customers").select("id, contact_name, name, business_name, facility_name, phone, email");
+      // 1. Tải danh sách khách hàng kèm số điện thoại và email theo role phân quyền
+      let custData: any[] = [];
+      let query = supabase.from("customers").select("id, contact_name, name, business_name, facility_name, phone, email").is("deleted_at", null);
+
+      if (isAdmin || isSubAdmin) {
+        const { data } = await query;
+        custData = data || [];
+      } else if (isTeleLead) {
+        const { data } = await query.eq("owner_tele_id", user?.id);
+        custData = data || [];
+      } else if (isSale) {
+        const { data } = await query.eq("owner_sale_id", user?.id);
+        custData = data || [];
+      } else if (isTelesale) {
+        const { data: tasksData } = await supabase
+          .from("customer_tasks")
+          .select("customer_id")
+          .eq("assigned_to", user?.id);
+        
+        const customerIds = Array.from(new Set((tasksData || []).map(t => t.customer_id).filter(Boolean)));
+        if (customerIds.length > 0) {
+          const { data: custVal } = await query.in("id", customerIds);
+          custData = custVal || [];
+        }
+      }
+
       const listC: Array<{ id: string; name: string; phone?: string | null; email?: string | null }> = [];
       const mapC: Record<string, { name: string; phone?: string | null; email?: string | null }> = {};
       

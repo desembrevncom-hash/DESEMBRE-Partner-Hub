@@ -34,7 +34,7 @@ export const ManagerWorkspace: React.FC = () => {
       if (!user) return;
       
       const [customersRes, tasksRes, notifsRes, companyRes] = await Promise.all([
-        supabase.from("customers").select("*").order("created_at", { ascending: false }).limit(5),
+        supabase.from("customers").select("*").is("deleted_at", null).order("created_at", { ascending: false }).limit(5),
         supabase.from("customer_tasks").select("*, customer:customers(name, facility_name, phone)").order("due_at", { ascending: true }).limit(5),
         supabase.from("notifications").select("*").eq("recipient_user_id", user.id).order("created_at", { ascending: false }).limit(5),
         supabase.from("company_events").select("*").order("starts_at", { ascending: true })

@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect, useMemo } from "react";
@@ -7,31 +7,43 @@ import {
   ChevronLeft, 
   Phone, 
   MapPin, 
-  Building2, 
   UserCircle, 
-  ShieldCheck, 
-  Zap, 
   Target, 
   Users, 
   FileText, 
   Plus,
   MessageCircle,
   Activity,
-  ChevronRight,
   Sparkles,
-  Edit3,
   Star,
   Clock,
   Filter,
   CheckCircle2,
   Package,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  PhoneCall,
+  User,
+  ExternalLink,
+  MoreHorizontal,
+  Play,
+  Check,
+  PhoneOff,
+  CalendarClock,
+  UserX,
+  Heart,
+  ArrowRightLeft
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import { 
   getLifecycleConfig, 
   getStaffName, 
@@ -46,6 +58,13 @@ import { NotificationBell } from "@/components/layout/NotificationBell";
 import { TemplateDispatcher } from "@/components/marketing/TemplateDispatcher";
 import { AssignStaffDialog } from "@/components/customers/AssignStaffDialog";
 import { AddTaskDialog } from "@/components/customers/AddTaskDialog";
+import { TaskActionDialog } from "@/components/workspace/TaskActionDialog";
+import { getTaskStatusLabel, getTaskTypeLabel } from "@/lib/tasks";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const DEFAULT_CROSS_SELL_RULES = [
   {
@@ -163,20 +182,24 @@ function CustomerDetailPage() {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
 
-  // Template Dispatcher State
+  // Dialog Toggles
   const [isTemplateOpen, setIsTemplateOpen] = useState(false);
   const [isAssignStaffOpen, setIsAssignStaffOpen] = useState(false);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
+  const [isAddActivityOpen, setIsAddActivityOpen] = useState(false);
 
-  // Spa Equipment Profile State (Upsell Phase 1) - Syncs with database
-  const [spaEquipment, setSpaEquipment] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem(`spa_equipment_${id}`);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
+  // Task Actions State
+  const [taskAction, setTaskAction] = useState<{ task: any; action: string } | null>(null);
+
+  // Quick Activity Form State
+  const [quickActivity, setQuickActivity] = useState({
+    type: "note",
+    title: "",
+    content: "",
+    next_follow_up_at: ""
   });
+
+  const [spaEquipment, setSpaEquipment] = useState<string[]>([]);
 
   // Fetch settings from Database
   useEffect(() => {
@@ -217,13 +240,11 @@ function CustomerDetailPage() {
     const completedOrders = orders.filter(o => o.status === 'completed' || o.status === 'delivered' || !o.status);
     if (completedOrders.length === 0) return null;
     
-    // Sort by created_at descending
     const sorted = [...completedOrders].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     const last = sorted[0];
     
     const lastDate = new Date(last.created_at);
     const today = new Date();
-    // Helper to calculate difference in days
     const elapsed = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
     const cycle = tierSettings.refillCycleDays || 60;
     const remaining = cycle - elapsed;
@@ -275,7 +296,6 @@ function CustomerDetailPage() {
       ? spaEquipment.filter(x => x !== eqName)
       : [...spaEquipment, eqName];
     
-    // Update local state instantly for smooth UX
     setSpaEquipment(next);
     localStorage.setItem(`spa_equipment_${id}`, JSON.stringify(next));
 
@@ -288,18 +308,10 @@ function CustomerDetailPage() {
       toast.success(`Đã cập nhật thiết bị Spa: ${eqName}`);
     } catch (e: any) {
       console.error("Error saving spa equipment to DB:", e);
-      toast.error("Không thể đồng bộ lên Cloud, đã lưu tạm cục bộ trên thiết bị");
+      toast.error("Không thể lưu thay đổi");
     }
   };
 
-  useEffect(() => {
-    setNewActivity(prev => ({
-      ...prev,
-      type: isManager ? 'note' : 'call'
-    }));
-  }, [isManager]);
-
-  // Fetch Core Data
   const fetchCustomer = async () => {
     if (!id) return;
     setLoading(true);
@@ -314,7 +326,6 @@ function CustomerDetailPage() {
       toast.error("Không thể tải thông tin khách hàng");
     } else {
       setCustomer(data);
-      // Sync spa equipment from database if available, else fallback to localStorage
       if (data.spa_equipment && Array.isArray(data.spa_equipment)) {
         setSpaEquipment(data.spa_equipment);
       } else {
@@ -323,8 +334,6 @@ function CustomerDetailPage() {
           if (saved) {
             const parsed = JSON.parse(saved);
             setSpaEquipment(parsed);
-            // Proactively backfill to database in the background
-            await supabase.from("customers").update({ spa_equipment: parsed }).eq("id", id);
           }
         } catch (err) {
           console.error("Failed to parse local spa equipment:", err);
@@ -333,15 +342,6 @@ function CustomerDetailPage() {
     }
     setLoading(false);
   };
-
-  useEffect(() => {
-    fetchCustomer();
-    fetchActivities();
-    fetchTasks();
-    fetchOrders();
-    fetchAppointments();
-    fetchEvents();
-  }, [id]);
 
   const fetchTasks = async () => {
     if (!id) return;
@@ -354,7 +354,7 @@ function CustomerDetailPage() {
   const fetchOrders = async () => {
     if (!id) return;
     try {
-      const { data } = await supabase.from("orders").select("*").eq("customer_id", id).order("created_at", { ascending: false }).limit(5);
+      const { data } = await supabase.from("orders").select("*").eq("customer_id", id).order("created_at", { ascending: false });
       if (data) setOrders(data);
     } catch (e) { console.error("Error fetching orders:", e); }
   };
@@ -375,12 +375,11 @@ function CustomerDetailPage() {
     } catch (e) { console.error("Error fetching events:", e); }
   };
 
-  // Fetch Activities
   const fetchActivities = async () => {
     if (!id) return;
     setLoadingActivities(true);
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("customer_activities")
         .select("*")
         .eq("customer_id", id)
@@ -393,45 +392,54 @@ function CustomerDetailPage() {
     }
   };
 
+  useEffect(() => {
+    fetchCustomer();
+    fetchActivities();
+    fetchTasks();
+    fetchOrders();
+    fetchAppointments();
+    fetchEvents();
+  }, [id]);
+
   const handleAddActivity = async () => {
-    if (!newActivity.content.trim()) {
-      toast.error("Vui lòng nhập nội dung tương tác");
+    if (!quickActivity.title.trim()) {
+      toast.error("Vui lòng nhập tiêu đề nhật ký");
       return;
     }
     try {
-      const typeMap: Record<string, string> = {
-        'note': 'note',
-        'call': 'call',
-        'meeting': 'online_consultation',
-        'message': 'zalo_message'
-      };
-      const titleMap: Record<string, string> = {
-        'note': 'Ghi chú',
-        'call': 'Cuộc gọi',
-        'meeting': 'Tác vụ tư vấn',
-        'message': 'Tin nhắn Zalo'
-      };
-
-      const dbType = typeMap[newActivity.type] || 'note';
-      const dbTitle = titleMap[newActivity.type] || 'Nhật ký tương tác';
-
       const { error } = await supabase.from("customer_activities").insert([{
         customer_id: id,
         created_by: user?.id,
-        activity_type: dbType,
-        title: dbTitle,
-        content: newActivity.content,
+        activity_type: quickActivity.type,
+        title: quickActivity.title,
+        content: quickActivity.content,
+        next_follow_up_at: quickActivity.next_follow_up_at || null
       }]);
       
       if (!error) {
-        setNewActivity({ ...newActivity, content: '' });
+        // Cập nhật trạng thái khách hàng tương ứng
+        const updates: any = { last_contacted_at: new Date().toISOString() };
+        if (quickActivity.next_follow_up_at) {
+          updates.next_follow_up_at = quickActivity.next_follow_up_at;
+        }
+
+        await supabase.from("customers").update(updates).eq("id", id);
+        
+        setQuickActivity({
+          type: "note",
+          title: "",
+          content: "",
+          next_follow_up_at: ""
+        });
+        setIsAddActivityOpen(false);
         fetchActivities();
-        toast.success("Đã lưu hoạt động");
+        fetchCustomer();
+        toast.success("Đã lưu nhật ký tương tác");
       } else {
         throw error;
       }
-    } catch (e) {
-      toast.error("Lỗi khi lưu hoạt động");
+    } catch (e: any) {
+      toast.error("Lỗi: " + e.message);
     }
   };
 
@@ -458,16 +466,16 @@ function CustomerDetailPage() {
 
   const getActivityColor = (type: string) => {
     switch (type) {
-      case 'call': return 'bg-amber-50 text-amber-600 border-amber-100';
+      case 'call': return 'bg-blue-50 text-blue-600 border-blue-100';
       case 'meeting':
       case 'online_consultation':
       case 'showroom_meeting':
       case 'direct_visit': return 'bg-purple-50 text-purple-600 border-purple-100';
       case 'message':
-      case 'zalo_message': return 'bg-indigo-50 text-indigo-600 border-indigo-100';
+      case 'zalo_message': return 'bg-sky-50 text-sky-650 border-sky-100';
       case 'order':
       case 'order_created': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
-      case 'handoff': return 'bg-indigo-50 text-indigo-600 border-indigo-100/50';
+      case 'handoff': return 'bg-amber-50 text-amber-700 border-amber-100';
       default: return 'bg-slate-50 text-slate-600 border-slate-100';
     }
   };
@@ -501,827 +509,651 @@ function CustomerDetailPage() {
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20 font-sans antialiased">
       <div className="mx-auto max-w-7xl px-4 py-8">
+        
         {/* TOP NAVIGATION & ACTIONS */}
-        <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-center gap-6">
+        <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-6 rounded-3xl border border-slate-250/50 shadow-3xs">
+          <div className="flex items-center gap-4">
             <Button 
               variant="ghost" 
               size="icon" 
-              className="rounded-2xl h-12 w-12 bg-white shadow-sm border border-slate-200 hover:bg-slate-50 transition-all"
+              className="rounded-2xl h-10 w-10 bg-slate-50 shadow-inner border border-slate-200 hover:bg-slate-100 transition-all"
               onClick={() => navigate({ to: "/customers" })}
             >
-              <ChevronLeft className="h-6 w-6" />
+              <ChevronLeft className="h-5 w-5 text-slate-600" />
             </Button>
             <div>
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">{customer.business_name || customer.facility_name || customer.contact_name || customer.name}</h1>
+              <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                <h1 className="text-lg font-black text-slate-900 tracking-tight">
+                  {customer.business_name || customer.facility_name || "Spa Tự Do"}
+                </h1>
                 {renderStatusBadge(customer.lifecycle_stage)}
-                <Badge className={`font-black uppercase tracking-wider rounded-lg border-none px-2.5 py-0.5 ${spaTier.color}`}>{spaTier.label}</Badge>
-                {customer.is_vip && <Badge className="bg-amber-100 text-amber-700 border-none text-[10px] font-black"><Star className="w-3 h-3 mr-1 fill-amber-500 text-amber-500" /> VIP</Badge>}
+                <Badge className={`font-black uppercase tracking-wider rounded-lg border-none px-2 py-0.5 ${spaTier.color}`}>{spaTier.label}</Badge>
+                {customer.is_vip && <Badge className="bg-amber-100 text-amber-700 border-none text-[9px] font-black"><Star className="w-2.5 h-2.5 mr-1 fill-amber-500 text-amber-500" /> VIP</Badge>}
               </div>
-              <div className="flex items-center gap-4 text-xs font-bold text-slate-400 uppercase tracking-widest">
-                <span className="flex items-center gap-1.5"><UserCircle className="w-4 h-4" /> {customer.contact_name || customer.name}</span>
-                <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4" /> {customer.city}</span>
+              <div className="flex flex-wrap items-center gap-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <span className="flex items-center gap-1"><UserCircle className="w-3.5 h-3.5" /> {customer.contact_name || customer.name || "N/A"}</span>
+                {customer.phone && (
+                  <>
+                    <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                    <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5" /> {customer.phone}</span>
+                  </>
+                )}
+                {customer.city && (
+                  <>
+                    <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                    <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {customer.city}</span>
+                  </>
+                )}
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          
+          <div className="flex flex-wrap items-center gap-2">
             <NotificationBell />
+            {customer.phone && (
+              <a 
+                href={`tel:${customer.phone}`}
+                className="inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-xs h-9 px-4 text-white shadow-3xs transition-all"
+              >
+                <PhoneCall className="mr-1.5 h-3.5 w-3.5" /> Gọi điện
+              </a>
+            )}
             <Button 
               variant="outline" 
-              onClick={() => setIsTemplateOpen(true)}
-              className="rounded-xl border-slate-200 font-black text-[10px] text-indigo-600 bg-white shadow-sm hover:bg-indigo-50 h-10 px-6 uppercase tracking-widest border-indigo-100/50"
+              onClick={() => setIsAddActivityOpen(true)}
+              className="rounded-xl border-slate-200 font-bold text-xs bg-white text-slate-700 hover:bg-slate-50 h-9 px-4 shadow-3xs"
             >
-              <MessageCircle className="mr-2 h-3.5 w-3.5" /> Gửi tin nhắn
+              <FileText className="mr-1.5 h-3.5 w-3.5 text-primary" /> Ghi chú chăm sóc
             </Button>
-            <Button variant="outline" className="rounded-xl border-slate-200 font-black text-[10px] text-slate-600 bg-white shadow-sm hover:bg-slate-50 h-10 px-6 uppercase tracking-widest">
-              <Phone className="mr-2 h-3.5 w-3.5" /> Gọi điện
+            <Button 
+              variant="outline" 
+              onClick={() => setIsAddTaskOpen(true)}
+              className="rounded-xl border-slate-200 font-bold text-xs bg-white text-slate-700 hover:bg-slate-50 h-9 px-4 shadow-3xs"
+            >
+              <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-blue-500" /> Tạo task
             </Button>
-            <Button className="rounded-xl font-black text-[10px] bg-slate-900 hover:bg-black shadow-lg shadow-slate-200 h-10 px-8 transition-all uppercase tracking-widest">
-              <Plus className="mr-2 h-3.5 w-3.5" /> Lên đơn mới
+            <Button 
+              onClick={() => navigate({ to: "/orders/new", search: { customerId: customer.id } })}
+              className="rounded-xl font-bold text-xs bg-slate-900 hover:bg-black text-white h-9 px-5 shadow-3xs transition-all"
+            >
+              <Plus className="mr-1.5 h-3.5 w-3.5" /> Tạo đơn
             </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-10 lg:grid-cols-3">
-          {/* LEFT COLUMN: INSIGHTS & PROFILE */}
-          <div className="space-y-8">
-            <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white">
-              <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-5 px-8">
-                <CardTitle className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                   <Activity className="w-4 h-4 text-indigo-500" /> Chỉ số sức khỏe khách hàng
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-8">
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div className="p-5 bg-slate-50 rounded-[24px] border border-slate-100">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Đơn hàng</p>
-                    <p className="text-2xl font-black text-slate-900">{customer.total_orders_count || 0}</p>
+        {/* CUSTOMER CARE OWNERS MINI CARD */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 bg-slate-100/50 p-4 rounded-3xl border border-slate-200">
+          <div className="bg-white p-3.5 rounded-2xl border border-slate-200/60 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sale phụ trách</p>
+              <p className="text-xs font-bold text-slate-800 mt-1">{getStaffName(customer.owner_sale_id) || "Chưa phân công"}</p>
+            </div>
+            {isManager && (
+              <Button size="sm" variant="ghost" className="text-[10px] font-bold text-indigo-600 hover:bg-indigo-50" onClick={() => setIsAssignStaffOpen(true)}>
+                Gán lại
+              </Button>
+            )}
+          </div>
+          <div className="bg-white p-3.5 rounded-2xl border border-slate-200/60 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Telesale hỗ trợ</p>
+              <p className="text-xs font-bold text-slate-800 mt-1">{getStaffName(customer.owner_tele_id) || "Chưa phân công"}</p>
+            </div>
+            {isManager && (
+              <Button size="sm" variant="ghost" className="text-[10px] font-bold text-indigo-600 hover:bg-indigo-50" onClick={() => setIsAssignStaffOpen(true)}>
+                Gán lại
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-8">
+          
+          <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="bg-white p-1 rounded-2xl border border-slate-200 shadow-3xs mb-8 flex flex-wrap w-full">
+              <TabsTrigger value="overview" className="rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all flex-1 text-center">
+                Tổng quan
+              </TabsTrigger>
+              <TabsTrigger value="activities" className="rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all flex-1 text-center">
+                Nhật ký chăm sóc
+              </TabsTrigger>
+              <TabsTrigger value="tasks" className="rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all flex-1 text-center">
+                Việc cần làm
+              </TabsTrigger>
+              <TabsTrigger value="orders" className="rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all flex-1 text-center">
+                Đơn hàng
+              </TabsTrigger>
+              <TabsTrigger value="appointments" className="rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all flex-1 text-center">
+                Lịch hẹn
+              </TabsTrigger>
+              <TabsTrigger value="events" className="rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all flex-1 text-center">
+                Sự kiện
+              </TabsTrigger>
+              <TabsTrigger value="upsell" className="rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all flex-1 text-center text-indigo-650 bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-100/50">
+                Gợi ý Upsell
+              </TabsTrigger>
+            </TabsList>
+
+            {/* OVERVIEW CONTENT (Tổng quan) */}
+            <TabsContent value="overview" className="mt-0 outline-none space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                {/* Basic profile info card */}
+                <Card className="rounded-3xl border-none shadow-3xs bg-white p-6 md:col-span-2">
+                  <h3 className="text-xs font-black uppercase text-slate-800 tracking-wider mb-5 flex items-center gap-2">
+                    <User className="w-4 h-4 text-indigo-500" /> Thông tin cơ bản
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Tên liên hệ</p>
+                      <p className="text-xs font-black text-slate-800">{customer.contact_name || customer.name || "N/A"}</p>
+                    </div>
+                    {customer.email && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Email</p>
+                        <p className="text-xs font-black text-slate-800">{customer.email}</p>
+                      </div>
+                    )}
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Địa chỉ cụ thể</p>
+                      <p className="text-xs font-bold text-slate-700 leading-relaxed">{customer.address || "N/A"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Quy mô Spa</p>
+                      <p className="text-xs font-bold text-slate-700">
+                        {customer.bed_count || 0} Giường &middot; {customer.staff_count || 0} Nhân viên
+                      </p>
+                    </div>
                   </div>
-                  <div className="p-5 bg-slate-50 rounded-[24px] border border-slate-100 flex flex-col justify-between">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Doanh số</p>
-                    <p className="text-base font-black text-indigo-600 truncate" title={`${totalSpend.toLocaleString('vi-VN')} đ`}>
-                      {new Intl.NumberFormat('vi-VN').format(totalSpend)}đ
-                    </p>
+                </Card>
+
+                {/* Care pipeline and route */}
+                <Card className="rounded-3xl border-none shadow-3xs bg-white p-6">
+                  <h3 className="text-xs font-black uppercase text-slate-800 tracking-wider mb-5 flex items-center gap-2">
+                    <Target className="w-4 h-4 text-amber-500" /> Tuyến chăm sóc
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">Kênh tiếp cận</span>
+                      <Badge variant="outline" className="text-[9px] uppercase font-bold bg-white text-slate-600 border-slate-200">
+                        {getCustomerChannelLabel(customer.customer_channel) || "Chưa thiết lập"}
+                      </Badge>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">Phân loại khoảng cách</span>
+                      <Badge variant="outline" className="text-[9px] uppercase font-bold bg-white text-slate-600 border-slate-200">
+                        {getCustomerDistanceLabel(customer.customer_distance_type) || "Chưa thiết lập"}
+                      </Badge>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">Mô hình hỗ trợ</span>
+                      <Badge variant="outline" className="text-[9px] uppercase font-bold bg-white text-slate-600 border-slate-200">
+                        {getCareModelLabel(customer.care_model) || "Chưa thiết lập"}
+                      </Badge>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Purchase KPIs card */}
+                <Card className="rounded-3xl border-none shadow-3xs bg-white p-6">
+                  <h3 className="text-xs font-black uppercase text-slate-800 tracking-wider mb-5 flex items-center gap-2">
+                    <Package className="w-4 h-4 text-emerald-500" /> Chỉ số mua hàng
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">Số đơn hàng</span>
+                      <span className="text-sm font-black text-slate-900">{customer.total_orders_count || 0} đơn</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">Doanh số tích lũy</span>
+                      <span className="text-sm font-black text-indigo-600">{new Intl.NumberFormat("vi-VN").format(customer.total_order_amount || 0)}đ</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">Đơn hàng cuối</span>
+                      <span className="text-[11px] font-bold text-slate-700">
+                        {customer.last_order_at ? format(new Date(customer.last_order_at), "dd/MM/yyyy") : "Chưa phát sinh"}
+                      </span>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Follow up stats card */}
+                <Card className="rounded-3xl border-none shadow-3xs bg-white p-6 md:col-span-2">
+                  <h3 className="text-xs font-black uppercase text-slate-800 tracking-wider mb-5 flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-rose-500" /> Kế hoạch Follow-up
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-between h-20">
+                      <span className="text-[9px] text-slate-450 font-bold uppercase">Lần tương tác cuối</span>
+                      <span className="text-sm font-black text-slate-850">{customer.last_contacted_at ? format(new Date(customer.last_contacted_at), "dd/MM/yyyy HH:mm") : "N/A"}</span>
+                    </div>
+                    <div className="p-3 bg-rose-50/20 rounded-xl border border-rose-100/50 flex flex-col justify-between h-20">
+                      <span className="text-[9px] text-rose-600 font-bold uppercase">Ngày hẹn follow-up tiếp</span>
+                      <span className="text-sm font-black text-rose-700">{customer.next_follow_up_at ? format(new Date(customer.next_follow_up_at), "dd/MM/yyyy HH:mm") : "Chưa lên lịch"}</span>
+                    </div>
+                  </div>
+                </Card>
+
+              </div>
+            </TabsContent>
+
+            {/* ACTIVITIES CONTENT (Nhật ký chăm sóc) */}
+            <TabsContent value="activities" className="mt-0 outline-none space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-slate-400" />
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { label: "Tất cả", value: "all" },
+                      { label: "Cuộc gọi", value: "call" },
+                      { label: "Gặp trực tiếp", value: "direct_visit" },
+                      { label: "Zalo", value: "zalo_message" },
+                      { label: "Đơn hàng", value: "order_created" },
+                      { label: "Ghi chú", value: "note" }
+                    ].map((f) => (
+                      <button
+                        key={f.value}
+                        onClick={() => setFilterType(f.value)}
+                        className={`px-3 py-1.5 text-[10px] font-bold rounded-lg border transition-all ${
+                          filterType === f.value
+                            ? "bg-slate-900 border-slate-900 text-white shadow-3xs"
+                            : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
                 
-                <div className="space-y-4">
-                   <div className="flex items-center justify-between p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50">
-                      <div className="flex items-center gap-3">
-                         <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center text-white">
-                            <Clock className="w-4 h-4" />
-                         </div>
-                         <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase">Tương tác cuối</p>
-                            <p className="text-xs font-black text-slate-700 mt-0.5">{customer.last_order_at ? format(new Date(customer.last_order_at), "dd/MM/yyyy") : "Chưa rõ"}</p>
-                         </div>
-                      </div>
-                      <Badge variant="outline" className="bg-white text-indigo-600 border-indigo-200 font-black text-[9px]">99+ NGÀY</Badge>
-                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                <Button 
+                  size="sm" 
+                  onClick={() => setIsAddActivityOpen(true)}
+                  className="bg-slate-900 text-white hover:bg-black rounded-xl text-xs font-bold px-4"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Thêm hoạt động
+                </Button>
+              </div>
 
-            <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white">
-              <CardHeader className="py-5 px-8 border-b border-slate-50 flex flex-row items-center justify-between">
-                <CardTitle className="text-xs font-black text-slate-900 uppercase tracking-widest">Hồ sơ đối tác</CardTitle>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-slate-900"><Edit3 className="w-4 h-4" /></Button>
-              </CardHeader>
-              <CardContent className="p-8 space-y-8">
-                <div className="flex items-start gap-5">
-                  <div className="w-11 h-11 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 border border-slate-100 shrink-0 shadow-sm">
-                    <MapPin className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Địa chỉ vận hành</p>
-                    <p className="text-xs font-bold text-slate-700 leading-relaxed">{customer.address || "Chưa cập nhật"}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-5">
-                  <div className="w-11 h-11 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 border border-slate-100 shrink-0 shadow-sm">
-                    <Phone className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Liên hệ trực tiếp</p>
-                    <p className="text-xs font-black text-slate-900 tracking-tight">{customer.phone || "—"}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-5">
-                  <div className="w-11 h-11 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 border border-slate-100 shrink-0 shadow-sm">
-                    <Building2 className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Quy mô cơ sở</p>
-                    <p className="text-xs font-bold text-slate-700">{customer.bed_count || 0} Giường • {customer.staff_count || 0} Nhân sự</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* RIGHT COLUMN: TIMELINE & TABS */}
-          <div className="lg:col-span-2 space-y-8">
-            <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="bg-white/80 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200/60 shadow-sm mb-8 h-auto flex flex-wrap w-full lg:sticky lg:top-24 z-20">
-                <TabsTrigger value="overview" className="rounded-xl px-4 lg:px-6 py-2 lg:py-3 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all flex-1 text-center">
-                   <Target className="mr-2 h-4 w-4 hidden sm:inline" /> Tổng quan
-                </TabsTrigger>
-                <TabsTrigger value="activities" className="rounded-xl px-4 lg:px-6 py-2 lg:py-3 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all flex-1 text-center">
-                   <Activity className="mr-2 h-4 w-4 hidden sm:inline" /> Nhật ký
-                </TabsTrigger>
-                <TabsTrigger value="tasks" className="rounded-xl px-4 lg:px-6 py-2 lg:py-3 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all flex-1 text-center">
-                   <CheckCircle2 className="mr-2 h-4 w-4 hidden sm:inline" /> Việc làm
-                </TabsTrigger>
-                <TabsTrigger value="orders" className="rounded-xl px-4 lg:px-6 py-2 lg:py-3 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all flex-1 text-center">
-                   <Package className="mr-2 h-4 w-4 hidden sm:inline" /> Đơn hàng
-                </TabsTrigger>
-                <TabsTrigger value="appointments" className="rounded-xl px-4 lg:px-6 py-2 lg:py-3 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all flex-1 text-center">
-                   <Calendar className="mr-2 h-4 w-4 hidden sm:inline" /> Lịch hẹn
-                </TabsTrigger>
-                <TabsTrigger value="events" className="rounded-xl px-4 lg:px-6 py-2 lg:py-3 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-all flex-1 text-center">
-                   <Star className="mr-2 h-4 w-4 hidden sm:inline" /> Sự kiện
-                </TabsTrigger>
-                <TabsTrigger value="upsell" className="rounded-xl px-4 lg:px-6 py-2 lg:py-3 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white transition-all flex-1 text-center bg-indigo-50/40 border border-indigo-100/30 text-indigo-700 hover:bg-indigo-50/80">
-                   <Sparkles className="mr-2 h-4 w-4 hidden sm:inline text-indigo-500" /> Upsell
-                </TabsTrigger>
-              </TabsList>
-
-              {/* ACTIVITIES CONTENT */}
-              <TabsContent value="activities" className="mt-0 space-y-8 outline-none">
-                {/* Elite Activity Form */}
-                <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white border border-indigo-100/50 shadow-indigo-100/20">
-                  <CardContent className="p-6">
-                    <div className="flex gap-2 mb-6 overflow-x-auto pb-2 no-scrollbar">
-                      {[
-                        { id: 'note', label: 'GHI CHÚ', icon: FileText, color: 'text-slate-500' },
-                        { id: 'call', label: 'GỌI ĐIỆN', icon: Phone, color: 'text-amber-500' },
-                        { id: 'meeting', label: 'GẶP MẶT', icon: Users, color: 'text-purple-500' },
-                        { id: 'message', label: 'ZALO', icon: MessageCircle, color: 'text-indigo-500' },
-                      ].filter(t => {
-                        if (isManager) {
-                          return t.id === 'note';
-                        } else {
-                          return t.id !== 'note';
-                        }
-                      }).map((type) => (
-                        <Button 
-                          key={type.id}
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setNewActivity({ ...newActivity, type: type.id })}
-                          className={`rounded-xl text-[10px] font-black h-10 px-5 transition-all ${newActivity.type === type.id ? 'bg-slate-900 text-white shadow-lg' : 'hover:bg-slate-50 text-slate-400'}`}
-                        >
-                          <type.icon className={`mr-2 h-4 w-4 ${newActivity.type === type.id ? 'text-white' : type.color}`} /> {type.label}
-                        </Button>
-                      ))}
-                    </div>
-                    <textarea 
-                      className="w-full min-h-[140px] bg-slate-50 rounded-[24px] p-6 text-sm focus:ring-0 focus:bg-white border-2 border-transparent focus:border-slate-100 transition-all placeholder:text-slate-400 font-medium resize-none shadow-inner"
-                      placeholder="Ghi lại kết quả tư vấn, lý do khách chưa chốt đơn hoặc các lưu ý phục vụ CSKH..."
-                      value={newActivity.content}
-                      onChange={(e) => setNewActivity({ ...newActivity, content: e.target.value })}
-                    />
-                    <div className="flex items-center justify-between mt-6">
-                      <div className="flex items-center gap-3">
-                         <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse ring-4 ring-emerald-50"></div>
-                         <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">Live Synchronization</p>
+              <div className="relative pl-8 space-y-6 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-100">
+                {filteredActivities.length > 0 ? (
+                  filteredActivities.map((act) => (
+                    <div key={act.id} className="relative group">
+                      <div className={`absolute left-[-29px] top-1.5 w-6 h-6 rounded-full border border-slate-200 flex items-center justify-center shadow-3xs group-hover:border-primary transition-colors ${getActivityColor(act.activity_type)}`}>
+                        {getActivityIcon(act.activity_type)}
                       </div>
-                      <Button onClick={handleAddActivity} className="rounded-xl px-10 font-black text-xs bg-slate-900 hover:bg-black h-11 shadow-xl shadow-slate-200 hover:scale-105 transition-all uppercase tracking-widest">
-                        Lưu nhật ký
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* VISUAL TIMELINE AXIS */}
-                <div className="space-y-8">
-                   <div className="flex items-center justify-between px-4">
-                      <div className="flex items-center gap-3">
-                         <Filter className="w-4 h-4 text-slate-400" />
-                         <div className="flex gap-2">
-                            {['all', 'call', 'order', 'message', 'note'].map(t => (
-                               <button 
-                                  key={t}
-                                  onClick={() => setFilterType(t)}
-                                  className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border transition-all ${filterType === t ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300'}`}
-                               >
-                                  {t === 'all' ? 'TẤT CẢ' : t}
-                               </button>
-                            ))}
-                         </div>
-                      </div>
-                      <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{filteredActivities.length} Hoạt động</p>
-                   </div>
-
-                   <div className="relative pl-10 space-y-10 before:absolute before:left-[19px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gradient-to-b before:from-slate-200 before:via-slate-100 before:to-transparent before:content-['']">
-                    {loadingActivities ? (
-                      <div className="py-20 text-center flex flex-col items-center gap-3">
-                        <Loader2 className="w-10 h-10 animate-spin text-slate-200" />
-                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Retrieving History...</p>
-                      </div>
-                    ) : filteredActivities.length > 0 ? (
-                      filteredActivities.map((activity) => (
-                        <div key={activity.id} className="relative animate-in fade-in slide-in-from-left-4 duration-500">
-                          {/* Timeline Bullet Icon */}
-                          <div className={`absolute -left-[43px] top-0 w-11 h-11 rounded-2xl border-4 border-[#f8fafc] shadow-lg flex items-center justify-center z-10 transition-transform hover:scale-110 ${getActivityColor(activity.activity_type)}`}>
-                            {getActivityIcon(activity.activity_type)}
-                          </div>
-                          
-                          <div className="bg-white p-6 rounded-[28px] border border-slate-100 shadow-sm hover:shadow-xl transition-all group relative border-l-4 border-l-transparent hover:border-l-slate-900">
-                            <div className="flex items-center justify-between mb-4">
-                               <div className="flex items-center gap-4">
-                                  <span className="text-[10px] font-black text-slate-900 uppercase tracking-[0.15em]">
-                                    {activity.activity_type === 'note' ? 'Hệ thống ghi chú' : 
-                                     activity.activity_type === 'handoff' ? 'BÀN GIAO & NHU CẦU' : 
-                                     activity.activity_type === 'call' ? 'CUỘC GỌI' :
-                                     activity.activity_type === 'zalo_message' ? 'TIN NHẮN ZALO' :
-                                     activity.activity_type === 'online_consultation' ? 'TƯ VẤN ONLINE' :
-                                     `Nhật ký ${activity.activity_type}`}
-                                  </span>
-                                 <span className="text-[10px] text-slate-300 font-bold flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-full">
-                                   <Clock className="w-3 h-3" /> {format(new Date(activity.created_at), "HH:mm · dd/MM/yyyy", { locale: vi })}
-                                 </span>
-                               </div>
-                               <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-200 hover:text-slate-900 rounded-xl"><Edit3 className="w-4 h-4" /></Button>
-                               </div>
-                            </div>
-                            <p className="text-sm text-slate-700 leading-relaxed font-medium whitespace-pre-wrap pl-1">
-                              {activity.content}
-                            </p>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="py-24 text-center flex flex-col items-center justify-center bg-white rounded-[40px] border-2 border-dashed border-slate-100 mx-4">
-                         <div className="w-24 h-24 rounded-full bg-slate-50 flex items-center justify-center text-slate-100 mb-6 shadow-inner">
-                            <Activity className="w-12 h-12" />
-                         </div>
-                         <h3 className="text-sm font-black text-slate-900 uppercase tracking-[0.2em]">Chưa có dữ liệu tương tác</h3>
-                         <p className="text-xs text-slate-400 mt-3 max-w-[300px] leading-relaxed font-medium">
-                           Mọi hoạt động từ gọi điện, nhắn tin cho đến đơn hàng sẽ được hiển thị tại đây để bạn tiện theo dõi.
-                         </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </TabsContent>
-
-              {/* OVERVIEW TAB */}
-              <TabsContent value="overview" className="outline-none">
-                <Card className="rounded-[40px] border-none shadow-sm bg-white p-10">
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                      <div className="space-y-8">
-                         <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.2em] flex items-center gap-3">
-                            <Target className="w-5 h-5 text-indigo-500" /> Mô hình quản trị Lead
-                         </h4>
-                         <div className="p-8 bg-slate-50 rounded-[32px] border border-slate-100 space-y-6">
-                            <div className="flex justify-between items-center">
-                               <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider">CHẾ ĐỘ CHĂM SÓC</span>
-                               <Badge className="bg-slate-900 text-white border-none font-black text-[9px] uppercase px-4 py-1.5 rounded-full">{getCareModelLabel(customer.care_model)}</Badge>
-                            </div>
-                            <div className="flex justify-between items-center">
-                               <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider">NGUỒN DỮ LIỆU</span>
-                               <Badge variant="outline" className="text-slate-600 border-slate-200 bg-white font-black text-[9px] uppercase px-4 py-1.5 rounded-full">{customer.customer_channel || "OFFLINE"}</Badge>
-                            </div>
-                            <p className="text-[10px] text-slate-400 font-medium leading-relaxed italic border-t border-slate-200 pt-4 mt-4">
-                               Phân tuyến này tự động điều phối quyền truy cập dữ liệu giữa Sale và Telesale để tối ưu hóa quy trình bán hàng.
-                            </p>
-                         </div>
-
-                         {customer.note && (
-                           <div className="p-8 bg-indigo-50/30 rounded-[32px] border border-indigo-100/50 space-y-3 mt-6">
-                              <span className="text-[10px] text-indigo-500 font-black uppercase tracking-wider flex items-center gap-1.5">
-                                <Sparkles className="w-3.5 h-3.5 text-indigo-500 animate-pulse" /> Nhu cầu & Ghi chú bàn giao
-                              </span>
-                              <p className="text-xs font-semibold text-slate-700 leading-relaxed pl-1 whitespace-pre-wrap">
-                                 {customer.note}
-                              </p>
-                           </div>
-                         )}
-                      </div>
-                      <div className="space-y-8">
-                         <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.2em] flex items-center gap-3">
-                            <MapPin className="w-5 h-5 text-amber-500" /> Phân tuyến & Trạng thái
-                         </h4>
-                         <div className="grid grid-cols-2 gap-4">
-                            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Kênh tiếp cận</p>
-                               <p className="text-xs font-bold text-slate-900">{getCustomerChannelLabel(customer.customer_channel)}</p>
-                            </div>
-                            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Khoảng cách</p>
-                               <p className="text-xs font-bold text-slate-900">{getCustomerDistanceLabel(customer.customer_distance_type)}</p>
-                            </div>
-                            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 col-span-2">
-                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Mô hình chăm sóc</p>
-                               <p className="text-xs font-bold text-slate-900">{getCareModelLabel(customer.care_model)}</p>
-                            </div>
-                         </div>
-
-                         <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.2em] flex items-center gap-3">
-                            <Users className="w-5 h-5 text-indigo-500" /> Đội ngũ phụ trách
-                         </h4>
-                         <div className="space-y-4">
-                            <div 
-                               className="flex items-center gap-5 p-6 bg-white border border-slate-100 rounded-[28px] hover:shadow-lg hover:border-indigo-200 hover:ring-2 hover:ring-indigo-50 transition-all group cursor-pointer"
-                               onClick={() => {
-                                  if (isManager) {
-                                     setIsAssignStaffOpen(true);
-                                  } else {
-                                     toast.error("Chỉ Admin hoặc Phó Admin mới có quyền phân tuyến người phụ trách.");
-                                  }
-                               }}
-                            >
-                               <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm font-black border border-indigo-100 shadow-sm group-hover:scale-105 transition-transform uppercase">S</div>
-                               <div className="flex-1">
-                                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Direct Sale</p>
-                                  <p className="text-sm font-black text-slate-900">{getStaffName(customer.owner_sale_id) || "Chưa phân công"}</p>
-                               </div>
-                               <Button variant="ghost" size="icon" className="rounded-xl group-hover:bg-indigo-50"><ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-indigo-600" /></Button>
-                            </div>
-                            <div 
-                               className="flex items-center gap-5 p-6 bg-white border border-slate-100 rounded-[28px] hover:shadow-lg hover:border-rose-200 hover:ring-2 hover:ring-rose-50 transition-all group cursor-pointer"
-                               onClick={() => {
-                                  if (isManager) {
-                                     setIsAssignStaffOpen(true);
-                                  } else {
-                                     toast.error("Chỉ Admin hoặc Phó Admin mới có quyền phân tuyến người phụ trách.");
-                                  }
-                               }}
-                            >
-                               <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-sm font-black border border-rose-100 shadow-sm group-hover:scale-105 transition-transform uppercase">T</div>
-                               <div className="flex-1">
-                                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Telesale Hub</p>
-                                  <p className="text-sm font-black text-slate-900">{getStaffName(customer.owner_tele_id) || "Chưa phân công"}</p>
-                               </div>
-                               <Button variant="ghost" size="icon" className="rounded-xl group-hover:bg-rose-50"><ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-rose-600" /></Button>
-                            </div>
-                         </div>
-                      </div>
-                   </div>
-                </Card>
-              </TabsContent>
-
-              {/* TASKS TAB */}
-              <TabsContent value="tasks" className="outline-none">
-                <Card className="rounded-[40px] border-none shadow-sm bg-white overflow-hidden">
-                  <div className="flex items-center justify-between p-8 border-b border-slate-100">
-                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                      <CheckCircle2 className="w-5 h-5 text-primary" /> Việc cần làm
-                    </h3>
-                    <Button 
-                      size="sm" 
-                      onClick={() => setIsAddTaskOpen(true)}
-                      className="rounded-xl font-bold text-[10px] uppercase tracking-widest bg-slate-900 text-white hover:bg-primary"
-                    >
-                      <Plus className="w-4 h-4 mr-1" /> Thêm việc
-                    </Button>
-                  </div>
-                  <div className="p-8 space-y-4">
-                    {tasks.length > 0 ? tasks.map(task => (
-                      <div key={task.id} className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-md transition-all">
-                        <div className={`w-3 h-3 rounded-full ${task.status === 'completed' ? 'bg-emerald-500' : task.status === 'in_progress' ? 'bg-amber-500' : 'bg-slate-300'}`} />
-                        <div className="flex-1">
-                          <p className={`text-sm font-bold ${task.status === 'completed' ? 'line-through text-slate-400' : 'text-slate-900'}`}>{task.title}</p>
-                          <div className="flex items-center gap-3 mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                            <span>{task.task_type}</span>
-                            <span>•</span>
-                            <span>Hạn: {task.due_at ? format(new Date(task.due_at), "dd/MM/yyyy HH:mm") : "Không có"}</span>
-                          </div>
-                        </div>
-                        <Badge variant="outline" className="text-[9px] uppercase font-black">{task.status}</Badge>
-                      </div>
-                    )) : (
-                      <div className="py-12 text-center text-slate-400 flex flex-col items-center">
-                        <CheckCircle2 className="w-12 h-12 mb-3 text-slate-200" />
-                        <p className="text-xs font-bold uppercase tracking-widest">Chưa có việc cần làm</p>
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              </TabsContent>
-
-              {/* ORDERS TAB */}
-              <TabsContent value="orders" className="outline-none">
-                 <Card className="rounded-[40px] border-none shadow-sm bg-white overflow-hidden">
-                    <div className="p-8 border-b border-slate-100">
-                      <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                        <Package className="w-5 h-5 text-primary" /> Đơn hàng gần đây
-                      </h3>
-                    </div>
-                    <div className="p-0">
-                      {orders.length > 0 ? (
-                        <table className="w-full text-sm text-left">
-                          <thead className="bg-slate-50 text-[10px] uppercase font-black text-slate-400 tracking-wider">
-                            <tr>
-                              <th className="px-8 py-4">Mã đơn</th>
-                              <th className="px-8 py-4">Ngày tạo</th>
-                              <th className="px-8 py-4 text-right">Tổng tiền</th>
-                              <th className="px-8 py-4 text-center">Trạng thái</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {orders.map(order => (
-                              <tr key={order.id} className="hover:bg-slate-50">
-                                <td className="px-8 py-4 font-bold text-slate-900">{order.id.slice(0,8).toUpperCase()}</td>
-                                <td className="px-8 py-4 text-slate-500 font-medium">{format(new Date(order.created_at), "dd/MM/yyyy HH:mm")}</td>
-                                <td className="px-8 py-4 text-right font-black text-slate-900">{order.total?.toLocaleString('vi-VN')} đ</td>
-                                <td className="px-8 py-4 text-center">
-                                  <Badge className="text-[10px] uppercase font-black">{order.status}</Badge>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      ) : (
-                        <div className="py-16 text-center text-slate-400 flex flex-col items-center">
-                          <Package className="w-12 h-12 mb-3 text-slate-200" />
-                          <p className="text-xs font-bold uppercase tracking-widest">Chưa có đơn hàng nào</p>
-                        </div>
-                      )}
-                    </div>
-                 </Card>
-              </TabsContent>
-
-              {/* APPOINTMENTS TAB */}
-              <TabsContent value="appointments" className="outline-none">
-                <Card className="rounded-[40px] border-none shadow-sm bg-white overflow-hidden">
-                  <div className="flex items-center justify-between p-8 border-b border-slate-100">
-                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                      <Calendar className="w-5 h-5 text-indigo-500" /> Lịch hẹn
-                    </h3>
-                  </div>
-                  <div className="p-8 space-y-4">
-                    {appointments.length > 0 ? appointments.map(app => (
-                      <div key={app.id} className="flex gap-4 p-4 rounded-2xl border border-slate-100 hover:bg-slate-50 transition-all">
-                        <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex flex-col items-center justify-center shrink-0">
-                          <span className="text-xs font-black leading-none">{format(new Date(app.starts_at), "dd")}</span>
-                          <span className="text-[8px] font-bold uppercase">{format(new Date(app.starts_at), "MMM", { locale: vi })}</span>
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-slate-900">{app.title}</p>
-                          <p className="text-xs text-slate-500 mt-1 flex items-center gap-2">
-                            <Clock className="w-3 h-3" /> {format(new Date(app.starts_at), "HH:mm")}
-                            {app.location && <><MapPin className="w-3 h-3 ml-2" /> {app.location}</>}
-                          </p>
-                        </div>
-                      </div>
-                    )) : (
-                      <div className="py-12 text-center text-slate-400 flex flex-col items-center">
-                        <Calendar className="w-12 h-12 mb-3 text-slate-200" />
-                        <p className="text-xs font-bold uppercase tracking-widest">Không có lịch hẹn</p>
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              </TabsContent>
-
-              {/* EVENTS TAB */}
-              <TabsContent value="events" className="outline-none">
-                <Card className="rounded-[40px] border-none shadow-sm bg-white overflow-hidden">
-                  <div className="p-8 border-b border-slate-100">
-                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                      <Star className="w-5 h-5 text-amber-500" /> Sự kiện tham gia
-                    </h3>
-                  </div>
-                  <div className="p-8 space-y-4">
-                    {events.length > 0 ? events.map(ev => (
-                      <div key={ev.id} className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-amber-50/30">
-                        <div>
-                          <p className="text-sm font-bold text-slate-900">{ev.company_events?.title || "Sự kiện không xác định"}</p>
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mt-1">
-                            {ev.company_events?.starts_at ? format(new Date(ev.company_events.starts_at), "dd/MM/yyyy") : ""}
-                          </p>
-                        </div>
-                        <Badge className={`text-[9px] uppercase font-black ${ev.status === 'attended' ? 'bg-emerald-100 text-emerald-700' : ev.status === 'no_show' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'}`}>
-                          {ev.status}
-                        </Badge>
-                      </div>
-                    )) : (
-                      <div className="py-12 text-center text-slate-400 flex flex-col items-center">
-                        <Star className="w-12 h-12 mb-3 text-slate-200" />
-                        <p className="text-xs font-bold uppercase tracking-widest">Chưa đăng ký sự kiện nào</p>
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              </TabsContent>
-
-              {/* UPSELL & ANALYTICS TAB */}
-              <TabsContent value="upsell" className="outline-none space-y-8">
-                {/* 1. DOANH SỐ TÍCH LŨY & TIẾN TRÌNH THĂNG HẠNG */}
-                <Card className="rounded-[40px] border-none shadow-sm bg-white overflow-hidden">
-                  <div className="p-8 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                      <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                        <Sparkles className="w-5 h-5 text-indigo-600 animate-pulse" /> Thăng hạng thành viên Spa & Quyền lợi
-                      </h3>
-                      <p className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-wider">Hệ thống cấp hạng đại lý phân phối Desembre</p>
-                    </div>
-                    <Badge className={`font-black uppercase tracking-widest text-[10px] px-3.5 py-1 rounded-xl border-none ${totalSpend >= tierSettings.diamondThreshold ? 'bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 text-white' : totalSpend >= tierSettings.goldThreshold ? 'bg-gradient-to-r from-amber-400 to-amber-600 text-white' : totalSpend > 0 ? 'bg-gradient-to-r from-slate-400 to-slate-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                      Hạng hiện tại: {totalSpend >= tierSettings.diamondThreshold ? 'DIAMOND' : totalSpend >= tierSettings.goldThreshold ? 'GOLD' : totalSpend > 0 ? 'SILVER' : 'NEW CO'}
-                    </Badge>
-                  </div>
-                  <CardContent className="p-8 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="p-6 rounded-3xl bg-slate-50 border border-slate-100/80">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Tích lũy trọn đời (LTV)</span>
-                        <span className="text-xl font-black text-slate-900">{totalSpend.toLocaleString('vi-VN')} đ</span>
-                      </div>
-                      <div className="p-6 rounded-3xl bg-slate-50 border border-slate-100/80">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Chiết khấu Đại lý hiện tại</span>
-                        <span className="text-xl font-black text-indigo-600">{totalSpend >= tierSettings.diamondThreshold ? `${tierSettings.diamondDiscount}%` : totalSpend >= tierSettings.goldThreshold ? `${tierSettings.goldDiscount}%` : '60%'}</span>
-                      </div>
-                      <div className="p-6 rounded-3xl bg-slate-50 border border-slate-100/80">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Mục tiêu thăng hạng tiếp theo</span>
-                        <span className="text-xl font-black text-slate-700">
-                          {totalSpend >= tierSettings.diamondThreshold ? 'ĐẠT ĐỈNH HẠNG' : totalSpend >= tierSettings.goldThreshold ? `DIAMOND (${(tierSettings.diamondThreshold / 1000000).toFixed(0)}M)` : `GOLD (${(tierSettings.goldThreshold / 1000000).toFixed(0)}M)`}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
-                    {totalSpend < tierSettings.diamondThreshold && (
-                      <div className="space-y-3 bg-indigo-50/20 p-6 rounded-3xl border border-indigo-100/30">
-                        <div className="flex justify-between items-center text-xs font-bold text-slate-500">
-                          <span className="flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-indigo-500" /> Tiến trình thăng cấp</span>
-                          <span className="text-indigo-600 font-black">
-                            Còn thiếu {((totalSpend >= tierSettings.goldThreshold ? tierSettings.diamondThreshold : tierSettings.goldThreshold) - totalSpend).toLocaleString('vi-VN')}đ để thăng hạng
-                          </span>
-                        </div>
-                        <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
-                          <div 
-                            className="bg-gradient-to-r from-indigo-500 to-purple-600 h-full rounded-full transition-all duration-500" 
-                            style={{ width: `${Math.min(100, (totalSpend / (totalSpend >= tierSettings.goldThreshold ? tierSettings.diamondThreshold : tierSettings.goldThreshold)) * 100)}%` }}
-                          />
-                        </div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center mt-1">
-                          Thăng hạng giúp đối tác tăng chiết khấu lên {totalSpend >= tierSettings.goldThreshold ? `${tierSettings.diamondDiscount}%` : `${tierSettings.goldDiscount}%`}, kích thích chủ Spa gom đơn lớn để hưởng lợi nhuận tối đa!
-                        </p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* 1.5. DỰ BÁO CHU KỲ HẾT HÀNG & TÁI ĐẶT HÀNG (REFILL & DEPLETION ALERT) */}
-                <Card className="rounded-[40px] border-none shadow-sm bg-white overflow-hidden">
-                  <div className="p-8 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                      <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                        <Clock className="w-5 h-5 text-indigo-600 animate-pulse" /> Dự báo chu kỳ hết hàng & Tái đặt hàng
-                      </h3>
-                      <p className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-wider">Cảnh báo Refill & Depletion thông minh của Desembre</p>
-                    </div>
-                    {refillStats ? (
-                      <span className={`font-black uppercase tracking-widest text-[9px] px-3 py-1 rounded-xl border ${refillStats.statusColor}`}>
-                        {refillStats.statusLabel}
-                      </span>
-                    ) : (
-                      <span className="font-black uppercase tracking-widest text-[9px] px-3 py-1 rounded-xl bg-slate-100 text-slate-400">
-                        Chưa kích hoạt bộ đếm
-                      </span>
-                    )}
-                  </div>
-                  <CardContent className="p-8 space-y-6">
-                    {refillStats ? (
-                      <div className="space-y-6">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                          <div className="p-5 rounded-3xl bg-slate-50 border border-slate-100/80">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Chu kỳ cạn kiệt</span>
-                            <span className="text-base font-black text-slate-900">{refillStats.cycle} ngày</span>
-                          </div>
-                          <div className="p-5 rounded-3xl bg-slate-50 border border-slate-100/80">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Đã sử dụng</span>
-                            <span className="text-base font-black text-slate-900">{refillStats.elapsed} ngày trước</span>
-                          </div>
-                          <div className="p-5 rounded-3xl bg-slate-50 border border-slate-100/80">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Chu kỳ còn lại</span>
-                            <span className={`text-base font-black ${refillStats.remaining <= 10 ? 'text-rose-600' : 'text-slate-800'}`}>
-                              {refillStats.remaining > 0 ? `${refillStats.remaining} ngày` : `Quá hạn ${Math.abs(refillStats.remaining)} ngày`}
-                            </span>
-                          </div>
-                          <div className="p-5 rounded-3xl bg-slate-50 border border-slate-100/80">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Đơn hàng kích hoạt gần nhất</span>
-                            <span className="text-xs font-bold text-slate-600 block truncate">
-                              Đơn #{refillStats.lastOrder.id?.substring(0, 8)} ({format(refillStats.lastDate, 'dd/MM/yyyy')})
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Progress display */}
-                        <div className="space-y-3 bg-slate-50/50 p-6 rounded-3xl border border-slate-100/60">
-                          <div className="flex justify-between items-center text-xs font-bold text-slate-500">
-                            <span className="flex items-center gap-1.5">📊 Tiến trình tiêu hao sản phẩm</span>
-                            <span className="font-black text-indigo-600">
-                              Mức độ tiêu thụ: {refillStats.progress.toFixed(0)}%
-                            </span>
-                          </div>
-                          <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
-                            <div 
-                              className={`h-full rounded-full transition-all duration-500 ${refillStats.remaining <= 10 ? 'bg-rose-500' : refillStats.remaining <= 25 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
-                              style={{ width: `${refillStats.progress}%` }}
-                            />
-                          </div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center mt-1">
-                            {refillStats.remaining <= 10 
-                              ? "⚠️ Lượng mỹ phẩm tại cơ sở ước lượng đã cạn kiệt! Nhân viên Sale cần kết nối ngay lập tức để tránh mất cơ hội bán thêm." 
-                              : `Sản phẩm đang được Spa sử dụng trong liệu trình giường cabin. Ước tính sẽ cần tái đặt hàng trong ${refillStats.remaining} ngày tới.`
-                            }
-                          </p>
-                        </div>
-
-                        <div className="flex justify-end gap-3">
-                          <a 
-                            href={`tel:${customer?.phone}`}
-                            className="inline-flex items-center justify-center rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs h-10 px-6 shadow-sm shadow-indigo-100 transition-all"
-                          >
-                            📞 Gọi điện CSKH & Upsell ngay
-                          </a>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="py-12 text-center text-slate-400 flex flex-col items-center max-w-lg mx-auto">
-                        <Clock className="w-12 h-12 mb-3 text-slate-200" />
-                        <p className="text-xs font-black uppercase tracking-widest text-slate-800">Chưa kích hoạt bộ đếm ngược</p>
-                        <p className="text-[10px] font-bold text-slate-400 mt-2 text-center leading-relaxed">
-                          Spa này chưa phát sinh đơn hàng thành công trên hệ thống. Khi đơn hàng đầu tiên được chốt thành công, CRM sẽ tự động đếm ngược chu kỳ tiêu thụ mỹ phẩm ({tierSettings.refillCycleDays} ngày) và đưa ra gợi ý Upsell gối đầu kịp thời cho Sale!
-                        </p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* 2. HỒ SƠ THIẾT BỊ CỦA SPA & GỢI Ý THÔNG MINH */}
-                <Card className="rounded-[40px] border-none shadow-sm bg-white overflow-hidden">
-                  <div className="p-8 border-b border-slate-100">
-                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                      <Zap className="w-5 h-5 text-amber-500" /> Thiết bị & Công nghệ hiện có tại Spa
-                    </h3>
-                    <p className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-wider">Chọn máy móc Spa đang vận hành để kích hoạt kịch bản gợi ý Upsell phù hợp</p>
-                  </div>
-                  <CardContent className="p-8 space-y-8">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                      {[
-                        { id: 'laser', color: 'from-rose-500 to-red-600 shadow-rose-100' },
-                        { id: 'hifu', color: 'from-amber-400 to-orange-500 shadow-amber-100' },
-                        { id: 'needle', color: 'from-emerald-400 to-teal-500 shadow-emerald-100' },
-                        { id: 'rf', color: 'from-cyan-400 to-blue-500 shadow-cyan-100' }
-                      ].map((eq) => {
-                        const isActive = spaEquipment.includes(eq.id);
-                        const scriptConfig = tierSettings.spaEquipmentScripts?.[eq.id];
-                        const label = scriptConfig?.label || (eq.id === 'laser' ? 'Máy Laser YAG/CO2' : eq.id === 'hifu' ? 'Máy HIFU / Nâng cơ' : eq.id === 'needle' ? 'Thiết bị Phi kim/Lăn kim' : 'Máy RF / Giảm béo');
-                        return (
-                          <button
-                            key={eq.id}
-                            onClick={() => {
-                              if (!canEditCustomer) {
-                                toast.error("Bạn không có quyền chỉnh sửa thông tin của Spa này.");
-                                return;
-                              }
-                              toggleEquipment(eq.id);
-                            }}
-                            className={`p-5 rounded-3xl border-2 text-left transition-all duration-300 flex flex-col justify-between h-32 relative overflow-hidden group ${isActive ? `bg-gradient-to-br ${eq.color} border-transparent text-white shadow-xl scale-105` : 'bg-slate-50 border-slate-100 hover:border-slate-200 text-slate-700'}`}
-                          >
-                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${isActive ? 'bg-white/20' : 'bg-slate-200/50'}`}>
-                              {eq.id.toUpperCase().slice(0, 2)}
-                            </div>
-                            <div>
-                              <span className={`text-[10px] font-black tracking-widest uppercase block ${isActive ? 'text-white/70' : 'text-slate-400'}`}>Thiết bị</span>
-                              <span className="text-xs font-black mt-1 leading-tight block">{label}</span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* AI Smart Recommendation Alerts */}
-                    <div className="space-y-4">
-                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kịch bản tư vấn thông minh (AI Sales Scripts)</h4>
                       
-                      {spaEquipment.length === 0 ? (
-                        <div className="p-6 rounded-3xl border border-dashed border-slate-200 text-center text-slate-400 text-xs font-bold">
-                          💡 Hãy chọn ít nhất một thiết bị Spa ở trên để hiển thị kịch bản Upsell mỹ phẩm gối đầu tương ứng!
+                      <div className="bg-white p-4 rounded-2xl border border-slate-150 shadow-3xs hover:shadow-2xs transition-all space-y-1.5">
+                        <div className="flex justify-between items-start gap-4">
+                          <span className="text-xs font-bold text-slate-800">{act.title || "Nhật ký tương tác"}</span>
+                          <span className="text-[9px] text-slate-400">{format(new Date(act.created_at), "HH:mm dd/MM/yyyy", { locale: vi })}</span>
                         </div>
-                      ) : (
-                        <div className="space-y-4">
-                          {spaEquipment.map((eqId) => {
-                            const eqScript = tierSettings.spaEquipmentScripts?.[eqId];
-                            if (!eqScript) return null;
-                            
-                            let colorTheme = {
-                              bg: "bg-rose-50 border-rose-100/80",
-                              badge: "bg-rose-100 text-rose-600",
-                              text: "text-rose-900",
-                              textMuted: "text-rose-800",
-                              icon: "text-rose-500"
-                            };
-                            if (eqId === 'needle') {
-                              colorTheme = {
-                                bg: "bg-emerald-50 border-emerald-100/80",
-                                badge: "bg-emerald-100 text-emerald-700",
-                                text: "text-emerald-900",
-                                textMuted: "text-emerald-800",
-                                icon: "text-emerald-500"
-                              };
-                            } else if (eqId === 'hifu') {
-                              colorTheme = {
-                                bg: "bg-amber-50 border-amber-100/80",
-                                badge: "bg-amber-100 text-amber-700",
-                                text: "text-amber-900",
-                                textMuted: "text-amber-800",
-                                icon: "text-amber-500"
-                              };
-                            } else if (eqId === 'rf') {
-                              colorTheme = {
-                                bg: "bg-blue-50 border-blue-100/80",
-                                badge: "bg-blue-100 text-blue-700",
-                                text: "text-blue-900",
-                                textMuted: "text-blue-800",
-                                icon: "text-blue-500"
-                              };
-                            }
-
-                            return (
-                              <div key={eqId} className={`p-6 rounded-3xl border ${colorTheme.bg} flex gap-4 items-start animate-fade-in`}>
-                                <Sparkles className={`w-5 h-5 ${colorTheme.icon} shrink-0 mt-0.5 animate-pulse`} />
-                                <div>
-                                  <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${colorTheme.badge}`}>{eqScript.tag}</span>
-                                  <p className={`text-xs font-bold ${colorTheme.text} mt-2 leading-relaxed`}>
-                                    {eqScript.desc}
-                                  </p>
-                                  <p className={`text-xs font-medium ${colorTheme.textMuted} mt-2`}>
-                                    👉 <strong>Kịch bản Upsell:</strong> {eqScript.script}
-                                  </p>
-                                </div>
-                              </div>
-                            );
-                          })}
+                        {act.content && <p className="text-xs text-slate-500 font-medium leading-relaxed">{act.content}</p>}
+                        <div className="flex items-center gap-2 pt-0.5">
+                          <Badge variant="outline" className="text-[8px] px-1.5 py-0 h-4 bg-slate-50 border-slate-250 text-slate-500 font-bold uppercase">
+                            {act.activity_type || "note"}
+                          </Badge>
                         </div>
-                      )}
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-
-                {/* 3. LỊCH SỬ NHÓM MỸ PHẨM ĐÃ MUA & CHƯA MUA */}
-                <Card className="rounded-[40px] border-none shadow-sm bg-white overflow-hidden">
-                  <div className="p-8 border-b border-slate-100">
-                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                      <Package className="w-5 h-5 text-indigo-500" /> Báo cáo Nhóm sản phẩm mua sắm của Spa
-                    </h3>
-                    <p className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-wider">Hệ thống phân chia 4 nhóm sản phẩm lõi cabin Spa để Sale tìm kiếm lỗ hổng chưa mua nhằm Upsell</p>
+                  ))
+                ) : (
+                  <div className="py-16 text-center bg-white rounded-3xl border border-dashed border-slate-200">
+                    <Activity className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Chưa có nhật ký hoạt động nào</p>
                   </div>
-                  <CardContent className="p-8 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {(tierSettings.crossSellRules || []).map((rule: any, idx: number) => {
-                        const isPurchased = idx === 0 || idx === 2 ? orders.length > 0 : orders.length > 2;
-                        const note = isPurchased ? rule.note_purchased : rule.note_not_purchased;
+                )}
+              </div>
+            </TabsContent>
+
+            {/* TASKS CONTENT (Việc cần làm) */}
+            <TabsContent value="tasks" className="mt-0 outline-none space-y-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs font-black uppercase text-slate-800 tracking-wider">Danh sách việc cần làm</h3>
+                <Button 
+                  size="sm" 
+                  onClick={() => setIsAddTaskOpen(true)}
+                  className="bg-slate-900 text-white hover:bg-black rounded-xl text-xs font-bold px-4"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Thêm việc
+                </Button>
+              </div>
+
+              {tasks.length > 0 ? (
+                <div className="grid grid-cols-1 gap-3">
+                  {tasks.map((t) => (
+                    <div key={t.id} className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-3xs flex items-center justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-850">{t.title}</span>
+                          <Badge variant="outline" className={`text-[9px] uppercase font-black px-1.5 py-0 ${
+                            t.status === 'completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                            t.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {getTaskStatusLabel(t.status)}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-3 text-[10px] text-slate-400 font-bold uppercase mt-1">
+                          <span>{getTaskTypeLabel(t.task_type)}</span>
+                          <span>&middot;</span>
+                          <span>Hạn: {t.due_at ? format(new Date(t.due_at), "dd/MM/yyyy HH:mm") : "N/A"}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="shrink-0 flex items-center gap-2">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="ghost" className="w-8 h-8 rounded-lg hover:bg-slate-100 border border-slate-200">
+                              <MoreHorizontal className="w-4 h-4 text-slate-500" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-44">
+                            <DropdownMenuItem onClick={() => setTaskAction({ task: t, action: "start" })}>
+                              <Play className="w-3.5 h-3.5 mr-2 text-blue-500" /> Bắt đầu xử lý
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setTaskAction({ task: t, action: "completed" })}>
+                              <Check className="w-3.5 h-3.5 mr-2 text-emerald-500" /> Hoàn thành
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setTaskAction({ task: t, action: "no_answer" })}>
+                              <PhoneOff className="w-3.5 h-3.5 mr-2 text-red-500" /> Không nghe máy
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setTaskAction({ task: t, action: "wrong_number" })}>
+                              <UserX className="w-3.5 h-3.5 mr-2 text-slate-500" /> Sai số
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setTaskAction({ task: t, action: "interested" })}>
+                              <Heart className="w-3.5 h-3.5 mr-2 text-pink-500" /> Khách quan tâm
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setTaskAction({ task: t, action: "call_back_later" })}>
+                              <CalendarClock className="w-3.5 h-3.5 mr-2 text-amber-500" /> Hẹn gọi lại
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setTaskAction({ task: t, action: "transfer_to_sale" })}>
+                              <ArrowRightLeft className="w-3.5 h-3.5 mr-2 text-indigo-500" /> Cần chuyển Sale
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-12 text-center bg-white rounded-3xl border border-dashed border-slate-200">
+                  <CheckCircle2 className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Chưa có việc cần làm</p>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* ORDERS CONTENT (Đơn hàng) */}
+            <TabsContent value="orders" className="mt-0 outline-none space-y-4">
+              <Card className="rounded-3xl border-none shadow-3xs bg-white overflow-hidden">
+                {orders.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-slate-50 text-[10px] uppercase font-black text-slate-400 tracking-wider border-b border-slate-100">
+                        <tr>
+                          <th className="px-6 py-4">Mã đơn</th>
+                          <th className="px-6 py-4">Ngày tạo</th>
+                          <th className="px-6 py-4 text-right">Tổng tiền</th>
+                          <th className="px-6 py-4 text-center">Trạng thái</th>
+                          <th className="px-6 py-4 text-center">Chi tiết</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {orders.map((ord) => (
+                          <tr key={ord.id} className="hover:bg-slate-50/55 transition-colors">
+                            <td className="px-6 py-4 font-bold text-slate-900">#{ord.order_no || ord.id.slice(0, 8).toUpperCase()}</td>
+                            <td className="px-6 py-4 text-slate-500 font-medium">{format(new Date(ord.created_at), "dd/MM/yyyy HH:mm")}</td>
+                            <td className="px-6 py-4 text-right font-black text-slate-900">{ord.total?.toLocaleString('vi-VN')} đ</td>
+                            <td className="px-6 py-4 text-center">
+                              <Badge className="text-[9px] uppercase font-black px-2 py-0.5 rounded bg-slate-100 text-slate-700 border-none">{ord.status || 'Chờ duyệt'}</Badge>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                className="h-7 w-7 p-0 rounded-lg hover:bg-slate-100 text-indigo-600"
+                                onClick={() => navigate({ to: `/orders/${ord.id}` })}
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="py-16 text-center text-slate-400 flex flex-col items-center">
+                    <Package className="w-10 h-10 mb-2 text-slate-200" />
+                    <p className="text-xs font-bold uppercase tracking-widest">Chưa có đơn hàng nào phát sinh</p>
+                  </div>
+                )}
+              </Card>
+            </TabsContent>
+
+            {/* APPOINTMENTS CONTENT (Lịch hẹn) */}
+            <TabsContent value="appointments" className="mt-0 outline-none space-y-4">
+              {appointments.length > 0 ? (
+                <div className="grid grid-cols-1 gap-3">
+                  {appointments.map((app) => (
+                    <div key={app.id} className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-3xs flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex flex-col items-center justify-center shrink-0 border border-indigo-100 shadow-3xs">
+                        <span className="text-sm font-black leading-none">{format(new Date(app.starts_at), "dd")}</span>
+                        <span className="text-[8px] font-bold uppercase mt-0.5">{format(new Date(app.starts_at), "MMM", { locale: vi })}</span>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">{app.title}</p>
+                        <p className="text-[10px] text-slate-450 font-bold mt-1 flex flex-wrap items-center gap-2">
+                          <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-slate-400" /> {format(new Date(app.starts_at), "HH:mm")}</span>
+                          {app.location && (
+                            <>
+                              <span>&middot;</span>
+                              <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-slate-400" /> {app.location}</span>
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-12 text-center bg-white rounded-3xl border border-dashed border-slate-200">
+                  <Calendar className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Không có lịch hẹn nào</p>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* EVENTS CONTENT (Sự kiện) */}
+            <TabsContent value="events" className="mt-0 outline-none space-y-4">
+              {events.length > 0 ? (
+                <div className="grid grid-cols-1 gap-3">
+                  {events.map((ev) => (
+                    <div key={ev.id} className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-3xs flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">{ev.company_events?.title || "Sự kiện Desembre"}</p>
+                        <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-wider">
+                          {ev.company_events?.starts_at ? format(new Date(ev.company_events.starts_at), "dd/MM/yyyy", { locale: vi }) : ""}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className={`text-[9px] uppercase font-black ${
+                        ev.status === 'attended' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                        ev.status === 'no_show' ? 'bg-rose-50 text-rose-700 border-rose-100' : 'bg-slate-100 text-slate-700'
+                      }`}>
+                        {ev.status || 'Chờ xác nhận'}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-12 text-center bg-white rounded-3xl border border-dashed border-slate-200">
+                  <Star className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Chưa đăng ký sự kiện nào</p>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* UPSELL CONTENT */}
+            <TabsContent value="upsell" className="mt-0 outline-none space-y-6">
+              
+              {/* Doanh số & Thăng hạng */}
+              <Card className="rounded-3xl border-none shadow-3xs bg-white p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                  <div>
+                    <h3 className="text-xs font-black uppercase text-slate-900 tracking-widest flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-indigo-600 animate-pulse" /> Thăng hạng thành viên Spa
+                    </h3>
+                  </div>
+                  <Badge className={`font-black uppercase tracking-widest text-[9px] px-2.5 py-0.5 rounded-lg border-none ${totalSpend >= tierSettings.diamondThreshold ? 'bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 text-white' : totalSpend >= tierSettings.goldThreshold ? 'bg-gradient-to-r from-amber-400 to-amber-600 text-white' : totalSpend > 0 ? 'bg-gradient-to-r from-slate-400 to-slate-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                    {totalSpend >= tierSettings.diamondThreshold ? 'DIAMOND' : totalSpend >= tierSettings.goldThreshold ? 'GOLD' : totalSpend > 0 ? 'SILVER' : 'NEW CO'}
+                  </Badge>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Tích lũy LTV</span>
+                    <span className="text-base font-black text-slate-900">{totalSpend.toLocaleString('vi-VN')} đ</span>
+                  </div>
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Đại lý hiện tại</span>
+                    <span className="text-base font-black text-indigo-600">{totalSpend >= tierSettings.diamondThreshold ? `${tierSettings.diamondDiscount}%` : totalSpend >= tierSettings.goldThreshold ? `${tierSettings.goldDiscount}%` : '60%'}</span>
+                  </div>
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Mục tiêu tiếp theo</span>
+                    <span className="text-base font-black text-slate-800">
+                      {totalSpend >= tierSettings.diamondThreshold ? 'HẠNG TỐI ĐA' : totalSpend >= tierSettings.goldThreshold ? 'DIAMOND' : 'GOLD'}
+                    </span>
+                  </div>
+                </div>
+
+                {totalSpend < tierSettings.diamondThreshold && (
+                  <div className="space-y-2 bg-indigo-50/20 p-4 rounded-xl border border-indigo-100/30">
+                    <div className="flex justify-between items-center text-[11px] font-bold text-slate-500">
+                      <span className="flex items-center gap-1.5">Tiến trình</span>
+                      <span className="text-indigo-600 font-black">
+                        Còn thiếu {((totalSpend >= tierSettings.goldThreshold ? tierSettings.diamondThreshold : tierSettings.goldThreshold) - totalSpend).toLocaleString('vi-VN')}đ
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                      <div 
+                        className="bg-gradient-to-r from-indigo-500 to-purple-600 h-full rounded-full transition-all duration-500" 
+                        style={{ width: `${Math.min(100, (totalSpend / (totalSpend >= tierSettings.goldThreshold ? tierSettings.diamondThreshold : tierSettings.goldThreshold)) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </Card>
+
+              {/* Dự báo chu kỳ hết hàng */}
+              <Card className="rounded-3xl border-none shadow-3xs bg-white p-6">
+                <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+                  <h3 className="text-xs font-black uppercase text-slate-900 tracking-wider">Dự báo chu kỳ tái đặt hàng</h3>
+                  {refillStats && (
+                    <Badge variant="outline" className={`text-[8px] px-2 py-0.5 font-bold uppercase ${refillStats.statusColor}`}>
+                      {refillStats.statusLabel}
+                    </Badge>
+                  )}
+                </div>
+
+                {refillStats ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <div className="p-3 rounded-lg bg-slate-50 border border-slate-100 text-center">
+                        <p className="text-[9px] text-slate-400 font-bold uppercase">Chu kỳ</p>
+                        <p className="text-sm font-black text-slate-850 mt-1">{refillStats.cycle} ngày</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-slate-50 border border-slate-100 text-center">
+                        <p className="text-[9px] text-slate-400 font-bold uppercase">Đã qua</p>
+                        <p className="text-sm font-black text-slate-850 mt-1">{refillStats.elapsed} ngày</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-slate-50 border border-slate-100 text-center">
+                        <p className="text-[9px] text-slate-400 font-bold uppercase">Còn lại</p>
+                        <p className={`text-sm font-black mt-1 ${refillStats.remaining <= 10 ? 'text-rose-600' : 'text-slate-850'}`}>{refillStats.remaining} ngày</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-slate-50 border border-slate-100 text-center">
+                        <p className="text-[9px] text-slate-400 font-bold uppercase">Tiêu hao</p>
+                        <p className="text-sm font-black text-indigo-650 mt-1">{refillStats.progress.toFixed(0)}%</p>
+                      </div>
+                    </div>
+
+                    <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-500 ${refillStats.remaining <= 10 ? 'bg-rose-500 animate-pulse' : refillStats.remaining <= 25 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
+                        style={{ width: `${refillStats.progress}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-6 text-center text-slate-400 text-xs font-bold bg-slate-50 rounded-xl border border-slate-150">
+                    Chưa có đủ dữ liệu chu kỳ đặt hàng
+                  </div>
+                )}
+              </Card>
+
+              {/* Thiết bị & Công nghệ hiện có tại Spa */}
+              <Card className="rounded-3xl border-none shadow-3xs bg-white p-6">
+                <h3 className="text-xs font-black uppercase text-slate-800 tracking-wider mb-4">
+                  Thiết bị & Công nghệ tại Spa
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                  {[
+                    { id: 'laser', label: 'Máy Laser YAG/CO2', color: 'from-rose-500 to-rose-600 border-rose-200 text-white' },
+                    { id: 'hifu', label: 'Máy HIFU / Nâng cơ', color: 'from-amber-500 to-amber-600 border-amber-200 text-white' },
+                    { id: 'needle', label: 'Thiết bị Phi kim/Lăn kim', color: 'from-emerald-500 to-emerald-600 border-emerald-200 text-white' },
+                    { id: 'rf', label: 'Máy RF / Giảm béo', color: 'from-blue-500 to-blue-600 border-blue-200 text-white' }
+                  ].map((eq) => {
+                    const isActive = spaEquipment.includes(eq.id);
+                    return (
+                      <button
+                        key={eq.id}
+                        onClick={() => {
+                          if (!canEditCustomer) {
+                            toast.error("Bạn không có quyền chỉnh sửa.");
+                            return;
+                          }
+                          toggleEquipment(eq.id);
+                        }}
+                        className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between h-24 ${
+                          isActive 
+                            ? `bg-gradient-to-br ${eq.color} border-transparent shadow-md scale-102` 
+                            : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        <div className="text-[10px] font-black uppercase tracking-wider">{eq.id}</div>
+                        <span className="text-[11px] font-black leading-tight">{eq.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kịch bản gợi ý CSKH (AI Scripts)</h4>
+                  {spaEquipment.length > 0 ? (
+                    <div className="space-y-3">
+                      {spaEquipment.map((eqId) => {
+                        const script = tierSettings.spaEquipmentScripts?.[eqId];
+                        if (!script) return null;
                         return (
-                          <div key={rule.id || idx} className={`p-6 rounded-3xl border transition-all ${isPurchased ? 'bg-emerald-50/10 border-emerald-100/50' : 'bg-slate-50 border-slate-100 hover:shadow-md'}`}>
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <h5 className="text-xs font-black text-slate-900 leading-tight">{rule.name}</h5>
-                                <p className="text-[10px] font-bold text-slate-400 mt-1">{rule.desc}</p>
-                              </div>
-                              <Badge className={`text-[8px] font-black uppercase tracking-wider border-none px-2 py-0.5 ${isPurchased ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700 animate-pulse'}`}>
-                                {isPurchased ? 'ĐÃ MUA' : 'CHƯA MUA'}
-                              </Badge>
-                            </div>
-                            
-                            <div className="mt-4 flex items-center justify-between text-[9px] font-bold">
-                              <span className={isPurchased ? 'text-emerald-600' : 'text-rose-500 font-extrabold'}>{note}</span>
-                              {!isPurchased && (
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="h-6 rounded-lg text-[9px] font-black tracking-widest text-indigo-600 bg-white border border-indigo-100 hover:bg-indigo-50/50"
-                                  onClick={() => {
-                                    setNewActivity({
-                                      type: 'call',
-                                      content: `📞 Đã tư vấn thêm cho chủ Spa về nhóm sản phẩm "${rule.name}". Spa đang có nhu cầu tìm hiểu thử mẫu test dòng này.`
-                                    });
-                                    // Switch back to activities tab
-                                    const trigger = document.querySelector('[value="activities"]') as HTMLButtonElement;
-                                    if (trigger) trigger.click();
-                                    toast.success(`Đã tự động soạn thảo nhật ký tư vấn Upsell dòng sản phẩm: ${rule.name}`);
-                                  }}
-                                >
-                                  {rule.action_label || "CHÀO MẪU TEST"}
-                                </Button>
-                              )}
-                            </div>
+                          <div key={eqId} className="p-4 rounded-xl bg-indigo-50/30 border border-indigo-150/50 space-y-1.5">
+                            <span className="text-[8px] font-black uppercase bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">{script.tag}</span>
+                            <p className="text-xs font-bold text-slate-900 leading-snug">{script.desc}</p>
+                            <p className="text-xs text-slate-500 leading-relaxed font-medium"><strong>Gợi ý:</strong> {script.script}</p>
                           </div>
                         );
                       })}
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 text-center font-bold py-4">Chọn thiết bị phía trên để xem kịch bản gợi ý bán hàng.</p>
+                  )}
+                </div>
+              </Card>
+
+            </TabsContent>
+
+          </Tabs>
+
         </div>
+
       </div>
 
       <TemplateDispatcher 
@@ -1342,6 +1174,84 @@ function CustomerDetailPage() {
         isOpen={isAssignStaffOpen}
         onClose={() => setIsAssignStaffOpen(false)}
         onSuccess={fetchCustomer}
+      />
+
+      {/* QUICK ADD ACTIVITY DIALOG */}
+      <Dialog open={isAddActivityOpen} onOpenChange={(o) => !o && setIsAddActivityOpen(false)}>
+        <DialogContent className="sm:max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-black uppercase tracking-wider text-slate-900">
+              ✍️ Thêm ghi chú chăm sóc nhanh
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black text-slate-500 uppercase">Loại hoạt động</Label>
+                <Select 
+                  value={quickActivity.type} 
+                  onValueChange={(val) => setQuickActivity({ ...quickActivity, type: val })}
+                >
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="note">Ghi chú (Note)</SelectItem>
+                    <SelectItem value="call">Cuộc gọi (Call)</SelectItem>
+                    <SelectItem value="direct_visit">Gặp trực tiếp (Visit)</SelectItem>
+                    <SelectItem value="zalo_message">Zalo Message</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black text-slate-500 uppercase">Hẹn ngày gọi lại (Tùy chọn)</Label>
+                <Input 
+                  type="datetime-local" 
+                  value={quickActivity.next_follow_up_at}
+                  onChange={(e) => setQuickActivity({ ...quickActivity, next_follow_up_at: e.target.value })}
+                  className="h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-500 uppercase">Tiêu đề ghi chú <span className="text-red-500">*</span></Label>
+              <Input 
+                placeholder="VD: Trao đổi phác đồ trị nám..." 
+                value={quickActivity.title}
+                onChange={(e) => setQuickActivity({ ...quickActivity, title: e.target.value })}
+                className="h-9 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-500 uppercase">Chi tiết trao đổi</Label>
+              <Textarea 
+                placeholder="Nhập nội dung trao đổi chi tiết với chủ Spa..." 
+                value={quickActivity.content}
+                onChange={(e) => setQuickActivity({ ...quickActivity, content: e.target.value })}
+                className="min-h-[80px] text-xs resize-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2.5">
+            <Button variant="ghost" size="sm" onClick={() => setIsAddActivityOpen(false)} className="text-xs font-bold">
+              Hủy
+            </Button>
+            <Button size="sm" onClick={handleAddActivity} className="bg-slate-900 text-white hover:bg-black text-xs font-bold px-4">
+              Lưu ghi chú
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <TaskActionDialog 
+        taskAction={taskAction}
+        onClose={() => setTaskAction(null)}
+        onSuccess={fetchTasks}
       />
     </div>
   );

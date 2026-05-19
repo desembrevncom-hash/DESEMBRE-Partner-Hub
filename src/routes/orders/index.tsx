@@ -229,39 +229,57 @@ function OrdersList() {
                        </tr>
                     ) : (
                        filteredOrders.map(order => {
-                          const config = getStatusConfig(order.status);
-                          return (
-                             <tr key={order.id} className="hover:bg-slate-50/50 transition-all group">
-                                <td className="px-6 py-5">
-                                   <Link to="/orders/$id" params={{ id: order.id }} className="flex items-center gap-2 group/link">
-                                      <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-100 group-hover/link:bg-primary group-hover/link:text-white transition-all">
-                                         #{order.order_no}
-                                      </div>
-                                   </Link>
-                                </td>
-                                <td className="px-6 py-5">
-                                   <p className="text-[13px] font-black text-slate-900">{order.customers?.facility_name || "Spa tự do"}</p>
-                                   <p className="text-[11px] text-slate-500 font-medium">{order.customer_name} • {order.customer_phone || "—"}</p>
-                                </td>
-                                <td className="px-6 py-5 text-right font-black text-slate-900">
-                                   {fmt(order.total)}
-                                </td>
-                                <td className="px-6 py-5 text-center">
-                                   <Badge variant="outline" className={`rounded-full px-3 py-0.5 text-[10px] font-bold ${config.color}`}>
-                                      {config.label}
-                                   </Badge>
-                                </td>
-                                <td className="px-6 py-5 text-[11px] text-slate-400 font-bold">
-                                   {format(new Date(order.created_at), "HH:mm · dd/MM/yyyy", { locale: vi })}
-                                </td>
-                                <td className="px-6 py-5 text-right">
-                                   <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-primary rounded-lg opacity-0 group-hover:opacity-100 transition-all">
-                                      <ChevronRight className="w-5 h-5" />
-                                   </Button>
-                                </td>
-                             </tr>
-                          );
-                       })
+                           const config = getStatusConfig(order.status);
+                           return (
+                              <tr 
+                                 key={order.id} 
+                                 onClick={() => navigate({ to: "/orders/$id", params: { id: order.id } })}
+                                 className="hover:bg-slate-50/50 transition-all group cursor-pointer"
+                              >
+                                 <td className="px-6 py-5">
+                                    <div className="flex items-center gap-2 group/link">
+                                       <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-100 group-hover/link:bg-primary group-hover/link:text-white transition-all">
+                                          #{order.order_no}
+                                       </div>
+                                    </div>
+                                 </td>
+                                 <td className="px-6 py-5">
+                                    {order.customer_id ? (
+                                       <Link 
+                                          to="/customers/$id" 
+                                          params={{ id: order.customer_id }}
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="hover:text-indigo-600 transition-colors group/cust relative z-10 block"
+                                       >
+                                          <p className="text-[13px] font-black text-slate-900 group-hover/cust:text-indigo-600">{order.customers?.facility_name || "Spa tự do"}</p>
+                                          <p className="text-[11px] text-slate-500 font-medium">{order.customer_name} • {order.customer_phone || "—"}</p>
+                                       </Link>
+                                    ) : (
+                                       <>
+                                          <p className="text-[13px] font-black text-slate-850">{order.customers?.facility_name || "Spa tự do"}</p>
+                                          <p className="text-[11px] text-slate-500 font-medium">{order.customer_name} • {order.customer_phone || "—"}</p>
+                                       </>
+                                    )}
+                                 </td>
+                                 <td className="px-6 py-5 text-right font-black text-slate-900">
+                                    {fmt(order.total)}
+                                 </td>
+                                 <td className="px-6 py-5 text-center">
+                                    <Badge variant="outline" className={`rounded-full px-3 py-0.5 text-[10px] font-bold ${config.color}`}>
+                                       {config.label}
+                                    </Badge>
+                                 </td>
+                                 <td className="px-6 py-5 text-[11px] text-slate-400 font-bold">
+                                    {format(new Date(order.created_at), "HH:mm · dd/MM/yyyy", { locale: vi })}
+                                 </td>
+                                 <td className="px-6 py-5 text-right">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-primary rounded-lg opacity-0 group-hover:opacity-100 transition-all">
+                                       <ChevronRight className="w-5 h-5" />
+                                    </Button>
+                                 </td>
+                              </tr>
+                           );
+                        })
                     )}
                  </tbody>
               </table>

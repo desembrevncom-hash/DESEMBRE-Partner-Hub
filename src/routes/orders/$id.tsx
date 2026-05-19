@@ -99,6 +99,7 @@ function OrderDetail() {
       if (newStatus === 'delivered') {
         await createPostPurchaseCheckinAutomation(
           order.customer_id, 
+          order.customer_name,
           order.sale_user_id || user?.id, 
           order.id
         );
@@ -295,13 +296,15 @@ function OrderDetail() {
                        </div>
                        <div>
                           <p className="text-base font-black text-slate-900">{order.customer_name}</p>
-                          <Link 
-                            to="/customers/$id" 
-                            params={{ id: order.customer_id }} 
-                            className="text-[10px] font-black text-indigo-500 uppercase tracking-widest hover:underline flex items-center gap-1 mt-0.5"
-                          >
-                             Xem hồ sơ đầy đủ <ChevronRight className="w-3 h-3" />
-                          </Link>
+                          {order.customer_id && (
+                             <Link 
+                               to="/customers/$id" 
+                               params={{ id: order.customer_id }} 
+                               className="text-[10px] font-black text-indigo-500 uppercase tracking-widest hover:underline flex items-center gap-1 mt-0.5"
+                             >
+                                Xem hồ sơ đầy đủ <ChevronRight className="w-3 h-3" />
+                             </Link>
+                          )}
                        </div>
                     </div>
                     

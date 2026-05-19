@@ -106,6 +106,7 @@ export function AssignStaffDialog({ isOpen, onClose, customer, onSuccess }: Assi
       if (saleId && saleId !== customer.owner_sale_id) {
         const notifRes = await createNotification({
           recipient_user_id: saleId,
+          customer_id: customer.id,
           title: "Bạn được giao Khách hàng mới",
           message: `Khách hàng ${customer.business_name || customer.name} vừa được chia cho bạn phụ trách (Direct Sale).`,
           type: "lead_assigned",
@@ -120,6 +121,7 @@ export function AssignStaffDialog({ isOpen, onClose, customer, onSuccess }: Assi
       if (teleId && teleId !== customer.owner_tele_id) {
         const notifRes = await createNotification({
           recipient_user_id: teleId,
+          customer_id: customer.id,
           title: "Bạn được giao Khách hàng mới",
           message: `Khách hàng ${customer.business_name || customer.name} vừa được chia cho bạn hỗ trợ (Telesale).`,
           type: "lead_assigned",

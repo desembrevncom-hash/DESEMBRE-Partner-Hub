@@ -10,6 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { Link } from "@tanstack/react-router";
+import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
+import { getStaffName } from "@/lib/customerOwnership";
 
 interface WorkspaceCalendarCardProps {
   events: any[];
@@ -17,7 +20,7 @@ interface WorkspaceCalendarCardProps {
 }
 
 export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ events, onRefresh }) => {
-  const { user } = useAuth();
+  const { user, isAdmin, isSubAdmin, isTeleLead, isSale, isTelesale } = useAuth();
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
@@ -27,6 +30,7 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ ev
   // Quick detail preview
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const [previewCustomer, setPreviewCustomer] = useState<any | null>(null);
 
   // Form state
   const [title, setTitle] = useState("");
@@ -37,11 +41,36 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ ev
   useEffect(() => {
     async function fetchCustomers() {
       if (!user) return;
-      const { data } = await supabase.from("customers").select("id, name, facility_name").eq("owner_sale_id", user.id).limit(100);
-      setCustomers(data || []);
+      
+      let fetchedCustomers: any[] = [];
+      let query = supabase.from("customers").select("id, name, facility_name").is("deleted_at", null);
+
+      if (isAdmin || isSubAdmin) {
+        const { data } = await query.limit(100);
+        fetchedCustomers = data || [];
+      } else if (isTeleLead) {
+        const { data } = await query.eq("owner_tele_id", user.id).limit(100);
+        fetchedCustomers = data || [];
+      } else if (isSale) {
+        const { data } = await query.eq("owner_sale_id", user.id).limit(100);
+        fetchedCustomers = data || [];
+      } else if (isTelesale) {
+        const { data: tasksData } = await supabase
+          .from("customer_tasks")
+          .select("customer_id")
+          .eq("assigned_to", user.id);
+        
+        const customerIds = Array.from(new Set((tasksData || []).map(t => t.customer_id).filter(Boolean)));
+        if (customerIds.length > 0) {
+          const { data: custData } = await query.in("id", customerIds).limit(100);
+          fetchedCustomers = custData || [];
+        }
+      }
+      
+      setCustomers(fetchedCustomers);
     }
     if (isDialogOpen) fetchCustomers();
-  }, [isDialogOpen, user]);
+  }, [isDialogOpen, user, isAdmin, isSubAdmin, isTeleLead, isSale, isTelesale]);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(monthStart);
@@ -349,23 +378,54 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ ev
 
           <div className="p-6 grid gap-5 bg-white">
             {/* Customer Details */}
-            {(selectedEvent?.customer_id || selectedEvent?.customer) && (
-              <div className="flex items-start gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-                <User className="w-5 h-5 text-slate-500 mt-0.5" />
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Khách hàng liên quan</p>
-                  <p className="text-sm font-bold text-slate-800 mt-0.5">
-                    {selectedEvent?.customer?.name || selectedEvent?.customer?.facility_name || selectedEvent?.customer_name || "Khách hàng"}
-                  </p>
-                  {(selectedEvent?.customer?.facility_name || selectedEvent?.customer?.phone) && (
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {selectedEvent?.customer?.facility_name && `🏥 ${selectedEvent?.customer?.facility_name}`}
-                      {selectedEvent?.customer?.phone && ` • 📞 ${selectedEvent?.customer?.phone}`}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
+            {(selectedEvent?.customer_id || selectedEvent?.customer) ? (
+              (() => {
+                const cId = selectedEvent.customer_id || selectedEvent.customer?.id;
+                if (cId) {
+                  return (
+                    <div 
+                      onClick={() => {
+                        setPreviewCustomer({ id: cId });
+                        setIsDetailDialogOpen(false);
+                      }}
+                      className="flex items-start gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-colors cursor-pointer group/cal-cust block"
+                    >
+                      <User className="w-5 h-5 text-slate-500 mt-0.5 group-hover/cal-cust:text-primary transition-colors" />
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Khách hàng liên quan</p>
+                        <p className="text-sm font-bold text-slate-800 mt-0.5 group-hover/cal-cust:text-indigo-600 transition-colors">
+                          {selectedEvent?.customer?.name || selectedEvent?.customer?.facility_name || selectedEvent?.customer_name || "Khách hàng"}
+                        </p>
+                        {(selectedEvent?.customer?.facility_name || selectedEvent?.customer?.phone) && (
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {selectedEvent?.customer?.facility_name && `🏥 ${selectedEvent?.customer?.facility_name}`}
+                            {selectedEvent?.customer?.phone && ` • 📞 ${selectedEvent?.customer?.phone}`}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div className="flex items-start gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                      <User className="w-5 h-5 text-slate-500 mt-0.5" />
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Khách hàng liên quan</p>
+                        <p className="text-sm font-bold text-slate-800 mt-0.5">
+                          {selectedEvent?.customer?.name || selectedEvent?.customer?.facility_name || selectedEvent?.customer_name || "Khách hàng"}
+                        </p>
+                        {(selectedEvent?.customer?.facility_name || selectedEvent?.customer?.phone) && (
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {selectedEvent?.customer?.facility_name && `🏥 ${selectedEvent?.customer?.facility_name}`}
+                            {selectedEvent?.customer?.phone && ` • 📞 ${selectedEvent?.customer?.phone}`}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+              })()
+            ) : null}
 
             {/* Event Info Grid */}
             <div className="grid grid-cols-2 gap-4">
@@ -440,6 +500,13 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ ev
           </div>
         </DialogContent>
       </Dialog>
+
+      <CustomerPreviewDrawer
+        customer={previewCustomer}
+        open={!!previewCustomer}
+        onOpenChange={(open) => !open && setPreviewCustomer(null)}
+        getStaffName={getStaffName}
+      />
     </div>
   );
 };

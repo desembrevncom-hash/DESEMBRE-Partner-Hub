@@ -19,6 +19,7 @@ import { useRef } from "react";
 
 type OrderSearch = {
   edit?: string;
+  customerId?: string;
 };
 
 export const Route = createFileRoute("/orders/new")({
@@ -26,6 +27,7 @@ export const Route = createFileRoute("/orders/new")({
   validateSearch: (search: Record<string, unknown>): OrderSearch => {
     return {
       edit: search.edit as string | undefined,
+      customerId: search.customerId as string | undefined,
     };
   },
 });
@@ -56,8 +58,8 @@ function NewOrderPage() {
   const [search, setSearch] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [isGiftMode, setIsGiftMode] = useState(false);
-  const { edit: editId } = Route.useSearch();
-  const [busy, setBusy] = useState(!!editId); // Start busy if we need to load editId
+  const { edit: editId, customerId } = Route.useSearch();
+  const [busy, setBusy] = useState(!!editId || !!customerId);
   const printRef = useRef<HTMLDivElement>(null);
   const isGuest = !user;
   const quoterName = user?.user_metadata?.display_name || user?.email?.split('@')[0] || "Admin Desembre";
@@ -130,6 +132,19 @@ function NewOrderPage() {
             unit_price: it.unit_price,
             quantity: it.quantity,
           })));
+        }
+        setBusy(false);
+      } else if (customerId) {
+        try {
+          const { data: cust } = await supabase.from("customers").select("*").eq("id", customerId).maybeSingle();
+          if (cust) {
+            setSelectedCustomerId(cust.id);
+            setCustomerName(cust.name || cust.contact_name || "");
+            setCustomerPhone(cust.phone || "");
+            setCustomerAddress(cust.city || "");
+          }
+        } catch (err) {
+          console.error("Error fetching preselected customer:", err);
         }
         setBusy(false);
       }
