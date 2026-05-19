@@ -46,7 +46,7 @@ export const Route = createFileRoute("/admin/settings")({
 });
 
 function SystemSettingsPage() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isSubAdmin, isManager, loading: authLoading } = useAuth();
   const [busy, setBusy] = useState(false);
   const [cycleSearch, setCycleSearch] = useState("");
   // productCycles: { [productId]: { retail?: number; salon?: number } }
@@ -244,6 +244,33 @@ function SystemSettingsPage() {
       return next;
     });
   };
+
+  if (authLoading || loadingConfig) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-2">
+          <RefreshCw className="h-8 w-8 animate-spin text-slate-400" />
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Đang tải cấu hình...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isManager) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 text-center">
+        <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mb-4">
+          <Lock className="w-8 h-8 text-rose-600" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-800">Không có quyền truy cập</h2>
+        <p className="text-slate-500 text-sm max-w-sm mt-2">Trang cấu hình hệ thống chỉ dành riêng cho Admin hoặc Phó Admin.</p>
+        <Link to="/workspace" className="mt-6 px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-black transition-all">
+          Quay lại Workspace
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20 font-sans antialiased">
       {/* HEADER */}

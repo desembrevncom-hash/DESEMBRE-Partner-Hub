@@ -53,7 +53,7 @@ export const Route = createFileRoute("/customers/$id")({
 
 function CustomerDetailPage() {
   const { id } = Route.useParams();
-  const { user, isAdmin, isSubAdmin } = useAuth();
+  const { user, isAdmin, isSubAdmin, isSale, isTeleLead } = useAuth();
   const isManager = isAdmin || isSubAdmin;
   const navigate = useNavigate();
 
@@ -141,6 +141,14 @@ function CustomerDetailPage() {
   
   const [customer, setCustomer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  const canEditCustomer = useMemo(() => {
+    if (!user || !customer) return false;
+    if (isManager) return true;
+    if (isSale && customer.owner_sale_id === user.id) return true;
+    if (isTeleLead && customer.owner_tele_id === user.id) return true;
+    return false;
+  }, [user, customer, isManager, isSale, isTeleLead]);
   
   // Activity Log State
   const [activities, setActivities] = useState<any[]>([]);
@@ -737,7 +745,13 @@ function CustomerDetailPage() {
                          <div className="space-y-4">
                             <div 
                                className="flex items-center gap-5 p-6 bg-white border border-slate-100 rounded-[28px] hover:shadow-lg hover:border-indigo-200 hover:ring-2 hover:ring-indigo-50 transition-all group cursor-pointer"
-                               onClick={() => setIsAssignStaffOpen(true)}
+                               onClick={() => {
+                                  if (isManager) {
+                                     setIsAssignStaffOpen(true);
+                                  } else {
+                                     toast.error("Chỉ Admin hoặc Phó Admin mới có quyền phân tuyến người phụ trách.");
+                                  }
+                               }}
                             >
                                <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm font-black border border-indigo-100 shadow-sm group-hover:scale-105 transition-transform uppercase">S</div>
                                <div className="flex-1">
@@ -748,7 +762,13 @@ function CustomerDetailPage() {
                             </div>
                             <div 
                                className="flex items-center gap-5 p-6 bg-white border border-slate-100 rounded-[28px] hover:shadow-lg hover:border-rose-200 hover:ring-2 hover:ring-rose-50 transition-all group cursor-pointer"
-                               onClick={() => setIsAssignStaffOpen(true)}
+                               onClick={() => {
+                                  if (isManager) {
+                                     setIsAssignStaffOpen(true);
+                                  } else {
+                                     toast.error("Chỉ Admin hoặc Phó Admin mới có quyền phân tuyến người phụ trách.");
+                                  }
+                               }}
                             >
                                <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-sm font-black border border-rose-100 shadow-sm group-hover:scale-105 transition-transform uppercase">T</div>
                                <div className="flex-1">
@@ -1072,7 +1092,13 @@ function CustomerDetailPage() {
                         return (
                           <button
                             key={eq.id}
-                            onClick={() => toggleEquipment(eq.id)}
+                            onClick={() => {
+                              if (!canEditCustomer) {
+                                toast.error("Bạn không có quyền chỉnh sửa thông tin của Spa này.");
+                                return;
+                              }
+                              toggleEquipment(eq.id);
+                            }}
                             className={`p-5 rounded-3xl border-2 text-left transition-all duration-300 flex flex-col justify-between h-32 relative overflow-hidden group ${isActive ? `bg-gradient-to-br ${eq.color} border-transparent text-white shadow-xl scale-105` : 'bg-slate-50 border-slate-100 hover:border-slate-200 text-slate-700'}`}
                           >
                             <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${isActive ? 'bg-white/20' : 'bg-slate-200/50'}`}>
