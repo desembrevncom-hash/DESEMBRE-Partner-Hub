@@ -279,6 +279,15 @@ function CustomersPage() {
                 >
                    DANH SÁCH
                 </Button>
+                <Link to="/customers/map">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="rounded-lg text-[10px] font-black text-slate-400 hover:text-slate-900"
+                  >
+                     BẢN ĐỒ 🗺️
+                  </Button>
+                </Link>
              </div>
              <NotificationBell />
              {isManager ? (

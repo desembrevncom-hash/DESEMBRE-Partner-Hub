@@ -27,6 +27,7 @@ import { Route as OrdersNewRouteImport } from './routes/orders/new'
 import { Route as OrdersIdRouteImport } from './routes/orders/$id'
 import { Route as MarketingReportsRouteImport } from './routes/marketing/reports'
 import { Route as MarketingCampaignsRouteImport } from './routes/marketing/campaigns'
+import { Route as CustomersMapRouteImport } from './routes/customers/map'
 import { Route as CustomersIdRouteImport } from './routes/customers/$id'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminTemplatesRouteImport } from './routes/admin/templates'
@@ -126,6 +127,11 @@ const MarketingCampaignsRoute = MarketingCampaignsRouteImport.update({
   path: '/marketing/campaigns',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CustomersMapRoute = CustomersMapRouteImport.update({
+  id: '/map',
+  path: '/map',
+  getParentRoute: () => CustomersRoute,
+} as any)
 const CustomersIdRoute = CustomersIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -185,6 +191,7 @@ export interface FileRoutesByFullPath {
   '/admin/templates': typeof AdminTemplatesRoute
   '/admin/users': typeof AdminUsersRoute
   '/customers/$id': typeof CustomersIdRoute
+  '/customers/map': typeof CustomersMapRoute
   '/marketing/campaigns': typeof MarketingCampaignsRoute
   '/marketing/reports': typeof MarketingReportsRoute
   '/orders/$id': typeof OrdersIdRoute
@@ -212,6 +219,7 @@ export interface FileRoutesByTo {
   '/admin/templates': typeof AdminTemplatesRoute
   '/admin/users': typeof AdminUsersRoute
   '/customers/$id': typeof CustomersIdRoute
+  '/customers/map': typeof CustomersMapRoute
   '/marketing/campaigns': typeof MarketingCampaignsRoute
   '/marketing/reports': typeof MarketingReportsRoute
   '/orders/$id': typeof OrdersIdRoute
@@ -241,6 +249,7 @@ export interface FileRoutesById {
   '/admin/templates': typeof AdminTemplatesRoute
   '/admin/users': typeof AdminUsersRoute
   '/customers/$id': typeof CustomersIdRoute
+  '/customers/map': typeof CustomersMapRoute
   '/marketing/campaigns': typeof MarketingCampaignsRoute
   '/marketing/reports': typeof MarketingReportsRoute
   '/orders/$id': typeof OrdersIdRoute
@@ -271,6 +280,7 @@ export interface FileRouteTypes {
     | '/admin/templates'
     | '/admin/users'
     | '/customers/$id'
+    | '/customers/map'
     | '/marketing/campaigns'
     | '/marketing/reports'
     | '/orders/$id'
@@ -298,6 +308,7 @@ export interface FileRouteTypes {
     | '/admin/templates'
     | '/admin/users'
     | '/customers/$id'
+    | '/customers/map'
     | '/marketing/campaigns'
     | '/marketing/reports'
     | '/orders/$id'
@@ -326,6 +337,7 @@ export interface FileRouteTypes {
     | '/admin/templates'
     | '/admin/users'
     | '/customers/$id'
+    | '/customers/map'
     | '/marketing/campaigns'
     | '/marketing/reports'
     | '/orders/$id'
@@ -492,6 +504,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MarketingCampaignsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/customers/map': {
+      id: '/customers/map'
+      path: '/map'
+      fullPath: '/customers/map'
+      preLoaderRoute: typeof CustomersMapRouteImport
+      parentRoute: typeof CustomersRoute
+    }
     '/customers/$id': {
       id: '/customers/$id'
       path: '/$id'
@@ -553,11 +572,13 @@ declare module '@tanstack/react-router' {
 
 interface CustomersRouteChildren {
   CustomersIdRoute: typeof CustomersIdRoute
+  CustomersMapRoute: typeof CustomersMapRoute
   CustomersIndexRoute: typeof CustomersIndexRoute
 }
 
 const CustomersRouteChildren: CustomersRouteChildren = {
   CustomersIdRoute: CustomersIdRoute,
+  CustomersMapRoute: CustomersMapRoute,
   CustomersIndexRoute: CustomersIndexRoute,
 }
 
