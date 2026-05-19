@@ -352,9 +352,9 @@ function OrderDetail() {
                  </CardContent>
               </Card>
 
-               {/* UPSELL INTELLIGENCE PANEL */}
-               {order.status === 'delivered' && items.length > 0 && (
-                 <UpsellPanel items={items} customerPhone={order.customer_phone} customerName={order.customer_name} orderId={order.id} />
+               {/* UPSELL INTELLIGENCE PANEL - visible for all non-cancelled orders */}
+               {order.status !== 'cancelled' && items.length > 0 && (
+                 <UpsellPanel items={items} customerPhone={order.customer_phone} customerName={order.customer_name} orderId={order.id} orderStatus={order.status} />
                )}
            </div>
         </div>
@@ -364,11 +364,12 @@ function OrderDetail() {
 }
 
 // ─── UPSELL INTELLIGENCE PANEL ──────────────────────────────────────────────
-function UpsellPanel({ items, customerPhone, customerName, orderId }: {
+function UpsellPanel({ items, customerPhone, customerName, orderId, orderStatus }: {
   items: any[];
   customerPhone: string;
   customerName: string;
   orderId: string;
+  orderStatus?: string;
 }) {
     // Per-variant cycle settings: { [productId]: { retail?: number; salon?: number } }
   const productCycles: Record<number, { retail?: number; salon?: number }> = (() => {
@@ -381,50 +382,61 @@ function UpsellPanel({ items, customerPhone, customerName, orderId }: {
 
   const suggestions = (() => {
     const result: Array<{
-      productId: number;
+      productId: number | null;
       productName: string;
       categoryId: string;
       cycleDays: number;
       variantType: 'retail' | 'salon';
-      variant: any;
+      variant: { size: string; price: number } | null;
       alertDays: number;
     }> = [];
 
     items.forEach(item => {
+      const orderedType: 'retail' | 'salon' = item.size_type === 'salon' ? 'salon' : 'retail';
+      
+      // Try to match against product catalog for richer data
       const matched = PRODUCTS.find(p =>
         p.name === item.product_name ||
-        (item.product_name && item.product_name.toLowerCase().includes(p.name.toLowerCase().slice(0, 20)))
+        (item.product_name && p.name && item.product_name.toLowerCase().includes(p.name.toLowerCase().slice(0, 15))) ||
+        (item.product_name && p.name && p.name.toLowerCase().includes(item.product_name.toLowerCase().slice(0, 15)))
       );
-      if (!matched) return;
 
-      const retail = matched.variants.find(v => v.type === 'retail');
-      const salon = matched.variants.find(v => v.type === 'salon');
-      const cycleEntry = productCycles[matched.id] || {};
-
-      // Determine which variant was ordered
-      const orderedType: 'retail' | 'salon' = item.size_type === 'salon' ? 'salon' : 'retail';
-      const variantMatch = orderedType === 'salon' ? (salon || retail) : (retail || salon);
-      if (!variantMatch) return;
-
-      // Use per-variant cycle if configured, else global
-      const cycleDays = cycleEntry[orderedType] ?? globalCycle;
-      const alertDays = Math.max(cycleDays - 10, 0);
-
-      result.push({
-        productId: matched.id,
-        productName: matched.name,
-        categoryId: matched.categoryId,
-        cycleDays,
-        variantType: orderedType,
-        alertDays,
-        variant: variantMatch
-      });
+      if (matched) {
+        const retail = matched.variants.find(v => v.type === 'retail');
+        const salon = matched.variants.find(v => v.type === 'salon');
+        const cycleEntry = productCycles[matched.id] || {};
+        const variantMatch = orderedType === 'salon' ? (salon || retail) : (retail || salon);
+        const cycleDays = cycleEntry[orderedType] ?? globalCycle;
+        const alertDays = Math.max(cycleDays - 10, 0);
+        result.push({
+          productId: matched.id,
+          productName: matched.name,
+          categoryId: matched.categoryId,
+          cycleDays,
+          variantType: orderedType,
+          alertDays,
+          variant: variantMatch ? { size: variantMatch.size, price: variantMatch.price } : { size: item.size || '', price: item.unit_price || 0 }
+        });
+      } else {
+        // Fallback: use raw item data even without catalog match
+        const cycleDays = globalCycle;
+        const alertDays = Math.max(cycleDays - 10, 0);
+        result.push({
+          productId: null,
+          productName: item.product_name || 'Sản phẩm không rõ',
+          categoryId: '',
+          cycleDays,
+          variantType: orderedType,
+          alertDays,
+          variant: { size: item.size || '', price: item.unit_price || 0 }
+        });
+      }
     });
 
     return result;
   })();
 
-  if (suggestions.length === 0) return null;
+  // Always show panel if items exist (never return null early)
 
   const fmt = (n: number) => new Intl.NumberFormat('vi-VN').format(Math.round(n)) + 'đ';
 
@@ -443,8 +455,14 @@ function UpsellPanel({ items, customerPhone, customerName, orderId }: {
             </div>
           </div>
           <p className="text-[11px] text-indigo-300 mt-3 leading-relaxed">
-            Dựa trên {suggestions.length} sản phẩm trong đơn, dự kiến khách cần tái mua:
+            {suggestions.length} sản phẩm trong đơn · Chu kỳ refill dự kiến:
           </p>
+          {orderStatus !== 'delivered' && (
+            <div className="mt-2 inline-flex items-center gap-1.5 bg-amber-400/15 border border-amber-400/25 rounded-lg px-2.5 py-1">
+              <Clock className="w-3 h-3 text-amber-300" />
+              <span className="text-[9px] font-black text-amber-300 uppercase tracking-wider">Gọi gối đầu khi gần hết hàng</span>
+            </div>
+          )}
         </div>
 
         {/* Product list */}
@@ -459,9 +477,11 @@ function UpsellPanel({ items, customerPhone, customerName, orderId }: {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[9px] font-black text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded-md uppercase tracking-widest shrink-0">
-                        {cat?.nameVi || cat?.name || s.categoryId}
-                      </span>
+                      {(cat || s.categoryId) && (
+                        <span className="text-[9px] font-black text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded-md uppercase tracking-widest shrink-0">
+                          {cat?.nameVi || cat?.name || s.categoryId}
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm font-bold text-white line-clamp-2 leading-snug">{s.productName}</p>
                     <div className="flex flex-wrap items-center gap-3 mt-2">
