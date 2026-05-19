@@ -18,7 +18,11 @@ import {
   HelpCircle,
   Maximize2,
   ListFilter,
-  Grid
+  Grid,
+  Download,
+  Map,
+  PlusCircle,
+  UploadCloud
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +32,15 @@ import { toast } from "sonner";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose
+} from "@/components/ui/dialog";
 
 // Fix default Leaflet icon paths
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -132,14 +145,85 @@ function CustomerMapPage() {
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [previewCustomer, setPreviewCustomer] = useState<any | null>(null);
   const [focusCustomer, setFocusCustomer] = useState<any | null>(null);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+
+  const handleExportGoogleMyMapsCSV = () => {
+    if (mapCustomers.length === 0) {
+      toast.error("Không có khách hàng nào có tọa độ để xuất!");
+      return;
+    }
+
+    try {
+      const escapeCSV = (val: any) => {
+        if (val === null || val === undefined) return "";
+        const str = String(val);
+        return `"${str.replace(/"/g, '""')}"`;
+      };
+
+      const csvHeaders = [
+        "ID",
+        "Name",
+        "Facility_Name",
+        "Phone",
+        "Address",
+        "Latitude",
+        "Longitude",
+        "Owner_Name",
+        "Ownership_Status",
+        "Customer_Channel",
+        "Care_Model",
+        "Total_Order_Amount",
+        "CRM_Link"
+      ].join(",");
+
+      const csvRows = mapCustomers.map(c => {
+        const ownerName = getStaffName(c.owner_sale_id) || getStaffName(c.owner_tele_id) || "Chưa phân công";
+        const crmLink = `${window.location.origin}/customers/${c.id}`;
+        
+        const totalOrderAmount = c.orders?.reduce((sum: number, o: any) => sum + (o.total || 0), 0) || 0;
+        
+        return [
+          escapeCSV(c.id),
+          escapeCSV(c.name),
+          escapeCSV(c.facility_name),
+          escapeCSV(c.phone),
+          escapeCSV(c.address),
+          escapeCSV(c.latitude),
+          escapeCSV(c.longitude),
+          escapeCSV(ownerName),
+          escapeCSV(c.ownership_status),
+          escapeCSV(c.customer_channel),
+          escapeCSV(c.care_model),
+          escapeCSV(totalOrderAmount),
+          escapeCSV(crmLink)
+        ].join(",");
+      });
+
+      const csvContent = "\uFEFF" + [csvHeaders, ...csvRows].join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `DESEMBRE_MyMaps_Export_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setIsGuideOpen(true);
+      toast.success(`Đã xuất thành công ${mapCustomers.length} khách hàng!`);
+    } catch (err: any) {
+      console.error("Export My Maps CSV error:", err);
+      toast.error("Lỗi xuất CSV: " + err.message);
+    }
+  };
 
   // Load customers
   useEffect(() => {
     async function fetchCustomers() {
       setLoading(true);
       try {
-        // Query active customers
-        let query = supabase.from("customers").select("*").is("deleted_at", null);
+        // Query active customers with orders
+        let query = supabase.from("customers").select("*, orders(id, total, status)").is("deleted_at", null);
         
         const { data, error } = await query;
         if (error) throw error;
@@ -275,6 +359,13 @@ function CustomerMapPage() {
           <Badge variant="outline" className="border-slate-200 bg-slate-50 text-[10px] font-bold px-2.5 py-1">
             Đang lọc: {filteredCustomers.length} / {customers.length} KH
           </Badge>
+          <Button
+            variant="outline"
+            onClick={handleExportGoogleMyMapsCSV}
+            className="rounded-xl border-slate-200 font-black text-[10px] uppercase h-10 px-4 shadow-sm bg-white hover:bg-slate-50 transition-all flex items-center gap-1.5"
+          >
+            <Download className="w-4 h-4 text-slate-550" /> Export My Maps CSV
+          </Button>
         </div>
       </header>
 
@@ -518,7 +609,7 @@ function CustomerMapPage() {
             if (!open) {
               setPreviewCustomer(null);
               // Refresh customers in map to get coordinates updates if the user pinned them inside the drawer
-              supabase.from("customers").select("*").is("deleted_at", null).then(({ data }) => {
+              supabase.from("customers").select("*, orders(id, total, status)").is("deleted_at", null).then(({ data }) => {
                 if (data) {
                   // Re-apply same role visibility filters
                   const filteredByRole = data.filter(c => {
@@ -535,6 +626,104 @@ function CustomerMapPage() {
           getStaffName={getStaffName}
         />
       )}
+
+      {/* GOOGLE MY MAPS IMPORT GUIDE DIALOG */}
+      <Dialog open={isGuideOpen} onOpenChange={setIsGuideOpen}>
+        <DialogContent className="sm:max-w-lg rounded-3xl p-6 border-slate-100 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <span className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-650 flex items-center justify-center">
+                <Map className="w-4 h-4" />
+              </span>
+              Hướng dẫn nhập bản đồ Google My Maps
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-1">
+              Định vị khách hàng hàng loạt trên bản đồ Google
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3">
+            <p className="text-xs text-slate-600 leading-relaxed font-semibold">
+              Tệp CSV chứa thông tin tọa độ khách hàng đã được tải xuống thiết bị của bạn. Để hiển thị các điểm này trên Google My Maps, hãy làm theo các bước sau:
+            </p>
+
+            <div className="space-y-3">
+              {/* Step 1 */}
+              <div className="flex gap-3">
+                <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-black text-slate-700 shrink-0">
+                  1
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-xs font-bold text-slate-900">Truy cập Google My Maps</p>
+                  <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                    Mở trình duyệt và truy cập trang web <a href="https://mymaps.google.com" target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline font-bold">Google My Maps</a>.
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 2 */}
+              <div className="flex gap-3">
+                <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-black text-slate-700 shrink-0">
+                  2
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-xs font-bold text-slate-900">Tạo bản đồ mới</p>
+                  <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                    Nhấp vào nút <span className="font-bold text-slate-800">Tạo bản đồ mới (Create a new map)</span> ở góc trên bên trái.
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 3 */}
+              <div className="flex gap-3">
+                <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-black text-slate-700 shrink-0">
+                  3
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-xs font-bold text-slate-900">Nhập dữ liệu CSV</p>
+                  <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                    Trong bảng điều khiển bên trái, tại phần lớp chưa có tiêu đề, bấm nút <span className="font-bold text-slate-800">Nhập (Import)</span> và chọn tệp CSV vừa tải xuống.
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 4 */}
+              <div className="flex gap-3">
+                <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-black text-slate-700 shrink-0">
+                  4
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-xs font-bold text-slate-900">Chọn cột định vị</p>
+                  <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                    Đánh dấu chọn cột <span className="font-bold text-slate-800">Latitude</span> và <span className="font-bold text-slate-800">Longitude</span> để xác định vị trí các điểm trên bản đồ.
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 5 */}
+              <div className="flex gap-3">
+                <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-black text-slate-700 shrink-0">
+                  5
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-xs font-bold text-slate-900">Chọn cột tiêu đề</p>
+                  <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                    Chọn cột <span className="font-bold text-slate-800">Facility_Name</span> (Tên cơ sở Spa) hoặc <span className="font-bold text-slate-800">Name</span> để làm nhãn hiển thị cho các marker.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button className="rounded-xl bg-slate-900 hover:bg-black font-black text-xs h-10 px-5 shadow-lg shadow-slate-200">
+                Đã hiểu & Đóng
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
