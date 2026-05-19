@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { PRODUCTS, CATEGORIES } from "@/data/products";
 import { 
   ArrowLeft, 
   Printer, 
@@ -20,7 +21,13 @@ import {
   Zap,
   MoreVertical,
   XCircle,
-  FileEdit
+  FileEdit,
+  Sparkles,
+  TrendingUp,
+  PhoneCall,
+  RefreshCw,
+  ShoppingBag,
+  ArrowRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -344,9 +351,171 @@ function OrderDetail() {
                     </div>
                  </CardContent>
               </Card>
+
+               {/* UPSELL INTELLIGENCE PANEL */}
+               {order.status === 'delivered' && items.length > 0 && (
+                 <UpsellPanel items={items} customerPhone={order.customer_phone} customerName={order.customer_name} orderId={order.id} />
+               )}
            </div>
         </div>
       </main>
     </div>
+  );
+}
+
+// ─── UPSELL INTELLIGENCE PANEL ──────────────────────────────────────────────
+function UpsellPanel({ items, customerPhone, customerName, orderId }: {
+  items: any[];
+  customerPhone: string;
+  customerName: string;
+  orderId: string;
+}) {
+    // Per-variant cycle settings: { [productId]: { retail?: number; salon?: number } }
+  const productCycles: Record<number, { retail?: number; salon?: number }> = (() => {
+    try { return JSON.parse(localStorage.getItem('product_cycle_settings') || '{}'); } catch { return {}; }
+  })();
+  const tierSettings = (() => {
+    try { return JSON.parse(localStorage.getItem('system_tier_settings') || '{}'); } catch { return {}; }
+  })();
+  const globalCycle = Number(tierSettings.refillCycleDays || 60);
+
+  const suggestions = (() => {
+    const result: Array<{
+      productId: number;
+      productName: string;
+      categoryId: string;
+      cycleDays: number;
+      variantType: 'retail' | 'salon';
+      variant: any;
+      alertDays: number;
+    }> = [];
+
+    items.forEach(item => {
+      const matched = PRODUCTS.find(p =>
+        p.name === item.product_name ||
+        (item.product_name && item.product_name.toLowerCase().includes(p.name.toLowerCase().slice(0, 20)))
+      );
+      if (!matched) return;
+
+      const retail = matched.variants.find(v => v.type === 'retail');
+      const salon = matched.variants.find(v => v.type === 'salon');
+      const cycleEntry = productCycles[matched.id] || {};
+
+      // Determine which variant was ordered
+      const orderedType: 'retail' | 'salon' = item.size_type === 'salon' ? 'salon' : 'retail';
+      const variantMatch = orderedType === 'salon' ? (salon || retail) : (retail || salon);
+      if (!variantMatch) return;
+
+      // Use per-variant cycle if configured, else global
+      const cycleDays = cycleEntry[orderedType] ?? globalCycle;
+      const alertDays = Math.max(cycleDays - 10, 0);
+
+      result.push({
+        productId: matched.id,
+        productName: matched.name,
+        categoryId: matched.categoryId,
+        cycleDays,
+        variantType: orderedType,
+        alertDays,
+        variant: variantMatch
+      });
+    });
+
+    return result;
+  })();
+
+  if (suggestions.length === 0) return null;
+
+  const fmt = (n: number) => new Intl.NumberFormat('vi-VN').format(Math.round(n)) + 'đ';
+
+  return (
+    <Card className="rounded-[32px] border-none overflow-hidden" style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%)' }}>
+      <CardContent className="p-0">
+        {/* Header */}
+        <div className="px-8 pt-8 pb-5 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-400/20 flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-amber-300" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-indigo-300 uppercase tracking-widest">Upsell Intelligence</p>
+              <h3 className="text-base font-black text-white mt-0.5">Gợi ý Tái mua hàng</h3>
+            </div>
+          </div>
+          <p className="text-[11px] text-indigo-300 mt-3 leading-relaxed">
+            Dựa trên {suggestions.length} sản phẩm trong đơn, dự kiến khách cần tái mua:
+          </p>
+        </div>
+
+        {/* Product list */}
+        <div className="px-6 py-4 space-y-3">
+          {suggestions.map((s, idx) => {
+            const cat = CATEGORIES.find(c => c.id === s.categoryId);
+            return (
+              <div key={idx} className="p-4 rounded-2xl bg-white/[0.08] hover:bg-white/[0.12] border border-white/10 transition-all group">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/20 flex items-center justify-center shrink-0">
+                    <span className="text-[10px] font-black text-indigo-300">#{s.productId}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[9px] font-black text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded-md uppercase tracking-widest shrink-0">
+                        {cat?.nameVi || cat?.name || s.categoryId}
+                      </span>
+                    </div>
+                    <p className="text-sm font-bold text-white line-clamp-2 leading-snug">{s.productName}</p>
+                    <div className="flex flex-wrap items-center gap-3 mt-2">
+                      <div className="flex items-center gap-1.5">
+                        <RefreshCw className="w-3 h-3 text-emerald-400" />
+                        <span className="text-[10px] font-bold text-emerald-400">≈{s.cycleDays} ngày/chu kỳ</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-3 h-3 text-amber-400" />
+                        <span className="text-[10px] font-bold text-amber-400">Nhắc sau {s.alertDays} ngày</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <span className={'text-[9px] font-black px-2 py-0.5 rounded-md ' + (s.variantType === 'retail' ? 'bg-blue-500/20 text-blue-300' : 'bg-purple-500/20 text-purple-300')}>
+                        {s.variantType === 'retail' ? 'RETAIL' : 'SALON'} · {s.variant.size}
+                      </span>
+                      <span className="text-[11px] font-black text-indigo-300">{fmt(s.variant.price)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* CTA Actions */}
+        <div className="px-6 pb-4 space-y-3">
+          {customerPhone && (
+            <a
+              href={`tel:${customerPhone}`}
+              className="flex items-center justify-center gap-2.5 w-full h-12 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-white font-black text-xs uppercase tracking-widest transition-all hover:scale-[1.02] shadow-lg shadow-emerald-500/30"
+            >
+              <PhoneCall className="w-4 h-4" /> Gọi ngay {customerName?.split(' ').slice(-1)[0] || 'khách'}
+            </a>
+          )}
+          <Link
+            to="/orders/new"
+            className="flex items-center justify-center gap-2.5 w-full h-11 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 text-white/90 font-black text-xs uppercase tracking-widest transition-all"
+          >
+            <ShoppingBag className="w-4 h-4" /> Tạo đơn Upsell mới
+            <ArrowRight className="w-3.5 h-3.5 ml-auto" />
+          </Link>
+        </div>
+
+        {/* Footer tip */}
+        <div className="px-6 pb-6">
+          <div className="p-3 rounded-xl bg-amber-400/10 border border-amber-400/20 flex items-start gap-2">
+            <TrendingUp className="w-3.5 h-3.5 text-amber-300 shrink-0 mt-0.5" />
+            <p className="text-[10px] text-amber-200 font-medium leading-relaxed">
+              Gọi điện nhắc tái mua gối đầu trước khi khách cạn kiệt sản phẩm để tăng tỷ lệ chốt đơn lên 2-3x.
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

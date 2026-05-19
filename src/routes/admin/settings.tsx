@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { PRODUCTS, CATEGORIES } from "@/data/products";
 import { 
   Settings, 
   Palette, 
@@ -25,7 +26,11 @@ import {
   Languages,
   Zap,
   Image as ImageIcon,
-  Users
+  Users,
+  RefreshCw,
+  Clock,
+  Search,
+  PackageCheck
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,6 +38,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/settings")({
@@ -42,6 +48,9 @@ export const Route = createFileRoute("/admin/settings")({
 function SystemSettingsPage() {
   const { user, isAdmin } = useAuth();
   const [busy, setBusy] = useState(false);
+  const [cycleSearch, setCycleSearch] = useState("");
+  // productCycles: { [productId]: { retail?: number; salon?: number } }
+  const [productCycles, setProductCycles] = useState<Record<number, { retail?: number; salon?: number }>>({});
   
   const [config, setConfig] = useState<any>({
     id: null,
@@ -107,6 +116,11 @@ function SystemSettingsPage() {
       }
       setLoadingConfig(false);
     }
+    // Load per-product cycle settings from localStorage
+    const savedCycles = localStorage.getItem('product_cycle_settings');
+    if (savedCycles) {
+      try { setProductCycles(JSON.parse(savedCycles)); } catch {}
+    }
     loadConfig();
   }, []);
 
@@ -136,7 +150,9 @@ function SystemSettingsPage() {
     } catch (error: any) {
       toast.error("Lỗi tải ảnh: " + error.message, { id: "upload-logo" });
     }
-  };  const handleSave = async () => {
+  };
+
+  const handleSave = async () => {
     setBusy(true);
     
     const tierSettings = {
@@ -147,6 +163,8 @@ function SystemSettingsPage() {
       refillCycleDays: Number(config.refillCycleDays)
     };
     localStorage.setItem('system_tier_settings', JSON.stringify(tierSettings));
+    // Save per-product cycle settings
+    localStorage.setItem('product_cycle_settings', JSON.stringify(productCycles));
 
     const payload = {
       company_name: config.companyName,
@@ -181,6 +199,33 @@ function SystemSettingsPage() {
       toast.success("Đã cập nhật cấu hình hệ thống thành công!");
     }
   };
+
+  const handleCycleChange = (productId: number, variantType: 'retail' | 'salon', days: number) => {
+    setProductCycles(prev => ({
+      ...prev,
+      [productId]: { ...prev[productId], [variantType]: days }
+    }));
+  };
+
+  const handleResetCycle = (productId: number, variantType?: 'retail' | 'salon') => {
+    setProductCycles(prev => {
+      const next = { ...prev };
+      if (variantType) {
+        if (next[productId]) {
+          const updated = { ...next[productId] };
+          delete updated[variantType];
+          if (Object.keys(updated).length === 0) {
+            delete next[productId];
+          } else {
+            next[productId] = updated;
+          }
+        }
+      } else {
+        delete next[productId];
+      }
+      return next;
+    });
+  };
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20 font-sans antialiased">
       {/* HEADER */}
@@ -212,10 +257,11 @@ function SystemSettingsPage() {
       <main className="container mx-auto px-4 py-8 max-w-7xl">
         <Tabs defaultValue="branding" className="space-y-8">
            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-white p-2 rounded-[24px] shadow-sm border border-slate-100 overflow-x-auto">
-              <TabsList className="bg-transparent h-auto p-0 flex gap-2">
+              <TabsList className="bg-transparent h-auto p-0 flex gap-2 flex-wrap">
                  <TabTrigger value="branding" icon={Palette} label="Thương hiệu" />
                  <TabTrigger value="company" icon={Building2} label="Doanh nghiệp" />
                  <TabTrigger value="rules" icon={CreditCard} label="Quy tắc Bán hàng" />
+                 <TabTrigger value="products" icon={PackageCheck} label="Chu kỳ Sản phẩm" />
                  <TabTrigger value="system" icon={Monitor} label="Hệ thống" />
                  <TabTrigger value="security" icon={Lock} label="Bảo mật" />
                  <TabTrigger value="users" icon={Users} label="Nhân sự" />
@@ -472,6 +518,165 @@ function SystemSettingsPage() {
                   </Card>
                </div>
             </TabsContent>
+
+           {/* PRODUCT CYCLES TAB */}
+           <TabsContent value="products">
+              <div className="space-y-6 max-w-6xl mx-auto">
+                 <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white">
+                    <CardContent className="p-8">
+                       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                          <div className="flex items-center gap-5">
+                             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200">
+                                <Clock className="w-7 h-7" />
+                             </div>
+                             <div>
+                                <h2 className="text-xl font-black text-slate-900 tracking-tight">Bảng Chu kỳ Refill theo Sản phẩm</h2>
+                                <p className="text-sm font-medium text-slate-500 mt-1">Cấu hình số ngày tiêu thụ hết sản phẩm riêng lẻ cho từng SKU. Mặc định dùng chu kỳ toàn cục ({config.refillCycleDays} ngày).</p>
+                             </div>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                             <Badge className="bg-indigo-50 text-indigo-600 border-indigo-100 font-black text-[10px] px-4 py-2 rounded-xl">
+                                {Object.values(productCycles).reduce((acc, v) => acc + Object.keys(v).length, 0)} variant đã cấu hình
+                             </Badge>
+                             <Button variant="outline" size="sm" className="rounded-xl border-red-100 text-red-500 hover:bg-red-50 font-bold text-xs" onClick={() => { setProductCycles({}); toast.success("Đã reset toàn bộ chu kỳ sản phẩm về mặc định"); }}>
+                                <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Reset tất cả
+                             </Button>
+                          </div>
+                       </div>
+                       <div className="relative mt-6">
+                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <Input placeholder="Tìm tên sản phẩm..." className="pl-11 h-12 rounded-2xl border-slate-200 bg-slate-50 focus:bg-white font-medium" value={cycleSearch} onChange={e => setCycleSearch(e.target.value)} />
+                       </div>
+                       <div className="mt-5 p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100 text-[11px] font-medium text-indigo-800 leading-relaxed">
+                          💡 <strong>Cách hoạt động:</strong> Khi một sản phẩm được chốt đơn thành công, hệ thống bắt đầu đếm ngược theo chu kỳ này. Khi còn &lt; 10 ngày, thẻ Upsell sẽ xuất hiện trên màn hình nhân viên Sale để nhắc gọi điện gối đầu.
+                       </div>
+                    </CardContent>
+                 </Card>
+                 {CATEGORIES.map(cat => {
+                    const catProducts = PRODUCTS.filter(p =>
+                       p.categoryId === cat.id &&
+                       (cycleSearch === '' || p.name.toLowerCase().includes(cycleSearch.toLowerCase()))
+                    );
+                    if (catProducts.length === 0) return null;
+                    return (
+                       <Card key={cat.id} className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white">
+                          <CardHeader className="px-8 pt-6 pb-0">
+                             <div className="flex items-center gap-3">
+                                <div className="w-2 h-8 rounded-full bg-gradient-to-b from-indigo-500 to-purple-500" />
+                                <div>
+                                   <CardTitle className="text-sm font-black text-slate-900 uppercase tracking-widest">{cat.name}</CardTitle>
+                                   {cat.nameVi && <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">{cat.nameVi}</p>}
+                                </div>
+                                <Badge variant="outline" className="ml-auto border-slate-200 text-slate-400 text-[10px] font-black">{catProducts.length} sản phẩm</Badge>
+                             </div>
+                          </CardHeader>
+                          <CardContent className="p-0 mt-4">
+                             <table className="w-full">
+                                <thead>
+                                   <tr className="border-y border-slate-100 bg-slate-50/60">
+                                      <th className="px-8 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">SKU &amp; Tên sản phẩm</th>
+                                      <th className="px-8 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Dung tích</th>
+                                      <th className="px-8 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Chu kỳ mặc định</th>
+                                      <th className="px-8 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Chu kỳ riêng (ngày)</th>
+                                      <th className="px-8 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Trạng thái</th>
+                                   </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {catProducts.flatMap(p => {
+                                       const retail = p.variants.find(v => v.type === 'retail');
+                                       const salon = p.variants.find(v => v.type === 'salon');
+                                       const hasBothSizes = !!(retail && salon);
+                                       const cycleEntry = productCycles[p.id] || {};
+                                       const isAnyCustomized = Object.keys(cycleEntry).length > 0;
+
+                                       type VRow = { v: { size: string; price: number; type: string; id: string } | undefined; vType: 'retail' | 'salon'; label: string; colorClass: string; bgClass: string; borderClass: string };
+                                       const variantRows: VRow[] = [];
+                                       if (retail) variantRows.push({ v: retail, vType: 'retail', label: 'RETAIL', colorClass: 'text-blue-600', bgClass: 'bg-blue-50', borderClass: 'border-blue-200' });
+                                       if (salon) variantRows.push({ v: salon, vType: 'salon', label: 'SALON', colorClass: 'text-purple-600', bgClass: 'bg-purple-50', borderClass: 'border-purple-200' });
+
+                                       return variantRows.map((row, rowIdx) => {
+                                          const customCycle = cycleEntry[row.vType];
+                                          const isCustomized = customCycle !== undefined;
+                                          const isFirst = rowIdx === 0;
+                                          const isLast = rowIdx === variantRows.length - 1;
+                                          const rowBorderClass = !isLast ? 'border-b border-dashed border-slate-100' : '';
+
+                                          return (
+                                             <tr key={p.id + '-' + row.vType} className={'transition-all ' + (isCustomized ? 'bg-indigo-50/30' : 'hover:bg-slate-50/50')}>
+                                                {isFirst && (
+                                                   <td className="px-8 py-4 align-middle" rowSpan={variantRows.length}>
+                                                      <div className="flex items-center gap-3">
+                                                         <div className={'w-9 h-9 rounded-xl flex items-center justify-center text-[10px] font-black shrink-0 ' + (isAnyCustomized ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500')}>{p.id}</div>
+                                                         <div>
+                                                            <p className="text-sm font-bold text-slate-800 line-clamp-2 leading-snug max-w-[280px]">{p.name}</p>
+                                                            <p className="text-[10px] text-slate-400 font-mono mt-0.5">SKU: DES-{String(p.id).padStart(3,'0')}</p>
+                                                            {hasBothSizes && (
+                                                               <span className="text-[9px] font-black text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md mt-1.5 inline-block tracking-wider">2 SIZE</span>
+                                                            )}
+                                                         </div>
+                                                      </div>
+                                                   </td>
+                                                )}
+
+                                                <td className={'px-6 py-3.5 text-center ' + rowBorderClass}>
+                                                   <div className={'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border font-black text-[10px] uppercase ' + row.bgClass + ' ' + row.borderClass + ' ' + row.colorClass}>
+                                                      <span>{row.label}</span>
+                                                      <span className="opacity-50">·</span>
+                                                      <span>{row.v?.size}</span>
+                                                   </div>
+                                                </td>
+
+                                                <td className={'px-6 py-3.5 text-center ' + rowBorderClass}>
+                                                   <span className="text-sm font-black text-slate-400">{config.refillCycleDays} ngày</span>
+                                                </td>
+
+                                                <td className={'px-6 py-3.5 text-center ' + rowBorderClass}>
+                                                   <div className="flex items-center justify-center gap-2">
+                                                      <Input
+                                                         type="number"
+                                                         min={1}
+                                                         max={365}
+                                                         placeholder={String(config.refillCycleDays)}
+                                                         value={customCycle ?? ''}
+                                                         onChange={e => {
+                                                            const val = parseInt(e.target.value);
+                                                            if (!isNaN(val) && val > 0) handleCycleChange(p.id, row.vType, val);
+                                                            else if (e.target.value === '') handleResetCycle(p.id, row.vType);
+                                                         }}
+                                                         className={'w-24 h-9 rounded-xl text-center font-black text-sm transition-all ' + (isCustomized ? 'border-indigo-300 bg-white text-indigo-700 shadow-sm shadow-indigo-100 ring-1 ring-indigo-200' : 'border-slate-200 bg-slate-50 text-slate-600')}
+                                                      />
+                                                      <span className="text-xs font-bold text-slate-400">ngày</span>
+                                                      {isCustomized && (
+                                                         <button onClick={() => handleResetCycle(p.id, row.vType)} title="Về mặc định" className="w-6 h-6 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-400 flex items-center justify-center transition-all">
+                                                            <RefreshCw className="w-3 h-3" />
+                                                         </button>
+                                                      )}
+                                                   </div>
+                                                </td>
+
+                                                <td className={'px-6 py-3.5 text-center ' + rowBorderClass}>
+                                                   {isCustomized ? (
+                                                      <Badge className={'text-white border-none text-[9px] font-black px-2.5 py-1 rounded-full ' + (row.vType === 'retail' ? 'bg-blue-600' : 'bg-purple-600')}>
+                                                         ✦ {row.label}
+                                                      </Badge>
+                                                   ) : (
+                                                      <Badge variant="outline" className="border-slate-200 text-slate-400 text-[9px] font-black px-2.5 py-1 rounded-full">
+                                                         MẶC ĐỊNH
+                                                      </Badge>
+                                                   )}
+                                                </td>
+                                             </tr>
+                                          );
+                                       });
+                                    })}
+                                 </tbody>
+                             </table>
+                          </CardContent>
+                       </Card>
+                    );
+                 })}
+              </div>
+           </TabsContent>
 
            {/* SYSTEM TAB */}
            <TabsContent value="system">
