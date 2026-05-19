@@ -208,3 +208,94 @@ export const createTaskOverdueNotification = async (
     return { success: false, error };
   }
 };
+
+// 6. Cảnh báo khách sắp bị thu hồi (Customer Reclamation Alert)
+export const createCustomerAtRiskAutomation = async (
+  customer: any,
+  ownerUserId: string,
+  reason: string
+) => {
+  try {
+    if (!customer?.id || !ownerUserId) {
+      return { success: false, error: "Missing customer ID or owner user ID" };
+    }
+
+    // 1. Kiểm tra tránh trùng lặp Task
+    const { data: existingTasks } = await supabase
+      .from("customer_tasks")
+      .select("id")
+      .eq("customer_id", customer.id)
+      .eq("status", "pending")
+      .eq("task_type", "follow_up")
+      .ilike("title", "%Chăm lại khách trước khi bị thu hồi%")
+      .limit(1);
+
+    const shouldCreateTask = !existingTasks || existingTasks.length === 0;
+
+    // 2. Kiểm tra tránh trùng lặp Notification
+    const { data: existingNotifs } = await supabase
+      .from("notifications")
+      .select("id")
+      .eq("recipient_user_id", ownerUserId)
+      .eq("customer_id", customer.id)
+      .eq("type", "customer_at_risk")
+      .is("read_at", null)
+      .limit(1);
+
+    const shouldCreateNotification = !existingNotifs || existingNotifs.length === 0;
+
+    // A. Tạo Task nếu chưa có
+    if (shouldCreateTask) {
+      const dueDate = addDays(new Date(), 1); // due_at = now + 24h
+      
+      const { error: taskError } = await supabase.from("customer_tasks").insert([{
+        customer_id: customer.id,
+        assigned_to: ownerUserId,
+        assigned_by: null, // Ghi nhận tự động từ hệ thống
+        task_type: "follow_up",
+        title: "Chăm lại khách trước khi bị thu hồi",
+        note: reason,
+        priority: "high",
+        status: "pending",
+        due_at: dueDate.toISOString(),
+        owner_tele_id: customer.owner_tele_id || null
+      }]);
+
+      if (taskError) throw taskError;
+    }
+
+    // B. Tạo Notification nếu chưa có
+    if (shouldCreateNotification) {
+      const { error: notifyError } = await supabase.from("notifications").insert([{
+        recipient_user_id: ownerUserId,
+        customer_id: customer.id,
+        type: "customer_at_risk",
+        priority: "high",
+        title: "Khách sắp bị thu hồi",
+        message: reason,
+        action_url: `/customers/${customer.id}`
+      }]);
+
+      if (notifyError) throw notifyError;
+    }
+
+    // C. Ghi Nhật ký hoạt động (Customer Activity)
+    // Lưu ý: Ràng buộc check_activity_type của bảng customer_activities không cho phép 'system', 
+    // vì vậy chúng ta sẽ ánh xạ an toàn sang 'note' và ghi nhận chi tiết hệ thống tự động cảnh báo.
+    const { error: activityError } = await supabase.from("customer_activities").insert([{
+      customer_id: customer.id,
+      created_by: null, // Hoạt động tự động từ hệ thống
+      activity_type: "note",
+      title: "Hệ thống cảnh báo khách sắp bị thu hồi",
+      content: reason
+    }]);
+
+    if (activityError) throw activityError;
+
+    return { success: true, taskCreated: shouldCreateTask, notificationCreated: shouldCreateNotification };
+  } catch (error) {
+    console.error("Automation Error [CustomerAtRisk]:", error);
+    return { success: false, error };
+  }
+};
+
