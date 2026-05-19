@@ -126,12 +126,14 @@ export const TelesaleWorkspace: React.FC = () => {
             items={[...(data.todayTasks || []), ...(data.overdueTasks || [])]} 
             icon={<Phone className="w-4 h-4" />} 
             color="bg-indigo-600" 
+            onRefresh={handleRefresh}
           />
           <WorkspaceTasksCard 
             title="Khách quan tâm" 
             items={data.interestedLeads} 
             icon={<Target className="w-4 h-4" />} 
             color="bg-pink-600" 
+            onRefresh={handleRefresh}
           />
           <WorkspaceNotificationsCard 
             notifications={data.notifications} 

@@ -132,6 +132,7 @@ export const SaleWorkspace: React.FC = () => {
             items={[...(data.todayTasks || []), ...(data.todayAppointments || [])]} 
             icon={<Zap className="w-4 h-4" />} 
             color="bg-blue-600" 
+            onRefresh={handleRefresh}
           />
           <WorkspaceCustomersCard 
             title="Khách cần chăm sóc" 

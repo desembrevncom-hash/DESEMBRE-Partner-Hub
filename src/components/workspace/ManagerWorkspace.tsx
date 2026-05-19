@@ -75,6 +75,7 @@ export const ManagerWorkspace: React.FC = () => {
             items={data.tasks} 
             icon={<Shield className="w-4 h-4" />} 
             color="bg-purple-600" 
+            onRefresh={handleRefresh}
           />
           <WorkspaceCustomersCard 
             title="Khách hàng mới" 
