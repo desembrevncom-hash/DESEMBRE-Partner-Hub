@@ -590,9 +590,19 @@ export function TasksPage() {
                     {/* Thông tin Khách hàng liên quan */}
                     <div className="bg-slate-50/80 p-2.5 rounded-lg border border-slate-100 space-y-1 text-xs">
                       <div className="flex items-center justify-between font-semibold text-slate-800">
-                        <span className="truncate flex items-center gap-1">
-                          👤 <span>{t.customer_name}</span>
-                        </span>
+                        {t.customer_id ? (
+                          <Link 
+                            to="/customers/$id" 
+                            params={{ id: t.customer_id }}
+                            className="hover:underline hover:text-indigo-600 transition-colors cursor-pointer flex items-center gap-1 truncate"
+                          >
+                            👤 <span className="truncate">{t.customer_name}</span>
+                          </Link>
+                        ) : (
+                          <span className="truncate flex items-center gap-1">
+                            👤 <span>{t.customer_name}</span>
+                          </span>
+                        )}
                       </div>
                       {t.customer && (
                         <div className="text-[11px] text-slate-500 font-medium">

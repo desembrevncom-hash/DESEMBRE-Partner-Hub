@@ -85,6 +85,7 @@ export const ManagerWorkspace: React.FC = () => {
           />
           <WorkspaceNotificationsCard 
             notifications={data.notifications} 
+            onRefresh={handleRefresh}
           />
         </div>
 

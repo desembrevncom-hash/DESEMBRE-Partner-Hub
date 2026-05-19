@@ -484,6 +484,20 @@ function NewOrderPage() {
     setBusy(false);
     if (itemsErr) return toast.error(itemsErr.message);
     
+    if (order && order.customer_id) {
+      try {
+        await supabase.from("customer_activities").insert([{
+          customer_id: order.customer_id,
+          created_by: user?.id,
+          activity_type: "order_created",
+          title: `Đã tạo đơn hàng #${order.order_no || order.id.slice(0, 8)}`,
+          content: `Đơn hàng trị giá ${new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(order.total || total)}`
+        }]);
+      } catch (e) {
+        console.error("Error creating customer activity for order:", e);
+      }
+    }
+    
     toast.success(editId ? "Đã cập nhật đơn" : "Đã lưu nháp");
     navigate({ to: "/orders/$id", params: { id: order.id } });
   };

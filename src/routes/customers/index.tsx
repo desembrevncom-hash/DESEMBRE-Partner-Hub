@@ -30,7 +30,8 @@ import {
   BarChart3,
   Mail,
   Calendar,
-  Star
+  Star,
+  Download
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,12 @@ import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem
+} from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/customers/")({
   component: CustomersPage,
@@ -109,10 +116,79 @@ function CustomersPage() {
     fetchCustomers();
   }, [user]);
 
+  const handleExport = async (exportType: "active" | "deleted" = "active") => {
+    try {
+      let query = supabase.from("customers").select("*");
+      if (exportType === "active") {
+        query = query.is("deleted_at", null);
+      } else {
+        query = query.not("deleted_at", "is", null);
+      }
+
+      // Role-based logic (Strict ownership)
+      if (!isAdmin) {
+        if (isSale) query = query.eq("owner_sale_id", user?.id);
+        if (isTelesale || isTeleLead) query = query.eq("owner_tele_id", user?.id);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        toast.error("Không có dữ liệu để xuất!");
+        return;
+      }
+
+      // Convert to CSV
+      const headers = [
+        "ID", "Tên cơ sở", "Tên liên hệ", "Số điện thoại", "Số ĐT chuẩn hóa", 
+        "Địa chỉ", "Kênh tiếp cận", "Mô hình chăm sóc", "Báo giá/Tiềm năng", 
+        "Hạng mức", "Sale phụ trách ID", "Tele phụ trách ID", "Ngày tạo",
+        "Lý do xóa", "Người xóa ID", "Ngày xóa"
+      ];
+      
+      const csvRows = [
+        headers.join(","),
+        ...data.map(c => [
+          c.id,
+          `"${(c.facility_name || "").replace(/"/g, '""')}"`,
+          `"${(c.name || "").replace(/"/g, '""')}"`,
+          `"${c.phone || ""}"`,
+          `"${c.normalized_phone || ""}"`,
+          `"${(c.address || "").replace(/"/g, '""')}"`,
+          c.customer_channel || "",
+          c.care_model || "",
+          c.status || "",
+          c.lifecycle_stage || "",
+          c.owner_sale_id || "",
+          c.owner_tele_id || "",
+          c.created_at,
+          `"${(c.delete_reason || "").replace(/"/g, '""')}"`,
+          c.deleted_by || "",
+          c.deleted_at || ""
+        ].join(","))
+      ];
+
+      const csvContent = "\uFEFF" + csvRows.join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `DESEMBRE_Customers_${exportType}_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success(`Đã xuất thành công ${data.length} dòng dữ liệu (${exportType})!`);
+    } catch (e: any) {
+      toast.error("Lỗi khi xuất dữ liệu: " + e.message);
+    }
+  };
+
   const fetchCustomers = async () => {
     setLoading(true);
     try {
-      let query = supabase.from("customers").select("*, orders(id, total, status)");
+      let query = supabase.from("customers").select("*, orders(id, total, status)").is("deleted_at", null);
       
       // Role-based logic (Strict ownership)
       if (!isAdmin) {
@@ -205,6 +281,40 @@ function CustomersPage() {
                 </Button>
              </div>
              <NotificationBell />
+             {isManager ? (
+               <DropdownMenu>
+                 <DropdownMenuTrigger asChild>
+                   <Button 
+                     variant="outline"
+                     className="rounded-xl border-slate-200 font-black text-xs h-10 px-5 shadow-3xs hover:bg-slate-50 bg-white transition-all flex items-center gap-1.5"
+                   >
+                     <Download className="w-4 h-4 text-slate-500" /> Xuất Excel
+                   </Button>
+                 </DropdownMenuTrigger>
+                 <DropdownMenuContent className="rounded-2xl border-slate-100 shadow-xl w-52">
+                   <DropdownMenuItem 
+                     onClick={() => handleExport("active")}
+                     className="text-xs font-bold text-slate-700 py-2.5 cursor-pointer"
+                   >
+                     📂 Xuất Spa hoạt động
+                   </DropdownMenuItem>
+                   <DropdownMenuItem 
+                     onClick={() => handleExport("deleted")}
+                     className="text-xs font-bold text-rose-600 hover:text-rose-700 py-2.5 cursor-pointer"
+                   >
+                     🗑️ Xuất danh sách đã xóa
+                   </DropdownMenuItem>
+                 </DropdownMenuContent>
+               </DropdownMenu>
+             ) : (
+               <Button 
+                 variant="outline"
+                 onClick={() => handleExport("active")}
+                 className="rounded-xl border-slate-200 font-black text-xs h-10 px-5 shadow-3xs bg-white hover:bg-slate-50 transition-all flex items-center gap-1.5"
+               >
+                 <Download className="w-4 h-4 text-slate-500" /> Xuất Excel
+               </Button>
+             )}
              <Button 
                className="rounded-xl bg-slate-900 hover:bg-black font-black text-xs h-10 px-6 shadow-lg shadow-slate-200 transition-all hover:scale-105"
                onClick={() => setIsAddDialogOpen(true)}

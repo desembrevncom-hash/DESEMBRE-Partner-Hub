@@ -96,7 +96,7 @@ function OrderDetail() {
       if (error) throw error;
 
       // Trigger Automation if status becomes 'delivered'
-      if (newStatus === 'delivered') {
+      if (newStatus === 'delivered' && order.customer_id) {
         await createPostPurchaseCheckinAutomation(
           order.customer_id, 
           order.customer_name,
@@ -104,6 +104,8 @@ function OrderDetail() {
           order.id
         );
         toast.success("Đơn hàng hoàn thành! Đã tự động lên lịch chăm sóc sau mua.");
+      } else if (newStatus === 'delivered') {
+        toast.success("Đơn hàng hoàn thành!");
       } else {
         toast.success(`Đã cập nhật trạng thái: ${newStatus}`);
       }
@@ -287,7 +289,9 @@ function OrderDetail() {
               {/* Customer Card */}
               <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white">
                  <CardHeader className="p-8 pb-4">
-                    <CardTitle className="text-xs font-black text-slate-400 uppercase tracking-widest">Thông tin khách hàng</CardTitle>
+                    <CardTitle className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                      {order.customer_id ? "Hồ sơ khách hàng" : "Thông tin giao hàng"}
+                    </CardTitle>
                  </CardHeader>
                  <CardContent className="p-8 pt-0 space-y-6">
                     <div className="flex items-center gap-4 group">

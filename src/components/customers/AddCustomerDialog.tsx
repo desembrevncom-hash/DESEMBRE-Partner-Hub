@@ -207,13 +207,33 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
     }
     
     setSaving(true);
+    const norm = normalizePhone(form.phone) || null;
+    if (norm) {
+      const { data: existing, error: checkError } = await supabase
+        .from("customers")
+        .select("id, facility_name, name")
+        .eq("normalized_phone", norm)
+        .is("deleted_at", null)
+        .limit(1);
+      
+      if (!checkError && existing && existing.length > 0) {
+        const confirmSave = window.confirm(
+          `⚠️ CẢNH BÁO TRÙNG LẶP DỮ LIỆU!\n\nSố điện thoại chuẩn hóa (${norm}) đã tồn tại trên một khách hàng đang hoạt động:\n- Tên/Cơ sở: ${existing[0].facility_name || existing[0].name}\n\nBạn có chắc chắn vẫn muốn lưu thêm khách hàng này không?`
+        );
+        if (!confirmSave) {
+          setSaving(false);
+          return;
+        }
+      }
+    }
+
     const payload: any = {
       name: form.name.trim(),
       facility_name: form.facility_name.trim(),
       contact_name: form.name.trim(),
       business_name: form.facility_name.trim(),
       phone: form.phone.trim(),
-      normalized_phone: normalizePhone(form.phone),
+      normalized_phone: norm,
       address: form.address.trim(),
       customer_channel: form.customer_channel,
       customer_distance_type: form.customer_distance_type,

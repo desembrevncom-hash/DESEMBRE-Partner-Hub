@@ -81,21 +81,24 @@ export const WorkspaceTasksCard: React.FC<WorkspaceTasksCardProps> = ({
             const isInProgress = status === "in_progress";
 
             const cId = item.customer_id || item.customer?.id;
-            const hasLink = !!cId;
+            const lId = item.lead_id || item.lead?.id;
+            const hasLink = !!cId || !!lId;
 
             const handleClickRow = () => {
-              if (hasLink) {
+              if (cId) {
                 setPreviewCustomer({ id: cId });
+              } else if (lId) {
+                setPreviewCustomer({ id: lId });
+              } else {
+                alert(`📋 Chi tiết công việc:\n- Tiêu đề: ${item.title}\n- Loại: ${getTaskTypeLabel(item.task_type)}\n- Trạng thái: ${getTaskStatusLabel(status)}\n- Hạn chót: ${time ? format(new Date(time), "HH:mm dd/MM/yyyy", { locale: vi }) : "N/A"}\n- Mô tả: ${item.description || "Không có mô tả"}`);
               }
             };
 
             return (
               <div 
                 key={item.id || idx} 
-                onClick={hasLink ? handleClickRow : undefined}
-                className={`p-4 transition-all group flex flex-col gap-2 relative ${
-                  hasLink ? "cursor-pointer" : ""
-                } ${
+                onClick={handleClickRow}
+                className={`p-4 transition-all group flex flex-col gap-2 relative cursor-pointer ${
                   isCompleted ? "bg-emerald-50/20 hover:bg-emerald-50/30" : 
                   isCancelled ? "bg-rose-50/10 hover:bg-rose-50/20" : "hover:bg-slate-50"
                 }`}

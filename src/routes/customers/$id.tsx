@@ -38,6 +38,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CustomerUpsellIntel } from "@/components/customers/CustomerUpsellIntel";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -179,6 +180,7 @@ function CustomerDetailPage() {
   // Customer 360 States
   const [tasks, setTasks] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
+  const [orderItems, setOrderItems] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
 
@@ -312,6 +314,38 @@ function CustomerDetailPage() {
     }
   };
 
+  const handleDeleteCustomer = async () => {
+    if (!canEditCustomer) {
+      toast.error("Bạn không có quyền thực hiện hành động này!");
+      return;
+    }
+
+    const reason = window.prompt("⚠️ CẢNH BÁO: HÀNH ĐỘNG NÀY SẼ XÓA MỀM KHÁCH HÀNG KHỎI HỆ THỐNG.\n\nVui lòng nhập lý do xóa khách hàng (bắt buộc):");
+    if (reason === null) return;
+    if (!reason.trim()) {
+      toast.error("Lý do xóa khách hàng không được để trống!");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("customers")
+        .update({
+          deleted_at: new Date().toISOString(),
+          deleted_by: user?.id,
+          delete_reason: reason.trim()
+        })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast.success("Đã xóa khách hàng thành công (Soft delete)!");
+      navigate({ to: "/customers" });
+    } catch (e: any) {
+      toast.error("Lỗi khi xóa khách hàng: " + e.message);
+    }
+  };
+
   const fetchCustomer = async () => {
     if (!id) return;
     setLoading(true);
@@ -319,14 +353,15 @@ function CustomerDetailPage() {
       .from("customers")
       .select("*")
       .eq("id", id)
-      .single();
+      .is("deleted_at", null)
+      .maybeSingle();
 
     if (error) {
       console.error("Error fetching customer:", error);
       toast.error("Không thể tải thông tin khách hàng");
     } else {
       setCustomer(data);
-      if (data.spa_equipment && Array.isArray(data.spa_equipment)) {
+      if (data && data.spa_equipment && Array.isArray(data.spa_equipment)) {
         setSpaEquipment(data.spa_equipment);
       } else {
         try {
@@ -357,6 +392,23 @@ function CustomerDetailPage() {
       const { data } = await supabase.from("orders").select("*").eq("customer_id", id).order("created_at", { ascending: false });
       if (data) setOrders(data);
     } catch (e) { console.error("Error fetching orders:", e); }
+  };
+
+  const fetchOrderItems = async () => {
+    if (!id) return;
+    try {
+      const { data: customerOrders } = await supabase.from("orders").select("id").eq("customer_id", id);
+      if (customerOrders && customerOrders.length > 0) {
+        const orderIds = customerOrders.map(o => o.id);
+        const { data } = await supabase
+          .from("order_items")
+          .select("*, order:orders(created_at, status)")
+          .in("order_id", orderIds);
+        if (data) setOrderItems(data);
+      } else {
+        setOrderItems([]);
+      }
+    } catch (e) { console.error("Error fetching order items:", e); }
   };
 
   const fetchAppointments = async () => {
@@ -399,6 +451,7 @@ function CustomerDetailPage() {
     fetchOrders();
     fetchAppointments();
     fetchEvents();
+    fetchOrderItems();
   }, [id]);
 
   const handleAddActivity = async () => {
@@ -578,6 +631,15 @@ function CustomerDetailPage() {
             >
               <Plus className="mr-1.5 h-3.5 w-3.5" /> Tạo đơn
             </Button>
+            {canEditCustomer && (
+              <Button 
+                variant="outline" 
+                onClick={handleDeleteCustomer}
+                className="rounded-xl border-rose-200 font-bold text-xs bg-rose-50 text-rose-700 hover:bg-rose-100 h-9 px-4 shadow-3xs"
+              >
+                Xóa khách
+              </Button>
+            )}
           </div>
         </div>
 
@@ -899,7 +961,7 @@ function CustomerDetailPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {orders.map((ord) => (
+                        {orders.slice(0, 5).map((ord) => (
                           <tr key={ord.id} className="hover:bg-slate-50/55 transition-colors">
                             <td className="px-6 py-4 font-bold text-slate-900">#{ord.order_no || ord.id.slice(0, 8).toUpperCase()}</td>
                             <td className="px-6 py-4 text-slate-500 font-medium">{format(new Date(ord.created_at), "dd/MM/yyyy HH:mm")}</td>
@@ -996,99 +1058,11 @@ function CustomerDetailPage() {
             {/* UPSELL CONTENT */}
             <TabsContent value="upsell" className="mt-0 outline-none space-y-6">
               
-              {/* Doanh số & Thăng hạng */}
-              <Card className="rounded-3xl border-none shadow-3xs bg-white p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                  <div>
-                    <h3 className="text-xs font-black uppercase text-slate-900 tracking-widest flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-indigo-600 animate-pulse" /> Thăng hạng thành viên Spa
-                    </h3>
-                  </div>
-                  <Badge className={`font-black uppercase tracking-widest text-[9px] px-2.5 py-0.5 rounded-lg border-none ${totalSpend >= tierSettings.diamondThreshold ? 'bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 text-white' : totalSpend >= tierSettings.goldThreshold ? 'bg-gradient-to-r from-amber-400 to-amber-600 text-white' : totalSpend > 0 ? 'bg-gradient-to-r from-slate-400 to-slate-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                    {totalSpend >= tierSettings.diamondThreshold ? 'DIAMOND' : totalSpend >= tierSettings.goldThreshold ? 'GOLD' : totalSpend > 0 ? 'SILVER' : 'NEW CO'}
-                  </Badge>
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Tích lũy LTV</span>
-                    <span className="text-base font-black text-slate-900">{totalSpend.toLocaleString('vi-VN')} đ</span>
-                  </div>
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Đại lý hiện tại</span>
-                    <span className="text-base font-black text-indigo-600">{totalSpend >= tierSettings.diamondThreshold ? `${tierSettings.diamondDiscount}%` : totalSpend >= tierSettings.goldThreshold ? `${tierSettings.goldDiscount}%` : '60%'}</span>
-                  </div>
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Mục tiêu tiếp theo</span>
-                    <span className="text-base font-black text-slate-800">
-                      {totalSpend >= tierSettings.diamondThreshold ? 'HẠNG TỐI ĐA' : totalSpend >= tierSettings.goldThreshold ? 'DIAMOND' : 'GOLD'}
-                    </span>
-                  </div>
-                </div>
-
-                {totalSpend < tierSettings.diamondThreshold && (
-                  <div className="space-y-2 bg-indigo-50/20 p-4 rounded-xl border border-indigo-100/30">
-                    <div className="flex justify-between items-center text-[11px] font-bold text-slate-500">
-                      <span className="flex items-center gap-1.5">Tiến trình</span>
-                      <span className="text-indigo-600 font-black">
-                        Còn thiếu {((totalSpend >= tierSettings.goldThreshold ? tierSettings.diamondThreshold : tierSettings.goldThreshold) - totalSpend).toLocaleString('vi-VN')}đ
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                      <div 
-                        className="bg-gradient-to-r from-indigo-500 to-purple-600 h-full rounded-full transition-all duration-500" 
-                        style={{ width: `${Math.min(100, (totalSpend / (totalSpend >= tierSettings.goldThreshold ? tierSettings.diamondThreshold : tierSettings.goldThreshold)) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </Card>
-
-              {/* Dự báo chu kỳ hết hàng */}
-              <Card className="rounded-3xl border-none shadow-3xs bg-white p-6">
-                <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-                  <h3 className="text-xs font-black uppercase text-slate-900 tracking-wider">Dự báo chu kỳ tái đặt hàng</h3>
-                  {refillStats && (
-                    <Badge variant="outline" className={`text-[8px] px-2 py-0.5 font-bold uppercase ${refillStats.statusColor}`}>
-                      {refillStats.statusLabel}
-                    </Badge>
-                  )}
-                </div>
-
-                {refillStats ? (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                      <div className="p-3 rounded-lg bg-slate-50 border border-slate-100 text-center">
-                        <p className="text-[9px] text-slate-400 font-bold uppercase">Chu kỳ</p>
-                        <p className="text-sm font-black text-slate-850 mt-1">{refillStats.cycle} ngày</p>
-                      </div>
-                      <div className="p-3 rounded-lg bg-slate-50 border border-slate-100 text-center">
-                        <p className="text-[9px] text-slate-400 font-bold uppercase">Đã qua</p>
-                        <p className="text-sm font-black text-slate-850 mt-1">{refillStats.elapsed} ngày</p>
-                      </div>
-                      <div className="p-3 rounded-lg bg-slate-50 border border-slate-100 text-center">
-                        <p className="text-[9px] text-slate-400 font-bold uppercase">Còn lại</p>
-                        <p className={`text-sm font-black mt-1 ${refillStats.remaining <= 10 ? 'text-rose-600' : 'text-slate-850'}`}>{refillStats.remaining} ngày</p>
-                      </div>
-                      <div className="p-3 rounded-lg bg-slate-50 border border-slate-100 text-center">
-                        <p className="text-[9px] text-slate-400 font-bold uppercase">Tiêu hao</p>
-                        <p className="text-sm font-black text-indigo-650 mt-1">{refillStats.progress.toFixed(0)}%</p>
-                      </div>
-                    </div>
-
-                    <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full transition-all duration-500 ${refillStats.remaining <= 10 ? 'bg-rose-500 animate-pulse' : refillStats.remaining <= 25 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
-                        style={{ width: `${refillStats.progress}%` }}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="py-6 text-center text-slate-400 text-xs font-bold bg-slate-50 rounded-xl border border-slate-150">
-                    Chưa có đủ dữ liệu chu kỳ đặt hàng
-                  </div>
-                )}
-              </Card>
+              <CustomerUpsellIntel 
+                orders={orders} 
+                items={orderItems} 
+                totalSpend={totalSpend} 
+              />
 
               {/* Thiết bị & Công nghệ hiện có tại Spa */}
               <Card className="rounded-3xl border-none shadow-3xs bg-white p-6">

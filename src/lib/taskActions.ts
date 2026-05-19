@@ -23,12 +23,15 @@ export const handleCompleteTaskAction = async (task: any, userId?: string) => {
   if (error) throw error;
 
   if (task.customer_id) {
+    const isVisit = task.task_type === "visit" || task.task_type === "check_in";
     await supabase.from("customer_activities").insert([{
       customer_id: task.customer_id,
       created_by: userId,
-      activity_type: "note",
-      title: "Hoàn thành công việc",
-      content: `Đã hoàn thành công việc: "${task.title}"`
+      activity_type: isVisit ? "check_in" : "task_completed",
+      title: isVisit ? "Hoàn thành Check-in CSKH" : "Hoàn thành công việc",
+      content: isVisit 
+        ? `Đã hoàn thành thăm hỏi/gặp mặt: "${task.title}"`
+        : `Đã hoàn thành công việc: "${task.title}"`
     }]);
   }
 };

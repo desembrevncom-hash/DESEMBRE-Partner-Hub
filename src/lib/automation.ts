@@ -188,11 +188,13 @@ export const createEventFollowUpAutomation = async (
 export const createTaskOverdueNotification = async (
   userId: string,
   taskTitle: string,
-  taskId: string
+  taskId: string,
+  customerId?: string | null
 ) => {
   try {
     const { error } = await supabase.from("notifications").insert([{
       recipient_user_id: userId,
+      customer_id: customerId || null,
       title: "⚠️ Cảnh báo: Task quá hạn",
       message: `Công việc "${taskTitle}" đã quá hạn xử lý. Vui lòng cập nhật trạng thái ngay.`,
       type: "task_overdue",

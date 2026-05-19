@@ -23,6 +23,8 @@ import { toast } from "sonner";
 import { useNavigate, Link } from "@tanstack/react-router";
 import { formatDistanceToNow, format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
+import { getStaffName } from "@/lib/customerOwnership";
 
 export const Route = createFileRoute("/notifications")({
   component: NotificationsPage,
@@ -34,6 +36,7 @@ function NotificationsPage() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [previewCustomer, setPreviewCustomer] = useState<any | null>(null);
 
   const fetchNotifications = async () => {
     if (!user) return;
@@ -169,11 +172,30 @@ function NotificationsPage() {
                       </Badge>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                     <div className="flex items-center gap-3 flex-wrap">
+                      {n.customer_id && (
+                        <Button 
+                          size="sm" 
+                          onClick={async () => {
+                            await handleRead(n.id);
+                            setPreviewCustomer({ id: n.customer_id });
+                          }}
+                          className="h-8 text-[11px] font-black uppercase tracking-wider px-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white"
+                        >
+                          Xem Khách Hàng 👤
+                        </Button>
+                      )}
                       {n.action_url && (
                         <Button 
                           size="sm" 
-                          onClick={() => navigate({ to: n.action_url })}
+                          onClick={async () => {
+                            await handleRead(n.id);
+                            if (n.action_url.startsWith("http")) {
+                              window.open(n.action_url, "_blank");
+                            } else {
+                              navigate({ to: n.action_url });
+                            }
+                          }}
                           className="h-8 text-[11px] font-black uppercase tracking-wider px-4 rounded-lg bg-slate-900 hover:bg-primary"
                         >
                           Xử lý ngay <ExternalLink className="w-3 h-3 ml-2" />
@@ -214,6 +236,13 @@ function NotificationsPage() {
           )}
         </div>
       </main>
+
+      <CustomerPreviewDrawer
+        customer={previewCustomer}
+        open={!!previewCustomer}
+        onOpenChange={(open) => !open && setPreviewCustomer(null)}
+        getStaffName={getStaffName}
+      />
     </div>
   );
 }

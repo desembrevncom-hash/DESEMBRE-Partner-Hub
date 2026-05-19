@@ -862,6 +862,20 @@ function CalendarPage() {
             added_by_sale_name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || "SALE"
           };
           setModalRegistrations(prev => [freshReg as any, ...prev]);
+
+          if (insertedData.customer_id) {
+            try {
+              await supabase.from("customer_activities").insert([{
+                customer_id: insertedData.customer_id,
+                created_by: user?.id,
+                activity_type: "event_registered",
+                title: "Đăng ký tham gia sự kiện",
+                content: `Đã đăng ký tham gia sự kiện thành công.`
+              }]);
+            } catch (e) {
+              console.error("Error creating customer activity for event registration:", e);
+            }
+          }
         }
         
         toast.success("Đăng ký khách hàng thành công");
@@ -1844,9 +1858,14 @@ function CalendarPage() {
                             ⏰ {formatCalendarTime(ev.starts_at)}
                           </p>
                           {custName && (
-                            <p className="text-[10px] text-slate-500 line-clamp-1 mt-0.5">
+                            <Link 
+                              to="/customers/$id"
+                              params={{ id: ev.customer_id! }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-[10px] font-bold text-indigo-600 hover:underline line-clamp-1 mt-0.5 block"
+                            >
                               🏢 {custName}
-                            </p>
+                            </Link>
                           )}
                           <div className="flex items-center justify-between mt-1 pt-1 border-t border-slate-50">
                             {isCompany ? (
@@ -2016,7 +2035,19 @@ function CalendarPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="text-xs font-bold text-slate-700">Gán cho khách hàng (CRM)</Label>
+                    <div className="flex justify-between items-center">
+                      <Label className="text-xs font-bold text-slate-700">Gán cho khách hàng (CRM)</Label>
+                      {customerId && (
+                        <Link 
+                          to="/customers/$id" 
+                          params={{ id: customerId }} 
+                          target="_blank"
+                          className="text-[10px] font-black text-indigo-600 hover:underline"
+                        >
+                          Xem hồ sơ CRM ↗
+                        </Link>
+                      )}
+                    </div>
                     <div className="relative">
                       <select
                         value={customerId}
@@ -2420,7 +2451,17 @@ function CalendarPage() {
                                     <div className="flex items-start justify-between gap-2">
                                       <div className="space-y-1 flex-1">
                                         <div className="flex items-center gap-2 flex-wrap">
-                                          <p className="text-xs font-bold text-slate-900">{reg.customer_name}</p>
+                                          {reg.customer_id ? (
+                                            <Link 
+                                              to="/customers/$id" 
+                                              params={{ id: reg.customer_id }}
+                                              className="text-xs font-bold text-slate-900 hover:underline hover:text-indigo-600 cursor-pointer"
+                                            >
+                                              {reg.customer_name}
+                                            </Link>
+                                          ) : (
+                                            <p className="text-xs font-bold text-slate-900">{reg.customer_name}</p>
+                                          )}
                                           <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight border ${statusMeta.badgeClass}`}>
                                             {statusMeta.label}
                                           </span>

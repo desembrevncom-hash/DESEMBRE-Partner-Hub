@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { CustomerUpsellIntel } from "./CustomerUpsellIntel";
 import {
   Sheet,
   SheetContent,
@@ -48,7 +49,8 @@ import {
 import { 
   getCustomerChannelLabel, 
   getCustomerDistanceLabel, 
-  getCareModelLabel 
+  getCareModelLabel,
+  getStaffName
 } from "@/lib/customerOwnership";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -71,14 +73,14 @@ interface CustomerPreviewDrawerProps {
   customer: any;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  getStaffName: (id?: string | null) => string;
+  getStaffName?: (id?: string | null) => string;
 }
 
 export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   customer: customerProp,
   open,
   onOpenChange,
-  getStaffName
+  getStaffName: getStaffNameProp
 }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -90,8 +92,10 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
 
   const [activities, setActivities] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
+  const [orderItems, setOrderItems] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
 
   // Task Actions
   const [taskAction, setTaskAction] = useState<{ task: any; action: string } | null>(null);
@@ -139,20 +143,17 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     setLoading(true);
     
     // Check if we need to load base profile details
-    if (!customerProp.name && !customerProp.contact_name) {
-      try {
-        const { data, error } = await supabase
-          .from("customers")
-          .select("*")
-          .eq("id", customerProp.id)
-          .single();
-        if (error) throw error;
-        if (data) {
-          setActiveCustomer(data);
-        }
-      } catch (err) {
-        console.error("Error loading customer base profile:", err);
+    try {
+      const { data, error } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("id", customerProp.id)
+        .single();
+      if (!error && data) {
+        setActiveCustomer(data);
       }
+    } catch (err) {
+      console.error("Error loading customer base profile:", err);
     }
 
     const fetchActivities = async () => {
@@ -162,8 +163,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           .select("*")
           .eq("customer_id", customerProp.id)
           .order("created_at", { ascending: false });
-        if (error) throw error;
-        if (data) setActivities(data);
+        if (!error && data) setActivities(data);
       } catch (err) {
         console.error("Error fetching activities:", err);
       }
@@ -177,8 +177,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           .eq("customer_id", customerProp.id)
           .order("created_at", { ascending: false })
           .limit(5);
-        if (error) throw error;
-        if (data) setOrders(data);
+        if (!error && data) setOrders(data);
       } catch (err) {
         console.error("Error fetching orders:", err);
       }
@@ -192,8 +191,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           .eq("customer_id", customerProp.id)
           .order("created_at", { ascending: false })
           .limit(5);
-        if (error) throw error;
-        if (data) setEvents(data);
+        if (!error && data) setEvents(data);
       } catch (err) {
         console.error("Error fetching events:", err);
       }
@@ -207,10 +205,47 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           .eq("customer_id", customerProp.id)
           .order("created_at", { ascending: false })
           .limit(5);
-        if (error) throw error;
-        if (data) setTasks(data || []);
+        if (!error && data) setTasks(data || []);
       } catch (err) {
         console.error("Error fetching tasks:", err);
+      }
+    };
+
+    const fetchAppointments = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("calendar_events")
+          .select("*")
+          .eq("customer_id", customerProp.id)
+          .order("starts_at", { ascending: false })
+          .limit(5);
+        if (!error && data) setAppointments(data || []);
+      } catch (err) {
+        console.error("Error fetching appointments:", err);
+      }
+    };
+
+    const fetchOrderItems = async () => {
+      try {
+        const { data: customerOrders } = await supabase
+          .from("orders")
+          .select("id")
+          .eq("customer_id", customerProp.id);
+        
+        if (customerOrders && customerOrders.length > 0) {
+          const orderIds = customerOrders.map(o => o.id);
+          const { data: itemsData, error } = await supabase
+            .from("order_items")
+            .select("*, order:orders(created_at, status)")
+            .in("order_id", orderIds);
+          if (!error && itemsData) {
+            setOrderItems(itemsData);
+          }
+        } else {
+          setOrderItems([]);
+        }
+      } catch (err) {
+        console.error("Error fetching order items:", err);
       }
     };
 
@@ -218,7 +253,9 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       fetchActivities(),
       fetchOrders(),
       fetchEvents(),
-      fetchTasks()
+      fetchTasks(),
+      fetchAppointments(),
+      fetchOrderItems()
     ]);
     
     setLoading(false);
@@ -246,32 +283,24 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       if (actError) throw actError;
 
       // Update follow up and contacted timestamp on customer
+      const updates: any = { last_contacted_at: new Date().toISOString() };
       if (noteForm.next_follow_up_at) {
-        await supabase
-          .from("customers")
-          .update({ 
-            next_follow_up_at: noteForm.next_follow_up_at,
-            last_contacted_at: new Date().toISOString()
-          })
-          .eq("id", customer.id);
-      } else {
-        await supabase
-          .from("customers")
-          .update({ last_contacted_at: new Date().toISOString() })
-          .eq("id", customer.id);
+        updates.next_follow_up_at = noteForm.next_follow_up_at;
       }
+      
+      await supabase.from("customers").update(updates).eq("id", customer.id);
 
-      toast.success("Đã lưu ghi chú chăm sóc");
-      setQuickAction(null);
+      toast.success("Đã ghi nhận hoạt động chăm sóc!");
       setNoteForm({
         activity_type: "note",
         title: "",
         content: "",
         next_follow_up_at: ""
       });
+      setQuickAction(null);
       fetchCustomerDetails();
-    } catch (error: any) {
-      toast.error("Lỗi: " + error.message);
+    } catch (err: any) {
+      toast.error("Lỗi thêm hoạt động: " + err.message);
     } finally {
       setSubmitting(false);
     }
@@ -283,7 +312,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       return;
     }
     if (!taskForm.due_at) {
-      toast.error("Vui lòng chọn thời hạn hoàn thành");
+      toast.error("Vui lòng chọn hạn chót");
       return;
     }
 
@@ -294,34 +323,35 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
         .insert([{
           customer_id: customer.id,
           title: taskForm.title,
-          task_type: "call",
-          priority: taskForm.priority,
           due_at: taskForm.due_at,
+          priority: taskForm.priority,
           status: "pending",
-          assigned_to: user?.id
+          assigned_to: user?.id,
+          task_type: "call"
         }]);
 
       if (error) throw error;
 
-      // Log activity
-      await supabase.from("customer_activities").insert([{
-        customer_id: customer.id,
-        created_by: user?.id,
-        activity_type: "call",
-        title: "Lên lịch cuộc gọi chăm sóc",
-        content: `Hệ thống: Đã đặt lịch việc cần làm: "${taskForm.title}" - Hạn chót: ${formatDate(taskForm.due_at)}`
-      }]);
+      await supabase
+        .from("customer_activities")
+        .insert([{
+          customer_id: customer.id,
+          created_by: user?.id,
+          activity_type: "task_created",
+          title: "Đã giao việc mới (Task)",
+          content: `Tiêu đề: ${taskForm.title} - Hạn chót: ${formatDate(taskForm.due_at)}`
+        }]);
 
-      toast.success("Đã đặt việc cần làm thành công");
-      setQuickAction(null);
+      toast.success("Đã tạo việc cần làm thành công!");
       setTaskForm({
         title: "",
         due_at: "",
         priority: "normal"
       });
+      setQuickAction(null);
       fetchCustomerDetails();
     } catch (err: any) {
-      toast.error("Lỗi: " + err.message);
+      toast.error("Lỗi tạo công việc: " + err.message);
     } finally {
       setSubmitting(false);
     }
@@ -329,7 +359,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
 
   const handleCreateFollowup = async () => {
     if (!followupForm.title.trim()) {
-      toast.error("Vui lòng nhập tiêu đề cuộc hẹn");
+      toast.error("Vui lòng nhập nội dung buổi hẹn");
       return;
     }
     if (!followupForm.starts_at) {
@@ -339,64 +369,56 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
 
     setSubmitting(true);
     try {
-      const endsAt = new Date(new Date(followupForm.starts_at).getTime() + 60 * 60 * 1000).toISOString();
       const { error } = await supabase
         .from("calendar_events")
         .insert([{
           customer_id: customer.id,
           title: followupForm.title,
           starts_at: followupForm.starts_at,
-          ends_at: endsAt,
+          ends_at: new Date(new Date(followupForm.starts_at).getTime() + 60 * 60 * 1000).toISOString(),
           location: followupForm.location,
           description: followupForm.description,
-          assigned_sale_id: user?.id,
-          status: "scheduled"
+          assigned_sale_id: customer.owner_sale_id || user?.id
         }]);
 
       if (error) throw error;
 
       // Log activity
-      await supabase.from("customer_activities").insert([{
-        customer_id: customer.id,
-        created_by: user?.id,
-        activity_type: "online_consultation",
-        title: "Hẹn lịch gặp / Follow-up",
-        content: `Hệ thống: Lịch gặp mới: "${followupForm.title}" tại ${followupForm.location}. Thời gian: ${formatDate(followupForm.starts_at)}`
-      }]);
+      await supabase
+        .from("customer_activities")
+        .insert([{
+          customer_id: customer.id,
+          created_by: user?.id,
+          activity_type: "follow_up",
+          title: "Lên lịch hẹn chăm sóc (Follow-up)",
+          content: `Đã lên lịch hẹn: "${followupForm.title}" - Thời gian: ${new Date(followupForm.starts_at).toLocaleString('vi-VN')} - Địa điểm: ${followupForm.location || "Chưa rõ"}`
+        }]);
 
-      toast.success("Đã hẹn lịch follow-up thành công");
-      setQuickAction(null);
+      toast.success("Đã lên lịch hẹn thành công!");
+
       setFollowupForm({
         title: "",
         starts_at: "",
         location: "Online / Tại Spa khách hàng",
         description: ""
       });
+      setQuickAction(null);
       fetchCustomerDetails();
     } catch (err: any) {
-      toast.error("Lỗi: " + err.message);
+      toast.error("Lỗi tạo lịch hẹn: " + err.message);
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleCopyMessage = () => {
-    if (!customer.phone) {
-      toast.error("Khách hàng không có số điện thoại");
-      return;
-    }
-    const template = `Dạ em chào anh/chị ${customer.contact_name || customer.name || ''}, em là nhân sự hỗ trợ từ Desembre. Em xin phép gửi thông tin phác đồ và bảng giá chiết khấu cho Spa mình ạ.`;
-    navigator.clipboard.writeText(template);
-    toast.success("Đã sao chép tin nhắn mẫu Zalo");
+    const text = `Kính gửi anh/chị ${customer.contact_name || customer.name || 'chủ Spa'}, Desembre xin phép gửi thông tin hỗ trợ...`;
+    navigator.clipboard.writeText(text);
+    toast.success("Đã copy tin nhắn mẫu!");
   };
 
   const getCareModelWarning = () => {
-    if (!customer.care_model) {
-      return "Chưa thiết lập mô hình chăm sóc cho khách hàng này.";
-    }
-    if (customer.care_model === "tele_only" && !customer.owner_tele_id) {
-      return "Mô hình Tele: Thiếu Trưởng Tele / Telesale hỗ trợ.";
-    }
+    if (!customer.care_model) return "Chưa xác lập mô hình hỗ trợ.";
     if ((customer.care_model === "sale_only" || customer.care_model === "direct_sale") && !customer.owner_sale_id) {
       return "Mô hình Sale: Thiếu Sale phụ trách.";
     }
@@ -456,6 +478,12 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
         return <Clock className="w-3.5 h-3.5 text-rose-500" />;
       case "handoff":
         return <UserCheck className="w-3.5 h-3.5 text-amber-500" />;
+      case "event_registered":
+        return <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-50" />;
+      case "task_created":
+        return <Plus className="w-3.5 h-3.5 text-indigo-500" />;
+      case "task_completed":
+        return <Check className="w-3.5 h-3.5 text-emerald-500" />;
       default:
         return <Activity className="w-3.5 h-3.5 text-slate-500" />;
     }
@@ -492,7 +520,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     events.forEach(ev => {
       list.push({
         id: `event-${ev.id}`,
-        type: 'event',
+        type: 'event_registered',
         title: `Đăng ký sự kiện: ${ev.company_events?.title || 'Sự kiện Desembre'}`,
         content: `Trạng thái tham gia: ${ev.status || 'Đăng ký thành công'}`,
         created_at: ev.created_at,
@@ -506,7 +534,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     // Apply filter
     if (timelineFilter !== "all") {
       list = list.filter(item => {
-        if (timelineFilter === "event") return item.type === "event";
+        if (timelineFilter === "event") return item.type === "event_registered";
         return item.type === timelineFilter;
       });
     }
@@ -525,7 +553,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     return map;
   }, [mergedTimeline]);
 
-  if (!customer) return null;
+  if (!customer.id) return null;
 
   const warning = getCareModelWarning();
 
@@ -551,78 +579,86 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     }
   };
 
+  const staffNameSale = getStaffNameProp ? getStaffNameProp(customer.owner_sale_id) : getStaffName(customer.owner_sale_id);
+  const staffNameTele = getStaffNameProp ? getStaffNameProp(customer.owner_tele_id) : getStaffName(customer.owner_tele_id);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-xl w-full p-0 flex flex-col h-full border-l border-slate-200 shadow-2xl">
         
-        {/* HEADER SECTION */}
-        <div className="bg-slate-900 text-white p-6 relative overflow-hidden">
+        {/* HEADER SECTION (UPGRADED TO QUICK AXIS CENTER) */}
+        <div className="bg-slate-900 text-white p-6 relative overflow-hidden shrink-0">
           <div className="absolute top-0 right-0 p-8 opacity-10">
             <Building2 className="w-32 h-32" />
           </div>
           
           <div className="relative z-10 space-y-4">
-            {/* BADGES */}
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className={`border-none rounded-full px-2.5 py-0.5 text-[9px] font-black tracking-wider uppercase ${getLifecycleBadgeColor(customer.lifecycle_stage || customer.status)}`}>
-                {customer.lifecycle_stage || customer.status || "Mới"}
-              </Badge>
-              {customer.potential_level && (
-                <Badge className={`border-none rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase ${getPotentialBadgeColor(customer.potential_level)}`}>
-                  {customer.potential_level === "hot" ? "HOT 🔥" : customer.potential_level.toUpperCase()}
+            {/* BADGES & PHONE */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className={`border-none rounded-full px-2.5 py-0.5 text-[9px] font-black tracking-wider uppercase ${getLifecycleBadgeColor(customer.lifecycle_stage || customer.status)}`}>
+                  {customer.lifecycle_stage || customer.status || "Mới"}
                 </Badge>
+                {customer.potential_level && (
+                  <Badge className={`border-none rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase ${getPotentialBadgeColor(customer.potential_level)}`}>
+                    {customer.potential_level === "hot" ? "HOT 🔥" : customer.potential_level.toUpperCase()}
+                  </Badge>
+                )}
+              </div>
+              
+              {customer.phone && (
+                <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-1 rounded-lg">
+                  <Phone className="w-3.5 h-3.5 shrink-0" />
+                  {customer.phone}
+                </div>
               )}
             </div>
 
-            {/* CUSTOMER NAME AND OWNER */}
+            {/* CUSTOMER NAME AND FACILITY */}
             <div className="space-y-1">
               <h2 className="text-xl font-black tracking-tight leading-snug">
                 {customer.contact_name || customer.name || "Khách hàng mới"}
               </h2>
-              {customer.business_name || customer.facility_name ? (
-                <p className="text-white/80 text-sm flex items-center gap-1.5 font-bold">
-                  <Building2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  {customer.business_name || customer.facility_name}
-                </p>
-              ) : null}
+              <p className="text-white/80 text-sm flex items-center gap-1.5 font-bold">
+                <Building2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                {customer.business_name || customer.facility_name || "Spa Tự Do"}
+              </p>
             </div>
 
-            {/* CONTACT & CITY */}
-            <div className="flex flex-wrap gap-4 text-xs text-white/70">
-              {customer.phone && (
-                <span className="flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  {customer.phone}
+            <Separator className="bg-white/10" />
+
+            {/* UPGRADED GRID DATA ATTACHED IN THE HEADER FOR 30s ASSESSMENT */}
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3.5 text-[11px] font-medium text-white/70">
+              <div className="space-y-1">
+                <span className="text-[9px] font-black text-white/40 uppercase tracking-widest block">Tuyến CS / Khoảng cách</span>
+                <span className="font-bold text-white flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  {getCustomerChannelLabel(customer.customer_channel) || "Chưa chọn"} &middot; {getCustomerDistanceLabel(customer.customer_distance_type) || "Chưa rõ"}
                 </span>
-              )}
-              {customer.city && (
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  {customer.city}
+              </div>
+              <div className="space-y-1">
+                <span className="text-[9px] font-black text-white/40 uppercase tracking-widest block">Mô hình hỗ trợ</span>
+                <span className="font-bold text-white flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                  {getCareModelLabel(customer.care_model) || "Chưa thiết lập"}
                 </span>
-              )}
+              </div>
+              <div className="space-y-1">
+                <span className="text-[9px] font-black text-white/40 uppercase tracking-widest block">Sale phụ trách</span>
+                <span className="font-bold text-white flex items-center gap-1.5">
+                  <UserCircle className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                  {staffNameSale || "Chưa phân công"}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <span className="text-[9px] font-black text-white/40 uppercase tracking-widest block">Tele hỗ trợ</span>
+                <span className="font-bold text-white flex items-center gap-1.5">
+                  <UserCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  {staffNameTele || "Chưa phân công"}
+                </span>
+              </div>
             </div>
 
-            {/* HEADER CTA BUTTONS */}
-            <div className="flex items-center gap-2 pt-1">
-              {customer.phone && (
-                <a 
-                  href={`tel:${customer.phone}`}
-                  className="flex items-center justify-center gap-1.5 h-8 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-[11px] font-bold transition-all text-white"
-                >
-                  <PhoneCall className="w-3.5 h-3.5" /> Gọi điện
-                </a>
-              )}
-              <button 
-                onClick={() => {
-                  navigate({ to: "/customers/$id", params: { id: customer.id } });
-                  onOpenChange(false);
-                }}
-                className="flex items-center justify-center gap-1.5 h-8 px-3.5 rounded-lg bg-white/15 hover:bg-white/25 text-[11px] font-bold transition-all text-white border border-white/10"
-              >
-                Mở hồ sơ chi tiết <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
           </div>
         </div>
 
@@ -630,50 +666,15 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
         <ScrollArea className="flex-1">
           <div className="p-6 space-y-8 pb-12">
             
-            {/* OWNERSHIP & CARE PIPELINE BLOCK */}
-            <section className="space-y-4">
-              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                <Target className="w-4 h-4 text-primary" /> Tuyến chăm sóc & Quyền sở hữu
-              </div>
-
-              {warning && (
-                <div className="flex items-start gap-2.5 bg-rose-50 border border-rose-100 p-3.5 rounded-xl text-rose-800 text-[11px] font-medium leading-relaxed shadow-3xs">
-                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5 animate-pulse" />
-                  <div>
-                    <span className="font-bold">Cần phân công:</span> {warning}
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5">
-                  <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Kênh khách hàng</div>
-                  <div className="text-xs font-bold text-slate-700">{getCustomerChannelLabel(customer.customer_channel) || "Chưa thiết lập"}</div>
-                </div>
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5">
-                  <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Phân loại khoảng cách</div>
-                  <div className="text-xs font-bold text-slate-700">{getCustomerDistanceLabel(customer.customer_distance_type) || "Chưa thiết lập"}</div>
-                </div>
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5 col-span-2">
-                  <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Mô hình hỗ trợ (Care Model)</div>
-                  <div className="text-xs font-bold text-slate-700">{getCareModelLabel(customer.care_model) || "Chưa thiết lập"}</div>
-                </div>
-                <div className={`p-3 rounded-xl space-y-1.5 border ${customer.owner_sale_id ? 'bg-emerald-50/40 border-emerald-100/70' : 'bg-slate-50 border-slate-100'}`}>
-                  <div className={`text-[9px] font-bold uppercase tracking-wider ${customer.owner_sale_id ? 'text-emerald-600' : 'text-slate-400'}`}>Sale phụ trách</div>
-                  <div className={`text-xs font-bold flex items-center gap-1.5 ${customer.owner_sale_id ? 'text-emerald-800' : 'text-slate-500'}`}>
-                    <UserCircle className="w-3.5 h-3.5 shrink-0" /> 
-                    {customer.owner_sale_id ? getStaffName(customer.owner_sale_id) : "Chưa phân công"}
-                  </div>
-                </div>
-                <div className={`p-3 rounded-xl space-y-1.5 border ${customer.owner_tele_id ? 'bg-amber-50/40 border-amber-100/70' : 'bg-slate-50 border-slate-100'}`}>
-                  <div className={`text-[9px] font-bold uppercase tracking-wider ${customer.owner_tele_id ? 'text-amber-600' : 'text-slate-400'}`}>Tele hỗ trợ</div>
-                  <div className={`text-xs font-bold flex items-center gap-1.5 ${customer.owner_tele_id ? 'text-amber-800' : 'text-slate-500'}`}>
-                    <UserCircle className="w-3.5 h-3.5 shrink-0" /> 
-                    {customer.owner_tele_id ? getStaffName(customer.owner_tele_id) : "Chưa phân công"}
-                  </div>
+            {/* CARE MODEL WARNING */}
+            {warning && (
+              <div className="flex items-start gap-2.5 bg-rose-50 border border-rose-100 p-3.5 rounded-xl text-rose-800 text-[11px] font-medium leading-relaxed shadow-3xs">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5 animate-pulse" />
+                <div>
+                  <span className="font-bold">Cần phân công:</span> {warning}
                 </div>
               </div>
-            </section>
+            )}
 
             {/* PERFORMANCE SUMMARY */}
             <section className="space-y-4">
@@ -700,7 +701,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 </div>
                 <div className="p-3 space-y-1 bg-slate-50 rounded-xl border border-slate-100">
                   <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-red-400" /> Lịch hẹn tiếp theo
+                    <Clock className="w-3 h-3 text-red-400" /> Hẹn cuộc gọi tiếp
                   </div>
                   <div className="text-[11px] font-bold text-red-650">{formatDate(customer.next_follow_up_at)}</div>
                 </div>
@@ -734,7 +735,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                   }`}
                 >
                   <CheckSquare className="w-4 h-4" />
-                  Task gọi lại
+                  Tạo task mới
                 </button>
                 <button
                   onClick={() => setQuickAction(quickAction === "followup" ? null : "followup")}
@@ -745,7 +746,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                   }`}
                 >
                   <CalendarCheck className="w-4 h-4" />
-                  Hẹn lịch hẹn
+                  Đặt lịch hẹn
                 </button>
                 <button
                   onClick={() => {
@@ -757,7 +758,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                   <Package className="w-4 h-4 text-emerald-500" />
                   Tạo đơn hàng
                 </button>
-                {customer.phone && (
+                {customer.phone ? (
                   <>
                     <a
                       href={`https://zalo.me/${customer.phone}`}
@@ -776,6 +777,14 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                       Copy tin nhắn
                     </button>
                   </>
+                ) : (
+                  <button
+                    disabled
+                    className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-slate-100 bg-slate-50/50 text-slate-300 text-[11px] font-bold cursor-not-allowed"
+                  >
+                    <PhoneOff className="w-4 h-4 text-slate-200" />
+                    Không có SĐT
+                  </button>
                 )}
               </div>
 
@@ -805,7 +814,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                       </Select>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[10px] font-bold text-slate-500 uppercase">Ngày hẹn tiếp theo</Label>
+                      <Label className="text-[10px] font-bold text-slate-500 uppercase">Hẹn cuộc gọi tiếp</Label>
                       <Input 
                         type="datetime-local" 
                         value={noteForm.next_follow_up_at}
@@ -816,7 +825,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                     <div className="space-y-1 col-span-2">
                       <Label className="text-[10px] font-bold text-slate-500 uppercase">Tiêu đề ghi chú <span className="text-red-500">*</span></Label>
                       <Input 
-                        placeholder="VD: Khách quan tâm máy Laser..."
+                        placeholder="VD: Khách quan tâm dòng tế bào gốc EGF..."
                         value={noteForm.title}
                         onChange={(e) => setNoteForm({ ...noteForm, title: e.target.value })}
                         className="h-8 text-[11px] bg-white"
@@ -825,7 +834,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                     <div className="space-y-1 col-span-2">
                       <Label className="text-[10px] font-bold text-slate-500 uppercase">Chi tiết trao đổi</Label>
                       <Textarea 
-                        placeholder="Nội dung cụ thể trao đổi với khách..."
+                        placeholder="Nội dung cụ thể trao đổi với chủ Spa..."
                         value={noteForm.content}
                         onChange={(e) => setNoteForm({ ...noteForm, content: e.target.value })}
                         className="min-h-[70px] text-[11px] bg-white"
@@ -950,6 +959,18 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
               )}
             </section>
 
+            {/* INTEL & UPSELL SECTION */}
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                <Sparkles className="w-4.5 h-4.5 text-indigo-500 animate-pulse" /> Phân tích & Upsell thông minh
+              </div>
+              <CustomerUpsellIntel 
+                orders={orders} 
+                items={orderItems} 
+                totalSpend={orders.reduce((sum: number, o: any) => sum + (o.total || 0), 0)} 
+              />
+            </section>
+
             {/* TIMELINE ACTIVITIES */}
             <section className="space-y-4">
               <div className="flex items-center justify-between">
@@ -975,8 +996,8 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                     onClick={() => setTimelineFilter(f.value)}
                     className={`px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all border ${
                       timelineFilter === f.value
-                        ? "bg-slate-900 border-slate-900 text-white"
-                        : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                        ? "bg-slate-900 border-slate-900 text-white shadow-sm"
+                        : "bg-white border-slate-200 text-slate-550 hover:bg-slate-50 hover:text-slate-700"
                     }`}
                   >
                     {f.label}
@@ -994,7 +1015,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                     <div key={dayKey} className="space-y-3">
                       <div className="relative pl-7">
                         <div className="absolute left-1.5 top-1.5 w-3.5 h-3.5 rounded-full bg-slate-200 border-2 border-white" />
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-white pr-2">{dayKey}</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-[#f8fafc] pr-2">{dayKey}</span>
                       </div>
                       
                       {groupedTimeline[dayKey].map((item) => (
@@ -1008,7 +1029,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                               <span className="text-[11px] font-black text-slate-800 leading-snug">{item.title}</span>
                               <span className="text-[9px] text-slate-400 shrink-0 mt-0.5">{formatDate(item.created_at)}</span>
                             </div>
-                            {item.content && <p className="text-[11px] text-slate-500 leading-relaxed font-medium">{item.content}</p>}
+                            {item.content && <p className="text-[11px] text-slate-505 leading-relaxed font-medium">{item.content}</p>}
                             <div className="flex items-center gap-1.5 pt-0.5">
                               <Badge variant="outline" className="text-[8px] px-2 py-0 h-4 bg-slate-50 border-slate-200 text-slate-500 font-bold uppercase">
                                 {item.type}
@@ -1022,8 +1043,8 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 </div>
               ) : (
                 <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                  <Info className="w-8 h-8 text-slate-355 mx-auto mb-2" />
-                  <p className="text-xs text-slate-500 font-bold">Chưa có lịch sử chăm sóc</p>
+                  <Info className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Chưa có lịch sử chăm sóc</p>
                 </div>
               )}
             </section>
@@ -1031,7 +1052,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
             {/* RECENT ORDERS */}
             <section className="space-y-4">
               <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                <Package className="w-4 h-4 text-primary" /> Đơn hàng
+                <Package className="w-4 h-4 text-primary" /> Đơn hàng gần đây
               </div>
               {orders.length > 0 ? (
                 <div className="space-y-2">
@@ -1056,8 +1077,38 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-6 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-slate-450 font-medium">
+                <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-slate-400 font-bold uppercase tracking-wider">
                   Chưa có đơn hàng
+                </div>
+              )}
+            </section>
+
+            {/* RECENT APPOINTMENTS */}
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                <Calendar className="w-4 h-4 text-primary" /> Lịch hẹn gần đây
+              </div>
+              {appointments.length > 0 ? (
+                <div className="space-y-2">
+                  {appointments.map((app) => (
+                    <div key={app.id} className="p-3.5 rounded-xl border border-slate-150 bg-white flex items-center justify-between shadow-3xs">
+                      <div className="space-y-1">
+                        <div className="text-xs font-bold text-slate-800 leading-snug">{app.title}</div>
+                        <div className="text-[10px] text-slate-450 font-bold flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-slate-400" /> {app.location || "Online"}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-[10px] font-black text-indigo-650 bg-indigo-50 border border-indigo-100 rounded px-1.5 py-0.5">
+                          {formatDate(app.starts_at)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-slate-400 font-bold uppercase tracking-wider">
+                  Chưa có lịch hẹn
                 </div>
               )}
             </section>
@@ -1122,18 +1173,18 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-6 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-slate-450 font-medium">
+                <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-slate-400 font-bold uppercase tracking-wider">
                   Chưa có việc cần làm
                 </div>
               )}
             </section>
 
             {/* RECENT EVENTS */}
-            {events.length > 0 && (
-              <section className="space-y-4">
-                <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                  <Star className="w-4 h-4 text-amber-500" /> Đăng ký sự kiện
-                </div>
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                <Star className="w-4 h-4 text-amber-500" /> Sự kiện đã đăng ký
+              </div>
+              {events.length > 0 ? (
                 <div className="space-y-2">
                   {events.map((ev) => (
                     <div key={ev.id} className="p-3.5 rounded-xl bg-amber-50/40 border border-amber-100/70 space-y-2">
@@ -1147,8 +1198,12 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                     </div>
                   ))}
                 </div>
-              </section>
-            )}
+              ) : (
+                <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-slate-400 font-bold uppercase tracking-wider">
+                  Chưa có sự kiện
+                </div>
+              )}
+            </section>
 
           </div>
         </ScrollArea>

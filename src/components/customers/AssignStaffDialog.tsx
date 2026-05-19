@@ -88,15 +88,34 @@ export function AssignStaffDialog({ isOpen, onClose, customer, onSuccess }: Assi
 
       if (error) throw error;
 
-      // Lưu nhật ký bàn giao nếu ghi chú nhu cầu bị thay đổi hoặc thêm mới
-      if (initialDemand.trim() && initialDemand.trim() !== (customer?.note || "")) {
+      // Lưu nhật ký bàn giao nếu có sự thay đổi người phụ trách (Sale/Tele) hoặc thay đổi ghi chú
+      const isSaleChanged = (saleId || null) !== (customer?.owner_sale_id || null);
+      const isTeleChanged = (teleId || null) !== (customer?.owner_tele_id || null);
+      const isNoteChanged = initialDemand.trim() !== (customer?.note || "");
+
+      if (isSaleChanged || isTeleChanged || (initialDemand.trim() && isNoteChanged)) {
+        const contentParts = [];
+        if (isSaleChanged) {
+          const oldSale = staffList.find(s => s.id === customer?.owner_sale_id)?.display_name || "Chưa gán";
+          const newSale = staffList.find(s => s.id === saleId)?.display_name || "Chưa gán";
+          contentParts.push(`Thay đổi Direct Sale: từ "${oldSale}" sang "${newSale}"`);
+        }
+        if (isTeleChanged) {
+          const oldTele = staffList.find(s => s.id === customer?.owner_tele_id)?.display_name || "Chưa gán";
+          const newTele = staffList.find(s => s.id === teleId)?.display_name || "Chưa gán";
+          contentParts.push(`Thay đổi Telesale: từ "${oldTele}" sang "${newTele}"`);
+        }
+        if (initialDemand.trim() && isNoteChanged) {
+          contentParts.push(`Ghi chú bàn giao mới: "${initialDemand.trim()}"`);
+        }
+
         const { error: actError } = await supabase
           .from("customer_activities")
           .insert({
             customer_id: customer.id,
             activity_type: 'handoff',
-            title: "Bàn giao lead & Ghi chú nhu cầu",
-            content: initialDemand.trim(),
+            title: "Bàn giao & Luân chuyển nhân sự phụ trách",
+            content: contentParts.join("\n"),
             created_by: user?.id
           });
         if (actError) console.error("Handoff activity log error:", actError);
