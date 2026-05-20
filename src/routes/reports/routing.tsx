@@ -16,6 +16,12 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { toast } from "sonner";
+import { createNotification } from "@/lib/notifications";
+import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
+import { getStaffName } from "@/lib/customerOwnership";
 import { 
   calculateDistanceMeters
 } from "@/lib/geo";
@@ -31,11 +37,24 @@ export const Route = createFileRoute("/reports/routing")({
 });
 
 function RoutingReportPage() {
-  const { isManager } = useAuth();
+  const { user, isManager } = useAuth();
   const [loading, setLoading] = useState(true);
   const [companyLocation, setCompanyLocation] = useState<any | null>(null);
   const [customers, setCustomers] = useState<any[]>([]);
   const [staffMap, setStaffMap] = useState<Record<string, string>>({});
+  
+  // For Quick Actions
+  const [staffList, setStaffList] = useState<any[]>([]);
+  const [rolesList, setRolesList] = useState<any[]>([]);
+
+  // Dialog States
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [assignTarget, setAssignTarget] = useState<any>(null);
+  const [assignType, setAssignType] = useState<'sale' | 'tele' | null>(null);
+  const [selectedStaffId, setSelectedStaffId] = useState("");
+  const [saving, setSaving] = useState(false);
+  
+  const [previewCustomer, setPreviewCustomer] = useState<any>(null);
 
   useEffect(() => {
     if (!isManager) return;
@@ -48,11 +67,13 @@ function RoutingReportPage() {
       const [
         { data: locData },
         { data: custData },
-        { data: staffData }
+        { data: staffData },
+        { data: rolesData }
       ] = await Promise.all([
         supabase.from("company_locations").select("*").eq("is_default", true).eq("is_active", true).limit(1).maybeSingle(),
         supabase.from("customers").select("id, name, facility_name, latitude, longitude, customer_distance_type, customer_channel, care_model, owner_sale_id, owner_tele_id").is("deleted_at", null),
-        supabase.from("profiles").select("id, display_name")
+        supabase.from("profiles").select("id, display_name, email"),
+        supabase.from("user_roles").select("*")
       ]);
 
       setCompanyLocation(locData || null);
@@ -60,8 +81,13 @@ function RoutingReportPage() {
 
       if (staffData) {
         const map: Record<string, string> = {};
-        staffData.forEach(s => map[s.id] = s.display_name);
+        staffData.forEach(s => map[s.id] = s.display_name || s.email);
         setStaffMap(map);
+        setStaffList(staffData);
+      }
+      
+      if (rolesData) {
+        setRolesList(rolesData);
       }
     } catch (err) {
       console.error("Error loading routing report:", err);
@@ -69,6 +95,16 @@ function RoutingReportPage() {
       setLoading(false);
     }
   };
+
+  const getStaffByRoles = (allowedRoles: string[]) => {
+    return staffList.filter(staff => {
+      const staffRoles = rolesList.filter(r => r.user_id === staff.id).map(r => r.role);
+      return staffRoles.some(r => allowedRoles.includes(r) || r === 'admin' || r === 'sub_admin');
+    });
+  };
+  
+  const salesStaff = getStaffByRoles(['sale']);
+  const teleStaff = getStaffByRoles(['tele_lead']);
 
   const reportData = useMemo(() => {
     let withCoordsCount = 0;
@@ -83,12 +119,11 @@ function RoutingReportPage() {
       if (hasCoords) withCoordsCount++;
       else withoutCoordsCount++;
 
-      if ((c.customer_distance_type === 'near_company' || c.customer_distance_type === 'same_city') && !c.owner_sale_id) {
-        missingSaleCount++;
-      }
-      if ((c.customer_distance_type === 'province' || c.customer_distance_type === 'far_city') && !c.owner_tele_id) {
-        missingTeleCount++;
-      }
+      const isMissingSale = (c.customer_distance_type === 'near_company' || c.customer_distance_type === 'same_city') && !c.owner_sale_id;
+      const isMissingTele = (c.customer_distance_type === 'province' || c.customer_distance_type === 'far_city') && !c.owner_tele_id;
+
+      if (isMissingSale) missingSaleCount++;
+      if (isMissingTele) missingTeleCount++;
 
       let distMeters = 0;
       let routing: any = null;
@@ -121,7 +156,7 @@ function RoutingReportPage() {
           matchedCount++;
         }
       } else {
-        mismatchedCount++; // Tính là lệch/thiếu nếu ko có tọa độ
+        mismatchedCount++;
       }
 
       return {
@@ -136,7 +171,9 @@ function RoutingReportPage() {
         },
         suggestedRouting: routing,
         isMatch,
-        status
+        status,
+        isMissingSale,
+        isMissingTele
       };
     });
 
@@ -153,6 +190,119 @@ function RoutingReportPage() {
       }
     };
   }, [customers, companyLocation]);
+
+  // ACTIONS
+  const handleOpenAssignModal = (customer: any, type: 'sale' | 'tele') => {
+    setAssignTarget(customer);
+    setAssignType(type);
+    setSelectedStaffId("");
+    setAssignModalOpen(true);
+  };
+
+  const handleAssignConfirm = async () => {
+    if (!selectedStaffId) return toast.error("Vui lòng chọn nhân sự");
+    setSaving(true);
+    
+    try {
+      const isSale = assignType === 'sale';
+      
+      const updates = {
+        owner_sale_id: isSale ? selectedStaffId : assignTarget.owner_sale_id,
+        owner_tele_id: !isSale ? selectedStaffId : assignTarget.owner_tele_id,
+        care_model: isSale ? 'sale_owned' : assignTarget.care_model === 'sale_owned' ? 'sale_with_tele_support' : 'tele_owned',
+        customer_channel: isSale ? 'direct_sales' : 'tele_sales',
+      };
+      
+      const { error: updErr } = await supabase.from("customers").update(updates).eq("id", assignTarget.id);
+      if (updErr) throw updErr;
+      
+      const staffName = staffList.find(s => s.id === selectedStaffId)?.display_name || "Nhân sự";
+      const title = isSale ? "Gán Sale theo phân tuyến địa lý" : "Gán Trưởng Tele theo phân tuyến địa lý";
+      const content = `Đã phân công ${isSale ? 'Direct Sale' : 'Telesale'}: ${staffName} dựa trên khoảng cách.`;
+      
+      await supabase.from("customer_activities").insert({
+        customer_id: assignTarget.id,
+        activity_type: 'handoff',
+        title,
+        content,
+        created_by: user?.id
+      });
+      
+      await createNotification({
+        recipient_user_id: selectedStaffId,
+        customer_id: assignTarget.id,
+        title: isSale ? 'Bạn được giao khách hàng mới' : 'Bạn được giao khách tuyến Tele',
+        message: `Khách hàng ${assignTarget.facility_name || assignTarget.name} vừa được chia cho bạn từ báo cáo phân tuyến.`,
+        type: "lead_assigned",
+        priority: "high",
+        action_url: `/customers/${assignTarget.id}`,
+        created_by: user?.id
+      });
+      
+      await supabase.from("customer_tasks").insert({
+        customer_id: assignTarget.id,
+        title: isSale ? 'Chăm sóc khách mới được phân tuyến' : 'Chăm sóc khách tuyến Tele mới',
+        description: "Khách hàng được chia từ hệ thống phân tuyến, vui lòng liên hệ và cập nhật thông tin.",
+        due_date: new Date(Date.now() + 86400000).toISOString(),
+        assigned_to: selectedStaffId,
+        created_by: user?.id,
+        status: "pending"
+      });
+      
+      toast.success("Đã phân tuyến khách hàng thành công!");
+      setAssignModalOpen(false);
+      setAssignTarget(null);
+      setSelectedStaffId("");
+      
+      await loadData();
+    } catch (err: any) {
+      toast.error("Lỗi cập nhật: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleApplySuggest = async (item: any) => {
+    if (!window.confirm(`Áp dụng gợi ý phân tuyến cho khách hàng ${item.customer.facility_name || item.customer.name}?`)) return;
+    
+    setSaving(true);
+    try {
+      const c = item.customer;
+      const suggested = item.suggestedRouting;
+      
+      const { error: updateErr } = await supabase
+        .from("customers")
+        .update({
+          customer_distance_type: suggested.distanceType,
+          customer_channel: suggested.customerChannel,
+          care_model: suggested.careModel
+        })
+        .eq("id", c.id);
+        
+      if (updateErr) throw updateErr;
+
+      const content = `Khoảng cách: ${item.distanceKm} km\n\nPhân tuyến cũ:\n- Khoảng cách: ${c.customer_distance_type || 'Chưa có'}\n- Kênh: ${c.customer_channel || 'Chưa có'}\n- Mô hình: ${c.care_model || 'Chưa có'}\n\nPhân tuyến mới:\n- Khoảng cách: ${suggested.distanceType}\n- Kênh: ${suggested.customerChannel}\n- Mô hình: ${suggested.careModel}`;
+      
+      const { error: actErr } = await supabase
+        .from("customer_activities")
+        .insert({
+          customer_id: c.id,
+          created_by: user?.id,
+          activity_type: "note",
+          title: "Cập nhật phân tuyến theo báo cáo",
+          content: content
+        });
+
+      if (actErr) throw actErr;
+
+      toast.success("Đã cập nhật gợi ý phân tuyến!");
+      await loadData();
+    } catch (err: any) {
+      toast.error("Lỗi áp dụng gợi ý: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (!isManager) {
     return (
@@ -200,53 +350,17 @@ function RoutingReportPage() {
           <>
             {/* KPI CARDS */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              <KpiCard 
-                title="Có tọa độ bản đồ" 
-                value={reportData.stats.withCoords} 
-                total={reportData.stats.total}
-                icon={MapPin} 
-                color="indigo" 
-              />
-              <KpiCard 
-                title="Chưa ghim vị trí" 
-                value={reportData.stats.withoutCoords} 
-                total={reportData.stats.total}
-                icon={MapPinOff} 
-                color="rose" 
-              />
-              <KpiCard 
-                title="Khách gần chưa có Sale" 
-                value={reportData.stats.missingSale} 
-                total={reportData.stats.withCoords}
-                icon={UserPlus} 
-                color="blue" 
-              />
-              <KpiCard 
-                title="Khách xa chưa có Tele" 
-                value={reportData.stats.missingTele} 
-                total={reportData.stats.withCoords}
-                icon={PhoneCall} 
-                color="amber" 
-              />
-              <KpiCard 
-                title="Phân tuyến chuẩn" 
-                value={reportData.stats.matched} 
-                total={reportData.stats.withCoords}
-                icon={CheckCircle2} 
-                color="emerald" 
-              />
-              <KpiCard 
-                title="Lệch phân tuyến / Thiếu" 
-                value={reportData.stats.mismatched} 
-                total={reportData.stats.total}
-                icon={AlertTriangle} 
-                color="orange" 
-              />
+              <KpiCard title="Có tọa độ bản đồ" value={reportData.stats.withCoords} total={reportData.stats.total} icon={MapPin} color="indigo" />
+              <KpiCard title="Chưa ghim vị trí" value={reportData.stats.withoutCoords} total={reportData.stats.total} icon={MapPinOff} color="rose" />
+              <KpiCard title="Khách gần chưa có Sale" value={reportData.stats.missingSale} total={reportData.stats.withCoords} icon={UserPlus} color="blue" />
+              <KpiCard title="Khách xa chưa có Tele" value={reportData.stats.missingTele} total={reportData.stats.withCoords} icon={PhoneCall} color="amber" />
+              <KpiCard title="Phân tuyến chuẩn" value={reportData.stats.matched} total={reportData.stats.withCoords} icon={CheckCircle2} color="emerald" />
+              <KpiCard title="Lệch phân tuyến / Thiếu" value={reportData.stats.mismatched} total={reportData.stats.total} icon={AlertTriangle} color="orange" />
             </div>
 
             {/* TABLE */}
             <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white">
-              <CardHeader className="p-8 pb-4">
+              <CardHeader className="p-8 pb-4 flex flex-row items-center justify-between">
                 <CardTitle className="text-lg font-black text-slate-900 tracking-tight">Chi tiết Phân tuyến Khách hàng</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
@@ -261,6 +375,7 @@ function RoutingReportPage() {
                         <th className="px-6 py-4 whitespace-nowrap">Gợi ý</th>
                         <th className="px-6 py-4 whitespace-nowrap">Owner</th>
                         <th className="px-6 py-4 whitespace-nowrap text-center">Trạng thái</th>
+                        <th className="px-6 py-4 whitespace-nowrap text-right">Thao tác</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
@@ -322,12 +437,54 @@ function RoutingReportPage() {
                                 <Badge className="bg-rose-100 text-rose-700 border-none hover:bg-rose-100 shadow-none">Thiếu</Badge>
                               )}
                             </td>
+                            <td className="px-6 py-4 text-right space-y-2">
+                              {!item.hasCoords && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="w-full h-7 text-[9px] font-black uppercase text-rose-600 border-rose-200 hover:bg-rose-50"
+                                  onClick={() => setPreviewCustomer(c)}
+                                >
+                                  Mở khách
+                                </Button>
+                              )}
+                              {item.isMissingSale && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="w-full h-7 text-[9px] font-black uppercase text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                                  onClick={() => handleOpenAssignModal(c, 'sale')}
+                                >
+                                  Gán Sale
+                                </Button>
+                              )}
+                              {item.isMissingTele && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="w-full h-7 text-[9px] font-black uppercase text-amber-600 border-amber-200 hover:bg-amber-50"
+                                  onClick={() => handleOpenAssignModal(c, 'tele')}
+                                >
+                                  Gán Tele
+                                </Button>
+                              )}
+                              {item.status === "Lệch phân tuyến" && item.hasCoords && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="w-full h-7 text-[9px] font-black uppercase text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                                  onClick={() => handleApplySuggest(item)}
+                                >
+                                  Áp dụng gợi ý
+                                </Button>
+                              )}
+                            </td>
                           </tr>
                         );
                       })}
                       {reportData.items.length === 0 && (
                         <tr>
-                          <td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-medium text-sm">
+                          <td colSpan={8} className="px-6 py-12 text-center text-slate-400 font-medium text-sm">
                             Chưa có dữ liệu khách hàng
                           </td>
                         </tr>
@@ -340,6 +497,57 @@ function RoutingReportPage() {
           </>
         )}
       </main>
+
+      {/* CUSTOMER PREVIEW (For missing GEO) */}
+      {previewCustomer && (
+        <CustomerPreviewDrawer
+          open={!!previewCustomer}
+          onOpenChange={(open) => !open && setPreviewCustomer(null)}
+          customerId={previewCustomer.id}
+          getStaffName={getStaffName}
+        />
+      )}
+
+      {/* ASSIGN MODAL */}
+      <Dialog open={assignModalOpen} onOpenChange={(open) => !saving && setAssignModalOpen(open)}>
+        <DialogContent className="sm:max-w-[400px] rounded-3xl p-6 border-slate-100 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black tracking-tight text-slate-900">
+              {assignType === 'sale' ? 'Gán Sale Phụ Trách' : 'Gán Trưởng Tele'}
+            </DialogTitle>
+            <DialogDescription className="text-xs font-bold text-slate-500 uppercase mt-1 tracking-widest">
+              {assignTarget?.facility_name || assignTarget?.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              Chọn nhân sự
+            </label>
+            <select
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl h-12 px-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+              value={selectedStaffId}
+              onChange={(e) => setSelectedStaffId(e.target.value)}
+              disabled={saving}
+            >
+              <option value="">-- Chọn nhân sự --</option>
+              {(assignType === 'sale' ? salesStaff : teleStaff).length === 0 && (
+                <option value="" disabled>Chưa có nhân sự phù hợp để gán.</option>
+              )}
+              {(assignType === 'sale' ? salesStaff : teleStaff).map(s => (
+                <option key={s.id} value={s.id}>{s.display_name || s.email || 'Chưa rõ tên'}</option>
+              ))}
+            </select>
+          </div>
+          
+          <DialogFooter className="pt-2">
+            <Button variant="ghost" onClick={() => setAssignModalOpen(false)} disabled={saving} className="rounded-xl text-xs font-bold">Hủy</Button>
+            <Button onClick={handleAssignConfirm} disabled={saving || !selectedStaffId} className="rounded-xl text-xs font-black uppercase bg-slate-900 hover:bg-black px-6">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Xác nhận gán"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
