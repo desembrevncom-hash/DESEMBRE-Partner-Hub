@@ -55,6 +55,7 @@ function RoutingReportPage() {
   const [assignType, setAssignType] = useState<'sale' | 'tele' | null>(null);
   const [selectedStaffId, setSelectedStaffId] = useState("");
   const [saving, setSaving] = useState(false);
+  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
   
   const [previewCustomer, setPreviewCustomer] = useState<any>(null);
 
@@ -98,15 +99,17 @@ function RoutingReportPage() {
     }
   };
 
-  const getStaffByRoles = (allowedRoles: string[]) => {
-    return staffList.filter(staff => {
-      const staffRoles = rolesList.filter(r => r.user_id === staff.id).map(r => r.role);
-      return staffRoles.some(r => allowedRoles.includes(r) || r === 'admin' || r === 'sub_admin');
-    });
-  };
-  
-  const salesStaff = getStaffByRoles(['sale']);
-  const teleStaff = getStaffByRoles(['tele_lead']);
+  const salesStaff = useMemo(() => {
+    return staffList.filter(staff => 
+      rolesList.some(r => r.user_id === staff.id && r.role === 'sale')
+    );
+  }, [staffList, rolesList]);
+
+  const teleStaff = useMemo(() => {
+    return staffList.filter(staff => 
+      rolesList.some(r => r.user_id === staff.id && r.role === 'tele_lead')
+    );
+  }, [staffList, rolesList]);
 
   const reportData = useMemo(() => {
     let withCoordsCount = 0;
@@ -194,8 +197,8 @@ function RoutingReportPage() {
   }, [customers, companyLocation]);
 
   // ACTIONS
-  const handleOpenAssignModal = (customer: any, type: 'sale' | 'tele') => {
-    setAssignTarget(customer);
+  const handleOpenAssignModal = (item: any, type: 'sale' | 'tele') => {
+    setAssignTarget(item);
     setAssignType(type);
     setSelectedStaffId("");
     setAssignModalOpen(true);
@@ -203,73 +206,97 @@ function RoutingReportPage() {
 
   const handleAssignConfirm = async () => {
     if (!selectedStaffId) return toast.error("Vui lòng chọn nhân sự");
+    if (!assignTarget) return;
+
+    const customer = assignTarget.customer;
+    const isSale = assignType === 'sale';
+    const actionKey = `${customer.id}-assign`;
+    
     setSaving(true);
+    setActionLoading(prev => ({ ...prev, [actionKey]: true }));
     
     try {
-      const isSale = assignType === 'sale';
+      const updates: any = {};
+      if (isSale) {
+        updates.owner_sale_id = selectedStaffId;
+        updates.customer_channel = 'direct_sales';
+        updates.care_model = 'sale_owned';
+      } else {
+        updates.owner_tele_id = selectedStaffId;
+        updates.customer_channel = 'tele_sales';
+        updates.care_model = 'tele_owned';
+      }
       
-      const updates = {
-        owner_sale_id: isSale ? selectedStaffId : assignTarget.owner_sale_id,
-        owner_tele_id: !isSale ? selectedStaffId : assignTarget.owner_tele_id,
-        care_model: isSale ? 'sale_owned' : assignTarget.care_model === 'sale_owned' ? 'sale_with_tele_support' : 'tele_owned',
-        customer_channel: isSale ? 'direct_sales' : 'tele_sales',
-      };
-      
-      const { error: updErr } = await supabase.from("customers").update(updates).eq("id", assignTarget.id);
+      const { error: updErr } = await supabase
+        .from("customers")
+        .update(updates)
+        .eq("id", customer.id);
+        
       if (updErr) throw updErr;
       
-      const staffName = staffList.find(s => s.id === selectedStaffId)?.display_name || "Nhân sự";
+      const staffName = staffList.find(s => s.id === selectedStaffId)?.display_name || staffList.find(s => s.id === selectedStaffId)?.email || "Nhân sự";
       const title = isSale ? "Gán Sale theo phân tuyến địa lý" : "Gán Trưởng Tele theo phân tuyến địa lý";
-      const content = `Đã phân công ${isSale ? 'Direct Sale' : 'Telesale'}: ${staffName} dựa trên khoảng cách.`;
+      const distanceStr = assignTarget.distanceKm && assignTarget.distanceKm !== "-" ? `, khoảng cách ${assignTarget.distanceKm} km` : "";
+      const content = `${isSale ? 'Sale' : 'Trưởng Tele'} được gán: ${staffName}. Lý do: Gán ${isSale ? 'Sale' : 'Trưởng Tele'} theo phân tuyến địa lý${distanceStr}.`;
       
-      await supabase.from("customer_activities").insert({
-        customer_id: assignTarget.id,
+      const { error: actErr } = await supabase.from("customer_activities").insert({
+        customer_id: customer.id,
         activity_type: 'handoff',
         title,
         content,
         created_by: user?.id
       });
+      if (actErr) throw actErr;
       
-      await createNotification({
+      const { error: notiErr } = await supabase.from("notifications").insert({
         recipient_user_id: selectedStaffId,
-        customer_id: assignTarget.id,
-        title: isSale ? 'Bạn được giao khách hàng mới' : 'Bạn được giao khách tuyến Tele',
-        message: `Khách hàng ${assignTarget.facility_name || assignTarget.name} vừa được chia cho bạn từ báo cáo phân tuyến.`,
-        type: "lead_assigned",
+        title: 'Bạn được giao khách hàng mới',
+        message: `Khách hàng ${customer.facility_name || customer.name} vừa được chia cho bạn từ báo cáo phân tuyến.`,
+        type: "customer_assigned",
         priority: "high",
-        action_url: `/customers/${assignTarget.id}`,
+        entity_type: "customer",
+        entity_id: customer.id,
+        action_url: `/customers/${customer.id}`,
         created_by: user?.id
       });
+      if (notiErr) throw notiErr;
       
-      await supabase.from("customer_tasks").insert({
-        customer_id: assignTarget.id,
-        title: isSale ? 'Chăm sóc khách mới được phân tuyến' : 'Chăm sóc khách tuyến Tele mới',
-        description: "Khách hàng được chia từ hệ thống phân tuyến, vui lòng liên hệ và cập nhật thông tin.",
+      const { error: taskErr } = await supabase.from("customer_tasks").insert({
+        customer_id: customer.id,
+        title: 'Chăm sóc khách mới được phân tuyến',
+        note: `Liên hệ và chăm sóc khách hàng mới được phân tuyến dựa trên địa lý.`,
         due_at: new Date(Date.now() + 86400000).toISOString(),
         assigned_to: selectedStaffId,
-        created_by: user?.id,
+        assigned_by: user?.id,
+        task_type: "call",
+        priority: "high",
         status: "pending"
       });
+      if (taskErr) throw taskErr;
       
-      toast.success("Đã phân tuyến khách hàng thành công!");
+      toast.success(`Đã gán ${isSale ? 'Sale' : 'Trưởng Tele'} thành công!`);
       setAssignModalOpen(false);
       setAssignTarget(null);
       setSelectedStaffId("");
       
       await loadData();
     } catch (err: any) {
+      console.error("Error assigning:", err);
       toast.error("Lỗi cập nhật: " + err.message);
     } finally {
       setSaving(false);
+      setActionLoading(prev => ({ ...prev, [actionKey]: false }));
     }
   };
 
   const handleApplySuggest = async (item: any) => {
-    if (!window.confirm(`Áp dụng gợi ý phân tuyến cho khách hàng ${item.customer.facility_name || item.customer.name}?`)) return;
+    const c = item.customer;
+    if (!window.confirm(`Áp dụng gợi ý phân tuyến cho khách hàng ${c.facility_name || c.name}?`)) return;
     
-    setSaving(true);
+    const actionKey = `${c.id}-suggest`;
+    setActionLoading(prev => ({ ...prev, [actionKey]: true }));
+    
     try {
-      const c = item.customer;
       const suggested = item.suggestedRouting;
       
       const { error: updateErr } = await supabase
@@ -297,12 +324,13 @@ function RoutingReportPage() {
 
       if (actErr) throw actErr;
 
-      toast.success("Đã cập nhật gợi ý phân tuyến!");
+      toast.success("Đã áp dụng gợi ý phân tuyến thành công!");
       await loadData();
     } catch (err: any) {
+      console.error("Error applying suggestion:", err);
       toast.error("Lỗi áp dụng gợi ý: " + err.message);
     } finally {
-      setSaving(false);
+      setActionLoading(prev => ({ ...prev, [actionKey]: false }));
     }
   };
 
@@ -455,9 +483,14 @@ function RoutingReportPage() {
                                   variant="outline" 
                                   size="sm" 
                                   className="w-full h-7 text-[9px] font-black uppercase text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-                                  onClick={() => handleOpenAssignModal(c, 'sale')}
+                                  onClick={() => handleOpenAssignModal(item, 'sale')}
+                                  disabled={actionLoading[`${c.id}-assign`]}
                                 >
-                                  Gán Sale
+                                  {actionLoading[`${c.id}-assign`] ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin mx-auto text-indigo-600" />
+                                  ) : (
+                                    "Gán Sale"
+                                  )}
                                 </Button>
                               )}
                               {item.isMissingTele && (
@@ -465,9 +498,14 @@ function RoutingReportPage() {
                                   variant="outline" 
                                   size="sm" 
                                   className="w-full h-7 text-[9px] font-black uppercase text-amber-600 border-amber-200 hover:bg-amber-50"
-                                  onClick={() => handleOpenAssignModal(c, 'tele')}
+                                  onClick={() => handleOpenAssignModal(item, 'tele')}
+                                  disabled={actionLoading[`${c.id}-assign`]}
                                 >
-                                  Gán Tele
+                                  {actionLoading[`${c.id}-assign`] ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin mx-auto text-amber-600" />
+                                  ) : (
+                                    "Gán Trưởng Tele"
+                                  )}
                                 </Button>
                               )}
                               {item.status === "Lệch phân tuyến" && item.hasCoords && (
@@ -476,8 +514,13 @@ function RoutingReportPage() {
                                   size="sm" 
                                   className="w-full h-7 text-[9px] font-black uppercase text-emerald-600 border-emerald-200 hover:bg-emerald-50"
                                   onClick={() => handleApplySuggest(item)}
+                                  disabled={actionLoading[`${c.id}-suggest`]}
                                 >
-                                  Áp dụng gợi ý
+                                  {actionLoading[`${c.id}-suggest`] ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin mx-auto text-emerald-600" />
+                                  ) : (
+                                    "Áp dụng gợi ý"
+                                  )}
                                 </Button>
                               )}
                             </td>
@@ -518,7 +561,7 @@ function RoutingReportPage() {
               {assignType === 'sale' ? 'Gán Sale Phụ Trách' : 'Gán Trưởng Tele'}
             </DialogTitle>
             <DialogDescription className="text-xs font-bold text-slate-500 uppercase mt-1 tracking-widest">
-              {assignTarget?.facility_name || assignTarget?.name}
+              {assignTarget?.customer?.facility_name || assignTarget?.customer?.name}
             </DialogDescription>
           </DialogHeader>
           
