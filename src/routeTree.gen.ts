@@ -38,6 +38,7 @@ import { Route as AdminSegmentsRouteImport } from './routes/admin/segments'
 import { Route as AdminReclamationRouteImport } from './routes/admin/reclamation'
 import { Route as AdminProductsRouteImport } from './routes/admin/products'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
+import { Route as AdminAutomationRouteImport } from './routes/admin/automation'
 
 const WorkspaceRoute = WorkspaceRouteImport.update({
   id: '/workspace',
@@ -184,6 +185,11 @@ const AdminInventoryRoute = AdminInventoryRouteImport.update({
   path: '/admin/inventory',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAutomationRoute = AdminAutomationRouteImport.update({
+  id: '/admin/automation',
+  path: '/admin/automation',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -195,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
   '/workspace': typeof WorkspaceRoute
+  '/admin/automation': typeof AdminAutomationRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/reclamation': typeof AdminReclamationRoute
@@ -225,6 +232,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
   '/workspace': typeof WorkspaceRoute
+  '/admin/automation': typeof AdminAutomationRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/reclamation': typeof AdminReclamationRoute
@@ -257,6 +265,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
   '/workspace': typeof WorkspaceRoute
+  '/admin/automation': typeof AdminAutomationRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/reclamation': typeof AdminReclamationRoute
@@ -290,6 +299,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/tasks'
     | '/workspace'
+    | '/admin/automation'
     | '/admin/inventory'
     | '/admin/products'
     | '/admin/reclamation'
@@ -320,6 +330,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/tasks'
     | '/workspace'
+    | '/admin/automation'
     | '/admin/inventory'
     | '/admin/products'
     | '/admin/reclamation'
@@ -351,6 +362,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/tasks'
     | '/workspace'
+    | '/admin/automation'
     | '/admin/inventory'
     | '/admin/products'
     | '/admin/reclamation'
@@ -383,6 +395,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   TasksRoute: typeof TasksRoute
   WorkspaceRoute: typeof WorkspaceRoute
+  AdminAutomationRoute: typeof AdminAutomationRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminProductsRoute: typeof AdminProductsRoute
   AdminReclamationRoute: typeof AdminReclamationRoute
@@ -607,6 +620,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminInventoryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/automation': {
+      id: '/admin/automation'
+      path: '/admin/automation'
+      fullPath: '/admin/automation'
+      preLoaderRoute: typeof AdminAutomationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -636,6 +656,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   TasksRoute: TasksRoute,
   WorkspaceRoute: WorkspaceRoute,
+  AdminAutomationRoute: AdminAutomationRoute,
   AdminInventoryRoute: AdminInventoryRoute,
   AdminProductsRoute: AdminProductsRoute,
   AdminReclamationRoute: AdminReclamationRoute,

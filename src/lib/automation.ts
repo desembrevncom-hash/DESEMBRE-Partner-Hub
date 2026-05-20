@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { addHours, addDays } from "date-fns";
 import { createAutomationLog } from "@/lib/automationLogs";
+import { isAutomationEnabled, getParsedThreshold } from "@/lib/automationRules";
 
 /**
  * CRM AUTOMATION CORE - DESEMBRE PARTNER HUB
@@ -18,10 +19,14 @@ interface AutomationStep {
 
 const runAutomationSteps = async (
   automationType: string,
+  ruleId: string,
   customerId: string | null,
   leadId: string | null,
   steps: AutomationStep[],
-  createdByUserId: string | null = null
+  createdByUserId: string | null = null,
+  isSkipped: boolean = false,
+  skipReason: string | null = null,
+  thresholdMeta?: { threshold_value: number; threshold_unit: string; threshold_source: string } | null
 ) => {
   const expectedSteps = steps.map(s => s.name);
   const stepResults: { step: string; status: "success" | "failed"; error?: string }[] = [];
@@ -29,6 +34,34 @@ const runAutomationSteps = async (
 
   let taskId: string | null = null;
   let notificationId: string | null = null;
+
+  // Nếu bị bỏ qua (ví dụ: trùng lặp), ghi log và return sớm
+  if (isSkipped) {
+    try {
+      await createAutomationLog({
+        rule_id: ruleId,
+        automation_type: automationType,
+        customer_id: customerId,
+        lead_id: leadId,
+        status: "skipped",
+        metadata: {
+          reason: skipReason || "duplicate_prevention",
+          expected_steps: expectedSteps,
+          step_results: [],
+          ...(thresholdMeta || {})
+        },
+        created_by: createdByUserId
+      });
+    } catch (logErr) {
+      console.error("Failed to write automation log for skipped state:", logErr);
+    }
+    return {
+      success: true,
+      status: "skipped",
+      error: null,
+      warnings: null
+    };
+  }
 
   for (const step of steps) {
     try {
@@ -58,7 +91,7 @@ const runAutomationSteps = async (
   const successCount = stepResults.filter(r => r.status === "success").length;
   const failCount = stepResults.filter(r => r.status === "failed").length;
 
-  let finalStatus: "success" | "partial_failed" | "failed" = "success";
+  let finalStatus: "success" | "partial_failed" | "failed" | "skipped" = "success";
   if (failCount === 0) {
     finalStatus = "success";
   } else if (successCount > 0) {
@@ -71,6 +104,7 @@ const runAutomationSteps = async (
 
   try {
     await createAutomationLog({
+      rule_id: ruleId,
       automation_type: automationType,
       customer_id: customerId,
       lead_id: leadId,
@@ -80,7 +114,8 @@ const runAutomationSteps = async (
       error_message: errorMsg,
       metadata: {
         expected_steps: expectedSteps,
-        step_results: stepResults
+        step_results: stepResults,
+        ...(thresholdMeta || {})
       },
       created_by: createdByUserId
     });
@@ -105,6 +140,33 @@ export const createLeadAssignedAutomation = async (
   assignedByUserId: string
 ) => {
   try {
+    const threshold = await getParsedThreshold("lead_assigned", 4, "hours");
+    const thresholdMeta = {
+      threshold_value: threshold.value,
+      threshold_unit: threshold.unit,
+      threshold_source: threshold.source
+    };
+
+    // Phase 3 Check Gatekeeper
+    if (!(await isAutomationEnabled("lead_assigned"))) {
+      try {
+        await createAutomationLog({
+          rule_id: "lead_assigned",
+          automation_type: "lead_assigned",
+          customer_id: null,
+          lead_id: leadId,
+          status: "skipped",
+          metadata: { 
+            reason: "rule_disabled",
+            ...thresholdMeta
+          }
+        });
+      } catch (logErr) {
+        console.error("Failed to write automation log for lead_assigned disabled:", logErr);
+      }
+      return { skipped: true, reason: "rule_disabled" };
+    }
+
     // Kiểm tra chống trùng Task
     const { data: existingTasks } = await supabase
       .from("customer_tasks")
@@ -128,10 +190,16 @@ export const createLeadAssignedAutomation = async (
 
     const shouldCreateNotif = !existingNotifs || existingNotifs.length === 0;
 
+    const isSkipped = !shouldCreateTask && !shouldCreateNotif;
+    const skipReason = isSkipped ? "duplicate_prevention" : null;
+
     const steps: AutomationStep[] = [];
 
     if (shouldCreateTask) {
-      const dueDate = addHours(new Date(), 4);
+      const dueDate = threshold.unit === "hours" 
+        ? addHours(new Date(), threshold.value) 
+        : addDays(new Date(), threshold.value);
+      const unitLabel = threshold.unit === "days" ? "ngày" : "giờ";
       steps.push({
         name: "create task",
         run: () => supabase.from("customer_tasks").insert([{
@@ -139,7 +207,7 @@ export const createLeadAssignedAutomation = async (
           lead_id: leadId,
           assigned_to: saleId,
           title: `📞 Liên hệ lần đầu: ${leadName}`,
-          description: `Lead mới được gán bởi ${assignedByName}. Cần gọi điện thăm dò nhu cầu trong vòng 4h.`,
+          note: `Lead mới được gán bởi ${assignedByName}. Cần gọi điện thăm dò nhu cầu trong vòng ${threshold.value} ${unitLabel}.`,
           task_type: "call",
           priority: "high",
           due_at: dueDate.toISOString(),
@@ -169,16 +237,21 @@ export const createLeadAssignedAutomation = async (
         customer_id: leadId,
         created_by: assignedByUserId,
         activity_type: "note",
+        title: "Tự động phân bổ lead",
         content: `Hệ thống: Lead đã được phân bổ cho Sale ${saleId} bởi ${assignedByName}.`,
       }])
     });
 
     return await runAutomationSteps(
       "lead_assigned",
+      "lead_assigned",
       null,
       leadId,
       steps,
-      assignedByUserId
+      assignedByUserId,
+      isSkipped,
+      skipReason,
+      thresholdMeta
     );
   } catch (error) {
     console.error("Automation Error [LeadAssigned]:", error);
@@ -194,6 +267,33 @@ export const createQuoteFollowUpAutomation = async (
   quoteId: string
 ) => {
   try {
+    const threshold = await getParsedThreshold("quote_follow_up", 3, "days");
+    const thresholdMeta = {
+      threshold_value: threshold.value,
+      threshold_unit: threshold.unit,
+      threshold_source: threshold.source
+    };
+
+    // Phase 3 Check Gatekeeper
+    if (!(await isAutomationEnabled("quote_follow_up"))) {
+      try {
+        await createAutomationLog({
+          rule_id: "quote_follow_up",
+          automation_type: "quote_follow_up",
+          customer_id: customerId,
+          lead_id: null,
+          status: "skipped",
+          metadata: { 
+            reason: "rule_disabled",
+            ...thresholdMeta
+          }
+        });
+      } catch (logErr) {
+        console.error("Failed to write automation log for quote_follow_up disabled:", logErr);
+      }
+      return { skipped: true, reason: "rule_disabled" };
+    }
+
     const { data: existingTasks } = await supabase
       .from("customer_tasks")
       .select("id")
@@ -216,17 +316,23 @@ export const createQuoteFollowUpAutomation = async (
 
     const shouldCreateNotif = !existingNotifs || existingNotifs.length === 0;
 
+    const isSkipped = !shouldCreateTask && !shouldCreateNotif;
+    const skipReason = isSkipped ? "duplicate_prevention" : null;
+
     const steps: AutomationStep[] = [];
+    const unitLabel = threshold.unit === "days" ? "ngày" : "giờ";
 
     if (shouldCreateTask) {
-      const dueDate = addDays(new Date(), 3);
+      const dueDate = threshold.unit === "hours" 
+        ? addHours(new Date(), threshold.value) 
+        : addDays(new Date(), threshold.value);
       steps.push({
         name: "create task",
         run: () => supabase.from("customer_tasks").insert([{
           customer_id: customerId,
           assigned_to: saleId,
           title: `📝 Follow-up báo giá: ${customerName}`,
-          description: `Kiểm tra phản hồi của khách hàng về báo giá #${quoteId.slice(0, 8)}. Thúc đẩy chốt đơn.`,
+          note: `Kiểm tra phản hồi của khách hàng về báo giá #${quoteId.slice(0, 8)}. Thúc đẩy chốt đơn.`,
           task_type: "quote_follow_up", 
           priority: "medium",
           due_at: dueDate.toISOString(),
@@ -242,7 +348,7 @@ export const createQuoteFollowUpAutomation = async (
           recipient_user_id: saleId,
           customer_id: customerId,
           title: "⏰ Nhắc nhở: Follow-up báo giá",
-          message: `Báo giá #${quoteId.slice(0, 8)} cho ${customerName} đã gửi được 3 ngày. Hãy liên hệ lại ngay.`,
+          message: `Báo giá #${quoteId.slice(0, 8)} cho ${customerName} đã gửi được ${threshold.value} ${unitLabel}. Hãy liên hệ lại ngay.`,
           type: "task_reminder",
           action_url: `/customers/${customerId}`
         }]).select("id")
@@ -255,16 +361,21 @@ export const createQuoteFollowUpAutomation = async (
         customer_id: customerId,
         created_by: null, 
         activity_type: "note",
+        title: "Nhắc nhở follow-up báo giá",
         content: `Hệ thống: Tạo nhắc nhở Follow-up báo giá tự động #${quoteId.slice(0, 8)}.`,
       }])
     });
 
     return await runAutomationSteps(
       "quote_follow_up",
+      "quote_follow_up",
       customerId,
       null,
       steps,
-      null
+      null,
+      isSkipped,
+      skipReason,
+      thresholdMeta
     );
   } catch (error) {
     console.error("Automation Error [QuoteFollowUp]:", error);
@@ -277,9 +388,37 @@ export const createPostPurchaseCheckinAutomation = async (
   customerId: string,
   customerName: string,
   saleId: string,
-  orderId: string
+  orderId: string,
+  completionDate?: Date | string | null
 ) => {
   try {
+    const threshold = await getParsedThreshold("post_purchase_checkin", 7, "days");
+    const thresholdMeta = {
+      threshold_value: threshold.value,
+      threshold_unit: threshold.unit,
+      threshold_source: threshold.source
+    };
+
+    // Phase 3 Check Gatekeeper
+    if (!(await isAutomationEnabled("post_purchase_checkin"))) {
+      try {
+        await createAutomationLog({
+          rule_id: "post_purchase_checkin",
+          automation_type: "post_purchase_checkin",
+          customer_id: customerId,
+          lead_id: null,
+          status: "skipped",
+          metadata: { 
+            reason: "rule_disabled",
+            ...thresholdMeta
+          }
+        });
+      } catch (logErr) {
+        console.error("Failed to write automation log for post_purchase disabled:", logErr);
+      }
+      return { skipped: true, reason: "rule_disabled" };
+    }
+
     const { data: existingTasks } = await supabase
       .from("customer_tasks")
       .select("id")
@@ -291,16 +430,20 @@ export const createPostPurchaseCheckinAutomation = async (
     const shouldCreateTask = !existingTasks || existingTasks.length === 0;
 
     const steps: AutomationStep[] = [];
+    const unitLabel = threshold.unit === "days" ? "ngày" : "giờ";
 
     if (shouldCreateTask) {
-      const dueDate = addDays(new Date(), 7);
+      const baseDate = completionDate ? new Date(completionDate) : new Date();
+      const dueDate = threshold.unit === "hours" 
+        ? addHours(baseDate, threshold.value) 
+        : addDays(baseDate, threshold.value);
       steps.push({
         name: "create task",
         run: () => supabase.from("customer_tasks").insert([{
           customer_id: customerId,
           assigned_to: saleId,
           title: `🛍️ Check-in sau mua: ${customerName}`,
-          description: `Khách đã nhận đơn #${orderId.slice(0, 8)} được 7 ngày. Gọi điện hỏi thăm hiệu quả sử dụng.`,
+          note: `Khách đã nhận đơn #${orderId.slice(0, 8)} được ${threshold.value} ${unitLabel}. Gọi điện hỏi thăm hiệu quả sử dụng.`,
           task_type: "check_in",
           priority: "medium",
           due_at: dueDate.toISOString(),
@@ -315,7 +458,7 @@ export const createPostPurchaseCheckinAutomation = async (
         recipient_user_id: saleId,
         customer_id: customerId,
         title: "❤️ Chăm sóc sau bán hàng",
-        message: `Đã đến lúc hỏi thăm ${customerName} về trải nghiệm sử dụng sản phẩm từ đơn #${orderId.slice(0, 8)}.`,
+        message: `Đã đến lúc hỏi thăm ${customerName} về trải nghiệm sử dụng sản phẩm từ đơn #${orderId.slice(0, 8)} sau ${threshold.value} ${unitLabel}.`,
         type: "task_reminder",
         action_url: `/customers/${customerId}`
       }]).select("id")
@@ -327,16 +470,21 @@ export const createPostPurchaseCheckinAutomation = async (
         customer_id: customerId,
         created_by: null, 
         activity_type: "note",
+        title: "Check-in sau mua",
         content: `Hệ thống: Lên lịch check-in sau mua tự động cho đơn #${orderId.slice(0, 8)}.`,
       }])
     });
 
     return await runAutomationSteps(
       "post_purchase_checkin",
+      "post_purchase_checkin",
       customerId,
       null,
       steps,
-      null
+      null,
+      false,
+      null,
+      thresholdMeta
     );
   } catch (error) {
     console.error("Automation Error [PostPurchase]:", error);
@@ -352,6 +500,23 @@ export const createEventFollowUpAutomation = async (
   eventName: string
 ) => {
   try {
+    // Phase 3 Check Gatekeeper
+    if (!(await isAutomationEnabled("event_follow_up"))) {
+      try {
+        await createAutomationLog({
+          rule_id: "event_follow_up",
+          automation_type: "event_follow_up",
+          customer_id: customerId,
+          lead_id: null,
+          status: "skipped",
+          metadata: { reason: "rule_disabled" }
+        });
+      } catch (logErr) {
+        console.error("Failed to write automation log for event_follow_up disabled:", logErr);
+      }
+      return { skipped: true, reason: "rule_disabled" };
+    }
+
     const dueDate = addDays(new Date(), 1);
     const steps: AutomationStep[] = [];
 
@@ -361,7 +526,7 @@ export const createEventFollowUpAutomation = async (
         customer_id: customerId,
         assigned_to: saleId,
         title: `🎪 Follow-up sự kiện: ${eventName}`,
-        description: `Khách ${customerName} vừa tham gia sự kiện "${eventName}". Liên hệ để tư vấn phác đồ liên quan.`,
+        note: `Khách ${customerName} vừa tham gia sự kiện "${eventName}". Liên hệ để tư vấn phác đồ liên quan.`,
         task_type: "event_invite",
         priority: "medium",
         due_at: dueDate.toISOString(),
@@ -387,15 +552,19 @@ export const createEventFollowUpAutomation = async (
         customer_id: customerId,
         created_by: null,
         activity_type: "note",
+        title: "Follow-up sự kiện",
         content: `Hệ thống: Tạo nhắc nhở Follow-up sau sự kiện "${eventName}".`,
       }])
     });
 
     return await runAutomationSteps(
       "event_follow_up",
+      "event_follow_up",
       customerId,
       null,
       steps,
+      null,
+      false,
       null
     );
   } catch (error) {
@@ -412,6 +581,23 @@ export const createTaskOverdueNotification = async (
   customerId?: string | null
 ) => {
   try {
+    // Phase 3 Check Gatekeeper
+    if (!(await isAutomationEnabled("task_overdue_notification"))) {
+      try {
+        await createAutomationLog({
+          rule_id: "task_overdue_notification",
+          automation_type: "task_overdue",
+          customer_id: customerId || null,
+          lead_id: null,
+          status: "skipped",
+          metadata: { reason: "rule_disabled" }
+        });
+      } catch (logErr) {
+        console.error("Failed to write automation log for task_overdue disabled:", logErr);
+      }
+      return { skipped: true, reason: "rule_disabled" };
+    }
+
     const { data: existingNotifs } = await supabase
       .from("notifications")
       .select("id")
@@ -421,7 +607,21 @@ export const createTaskOverdueNotification = async (
       .is("read_at", null)
       .limit(1);
 
-    if (existingNotifs && existingNotifs.length > 0) return { success: true };
+    if (existingNotifs && existingNotifs.length > 0) {
+      try {
+        await createAutomationLog({
+          rule_id: "task_overdue_notification",
+          automation_type: "task_overdue",
+          customer_id: customerId || null,
+          lead_id: null,
+          status: "skipped",
+          metadata: { reason: "duplicate_prevention" }
+        });
+      } catch (logErr) {
+        console.error("Failed to write automation log for duplicate task overdue notification:", logErr);
+      }
+      return { success: true, status: "skipped" };
+    }
 
     const steps: AutomationStep[] = [];
 
@@ -444,6 +644,7 @@ export const createTaskOverdueNotification = async (
           customer_id: customerId,
           created_by: null,
           activity_type: "note",
+          title: "Cảnh báo Task quá hạn",
           content: `Hệ thống: Gửi cảnh báo task quá hạn: "${taskTitle}".`,
         }])
       });
@@ -451,9 +652,12 @@ export const createTaskOverdueNotification = async (
 
     return await runAutomationSteps(
       "task_overdue",
+      "task_overdue_notification",
       customerId || null,
       null,
       steps,
+      null,
+      false,
       null
     );
   } catch (error) {
@@ -471,6 +675,23 @@ export const createCustomerAtRiskAutomation = async (
   try {
     if (!customer?.id || !ownerUserId) {
       return { success: false, error: "Missing customer ID or owner user ID" };
+    }
+
+    // Phase 3 Check Gatekeeper
+    if (!(await isAutomationEnabled("customer_at_risk"))) {
+      try {
+        await createAutomationLog({
+          rule_id: "customer_at_risk",
+          automation_type: "customer_at_risk",
+          customer_id: customer.id,
+          lead_id: null,
+          status: "skipped",
+          metadata: { reason: "rule_disabled" }
+        });
+      } catch (logErr) {
+        console.error("Failed to write automation log for customer_at_risk disabled:", logErr);
+      }
+      return { skipped: true, reason: "rule_disabled" };
     }
 
     const { data: existingTasks } = await supabase
@@ -494,6 +715,9 @@ export const createCustomerAtRiskAutomation = async (
       .limit(1);
 
     const shouldCreateNotification = !existingNotifs || existingNotifs.length === 0;
+
+    const isSkipped = !shouldCreateTask && !shouldCreateNotification;
+    const skipReason = isSkipped ? "duplicate_prevention" : null;
 
     const steps: AutomationStep[] = [];
 
@@ -544,10 +768,13 @@ export const createCustomerAtRiskAutomation = async (
 
     return await runAutomationSteps(
       "customer_at_risk",
+      "customer_at_risk",
       customer.id,
       null,
       steps,
-      null
+      null,
+      isSkipped,
+      skipReason
     );
   } catch (error) {
     console.error("Automation Error [CustomerAtRisk]:", error);
@@ -564,6 +791,23 @@ export const createCustomerAssignedAutomation = async (
   assignedByUserId: string
 ) => {
   try {
+    // Phase 3 Check Gatekeeper - Mapped to 'customer_ownership_assigned'
+    if (!(await isAutomationEnabled("customer_ownership_assigned"))) {
+      try {
+        await createAutomationLog({
+          rule_id: "customer_ownership_assigned",
+          automation_type: "customer_assigned",
+          customer_id: customerId,
+          lead_id: null,
+          status: "skipped",
+          metadata: { reason: "rule_disabled" }
+        });
+      } catch (logErr) {
+        console.error("Failed to write automation log for customer_assigned disabled:", logErr);
+      }
+      return { skipped: true, reason: "rule_disabled" };
+    }
+
     const { data: existingTasks } = await supabase
       .from("customer_tasks")
       .select("id")
@@ -584,7 +828,7 @@ export const createCustomerAssignedAutomation = async (
           customer_id: customerId,
           assigned_to: assignToId,
           title: `👋 Chào mừng về chăm sóc khách hàng: ${customerName}`,
-          description: `Khách hàng vừa được giao cho bạn bởi ${assignedByName}. Hãy gọi điện làm quen và cập nhật tình hình.`,
+          note: `Khách hàng vừa được giao cho bạn bởi ${assignedByName}. Hãy gọi điện làm quen và cập nhật tình hình.`,
           task_type: "call",
           priority: "normal",
           due_at: dueDate.toISOString(),
@@ -612,16 +856,20 @@ export const createCustomerAssignedAutomation = async (
         customer_id: customerId,
         created_by: assignedByUserId,
         activity_type: "note",
+        title: "Khách hàng được giao phụ trách",
         content: `Hệ thống: Khách hàng được giao phụ trách cho Sale/Tele bởi ${assignedByName}.`
       }])
     });
 
     return await runAutomationSteps(
       "customer_assigned",
+      "customer_ownership_assigned",
       customerId,
       null,
       steps,
-      assignedByUserId
+      assignedByUserId,
+      false,
+      null
     );
   } catch (error) {
     console.error("Automation Error [CustomerAssigned]:", error);
@@ -638,6 +886,33 @@ export const createReorderReminderAutomation = async (
   try {
     if (!ownerId) return { success: false, error: "No owner to assign" };
 
+    const threshold = await getParsedThreshold("reorder_reminder", 45, "days");
+    const thresholdMeta = {
+      threshold_value: threshold.value,
+      threshold_unit: threshold.unit,
+      threshold_source: threshold.source
+    };
+
+    // Phase 3 Check Gatekeeper
+    if (!(await isAutomationEnabled("reorder_reminder"))) {
+      try {
+        await createAutomationLog({
+          rule_id: "reorder_reminder",
+          automation_type: "reorder_reminder",
+          customer_id: customerId,
+          lead_id: null,
+          status: "skipped",
+          metadata: { 
+            reason: "rule_disabled",
+            ...thresholdMeta
+          }
+        });
+      } catch (logErr) {
+        console.error("Failed to write automation log for reorder_reminder disabled:", logErr);
+      }
+      return { skipped: true, reason: "rule_disabled" };
+    }
+
     const { data: existingTasks } = await supabase
       .from("customer_tasks")
       .select("id")
@@ -650,16 +925,19 @@ export const createReorderReminderAutomation = async (
     const shouldCreateTask = !existingTasks || existingTasks.length === 0;
 
     const steps: AutomationStep[] = [];
+    const unitLabel = threshold.unit === "days" ? "ngày" : "giờ";
 
     if (shouldCreateTask) {
-      const dueDate = addDays(new Date(), 2);
+      const dueDate = threshold.unit === "hours" 
+        ? addHours(new Date(), threshold.value) 
+        : addDays(new Date(), threshold.value);
       steps.push({
         name: "create task",
         run: () => supabase.from("customer_tasks").insert([{
           customer_id: customerId,
           assigned_to: ownerId,
           title: `🔁 Nhắc nhở Reorder: ${customerName}`,
-          description: `Khách hàng đã lâu chưa nhập hàng. Hãy liên hệ để kiểm tra tồn kho và giới thiệu ưu đãi mới.`,
+          note: `Khách hàng đã lâu chưa nhập hàng. Hãy liên hệ để kiểm tra tồn kho và giới thiệu ưu đãi mới.`,
           task_type: "follow_up",
           priority: "normal",
           due_at: dueDate.toISOString(),
@@ -687,16 +965,21 @@ export const createReorderReminderAutomation = async (
         customer_id: customerId,
         created_by: null,
         activity_type: "note",
+        title: "Nhắc nhở Reorder",
         content: `Hệ thống: Tạo nhắc nhở định kỳ (Reorder) cho khách hàng.`
       }])
     });
 
     return await runAutomationSteps(
       "reorder_reminder",
+      "reorder_reminder",
       customerId,
       null,
       steps,
-      null
+      null,
+      false,
+      null,
+      thresholdMeta
     );
   } catch (error) {
     console.error("Automation Error [ReorderReminder]:", error);
