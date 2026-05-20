@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { CustomerUpsellIntel } from "./CustomerUpsellIntel";
+import { CustomerKnowledgeUpsell } from "./CustomerKnowledgeUpsell";
 import { ProductKnowledgeBook } from "./ProductKnowledgeBook";
 import {
   Sheet,
@@ -1629,6 +1630,11 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 orders={orders} 
                 items={orderItems} 
                 totalSpend={orders.reduce((sum: number, o: any) => sum + (o.total || 0), 0)} 
+              />
+              <CustomerKnowledgeUpsell 
+                customer={customer}
+                orders={orders}
+                items={orderItems}
               />
             </section>
 
