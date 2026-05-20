@@ -86,6 +86,10 @@ import {
   isWithinRadius,
   parseGoogleMapsUrlToCoordinates
 } from "@/lib/geo";
+import { 
+  getDistanceTypeFromMeters, 
+  getRecommendedRoutingByDistance 
+} from "@/lib/customerRouting";
 
 interface CustomerPreviewDrawerProps {
   customer: any;
@@ -102,7 +106,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   getStaffName: getStaffNameProp,
   initialQuickAction
 }) => {
-  const { user } = useAuth();
+  const { user, isAdmin, isSubAdmin } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -122,6 +126,8 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     accuracy: null as number | null
   });
   const [editLocationSubmitting, setEditLocationSubmitting] = useState(false);
+  const [companyLocation, setCompanyLocation] = useState<any | null>(null);
+  const [companyLocationLoading, setCompanyLocationLoading] = useState(false);
   
   const [activeCustomer, setActiveCustomer] = useState<any | null>(null);
   const customer = activeCustomer || customerProp || {};
@@ -288,13 +294,34 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       }
     };
 
+    const fetchCompanyLocation = async () => {
+      setCompanyLocationLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("company_locations")
+          .select("*")
+          .eq("is_default", true)
+          .eq("is_active", true)
+          .limit(1)
+          .single();
+        if (!error && data) {
+          setCompanyLocation(data);
+        }
+      } catch (err) {
+        console.error("Error fetching company location:", err);
+      } finally {
+        setCompanyLocationLoading(false);
+      }
+    };
+
     await Promise.all([
       fetchActivities(),
       fetchOrders(),
       fetchEvents(),
       fetchTasks(),
       fetchAppointments(),
-      fetchOrderItems()
+      fetchOrderItems(),
+      fetchCompanyLocation()
     ]);
     
     setLoading(false);
@@ -772,6 +799,43 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     }
   };
 
+  const handleApplyRouting = async (suggested: any, distance: number) => {
+    const confirm = window.confirm("Áp dụng gợi ý phân tuyến cho khách này?");
+    if (!confirm) return;
+
+    try {
+      const { error: updateErr } = await supabase
+        .from("customers")
+        .update({
+          customer_distance_type: suggested.distanceType,
+          customer_channel: suggested.customerChannel,
+          care_model: suggested.careModel
+        })
+        .eq("id", customer.id);
+      
+      if (updateErr) throw updateErr;
+
+      const content = `Khoảng cách tính được: ${Math.round(distance)} mét\n\nPhân tuyến cũ:\n- Khoảng cách: ${customer.customer_distance_type || 'Chưa có'}\n- Kênh: ${customer.customer_channel || 'Chưa có'}\n- Mô hình: ${customer.care_model || 'Chưa có'}\n\nPhân tuyến mới:\n- Khoảng cách: ${suggested.distanceType}\n- Kênh: ${suggested.customerChannel}\n- Mô hình: ${suggested.careModel}`;
+      
+      const { error: actErr } = await supabase
+        .from("customer_activities")
+        .insert({
+          customer_id: customer.id,
+          created_by: user?.id,
+          activity_type: "note",
+          title: "Cập nhật phân tuyến theo khoảng cách",
+          content: content
+        });
+
+      if (actErr) throw actErr;
+
+      toast.success("Áp dụng gợi ý thành công!");
+      fetchCustomerDetails();
+    } catch (err: any) {
+      toast.error("Lỗi áp dụng gợi ý: " + err.message);
+    }
+  };
+
   const getCareModelWarning = () => {
     if (!customer.care_model) return "Chưa xác lập mô hình hỗ trợ.";
     if ((customer.care_model === "sale_only" || customer.care_model === "direct_sale") && !customer.owner_sale_id) {
@@ -1125,6 +1189,72 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                       Check-in tại Spa
                     </button>
                   </div>
+
+                  {companyLocationLoading ? (
+                    <div className="pt-3.5 border-t border-emerald-100/80 flex items-center justify-center p-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                    </div>
+                  ) : companyLocation ? (
+                    (() => {
+                      const distMeters = calculateDistanceMeters(
+                        Number(customer.latitude),
+                        Number(customer.longitude),
+                        Number(companyLocation.latitude),
+                        Number(companyLocation.longitude)
+                      );
+                      const distKm = (distMeters / 1000).toFixed(1);
+                      const routing = getRecommendedRoutingByDistance(distMeters);
+                      const isSame = routing.customerChannel === customer.customer_channel && 
+                                     routing.careModel === customer.care_model && 
+                                     routing.distanceType === customer.customer_distance_type;
+
+                      return (
+                        <div className="pt-3.5 border-t border-emerald-100/80 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-slate-700">Cách {companyLocation.name}:</span>
+                            <span className="text-[11px] font-black text-emerald-600">{distKm} km</span>
+                          </div>
+                          
+                          <div className="bg-white rounded-lg p-2.5 border border-emerald-100 space-y-2 relative">
+                            {isSame ? (
+                              <Badge className="absolute -top-2 -right-2 text-[8px] bg-emerald-500 hover:bg-emerald-600 border-none">Phân tuyến hiện tại đã phù hợp</Badge>
+                            ) : (
+                              <Badge className="absolute -top-2 -right-2 text-[8px] bg-amber-500 hover:bg-amber-600 border-none animate-pulse">Có gợi ý mới</Badge>
+                            )}
+                            <div className="flex justify-between text-[10px]">
+                              <span className="text-slate-500 font-medium">Khoảng cách gợi ý:</span>
+                              <span className="font-bold text-slate-700">{getCustomerDistanceLabel(routing.distanceType)}</span>
+                            </div>
+                            <div className="flex justify-between text-[10px]">
+                              <span className="text-slate-500 font-medium">Gợi ý tuyến:</span>
+                              <span className="font-bold text-slate-700">{getCustomerChannelLabel(routing.customerChannel)}</span>
+                            </div>
+                            <div className="flex justify-between text-[10px]">
+                              <span className="text-slate-500 font-medium">Mô hình gợi ý:</span>
+                              <span className="font-bold text-slate-700">{getCareModelLabel(routing.careModel)}</span>
+                            </div>
+                          </div>
+
+                          {(isAdmin || isSubAdmin) && (
+                            <button
+                              onClick={() => handleApplyRouting(routing, distMeters)}
+                              className="w-full flex items-center justify-center gap-1.5 h-8 rounded-lg bg-blue-600 hover:bg-blue-700 text-[10px] font-bold text-white shadow-sm transition-all"
+                            >
+                              <CheckSquare className="w-3.5 h-3.5" />
+                              Áp dụng gợi ý phân tuyến
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <div className="pt-3.5 border-t border-emerald-100/80">
+                      <div className="text-[10px] text-amber-600 bg-amber-50 p-2 rounded flex items-start gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        Chưa cấu hình văn phòng mặc định.
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="p-4 bg-slate-50/60 rounded-2xl border border-slate-150 space-y-3.5 shadow-3xs">
@@ -1137,7 +1267,10 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
 
                   <div className="text-[11px] text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-100 flex items-start gap-1.5 font-medium">
                     <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                    Khách chưa có tọa độ chính xác, Google Maps sẽ tìm theo địa chỉ/tên cơ sở.
+                    <div>
+                      Khách chưa có tọa độ chính xác, Google Maps sẽ tìm theo địa chỉ/tên cơ sở.<br/>
+                      <span className="font-bold text-amber-700">Chưa thể tính khoảng cách — cần ghim vị trí khách.</span>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
