@@ -20,6 +20,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { RoutingAlertsWidget } from "@/components/customers/RoutingAlertsWidget";
 import { 
   AreaChart, 
   Area, 
@@ -341,6 +342,12 @@ function Dashboard() {
                  <QuickActionLink to="/marketing" label="MARKETING" icon={Sparkles} color="bg-purple-600" />
                  <QuickActionLink to="/admin/settings" label="CÀI ĐẶT" icon={Zap} color="bg-slate-900" />
               </div>
+              
+              {isAdmin && (
+                <div className="pt-2">
+                  <RoutingAlertsWidget />
+                </div>
+              )}
            </div>
            
            <Card className="rounded-[40px] border-none shadow-sm bg-white p-8">
