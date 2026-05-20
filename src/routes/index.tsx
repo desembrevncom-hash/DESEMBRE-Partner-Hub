@@ -219,7 +219,7 @@ const FUNNEL_DATA = [
 ];
 
 function Dashboard() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isManager } = useAuth();
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20 font-sans antialiased selection:bg-indigo-100 selection:text-indigo-900">
@@ -343,7 +343,7 @@ function Dashboard() {
                  <QuickActionLink to="/admin/settings" label="CÀI ĐẶT" icon={Zap} color="bg-slate-900" />
               </div>
               
-              {isAdmin && (
+              {isManager && (
                 <div className="pt-2">
                   <RoutingAlertsWidget />
                 </div>
