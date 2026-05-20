@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { CustomerUpsellIntel } from "./CustomerUpsellIntel";
+import { ProductKnowledgeBook } from "./ProductKnowledgeBook";
 import {
   Sheet,
   SheetContent,
@@ -1707,6 +1708,14 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                   <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Chưa có lịch sử chăm sóc</p>
                 </div>
               )}
+            </section>
+
+            {/* PRODUCT KNOWLEDGE BOOK */}
+            <section className="space-y-4 pt-4 border-t border-slate-100">
+              <div className="flex items-center gap-2 text-indigo-600 font-black text-sm uppercase tracking-widest">
+                <Sparkles className="w-4 h-4" /> Cẩm nang sản phẩm
+              </div>
+              <ProductKnowledgeBook />
             </section>
 
             {/* RECENT ORDERS */}
