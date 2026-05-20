@@ -111,3 +111,136 @@ export function buildGoogleMapsSearchUrl(customer: {
 export function buildGoogleMapsDirectionsUrl(lat: number, lng: number): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
 }
+
+export interface RouteCustomer {
+  id: string;
+  latitude: number | null | undefined;
+  longitude: number | null | undefined;
+  name?: string | null;
+  contact_name?: string | null;
+  facility_name?: string | null;
+  business_name?: string | null;
+}
+
+/**
+ * Tối ưu hóa thứ tự viếng thăm khách hàng bằng thuật toán láng giềng gần nhất (Nearest Neighbor)
+ */
+export function optimizeRouteByNearestNeighbor(
+  origin: { latitude: number; longitude: number },
+  customers: RouteCustomer[]
+): RouteCustomer[] {
+  // Lọc danh sách khách hàng có tọa độ hợp lệ
+  const validCustomers = customers.filter(c => hasValidCoordinates(c));
+
+  const ordered: RouteCustomer[] = [];
+  const unvisited = [...validCustomers];
+  let currentPos = { latitude: origin.latitude, longitude: origin.longitude };
+
+  while (unvisited.length > 0) {
+    let nearestIndex = -1;
+    let minDistance = Infinity;
+
+    for (let i = 0; i < unvisited.length; i++) {
+      const cust = unvisited[i];
+      const dist = calculateDistanceMeters(
+        currentPos.latitude,
+        currentPos.longitude,
+        Number(cust.latitude),
+        Number(cust.longitude)
+      );
+      if (dist < minDistance) {
+        minDistance = dist;
+        nearestIndex = i;
+      }
+    }
+
+    if (nearestIndex !== -1) {
+      const nextCust = unvisited.splice(nearestIndex, 1)[0];
+      ordered.push(nextCust);
+      currentPos = {
+        latitude: Number(nextCust.latitude),
+        longitude: Number(nextCust.longitude),
+      };
+    } else {
+      break;
+    }
+  }
+
+  return ordered;
+}
+
+/**
+ * Tạo liên kết Google Maps chỉ đường nhiều chặng (Waypoints)
+ */
+export function buildGoogleMapsRouteUrl(
+  origin: { latitude: number; longitude: number },
+  orderedCustomers: RouteCustomer[],
+  options?: { returnToOrigin?: boolean }
+): string | null {
+  if (!orderedCustomers || orderedCustomers.length === 0) {
+    return null;
+  }
+
+  // Google Maps giới hạn số lượng waypoint, tối đa lấy 10 điểm đầu tiên
+  const customersToRoute = orderedCustomers.slice(0, 10);
+  const returnToOrigin = !!options?.returnToOrigin;
+
+  const originStr = `${origin.latitude},${origin.longitude}`;
+  let destStr = "";
+  let waypointList: RouteCustomer[] = [];
+
+  if (returnToOrigin) {
+    destStr = originStr;
+    waypointList = customersToRoute;
+  } else {
+    const lastCust = customersToRoute[customersToRoute.length - 1];
+    destStr = `${lastCust.latitude},${lastCust.longitude}`;
+    waypointList = customersToRoute.slice(0, -1);
+  }
+
+  const base = "https://www.google.com/maps/dir/?api=1";
+  let url = `${base}&origin=${encodeURIComponent(originStr)}&destination=${encodeURIComponent(destStr)}`;
+
+  if (waypointList.length > 0) {
+    const waypointsStr = waypointList
+      .map(c => `${c.latitude},${c.longitude}`)
+      .join("|");
+    url += `&waypoints=${encodeURIComponent(waypointsStr)}`;
+  }
+
+  return url;
+}
+
+/**
+ * Tính tổng khoảng cách đường chim bay của cả tuyến đường (mét)
+ */
+export function getRouteDistanceEstimate(
+  origin: { latitude: number; longitude: number },
+  orderedCustomers: RouteCustomer[]
+): number {
+  if (!orderedCustomers || orderedCustomers.length === 0) {
+    return 0;
+  }
+
+  let totalDistance = 0;
+  let currentPos = { latitude: origin.latitude, longitude: origin.longitude };
+
+  for (const cust of orderedCustomers) {
+    if (hasValidCoordinates(cust)) {
+      const dist = calculateDistanceMeters(
+        currentPos.latitude,
+        currentPos.longitude,
+        Number(cust.latitude),
+        Number(cust.longitude)
+      );
+      totalDistance += dist;
+      currentPos = {
+        latitude: Number(cust.latitude),
+        longitude: Number(cust.longitude),
+      };
+    }
+  }
+
+  return totalDistance;
+}
+

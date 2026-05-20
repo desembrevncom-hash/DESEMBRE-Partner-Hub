@@ -134,11 +134,11 @@ export function TasksPage() {
     async function fetchReferences() {
       if (!user) return;
       try {
-        const { data: profs } = await supabase.from("profiles").select("id, display_name, full_name, email");
+        const { data: profs } = await supabase.from("profiles").select("id, display_name, email");
         if (profs) {
           setStaffList(profs.map((p: any) => ({
             id: p.id,
-            display_name: p.display_name || p.full_name || p.email?.split("@")[0],
+            display_name: p.display_name || p.email?.split("@")[0],
             email: p.email
           })));
         }

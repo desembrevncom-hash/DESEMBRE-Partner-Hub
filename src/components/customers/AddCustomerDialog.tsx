@@ -174,13 +174,13 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
       try {
         const { data: rolesData } = await supabase.from("user_roles").select("user_id, role");
         if (!rolesData) return;
-        const { data: profilesData } = await supabase.from("profiles").select("id, full_name, display_name, email");
+        const { data: profilesData } = await supabase.from("profiles").select("id, display_name, email");
         
         const profMap = new Map();
         if (profilesData) {
           profilesData.forEach(p => profMap.set(p.id, {
             id: p.id,
-            full_name: p.full_name || p.display_name || p.email,
+            full_name: p.display_name || p.email,
             email: p.email
           }));
         }

@@ -83,13 +83,13 @@ export function AddTaskDialog({ isOpen, onClose, customer, onSuccess }: AddTaskD
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, display_name, full_name, email");
+        .select("id, display_name, email");
       
       if (error) throw error;
       if (data) {
         setStaffList(data.map(p => ({
           id: p.id,
-          name: p.display_name || p.full_name || p.email?.split("@")[0] || "Chưa đặt tên"
+          name: p.display_name || p.email?.split("@")[0] || "Chưa đặt tên"
         })));
       }
     } catch (e: any) {
