@@ -243,7 +243,7 @@ function RoutingReportPage() {
         customer_id: assignTarget.id,
         title: isSale ? 'Chăm sóc khách mới được phân tuyến' : 'Chăm sóc khách tuyến Tele mới',
         description: "Khách hàng được chia từ hệ thống phân tuyến, vui lòng liên hệ và cập nhật thông tin.",
-        due_date: new Date(Date.now() + 86400000).toISOString(),
+        due_at: new Date(Date.now() + 86400000).toISOString(),
         assigned_to: selectedStaffId,
         created_by: user?.id,
         status: "pending"
