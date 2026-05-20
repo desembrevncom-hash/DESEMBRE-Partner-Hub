@@ -203,7 +203,7 @@ function CustomersPage() {
   const fetchCustomers = async () => {
     setLoading(true);
     try {
-      let query = supabase.from("customers").select("*, orders(id, total, status)").is("deleted_at", null);
+      let query = supabase.from("customers").select("id, created_at, name, facility_name, phone, city, address, owner_sale_id, owner_tele_id, lifecycle_stage, ownership_status, customer_channel, customer_distance_type, next_follow_up_at, last_contacted_at, latitude, longitude, orders(id, total, status)").is("deleted_at", null);
       
       // Role-based logic (Strict ownership)
       if (!isAdmin) {

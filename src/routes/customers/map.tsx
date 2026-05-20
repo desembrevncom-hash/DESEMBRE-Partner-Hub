@@ -539,10 +539,7 @@ function CustomerMapPage() {
       setLoading(true);
       try {
         // Query active customers with orders
-        let query = supabase.from("customers").select("*, orders(id, total, status)").is("deleted_at", null);
-        
-        const { data, error } = await query;
-        if (error) throw error;
+        let query = supabase.from("customers").select("id, created_at, name, facility_name, phone, city, address, owner_sale_id, owner_tele_id, lifecycle_stage, ownership_status, customer_channel, customer_distance_type, next_follow_up_at, last_contacted_at, latitude, longitude, orders(id, total, status)").is("deleted_at", null);
         
         // Load assigned tasks to evaluate visibility for Telesales
         let assignedCustomerIds = new Set<string>();
@@ -557,21 +554,28 @@ function CustomerMapPage() {
             });
           }
         }
-
-        // Apply strict role-based visibility filter on loaded customers
-        const filteredByRole = (data || []).filter((c: any) => {
-          if (isManager) return true; // Admin/Sub Admin see all
-          if (isTeleLead && user) return c.owner_tele_id === user.id; // Tele Lead see their tele queue
-          if (isSale && user) {
-            return c.owner_sale_id === user.id || c.ownership_status === 'free_pool';
+        
+        // Áp dụng Logic bảo mật phân quyền trực tiếp trên DB (RLS Bypass fix)
+        if (!isAdmin && user) {
+          if (isSale) {
+            query = query.or(`owner_sale_id.eq.${user.id},ownership_status.eq.free_pool`);
+          } else if (isTeleLead) {
+            query = query.eq('owner_tele_id', user.id);
+          } else if (isTelesale) {
+            // Đối với Telesale, query cần lấy owner_tele_id = user.id hoặc trong danh sách assigned
+            if (assignedCustomerIds.size > 0) {
+              const idsArr = Array.from(assignedCustomerIds).join(',');
+              query = query.or(`owner_tele_id.eq.${user.id},id.in.(${idsArr})`);
+            } else {
+              query = query.eq('owner_tele_id', user.id);
+            }
           }
-          if (isTelesale && user) {
-            return c.owner_tele_id === user.id || assignedCustomerIds.has(c.id);
-          }
-          return false;
-        });
+        }
+        
+        const { data, error } = await query;
+        if (error) throw error;
 
-        setCustomers(filteredByRole);
+        setCustomers(data || []);
       } catch (err: any) {
         console.error("fetchCustomers error:", err);
         toast.error("Lỗi tải danh sách khách hàng: " + err.message);
