@@ -12,7 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
-import { getStaffName } from "@/lib/customerOwnership";
+
 
 interface WorkspaceCalendarCardProps {
   events: any[];
@@ -505,7 +505,7 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ ev
         customer={previewCustomer}
         open={!!previewCustomer}
         onOpenChange={(open) => !open && setPreviewCustomer(null)}
-        getStaffName={getStaffName}
+
       />
     </div>
   );

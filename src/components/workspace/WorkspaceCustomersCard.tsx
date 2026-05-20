@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Users, Phone, ShieldCheck, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { getLifecycleLabel, getStaffName } from "@/lib/customerOwnership";
+import { getLifecycleLabel } from "@/lib/customerOwnership";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
 
 interface WorkspaceCustomersCardProps {
@@ -61,7 +61,7 @@ export const WorkspaceCustomersCard: React.FC<WorkspaceCustomersCardProps> = ({ 
         customer={previewCustomer}
         open={!!previewCustomer}
         onOpenChange={(open) => !open && setPreviewCustomer(null)}
-        getStaffName={getStaffName}
+
       />
     </div>
   );

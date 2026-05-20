@@ -5,7 +5,7 @@ import { getReclaimDeadlineLabel } from "@/lib/customerReclaimRules";
 import { WorkspaceShell } from "./WorkspaceShell";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
-import { getStaffName } from "@/lib/customerOwnership";
+
 import { 
   Users, 
   AlertCircle, 
@@ -130,6 +130,10 @@ export const TeleLeadWorkspace: React.FC = () => {
 
   const handleRefresh = () => setRefreshKey(prev => prev + 1);
 
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
+  const atRiskCustomers = data.customers.filter((c: any) => c.ownership_status === 'at_risk');
+
   const handleAssign = async (leadId: string, leadName: string, staffId: string, staffName: string) => {
     setIsAssigning(true);
     try {
@@ -169,15 +173,38 @@ export const TeleLeadWorkspace: React.FC = () => {
 
   // Sort tasks for Priority Tasks
   const priorityTasks = [...data.allTeamTasks].sort((a, b) => {
+    // 1. Quá hạn lên đầu
     const overdueA = new Date(a.due_at).getTime() < new Date().getTime();
     const overdueB = new Date(b.due_at).getTime() < new Date().getTime();
     if (overdueA && !overdueB) return -1;
     if (!overdueA && overdueB) return 1;
 
-    const prioOrder: Record<string, number> = { urgent: 3, high: 2, normal: 1, low: 0 };
-    const scoreA = prioOrder[a.priority || "normal"] || 1;
-    const scoreB = prioOrder[b.priority || "normal"] || 1;
-    return scoreB - scoreA;
+    // 2. Priority urgent/high
+    const prioOrder: Record<string, number> = { urgent: 4, high: 3, normal: 2, low: 1 };
+    const scoreA = prioOrder[a.priority || "normal"] || 2;
+    const scoreB = prioOrder[b.priority || "normal"] || 2;
+    if (scoreA !== scoreB) return scoreB - scoreA;
+
+    // 3. Lead mới chưa gọi (task_type = 'call', customer.lifecycle_stage = 'new_lead')
+    const isNewLeadA = a.task_type === 'call' && a.customer?.lifecycle_stage === 'new_lead';
+    const isNewLeadB = b.task_type === 'call' && b.customer?.lifecycle_stage === 'new_lead';
+    if (isNewLeadA && !isNewLeadB) return -1;
+    if (!isNewLeadA && isNewLeadB) return 1;
+
+    // 4. Follow-up hôm nay
+    const isFollowUpA = a.task_type === 'follow_up';
+    const isFollowUpB = b.task_type === 'follow_up';
+    if (isFollowUpA && !isFollowUpB) return -1;
+    if (!isFollowUpA && isFollowUpB) return 1;
+
+    // 5. Check-in hôm nay
+    const isCheckinA = a.task_type === 'check_in' || a.task_type === 'visit';
+    const isCheckinB = b.task_type === 'check_in' || b.task_type === 'visit';
+    if (isCheckinA && !isCheckinB) return -1;
+    if (!isCheckinA && isCheckinB) return 1;
+
+    // 6. Gần nhất lên đầu
+    return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
   });
 
   return (
@@ -195,7 +222,7 @@ export const TeleLeadWorkspace: React.FC = () => {
       </div>
 
       {/* ACTONABLE QUEUE CARDS */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         
         {/* Card 1: Task team chưa chia */}
         <div className="bg-white rounded-2xl border border-orange-100 p-4 flex flex-col justify-between shadow-2xs relative overflow-hidden group">
@@ -292,118 +319,26 @@ export const TeleLeadWorkspace: React.FC = () => {
           </Button>
         </div>
 
-      </div>
-
-      {/* KHÁCH SẮP BỊ THU HỒI WIDGET */}
-      {(() => {
-        const atRiskCustomers = data.customers.filter((c: any) => c.ownership_status === 'at_risk');
-        
-        return (
-          <div className="bg-gradient-to-r from-red-50/70 to-amber-50/70 rounded-3xl border border-red-200 p-6 shadow-xs mb-8">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-red-600 animate-pulse shrink-0" />
-                <h3 className="text-sm font-black uppercase tracking-wider text-red-900">
-                  ⚠️ Khách sắp bị thu hồi ({atRiskCustomers.length})
-                </h3>
-              </div>
-              <Badge className="bg-red-600 hover:bg-red-700 text-white text-[10px] font-black uppercase tracking-wide px-2.5 py-1">
-                Nguy cơ cao
-              </Badge>
-            </div>
-
-            {atRiskCustomers.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {atRiskCustomers.map((c: any) => {
-                  const deadline = getReclaimDeadlineLabel(c);
-                  
-                  return (
-                    <div key={c.id} className="bg-white rounded-2xl border border-red-100 p-4 shadow-2xs flex flex-col justify-between space-y-4 hover:shadow-xs hover:border-red-200 transition-all duration-200">
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <h4 className="text-xs font-black text-slate-900 leading-snug">
-                              {c.name || c.contact_name || "Chủ Spa"}
-                            </h4>
-                            <p className="text-[10px] font-bold text-slate-500 mt-1">
-                              🏢 {c.facility_name || c.business_name || "Cơ sở tự do"}
-                            </p>
-                          </div>
-                          <Badge className={`text-[9px] font-black uppercase tracking-wider shrink-0 px-2 py-0.5 ${
-                            deadline.variant === 'danger' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
-                          }`}>
-                            {deadline.text}
-                          </Badge>
-                        </div>
-
-                        <div className="text-[10px] text-slate-700 space-y-2 font-medium bg-red-50/30 p-3 rounded-xl border border-red-100/50">
-                          <p className="text-red-700 font-bold leading-relaxed">
-                            ⚠️ Lý do: {c.reclaim_reason || "Lâu ngày chưa phát sinh tương tác mới."}
-                          </p>
-                          <div className="h-px bg-red-100/50 my-1" />
-                          <p className="text-slate-500 text-[9px] flex items-center gap-1 font-semibold">
-                            📞 SĐT: <span className="text-slate-700 font-bold">{c.phone || "Chưa cập nhật"}</span>
-                          </p>
-                          {c.at_risk_at && (
-                            <p className="text-slate-500 text-[9px] flex items-center gap-1">
-                              ⏰ Cảnh báo: <span className="text-slate-750 font-bold">{format(new Date(c.at_risk_at), "HH:mm dd/MM/yyyy", { locale: vi })}</span>
-                            </p>
-                          )}
-                          {c.reclaimable_at && (
-                            <p className="text-slate-500 text-[9px] flex items-center gap-1">
-                              ⏱️ Sẽ thu hồi: <span className="text-red-600 font-bold">{format(new Date(c.reclaimable_at), "HH:mm dd/MM/yyyy", { locale: vi })}</span>
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2">
-                        <Button
-                          size="sm"
-                          className="bg-red-600 hover:bg-red-750 text-white rounded-xl text-[10px] font-black uppercase h-8 py-0 px-1"
-                          onClick={() => {
-                            setPreviewCustomerAction(null);
-                            setPreviewCustomerId(c.id);
-                          }}
-                        >
-                          Chăm sóc
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-red-205 text-red-700 hover:bg-red-50 rounded-xl text-[10px] font-black uppercase h-8 py-0 px-1"
-                          onClick={() => {
-                            setPreviewCustomerAction("note");
-                            setPreviewCustomerId(c.id);
-                          }}
-                        >
-                          Ghi chú
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-red-205 text-red-700 hover:bg-red-50 rounded-xl text-[10px] font-black uppercase h-8 py-0 px-1"
-                          onClick={() => {
-                            setPreviewCustomerAction("task");
-                            setPreviewCustomerId(c.id);
-                          }}
-                        >
-                          Tạo task
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="py-10 text-center bg-white/60 rounded-2xl border border-dashed border-red-200">
-                <Check className="w-7 h-7 text-red-500 mx-auto mb-2" />
-                <p className="text-xs text-red-800 font-bold">Không có khách nào sắp bị thu hồi.</p>
-              </div>
-            )}
+        {/* Card 6: Khách sắp bị thu hồi */}
+        <div className="bg-gradient-to-br from-red-50 to-amber-50 rounded-2xl border border-red-200 p-4 flex flex-col justify-between shadow-2xs relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-115 transition-transform">
+            <AlertCircle className="w-20 h-20 text-red-600" />
           </div>
-        );
-      })()}
+          <div className="space-y-1">
+            <span className="text-[10px] font-black text-red-600 uppercase tracking-widest">Sắp thu hồi</span>
+            <div className="text-3xl font-black text-red-900">{atRiskCustomers.length}</div>
+          </div>
+          <Button 
+            size="sm" 
+            variant="ghost" 
+            className="w-full text-red-600 hover:text-red-700 hover:bg-red-100 mt-4 text-xs font-bold"
+            onClick={() => setActiveQueue({ title: "Khách sắp bị thu hồi (Tele)", items: atRiskCustomers, type: 'customer' })}
+          >
+            Xem
+          </Button>
+        </div>
+
+      </div>
 
       {/* PRIORITY TASKS SECTION */}
       <div className="bg-white rounded-3xl border border-slate-200/60 p-6 shadow-xs mb-8">
@@ -416,9 +351,10 @@ export const TeleLeadWorkspace: React.FC = () => {
           <div className="space-y-3">
             {priorityTasks.map((t: any) => {
               const isOverdue = new Date(t.due_at).getTime() < new Date().getTime();
+              const isUrgent = t.priority === 'urgent' || isOverdue;
               
               return (
-                <div key={t.id} className="p-4 rounded-2xl border border-slate-150 bg-white hover:shadow-2xs transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div key={t.id} className={`p-4 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${isUrgent ? "border-red-200 bg-red-50/40 hover:shadow-2xs" : "border-slate-150 bg-white hover:shadow-2xs"}`}>
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs font-bold text-slate-900 leading-snug">{t.title}</span>
@@ -440,7 +376,7 @@ export const TeleLeadWorkspace: React.FC = () => {
                       {t.customer && (
                         <span className="flex items-center gap-1">
                           <User className="w-3.5 h-3.5 text-slate-400" />
-                          {t.customer.name} ({t.customer.facility_name || "Spa tự do"})
+                          {t.customer.name} ({t.customer.facility_name || "Spa tự do"}) - 📞 {t.customer.phone || "Chưa cập nhật"}
                         </span>
                       )}
                       <span className="flex items-center gap-1">
@@ -457,11 +393,27 @@ export const TeleLeadWorkspace: React.FC = () => {
                         size="sm" 
                         variant="ghost" 
                         onClick={() => setPreviewCustomerId(t.customer_id)}
-                        className="h-8 text-[11px] font-black text-primary hover:bg-slate-100"
+                        className="h-8 text-[11px] font-black text-primary hover:bg-slate-100 px-2"
                       >
                         Mở khách
                       </Button>
                     )}
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={() => setTaskAction({ task: t, action: "completed" })}
+                      className="h-8 text-[11px] font-black text-emerald-600 hover:bg-emerald-50 px-2"
+                    >
+                      <Check className="w-3.5 h-3.5 mr-1" /> Hoàn thành
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={() => setTaskAction({ task: t, action: "call_back_later" })}
+                      className="h-8 text-[11px] font-black text-amber-600 hover:bg-amber-50 px-2"
+                    >
+                      <CalendarClock className="w-3.5 h-3.5 mr-1" /> Hẹn gọi lại
+                    </Button>
 
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -637,7 +589,7 @@ export const TeleLeadWorkspace: React.FC = () => {
             setPreviewCustomerAction(null);
           }
         }}
-        getStaffName={getStaffName}
+
         initialQuickAction={previewCustomerAction}
       />
 

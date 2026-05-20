@@ -7,13 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/profile")({
   component: ProfilePage,
 });
 
 function ProfilePage() {
-  const { user, updateProfile, roles } = useAuth();
+  const { user, updateProfile, roles, isAdmin, isSubAdmin, isManager } = useAuth();
   
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -21,14 +22,33 @@ function ProfilePage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [avatar, setAvatar] = useState<string | null>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      setDisplayName(user.user_metadata?.display_name || user.email?.split("@")[0] || "");
-      setEmail(user.email || "");
-      setPhone(user.user_metadata?.phone || "");
-      setAvatar(user.user_metadata?.avatar_url || null);
+    async function fetchOwnProfile() {
+      if (!user) return;
+      try {
+        setLoadingProfile(true);
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (data) {
+          setProfile(data);
+          setDisplayName(data.display_name || "");
+          setEmail(data.email || user.email || "");
+          setPhone(user.user_metadata?.phone || "");
+          setAvatar(user.user_metadata?.avatar_url || null);
+        }
+      } catch (err) {
+        console.error("Error loading profile from DB:", err);
+      } finally {
+        setLoadingProfile(false);
+      }
     }
+    fetchOwnProfile();
   }, [user, isEditing]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,24 +90,39 @@ function ProfilePage() {
   };
 
   const handleSave = async () => {
-    if (!displayName.trim()) return toast.error("Họ và tên không được để trống");
+    if (isManager && !displayName.trim()) return toast.error("Họ và tên không được để trống");
     if (!email.trim()) return toast.error("Email không được để trống");
     
     setLoading(true);
     const { error } = await updateProfile({
-      display_name: displayName.trim(),
+      display_name: isManager ? displayName.trim() : undefined,
       email: email.trim(),
       phone: phone.trim(),
       avatar_url: avatar || undefined,
     });
-    setLoading(false);
 
     if (error) {
+      setLoading(false);
       toast.error(error);
-    } else {
-      toast.success("Cập nhật thông tin thành công!");
-      setIsEditing(false);
+      return;
     }
+
+    if (isManager && user) {
+      const { error: dbError } = await supabase
+        .from("profiles")
+        .update({ display_name: displayName.trim() })
+        .eq("id", user.id);
+      
+      if (dbError) {
+        setLoading(false);
+        toast.error("Lỗi cập nhật Profiles DB: " + dbError.message);
+        return;
+      }
+    }
+
+    setLoading(false);
+    toast.success("Cập nhật thông tin thành công!");
+    setIsEditing(false);
   };
   
   return (
@@ -124,7 +159,7 @@ function ProfilePage() {
             </div>
             {!isEditing && (
               <div className="text-center">
-                <h2 className="text-2xl font-bold">{user?.user_metadata?.display_name || user?.email || "Người dùng"}</h2>
+                <h2 className="text-2xl font-bold">{profile?.display_name || user?.email || "Người dùng"}</h2>
                 <p className="text-muted-foreground">{user?.email}</p>
                 <div className="mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase bg-primary/10 text-primary border border-primary/20">
                   {roles.length > 0 ? roles.join(', ') : "Khách"}
@@ -156,7 +191,11 @@ function ProfilePage() {
                     value={displayName} 
                     onChange={(e) => setDisplayName(e.target.value)} 
                     placeholder="Nguyễn Văn A" 
+                    disabled={!isManager}
                   />
+                  {!isManager && (
+                    <p className="text-[10px] text-muted-foreground">Tên hiển thị nghiệp vụ do Admin/Phó Admin quản lý.</p>
+                  )}
                 </div>
                 
                 <div className="space-y-2">
@@ -193,7 +232,7 @@ function ProfilePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-1">
                     <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider text-[10px]">Họ và tên</span>
-                    <p className="font-medium text-base">{user?.user_metadata?.display_name || "Chưa cập nhật"}</p>
+                    <p className="font-medium text-base">{profile?.display_name || "Chưa cập nhật"}</p>
                   </div>
                   <div className="space-y-1">
                     <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider text-[10px]">Email</span>

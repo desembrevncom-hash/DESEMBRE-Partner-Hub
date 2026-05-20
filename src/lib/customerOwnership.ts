@@ -162,13 +162,3 @@ export function classifyCustomerLifecycle(customer: any, orders: any[]): string 
   }
   return "new_lead";
 }
-
-/**
- * Get staff name by ID. Returns a placeholder since this requires an async lookup.
- * In a real implementation, this would be replaced by a cached staff directory lookup.
- */
-export function getStaffName(staffId?: string | null): string {
-  if (!staffId) return "";
-  // Return a shortened version of the ID as placeholder
-  return `Staff-${staffId.slice(0, 6)}`;
-}

@@ -47,11 +47,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { 
   getLifecycleConfig, 
-  getStaffName, 
   getCareModelLabel,
   getCustomerChannelLabel,
   getCustomerDistanceLabel
 } from "@/lib/customerOwnership";
+import { buildStaffMap, getStaffDisplayName, StaffMap } from "@/lib/staffDisplay";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -170,6 +170,7 @@ function CustomerDetailPage() {
 
   const [customer, setCustomer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [staffMap, setStaffMap] = useState<StaffMap>({});
 
   // Activity Log State
   const [activities, setActivities] = useState<any[]>([]);
@@ -454,6 +455,26 @@ function CustomerDetailPage() {
     fetchOrderItems();
   }, [id]);
 
+  useEffect(() => {
+    async function fetchProfiles() {
+      if (!customer) return;
+      const ids = [customer.owner_sale_id, customer.owner_tele_id].filter(Boolean) as string[];
+      if (ids.length === 0) return;
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("id, display_name, email")
+          .in("id", ids);
+        if (data) {
+          setStaffMap(buildStaffMap(data));
+        }
+      } catch (err) {
+        console.error("Error fetching staff profiles in detail page:", err);
+      }
+    }
+    fetchProfiles();
+  }, [customer]);
+
   const handleAddActivity = async () => {
     if (!quickActivity.title.trim()) {
       toast.error("Vui lòng nhập tiêu đề nhật ký");
@@ -648,7 +669,7 @@ function CustomerDetailPage() {
           <div className="bg-white p-3.5 rounded-2xl border border-slate-200/60 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sale phụ trách</p>
-              <p className="text-xs font-bold text-slate-800 mt-1">{getStaffName(customer.owner_sale_id) || "Chưa phân công"}</p>
+              <p className="text-xs font-bold text-slate-800 mt-1">{getStaffDisplayName(customer.owner_sale_id, staffMap)}</p>
             </div>
             {isManager && (
               <Button size="sm" variant="ghost" className="text-[10px] font-bold text-indigo-600 hover:bg-indigo-50" onClick={() => setIsAssignStaffOpen(true)}>
@@ -659,7 +680,7 @@ function CustomerDetailPage() {
           <div className="bg-white p-3.5 rounded-2xl border border-slate-200/60 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Telesale hỗ trợ</p>
-              <p className="text-xs font-bold text-slate-800 mt-1">{getStaffName(customer.owner_tele_id) || "Chưa phân công"}</p>
+              <p className="text-xs font-bold text-slate-800 mt-1">{getStaffDisplayName(customer.owner_tele_id, staffMap)}</p>
             </div>
             {isManager && (
               <Button size="sm" variant="ghost" className="text-[10px] font-bold text-indigo-600 hover:bg-indigo-50" onClick={() => setIsAssignStaffOpen(true)}>

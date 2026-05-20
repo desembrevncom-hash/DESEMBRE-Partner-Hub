@@ -18,7 +18,8 @@ import {
   AlertCircle,
   LayoutDashboard,
   ShieldAlert,
-  UserCircle
+  UserCircle,
+  Edit2
 } from "lucide-react";
 import { toast } from "sonner";
 import { FunctionsHttpError, FunctionsFetchError, FunctionsRelayError } from "@supabase/supabase-js";
@@ -62,6 +63,10 @@ function AdminUsersPage() {
   const [deleteCandidate, setDeleteCandidate] = useState<ProfileRow | null>(null);
   const [confirmKeyword, setConfirmKeyword] = useState("");
   const [deleting, setDeleting] = useState(false);
+
+  const [editCandidate, setEditCandidate] = useState<ProfileRow | null>(null);
+  const [newDisplayName, setNewDisplayName] = useState("");
+  const [updatingDisplayName, setUpdatingDisplayName] = useState(false);
 
   const reload = async () => {
     setBusy(true);
@@ -141,6 +146,30 @@ function AdminUsersPage() {
       toast.error("Lỗi khi xóa nhân sự");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleEditSave = async () => {
+    if (!editCandidate) return;
+    if (!newDisplayName.trim()) return toast.error("Họ và tên không được để trống");
+
+    setUpdatingDisplayName(true);
+    try {
+      const { error: dbError } = await supabase
+        .from("profiles")
+        .update({ display_name: newDisplayName.trim() })
+        .eq("id", editCandidate.id);
+
+      if (dbError) throw dbError;
+
+      setProfiles(prev => prev.map(p => p.id === editCandidate.id ? { ...p, display_name: newDisplayName.trim() } : p));
+      toast.success("Cập nhật tên hiển thị thành công");
+      setEditCandidate(null);
+    } catch (e: any) {
+      console.error("Error updating profile display_name:", e);
+      toast.error("Lỗi cập nhật tên: " + e.message);
+    } finally {
+      setUpdatingDisplayName(false);
     }
   };
 
@@ -291,11 +320,20 @@ function AdminUsersPage() {
                                       </td>
                                       <td className="px-8 py-5 text-right">
                                          <div className="flex items-center justify-end gap-2">
+                                            <Button 
+                                               variant="ghost" 
+                                               size="icon" 
+                                               className="h-8 w-8 text-slate-300 hover:text-indigo-600 rounded-lg" 
+                                               onClick={() => {
+                                                  setEditCandidate(profile);
+                                                  setNewDisplayName(profile.display_name || "");
+                                               }}
+                                               title="Sửa tên hiển thị"
+                                            >
+                                               <Edit2 className="w-4 h-4" />
+                                            </Button>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-rose-500 rounded-lg" onClick={() => setDeleteCandidate(profile)}>
                                                <Trash2 className="w-4 h-4" />
-                                            </Button>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-slate-900 rounded-lg">
-                                               <MoreVertical className="w-4 h-4" />
                                             </Button>
                                          </div>
                                       </td>
@@ -330,6 +368,50 @@ function AdminUsersPage() {
            </div>
         </div>
       </main>
+
+      {/* EDIT DISPLAY NAME DIALOG */}
+      <Dialog open={!!editCandidate} onOpenChange={(open) => !updatingDisplayName && !open && setEditCandidate(null)}>
+        <DialogContent className="sm:max-w-[425px] rounded-[32px] border-none shadow-2xl p-8 bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-slate-900 flex items-center gap-3 text-lg font-black uppercase tracking-tight">
+              <UserCircle className="w-6 h-6 text-indigo-600" /> Sửa tên hiển thị
+            </DialogTitle>
+            <DialogDescription className="text-sm pt-4 leading-relaxed font-medium text-slate-500">
+              Nhập tên hiển thị nghiệp vụ mới cho nhân sự <strong className="text-slate-900">{editCandidate?.email}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-6 space-y-2">
+            <Label htmlFor="edit_display_name" className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">
+              Họ và tên
+            </Label>
+            <Input
+              id="edit_display_name"
+              placeholder="Nguyễn Văn A"
+              value={newDisplayName}
+              onChange={(e) => setNewDisplayName(e.target.value)}
+              className="rounded-2xl h-12 border-slate-200 focus:border-indigo-500 transition-all font-bold px-4"
+              disabled={updatingDisplayName}
+            />
+          </div>
+          <DialogFooter className="gap-3">
+            <Button 
+              variant="ghost" 
+              onClick={() => setEditCandidate(null)} 
+              className="rounded-xl font-bold text-slate-400"
+              disabled={updatingDisplayName}
+            >
+              Hủy bỏ
+            </Button>
+            <Button
+              onClick={handleEditSave}
+              disabled={updatingDisplayName || !newDisplayName.trim()}
+              className="rounded-xl font-black bg-indigo-600 hover:bg-indigo-700 text-white px-8 h-12 shadow-lg shadow-indigo-100"
+            >
+              {updatingDisplayName ? "Đang lưu..." : "Lưu thay đổi"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* DELETE DIALOG */}
       <Dialog open={!!deleteCandidate} onOpenChange={(open) => !open && setDeleteCandidate(null)}>

@@ -21,7 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { toast } from "sonner";
 import { createNotification } from "@/lib/notifications";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
-import { getStaffName } from "@/lib/customerOwnership";
+import { buildStaffMap, getStaffDisplayName, StaffMap } from "@/lib/staffDisplay";
 import { 
   calculateDistanceMeters
 } from "@/lib/geo";
@@ -43,7 +43,7 @@ function RoutingReportPage() {
   const [loading, setLoading] = useState(true);
   const [companyLocation, setCompanyLocation] = useState<any | null>(null);
   const [customers, setCustomers] = useState<any[]>([]);
-  const [staffMap, setStaffMap] = useState<Record<string, string>>({});
+  const [staffMap, setStaffMap] = useState<StaffMap>({});
   
   // For Quick Actions
   const [staffList, setStaffList] = useState<any[]>([]);
@@ -83,9 +83,7 @@ function RoutingReportPage() {
       setCustomers(custData || []);
 
       if (staffData) {
-        const map: Record<string, string> = {};
-        staffData.forEach((s: any) => map[s.id] = s.display_name || s.email);
-        setStaffMap(map);
+        setStaffMap(buildStaffMap(staffData));
         setStaffList(staffData);
       }
       
@@ -494,12 +492,12 @@ function RoutingReportPage() {
                             <td className="px-6 py-4">
                               <div className="space-y-1 text-[10px]">
                                 {c.owner_sale_id ? (
-                                  <div className="flex items-center gap-1.5"><Badge variant="outline" className="text-[8px] px-1 text-indigo-600 border-indigo-200">Sale</Badge> <span className="font-bold text-slate-700 truncate max-w-[100px] block">{staffMap[c.owner_sale_id] || "ID..."}</span></div>
+                                  <div className="flex items-center gap-1.5"><Badge variant="outline" className="text-[8px] px-1 text-indigo-600 border-indigo-200">Sale</Badge> <span className="font-bold text-slate-700 truncate max-w-[100px] block">{getStaffDisplayName(c.owner_sale_id, staffMap)}</span></div>
                                 ) : (
                                   <div className="flex items-center gap-1.5"><Badge variant="outline" className="text-[8px] px-1 text-slate-400 border-slate-200">Sale</Badge> <span className="text-slate-400 italic">Trống</span></div>
                                 )}
                                 {c.owner_tele_id ? (
-                                  <div className="flex items-center gap-1.5"><Badge variant="outline" className="text-[8px] px-1 text-amber-600 border-amber-200">Tele</Badge> <span className="font-bold text-slate-700 truncate max-w-[100px] block">{staffMap[c.owner_tele_id] || "ID..."}</span></div>
+                                  <div className="flex items-center gap-1.5"><Badge variant="outline" className="text-[8px] px-1 text-amber-600 border-amber-200">Tele</Badge> <span className="font-bold text-slate-700 truncate max-w-[100px] block">{getStaffDisplayName(c.owner_tele_id, staffMap)}</span></div>
                                 ) : (
                                   <div className="flex items-center gap-1.5"><Badge variant="outline" className="text-[8px] px-1 text-slate-400 border-slate-200">Tele</Badge> <span className="text-slate-400 italic">Trống</span></div>
                                 )}
@@ -598,7 +596,7 @@ function RoutingReportPage() {
           open={!!previewCustomer}
           onOpenChange={(open) => !open && setPreviewCustomer(null)}
           customer={previewCustomer}
-          getStaffName={getStaffName}
+          staffMap={staffMap}
         />
       )}
 

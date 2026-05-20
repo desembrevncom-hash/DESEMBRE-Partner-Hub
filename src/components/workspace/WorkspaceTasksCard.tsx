@@ -22,7 +22,7 @@ import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
-import { getStaffName } from "@/lib/customerOwnership";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -222,7 +222,7 @@ export const WorkspaceTasksCard: React.FC<WorkspaceTasksCardProps> = ({
         customer={previewCustomer}
         open={!!previewCustomer}
         onOpenChange={(open) => !open && setPreviewCustomer(null)}
-        getStaffName={getStaffName}
+
       />
 
       <TaskActionDialog 

@@ -24,7 +24,7 @@ import { useNavigate, Link } from "@tanstack/react-router";
 import { formatDistanceToNow, format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
-import { getStaffName } from "@/lib/customerOwnership";
+
 
 export const Route = createFileRoute("/notifications")({
   component: NotificationsPage,
@@ -241,7 +241,7 @@ function NotificationsPage() {
         customer={previewCustomer}
         open={!!previewCustomer}
         onOpenChange={(open) => !open && setPreviewCustomer(null)}
-        getStaffName={getStaffName}
+
       />
     </div>
   );

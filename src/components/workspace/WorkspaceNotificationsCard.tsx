@@ -4,7 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useNavigate } from "@tanstack/react-router";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
-import { getStaffName } from "@/lib/customerOwnership";
+
 import { supabase } from "@/integrations/supabase/client";
 
 interface WorkspaceNotificationsCardProps {
@@ -102,7 +102,7 @@ export const WorkspaceNotificationsCard: React.FC<WorkspaceNotificationsCardProp
         customer={previewCustomer}
         open={!!previewCustomer}
         onOpenChange={(open) => !open && setPreviewCustomer(null)}
-        getStaffName={getStaffName}
+
       />
     </div>
   );

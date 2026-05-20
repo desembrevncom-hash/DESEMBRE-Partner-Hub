@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { toast } from "sonner";
 import { createNotification } from "@/lib/notifications";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
-import { getStaffName } from "@/lib/customerOwnership";
+
 import { Checkbox } from "@/components/ui/checkbox";
 
 export function RoutingAlertsWidget() {
@@ -369,7 +369,7 @@ export function RoutingAlertsWidget() {
           open={!!previewCustomer}
           onOpenChange={(open) => !open && setPreviewCustomer(null)}
           customer={previewCustomer}
-          getStaffName={getStaffName}
+
         />
       )}
 

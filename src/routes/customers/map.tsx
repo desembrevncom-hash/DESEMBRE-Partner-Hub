@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { getStaffName } from "@/lib/customerOwnership";
+import { buildStaffMap, getStaffDisplayName, StaffMap } from "@/lib/staffDisplay";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
 import { RoutingReviewDialog } from "@/components/customers/RoutingReviewDialog";
 import { 
@@ -213,6 +213,7 @@ function CustomerMapPage() {
   
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [staffMap, setStaffMap] = useState<StaffMap>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [previewCustomer, setPreviewCustomer] = useState<any | null>(null);
@@ -493,7 +494,9 @@ function CustomerMapPage() {
       ].join(",");
 
       const csvRows = mapCustomers.map(c => {
-        const ownerName = getStaffName(c.owner_sale_id) || getStaffName(c.owner_tele_id) || "Chưa phân công";
+        const saleName = getStaffDisplayName(c.owner_sale_id, staffMap);
+        const teleName = getStaffDisplayName(c.owner_tele_id, staffMap);
+        const ownerName = (saleName !== "Chưa phân công" ? saleName : "") || (teleName !== "Chưa phân công" ? teleName : "") || "Chưa phân công";
         const crmLink = `${window.location.origin}/customers/${c.id}`;
         
         const totalOrderAmount = c.orders?.reduce((sum: number, o: any) => sum + (o.total || 0), 0) || 0;
@@ -575,7 +578,24 @@ function CustomerMapPage() {
         const { data, error } = await query;
         if (error) throw error;
 
-        setCustomers(data || []);
+        const customerList = data || [];
+        setCustomers(customerList);
+        
+        // Fetch user profiles to build staffMap
+        const userIds = new Set<string>();
+        customerList.forEach(c => {
+          if (c.owner_sale_id) userIds.add(c.owner_sale_id);
+          if (c.owner_tele_id) userIds.add(c.owner_tele_id);
+        });
+        if (userIds.size > 0) {
+          const { data: profiles, error: profError } = await supabase
+            .from("profiles")
+            .select("id, display_name, email")
+            .in("id", Array.from(userIds));
+          if (!profError && profiles) {
+            setStaffMap(buildStaffMap(profiles));
+          }
+        }
       } catch (err: any) {
         console.error("fetchCustomers error:", err);
         toast.error("Lỗi tải danh sách khách hàng: " + err.message);
@@ -1479,7 +1499,7 @@ function CustomerMapPage() {
               });
             }
           }}
-          getStaffName={getStaffName}
+          staffMap={staffMap}
         />
       )}
 

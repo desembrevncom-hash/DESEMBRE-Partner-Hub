@@ -24,6 +24,7 @@ import { Route as MarketingIndexRouteImport } from './routes/marketing/index'
 import { Route as CustomersIndexRouteImport } from './routes/customers/index'
 import { Route as ReportsRoutingRouteImport } from './routes/reports/routing'
 import { Route as ReportsCrmRouteImport } from './routes/reports/crm'
+import { Route as ReportsAutomationRouteImport } from './routes/reports/automation'
 import { Route as OrdersNewRouteImport } from './routes/orders/new'
 import { Route as OrdersIdRouteImport } from './routes/orders/$id'
 import { Route as MarketingReportsRouteImport } from './routes/marketing/reports'
@@ -111,6 +112,11 @@ const ReportsRoutingRoute = ReportsRoutingRouteImport.update({
 const ReportsCrmRoute = ReportsCrmRouteImport.update({
   id: '/reports/crm',
   path: '/reports/crm',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsAutomationRoute = ReportsAutomationRouteImport.update({
+  id: '/reports/automation',
+  path: '/reports/automation',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OrdersNewRoute = OrdersNewRouteImport.update({
@@ -202,6 +208,7 @@ export interface FileRoutesByFullPath {
   '/marketing/reports': typeof MarketingReportsRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
+  '/reports/automation': typeof ReportsAutomationRoute
   '/reports/crm': typeof ReportsCrmRoute
   '/reports/routing': typeof ReportsRoutingRoute
   '/customers/': typeof CustomersIndexRoute
@@ -231,6 +238,7 @@ export interface FileRoutesByTo {
   '/marketing/reports': typeof MarketingReportsRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
+  '/reports/automation': typeof ReportsAutomationRoute
   '/reports/crm': typeof ReportsCrmRoute
   '/reports/routing': typeof ReportsRoutingRoute
   '/customers': typeof CustomersIndexRoute
@@ -262,6 +270,7 @@ export interface FileRoutesById {
   '/marketing/reports': typeof MarketingReportsRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
+  '/reports/automation': typeof ReportsAutomationRoute
   '/reports/crm': typeof ReportsCrmRoute
   '/reports/routing': typeof ReportsRoutingRoute
   '/customers/': typeof CustomersIndexRoute
@@ -294,6 +303,7 @@ export interface FileRouteTypes {
     | '/marketing/reports'
     | '/orders/$id'
     | '/orders/new'
+    | '/reports/automation'
     | '/reports/crm'
     | '/reports/routing'
     | '/customers/'
@@ -323,6 +333,7 @@ export interface FileRouteTypes {
     | '/marketing/reports'
     | '/orders/$id'
     | '/orders/new'
+    | '/reports/automation'
     | '/reports/crm'
     | '/reports/routing'
     | '/customers'
@@ -353,6 +364,7 @@ export interface FileRouteTypes {
     | '/marketing/reports'
     | '/orders/$id'
     | '/orders/new'
+    | '/reports/automation'
     | '/reports/crm'
     | '/reports/routing'
     | '/customers/'
@@ -382,6 +394,7 @@ export interface RootRouteChildren {
   MarketingReportsRoute: typeof MarketingReportsRoute
   OrdersIdRoute: typeof OrdersIdRoute
   OrdersNewRoute: typeof OrdersNewRoute
+  ReportsAutomationRoute: typeof ReportsAutomationRoute
   ReportsCrmRoute: typeof ReportsCrmRoute
   ReportsRoutingRoute: typeof ReportsRoutingRoute
   MarketingIndexRoute: typeof MarketingIndexRoute
@@ -494,6 +507,13 @@ declare module '@tanstack/react-router' {
       path: '/reports/crm'
       fullPath: '/reports/crm'
       preLoaderRoute: typeof ReportsCrmRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports/automation': {
+      id: '/reports/automation'
+      path: '/reports/automation'
+      fullPath: '/reports/automation'
+      preLoaderRoute: typeof ReportsAutomationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/orders/new': {
@@ -627,6 +647,7 @@ const rootRouteChildren: RootRouteChildren = {
   MarketingReportsRoute: MarketingReportsRoute,
   OrdersIdRoute: OrdersIdRoute,
   OrdersNewRoute: OrdersNewRoute,
+  ReportsAutomationRoute: ReportsAutomationRoute,
   ReportsCrmRoute: ReportsCrmRoute,
   ReportsRoutingRoute: ReportsRoutingRoute,
   MarketingIndexRoute: MarketingIndexRoute,

@@ -39,7 +39,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { SALES_PIPELINE_STAGES, getPipelineStageColor, getPipelineStageLabel } from "@/lib/salesPipeline";
-import { classifyCustomerLifecycle, getStaffName } from "@/lib/customerOwnership";
+import { classifyCustomerLifecycle } from "@/lib/customerOwnership";
+import { buildStaffMap, getStaffDisplayName, getStaffInitials, StaffMap } from "@/lib/staffDisplay";
 import { QuickLogDialog } from "@/components/customers/QuickLogDialog";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { NotificationBell } from "@/components/layout/NotificationBell";
@@ -72,6 +73,7 @@ function CustomersPage() {
   const isManager = isAdmin || isSubAdmin;
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [staffMap, setStaffMap] = useState<StaffMap>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [activeStage, setActiveStage] = useState<string>("all");
@@ -221,6 +223,22 @@ function CustomersPage() {
       }));
 
       setCustomers(processed);
+
+      // Fetch user profiles to build staffMap
+      const userIds = new Set<string>();
+      processed.forEach(c => {
+        if (c.owner_sale_id) userIds.add(c.owner_sale_id);
+        if (c.owner_tele_id) userIds.add(c.owner_tele_id);
+      });
+      if (userIds.size > 0) {
+        const { data: profiles, error: profError } = await supabase
+          .from("profiles")
+          .select("id, display_name, email")
+          .in("id", Array.from(userIds));
+        if (!profError && profiles) {
+          setStaffMap(buildStaffMap(profiles));
+        }
+      }
     } catch (e) {
       console.error("fetchCustomers error:", e);
       toast.error("Lỗi tải KH: " + ((e as any).message || String(e)));
@@ -609,6 +627,7 @@ function CustomersPage() {
                             onPreview={() => setPreviewCustomer(customer)}
                             draggable={true}
                             onDragStart={(e: React.DragEvent) => handleDragStart(e, customer.id)}
+                            staffMap={staffMap}
                          />
                       ))}
                       {stageCustomers.length === 0 && (
@@ -661,7 +680,10 @@ function CustomersPage() {
                                   </Badge>
                                </td>
                                <td className="px-8 py-5 text-center font-bold text-slate-500 text-xs">
-                                  {customer.owner_sale_id ? "Sale Team" : "Unassigned"}
+                                  <div className="space-y-1">
+                                     <div>Sale: {getStaffDisplayName(customer.owner_sale_id, staffMap)}</div>
+                                     <div>Tele: {getStaffDisplayName(customer.owner_tele_id, staffMap)}</div>
+                                  </div>
                                </td>
                                <td className="px-8 py-5 text-right font-black text-slate-900">
                                   {new Intl.NumberFormat('vi-VN').format(customer.orders?.reduce((sum: number, o: any) => sum + (o.total || 0), 0) || 0)}đ
@@ -706,13 +728,13 @@ function CustomersPage() {
         customer={previewCustomer}
         open={!!previewCustomer}
         onOpenChange={(open) => !open && setPreviewCustomer(null)}
-        getStaffName={getStaffName}
+        staffMap={staffMap}
       />
     </div>
   );
 }
 
-function CustomerCard({ customer, stage, isAdmin, isManager, onQuickLog, draggable, onDragStart, onPreview }: any) {
+function CustomerCard({ customer, stage, isAdmin, isManager, onQuickLog, draggable, onDragStart, onPreview, staffMap }: any) {
   // Logic hành động nhanh tùy theo giai đoạn và vai trò người dùng
   const getAction = () => {
     // Nếu là Admin hoặc Phó Admin (Manager), họ không gọi điện/nhắc chốt/log ship, mà chỉ có 2 tác vụ: "CHIA LEAD" ở cột new_lead và "CHI TIẾT" ở các cột còn lại
@@ -752,6 +774,11 @@ function CustomerCard({ customer, stage, isAdmin, isManager, onQuickLog, draggab
   // Cảnh báo khách hàng báo giá quá X ngày (Đỏ)
   const isQuotedOverdue = stage === 'quoted' && differenceInDays(new Date(), new Date(customer.updated_at || customer.created_at)) >= leadOverdueDays;
 
+  const saleName = getStaffDisplayName(customer.owner_sale_id, staffMap);
+  const teleName = getStaffDisplayName(customer.owner_tele_id, staffMap);
+  const saleInitials = getStaffInitials(customer.owner_sale_id, staffMap);
+  const teleInitials = getStaffInitials(customer.owner_tele_id, staffMap);
+
   return (
     <Card 
       draggable={draggable}
@@ -774,15 +801,15 @@ function CustomerCard({ customer, stage, isAdmin, isManager, onQuickLog, draggab
              ) : (
                 <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-200 group-hover:text-slate-400 shrink-0">
                    <MoreVertical className="w-4 h-4" />
-                </Button>
+                 </Button>
              )}
           </div>
 
           <div className="flex flex-col gap-2">
              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
                 <div className="flex -space-x-2">
-                   {customer.owner_sale_id && <div className="w-5 h-5 rounded-full bg-indigo-100 border border-white flex items-center justify-center text-[8px] text-indigo-600 font-bold" title="Sale phụ trách">S</div>}
-                   {customer.owner_tele_id && <div className="w-5 h-5 rounded-full bg-teal-100 border border-white flex items-center justify-center text-[8px] text-teal-600 font-bold" title="Tele phụ trách">T</div>}
+                   {customer.owner_sale_id && <div className="w-5 h-5 rounded-full bg-indigo-100 border border-white flex items-center justify-center text-[8px] text-indigo-600 font-bold" title={`Sale: ${saleName}`}>{saleInitials}</div>}
+                   {customer.owner_tele_id && <div className="w-5 h-5 rounded-full bg-teal-100 border border-white flex items-center justify-center text-[8px] text-teal-600 font-bold" title={`Tele: ${teleName}`}>{teleInitials}</div>}
                    {!customer.owner_sale_id && !customer.owner_tele_id && <div className="w-5 h-5 rounded-full bg-slate-100 border border-white" />}
                 </div>
                 <span>• {customer.phone ? customer.phone.slice(-4).padStart(customer.phone.length, '*') : 'Chưa có SĐT'}</span>

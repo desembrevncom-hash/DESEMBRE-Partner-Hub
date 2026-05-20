@@ -36,7 +36,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
-import { getStaffName } from "@/lib/customerOwnership";
+
 
 export function NotificationBell() {
   const { user } = useAuth();
@@ -66,24 +66,6 @@ export function NotificationBell() {
 
   useEffect(() => {
     fetchNotifications();
-    if (!user) return;
-
-    // Use a unique channel name to avoid subscription collisions
-    const channel = supabase
-      .channel(`notif-bell-${user.id}-${crypto.randomUUID()}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `recipient_user_id=eq.${user.id}` },
-        (payload) => {
-          const newNotif = payload.new;
-          setNotifications(prev => [newNotif, ...prev].slice(0, 10));
-          setUnreadCount(prev => prev + 1);
-          toast.info(newNotif.title, { description: newNotif.message });
-        }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
   }, [user]);
 
   const handleMarkAllRead = async () => {
@@ -204,9 +186,20 @@ export function NotificationBell() {
                   <div className="shrink-0">{getNotificationIcon(n.type)}</div>
                   <div className="flex-1 space-y-1">
                      <div className="flex justify-between items-start gap-2">
-                        <span className={`text-xs leading-tight font-bold ${!n.read_at ? "text-slate-950 font-black" : "text-slate-600"}`}>
-                          {n.title}
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span className={`text-xs leading-tight font-bold ${!n.read_at ? "text-slate-950 font-black" : "text-slate-600"}`}>
+                            {n.title}
+                          </span>
+                          {n.priority && (
+                            <span className={`text-[9px] uppercase font-bold w-fit px-1.5 py-0.5 rounded-sm ${
+                              n.priority === 'urgent' ? 'bg-red-100 text-red-700' :
+                              n.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                              'bg-slate-100 text-slate-600'
+                            }`}>
+                              {n.priority}
+                            </span>
+                          )}
+                        </div>
                         {!n.read_at && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 shrink-0" />}
                      </div>
                      <p className="text-[11px] text-slate-500 font-medium line-clamp-2 leading-relaxed">
@@ -239,7 +232,7 @@ export function NotificationBell() {
         customer={{ id: previewCustomerId }}
         open={!!previewCustomerId}
         onOpenChange={(o) => !o && setPreviewCustomerId(null)}
-        getStaffName={getStaffName}
+
       />
     </>
   );

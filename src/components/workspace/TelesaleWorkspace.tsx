@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { WorkspaceShell } from "./WorkspaceShell";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
-import { getStaffName } from "@/lib/customerOwnership";
+
 import { 
   Phone, 
   Clock, 
@@ -145,15 +145,38 @@ export const TelesaleWorkspace: React.FC = () => {
 
   // Sort tasks for Priority Tasks
   const priorityTasks = [...data.allTasks].sort((a, b) => {
+    // 1. Quá hạn lên đầu
     const overdueA = new Date(a.due_at).getTime() < new Date().getTime();
     const overdueB = new Date(b.due_at).getTime() < new Date().getTime();
     if (overdueA && !overdueB) return -1;
     if (!overdueA && overdueB) return 1;
 
-    const prioOrder: Record<string, number> = { urgent: 3, high: 2, normal: 1, low: 0 };
-    const scoreA = prioOrder[a.priority || "normal"] || 1;
-    const scoreB = prioOrder[b.priority || "normal"] || 1;
-    return scoreB - scoreA;
+    // 2. Priority urgent/high
+    const prioOrder: Record<string, number> = { urgent: 4, high: 3, normal: 2, low: 1 };
+    const scoreA = prioOrder[a.priority || "normal"] || 2;
+    const scoreB = prioOrder[b.priority || "normal"] || 2;
+    if (scoreA !== scoreB) return scoreB - scoreA;
+
+    // 3. Lead mới chưa gọi (task_type = 'call', customer.lifecycle_stage = 'new_lead')
+    const isNewLeadA = a.task_type === 'call' && a.customer?.lifecycle_stage === 'new_lead';
+    const isNewLeadB = b.task_type === 'call' && b.customer?.lifecycle_stage === 'new_lead';
+    if (isNewLeadA && !isNewLeadB) return -1;
+    if (!isNewLeadA && isNewLeadB) return 1;
+
+    // 4. Follow-up hôm nay
+    const isFollowUpA = a.task_type === 'follow_up';
+    const isFollowUpB = b.task_type === 'follow_up';
+    if (isFollowUpA && !isFollowUpB) return -1;
+    if (!isFollowUpA && isFollowUpB) return 1;
+
+    // 5. Check-in hôm nay
+    const isCheckinA = a.task_type === 'check_in' || a.task_type === 'visit';
+    const isCheckinB = b.task_type === 'check_in' || b.task_type === 'visit';
+    if (isCheckinA && !isCheckinB) return -1;
+    if (!isCheckinA && isCheckinB) return 1;
+
+    // 6. Gần nhất lên đầu
+    return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
   });
 
   return (
@@ -171,7 +194,7 @@ export const TelesaleWorkspace: React.FC = () => {
       </div>
 
       {/* ACTONABLE QUEUE CARDS */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         
         {/* Card 1: Cuộc gọi hôm nay */}
         <div className="bg-white rounded-2xl border border-indigo-100 p-4 flex flex-col justify-between shadow-2xs relative overflow-hidden group">
@@ -268,6 +291,28 @@ export const TelesaleWorkspace: React.FC = () => {
           </Button>
         </div>
 
+        {/* Card 6: Thông báo mới */}
+        <div className="bg-gradient-to-br from-indigo-50 to-white rounded-2xl border border-indigo-200 p-4 flex flex-col justify-between shadow-2xs relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-115 transition-transform">
+            <AlertCircle className="w-20 h-20 text-indigo-600" />
+          </div>
+          <div className="space-y-1">
+            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Thông báo mới</span>
+            <div className="text-3xl font-black text-indigo-900">{data.notifications.filter((n: any) => !n.read_at).length}</div>
+          </div>
+          <Button 
+            size="sm" 
+            variant="ghost" 
+            className="w-full text-indigo-600 hover:text-indigo-700 hover:bg-indigo-100 mt-4 text-xs font-bold"
+            onClick={() => {
+              // Notification center will handle it
+              toast.info("Vui lòng check hộp thư thông báo (Icon chuông ở góc trên)");
+            }}
+          >
+            Mở hộp thư
+          </Button>
+        </div>
+
       </div>
 
       {/* PRIORITY TASKS SECTION */}
@@ -281,9 +326,10 @@ export const TelesaleWorkspace: React.FC = () => {
           <div className="space-y-3">
             {priorityTasks.map((t: any) => {
               const isOverdue = new Date(t.due_at).getTime() < new Date().getTime();
+              const isUrgent = t.priority === 'urgent' || isOverdue;
               
               return (
-                <div key={t.id} className="p-4 rounded-2xl border border-slate-150 bg-white hover:shadow-2xs transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div key={t.id} className={`p-4 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${isUrgent ? "border-red-200 bg-red-50/40 hover:shadow-2xs" : "border-slate-150 bg-white hover:shadow-2xs"}`}>
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs font-bold text-slate-900 leading-snug">{t.title}</span>
@@ -305,7 +351,7 @@ export const TelesaleWorkspace: React.FC = () => {
                       {t.customer && (
                         <span className="flex items-center gap-1">
                           <User className="w-3.5 h-3.5 text-slate-400" />
-                          {t.customer.name} ({t.customer.facility_name || "Spa tự do"})
+                          {t.customer.name} ({t.customer.facility_name || "Spa tự do"}) - 📞 {t.customer.phone || "Chưa cập nhật"}
                         </span>
                       )}
                       <span className="flex items-center gap-1">
@@ -322,11 +368,27 @@ export const TelesaleWorkspace: React.FC = () => {
                         size="sm" 
                         variant="ghost" 
                         onClick={() => setPreviewCustomerId(t.customer_id)}
-                        className="h-8 text-[11px] font-black text-primary hover:bg-slate-100"
+                        className="h-8 text-[11px] font-black text-primary hover:bg-slate-100 px-2"
                       >
                         Mở khách
                       </Button>
                     )}
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={() => setTaskAction({ task: t, action: "completed" })}
+                      className="h-8 text-[11px] font-black text-emerald-600 hover:bg-emerald-50 px-2"
+                    >
+                      <Check className="w-3.5 h-3.5 mr-1" /> Hoàn thành
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={() => setTaskAction({ task: t, action: "call_back_later" })}
+                      className="h-8 text-[11px] font-black text-amber-600 hover:bg-amber-50 px-2"
+                    >
+                      <CalendarClock className="w-3.5 h-3.5 mr-1" /> Hẹn gọi lại
+                    </Button>
 
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -442,7 +504,7 @@ export const TelesaleWorkspace: React.FC = () => {
         customer={{ id: previewCustomerId }}
         open={!!previewCustomerId}
         onOpenChange={(o) => !o && setPreviewCustomerId(null)}
-        getStaffName={getStaffName}
+
       />
 
       <AddCustomerDialog 

@@ -51,9 +51,9 @@ import {
 import { 
   getCustomerChannelLabel, 
   getCustomerDistanceLabel, 
-  getCareModelLabel,
-  getStaffName
+  getCareModelLabel
 } from "@/lib/customerOwnership";
+import { buildStaffMap, getStaffDisplayName, StaffMap } from "@/lib/staffDisplay";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { toast } from "sonner";
@@ -95,16 +95,16 @@ interface CustomerPreviewDrawerProps {
   customer: any;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  getStaffName?: (id?: string | null) => string;
   initialQuickAction?: "note" | "task" | "followup" | null;
+  staffMap?: StaffMap;
 }
 
 export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   customer: customerProp,
   open,
   onOpenChange,
-  getStaffName: getStaffNameProp,
-  initialQuickAction
+  initialQuickAction,
+  staffMap
 }) => {
   const { user, isAdmin, isSubAdmin } = useAuth();
   const navigate = useNavigate();
@@ -131,6 +131,48 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   
   const [activeCustomer, setActiveCustomer] = useState<any | null>(null);
   const customer = activeCustomer || customerProp || {};
+  
+  const [localStaffMap, setLocalStaffMap] = useState<StaffMap>({});
+  
+  const combinedStaffMap = useMemo(() => {
+    return {
+      ...staffMap,
+      ...localStaffMap
+    };
+  }, [staffMap, localStaffMap]);
+
+  useEffect(() => {
+    if (!open) return;
+    const ids = [
+      customerProp?.owner_sale_id,
+      customerProp?.owner_tele_id,
+      customerProp?.assigned_sale_id,
+      customerProp?.assigned_telesale_id,
+      customerProp?.created_by,
+      customerProp?.updated_by
+    ].filter(Boolean) as string[];
+    
+    const missingIds = ids.filter(id => !combinedStaffMap[id]);
+    if (missingIds.length > 0) {
+      const fetchProfiles = async () => {
+        try {
+          const { data, error } = await supabase
+            .from("profiles")
+            .select("id, display_name, email")
+            .in("id", missingIds);
+          if (!error && data) {
+            setLocalStaffMap(prev => ({
+              ...prev,
+              ...buildStaffMap(data)
+            }));
+          }
+        } catch (err) {
+          console.error("Error fetching missing profiles in drawer:", err);
+        }
+      };
+      fetchProfiles();
+    }
+  }, [open, customerProp?.owner_sale_id, customerProp?.owner_tele_id, customerProp?.assigned_sale_id, customerProp?.assigned_telesale_id, customerProp?.created_by, customerProp?.updated_by, staffMap]);
 
   const [activities, setActivities] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
@@ -998,8 +1040,14 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     }
   };
 
-  const staffNameSale = getStaffNameProp ? getStaffNameProp(customer.owner_sale_id) : getStaffName(customer.owner_sale_id);
-  const staffNameTele = getStaffNameProp ? getStaffNameProp(customer.owner_tele_id) : getStaffName(customer.owner_tele_id);
+  const staffNameSale = getStaffDisplayName(customer.owner_sale_id, combinedStaffMap);
+  const staffNameTele = getStaffDisplayName(customer.owner_tele_id, combinedStaffMap);
+
+  const needsRouting = hasValidCoordinates(customer) && (
+    !customer.customer_channel || 
+    !customer.customer_distance_type || 
+    !customer.care_model
+  );
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -1021,6 +1069,11 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 {customer.potential_level && (
                   <Badge className={`border-none rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase ${getPotentialBadgeColor(customer.potential_level)}`}>
                     {customer.potential_level === "hot" ? "HOT 🔥" : customer.potential_level.toUpperCase()}
+                  </Badge>
+                )}
+                {needsRouting && (
+                  <Badge className="border-none rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase bg-amber-500 hover:bg-amber-600 text-white animate-pulse">
+                    Cần phân tuyến
                   </Badge>
                 )}
               </div>
@@ -1052,28 +1105,28 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 <span className="text-[9px] font-black text-white/40 uppercase tracking-widest block">Tuyến CS / Khoảng cách</span>
                 <span className="font-bold text-white flex items-center gap-1.5">
                   <Target className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  {getCustomerChannelLabel(customer.customer_channel) || "Chưa chọn"} &middot; {getCustomerDistanceLabel(customer.customer_distance_type) || "Chưa rõ"}
+                  {getCustomerChannelLabel(customer.customer_channel)} &middot; {getCustomerDistanceLabel(customer.customer_distance_type)}
                 </span>
               </div>
               <div className="space-y-1">
                 <span className="text-[9px] font-black text-white/40 uppercase tracking-widest block">Mô hình hỗ trợ</span>
                 <span className="font-bold text-white flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                  {getCareModelLabel(customer.care_model) || "Chưa thiết lập"}
+                  {getCareModelLabel(customer.care_model)}
                 </span>
               </div>
               <div className="space-y-1">
                 <span className="text-[9px] font-black text-white/40 uppercase tracking-widest block">Sale phụ trách</span>
                 <span className="font-bold text-white flex items-center gap-1.5">
                   <UserCircle className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                  {staffNameSale || "Chưa phân công"}
+                  {staffNameSale}
                 </span>
               </div>
               <div className="space-y-1">
                 <span className="text-[9px] font-black text-white/40 uppercase tracking-widest block">Tele hỗ trợ</span>
                 <span className="font-bold text-white flex items-center gap-1.5">
                   <UserCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  {staffNameTele || "Chưa phân công"}
+                  {staffNameTele}
                 </span>
               </div>
             </div>
