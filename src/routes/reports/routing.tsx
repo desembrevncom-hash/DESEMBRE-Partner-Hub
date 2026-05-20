@@ -84,7 +84,7 @@ function RoutingReportPage() {
 
       if (staffData) {
         const map: Record<string, string> = {};
-        staffData.forEach(s => map[s.id] = s.display_name || s.email);
+        staffData.forEach((s: any) => map[s.id] = s.display_name || s.email);
         setStaffMap(map);
         setStaffList(staffData);
       }
@@ -135,7 +135,9 @@ function RoutingReportPage() {
       let isMatch = false;
       let status = "Thiếu dữ liệu";
 
-      if (hasCoords && companyLocation) {
+      if (!companyLocation) {
+        status = "Chưa tính";
+      } else if (hasCoords) {
         distMeters = calculateDistanceMeters(
           Number(c.latitude),
           Number(c.longitude),
@@ -168,7 +170,7 @@ function RoutingReportPage() {
         customer: c,
         hasCoords,
         distanceMeters: distMeters,
-        distanceKm: distMeters > 0 ? (distMeters / 1000).toFixed(1) : "-",
+        distanceKm: companyLocation ? (distMeters > 0 ? (distMeters / 1000).toFixed(1) : "-") : "Chưa có mốc",
         currentRouting: {
           channel: c.customer_channel,
           careModel: c.care_model,
@@ -188,10 +190,10 @@ function RoutingReportPage() {
         total: customers.length,
         withCoords: withCoordsCount,
         withoutCoords: withoutCoordsCount,
-        missingSale: missingSaleCount,
-        missingTele: missingTeleCount,
-        matched: matchedCount,
-        mismatched: mismatchedCount
+        missingSale: companyLocation ? missingSaleCount : "Chưa có mốc",
+        missingTele: companyLocation ? missingTeleCount : "Chưa có mốc",
+        matched: companyLocation ? matchedCount : "Chưa có mốc",
+        mismatched: companyLocation ? mismatchedCount : "Chưa có mốc"
       }
     };
   }, [customers, companyLocation]);
@@ -357,10 +359,35 @@ function RoutingReportPage() {
               </p>
             </div>
           </div>
-          {companyLocation && (
-            <Badge className="bg-slate-100 text-slate-600 font-bold uppercase text-[10px] px-3 py-1.5 shadow-sm flex items-center gap-2">
-              <Building2 className="w-3.5 h-3.5" /> Mốc: {companyLocation.name}
-            </Badge>
+          {companyLocation ? (
+            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-right">
+              <div className="text-[10px] font-bold text-slate-500">
+                <div className="flex items-center gap-1 justify-end font-extrabold text-slate-900">
+                  <Building2 className="w-3.5 h-3.5 text-indigo-500" />
+                  Mốc: {companyLocation.name}
+                </div>
+                <div className="text-[9px] text-slate-400 mt-0.5 line-clamp-1 max-w-[250px]" title={companyLocation.address}>
+                  {companyLocation.address}
+                </div>
+                <div className="text-[8px] font-mono text-indigo-500/80 mt-0.5">
+                  Tọa độ: {Number(companyLocation.latitude).toFixed(6)}, {Number(companyLocation.longitude).toFixed(6)}
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-3 text-[9px] font-black uppercase tracking-wider text-indigo-600 border-indigo-100 hover:bg-indigo-50 hover:border-indigo-200 transition-all rounded-lg flex items-center gap-1"
+                onClick={() => {
+                  window.open(`https://www.google.com/maps/search/?api=1&query=${companyLocation.latitude},${companyLocation.longitude}`, '_blank');
+                }}
+              >
+                <MapPin className="w-3 h-3" /> Mở Google Maps
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-rose-500 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider">
+              <AlertTriangle className="w-3.5 h-3.5 animate-pulse" /> Chưa thiết lập mốc mặc định
+            </div>
           )}
         </div>
       </header>
@@ -370,22 +397,38 @@ function RoutingReportPage() {
           <div className="flex justify-center p-20">
             <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
           </div>
-        ) : !companyLocation ? (
-          <Card className="rounded-3xl border-none shadow-sm bg-white p-12 text-center text-amber-600">
-            <AlertTriangle className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <h2 className="text-lg font-black">Chưa thiết lập Văn phòng mặc định</h2>
-            <p className="text-sm font-medium mt-2">Cần thiết lập 1 company_location is_default=true để tính toán khoảng cách.</p>
-          </Card>
         ) : (
           <>
+            {!companyLocation && (
+              <div className="bg-rose-50 border border-rose-100 rounded-3xl p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm animate-fade-in">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-rose-100 flex items-center justify-center text-rose-600 shadow-md shadow-rose-100/50">
+                    <AlertTriangle className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-rose-900">Chưa cấu hình mốc văn phòng mặc định</h3>
+                    <p className="text-xs font-medium text-rose-700/80 mt-1">
+                      Hệ thống không thể tính toán khoảng cách và phân tuyến tự động. Vui lòng thiết lập mốc văn phòng mặc định trong cấu hình hệ thống.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => window.location.href = '/admin/settings'}
+                  className="rounded-2xl text-xs font-black uppercase bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-200/50 px-6 py-2.5 h-auto self-stretch md:self-auto"
+                >
+                  Đến cấu hình hệ thống
+                </Button>
+              </div>
+            )}
+
             {/* KPI CARDS */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               <KpiCard title="Có tọa độ bản đồ" value={reportData.stats.withCoords} total={reportData.stats.total} icon={MapPin} color="indigo" />
               <KpiCard title="Chưa ghim vị trí" value={reportData.stats.withoutCoords} total={reportData.stats.total} icon={MapPinOff} color="rose" />
-              <KpiCard title="Khách gần chưa có Sale" value={reportData.stats.missingSale} total={reportData.stats.withCoords} icon={UserPlus} color="blue" />
-              <KpiCard title="Khách xa chưa có Tele" value={reportData.stats.missingTele} total={reportData.stats.withCoords} icon={PhoneCall} color="amber" />
-              <KpiCard title="Phân tuyến chuẩn" value={reportData.stats.matched} total={reportData.stats.withCoords} icon={CheckCircle2} color="emerald" />
-              <KpiCard title="Lệch phân tuyến / Thiếu" value={reportData.stats.mismatched} total={reportData.stats.total} icon={AlertTriangle} color="orange" />
+              <KpiCard title="Khách gần chưa có Sale" value={reportData.stats.missingSale} total={companyLocation ? reportData.stats.withCoords : 0} icon={UserPlus} color="blue" />
+              <KpiCard title="Khách xa chưa có Tele" value={reportData.stats.missingTele} total={companyLocation ? reportData.stats.withCoords : 0} icon={PhoneCall} color="amber" />
+              <KpiCard title="Phân tuyến chuẩn" value={reportData.stats.matched} total={companyLocation ? reportData.stats.withCoords : 0} icon={CheckCircle2} color="emerald" />
+              <KpiCard title="Lệch phân tuyến / Thiếu" value={reportData.stats.mismatched} total={companyLocation ? reportData.stats.total : 0} icon={AlertTriangle} color="orange" />
             </div>
 
             {/* TABLE */}
@@ -417,7 +460,9 @@ function RoutingReportPage() {
                               <div className="font-bold text-slate-900 line-clamp-1">{c.facility_name || c.name}</div>
                             </td>
                             <td className="px-6 py-4 text-center">
-                              {item.hasCoords ? (
+                              {!companyLocation ? (
+                                <Badge className="bg-rose-50 text-rose-600 border border-rose-100/50 hover:bg-rose-50 shadow-none font-bold">Chưa có mốc</Badge>
+                              ) : item.hasCoords ? (
                                 <span className="font-black text-indigo-600">{item.distanceKm} km</span>
                               ) : (
                                 <span className="text-slate-300 italic font-medium">Chưa có GPS</span>
@@ -434,7 +479,9 @@ function RoutingReportPage() {
                               <ArrowRight className="w-4 h-4 mx-auto text-slate-300" />
                             </td>
                             <td className="px-6 py-4">
-                              {item.suggestedRouting ? (
+                              {!companyLocation ? (
+                                <Badge className="bg-rose-50 text-rose-600 border border-rose-100/50 hover:bg-rose-50 shadow-none font-bold">Chưa có mốc</Badge>
+                              ) : item.suggestedRouting ? (
                                 <div className="space-y-1 text-[9px] font-bold text-emerald-700 bg-emerald-50/50 p-2 rounded-lg border border-emerald-100/50">
                                   <div>{getCustomerDistanceLabel(item.suggestedRouting.distanceType)}</div>
                                   <div>{getCustomerChannelLabel(item.suggestedRouting.customerChannel)}</div>
@@ -463,6 +510,8 @@ function RoutingReportPage() {
                                 <Badge className="bg-emerald-100 text-emerald-700 border-none hover:bg-emerald-100 shadow-none">Đúng</Badge>
                               ) : item.status === "Lệch phân tuyến" ? (
                                 <Badge className="bg-amber-100 text-amber-700 border-none hover:bg-amber-100 shadow-none">Lệch</Badge>
+                              ) : item.status === "Chưa tính" ? (
+                                <Badge className="bg-slate-100 text-slate-600 border-none hover:bg-slate-100 shadow-none">Chưa tính</Badge>
                               ) : (
                                 <Badge className="bg-rose-100 text-rose-700 border-none hover:bg-rose-100 shadow-none">Thiếu</Badge>
                               )}
@@ -548,7 +597,7 @@ function RoutingReportPage() {
         <CustomerPreviewDrawer
           open={!!previewCustomer}
           onOpenChange={(open) => !open && setPreviewCustomer(null)}
-          customerId={previewCustomer.id}
+          customer={previewCustomer}
           getStaffName={getStaffName}
         />
       )}
@@ -598,6 +647,9 @@ function RoutingReportPage() {
 }
 
 function KpiCard({ title, value, total, icon: Icon, color }: any) {
+  const isString = typeof value === 'string';
+  const displayColor = isString ? 'rose' : color;
+
   const colorClasses: any = {
     indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
     emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
@@ -607,16 +659,16 @@ function KpiCard({ title, value, total, icon: Icon, color }: any) {
     orange: 'bg-orange-50 text-orange-600 border-orange-100',
   };
 
-  const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+  const percentage = (typeof value === 'number' && total > 0) ? Math.round((value / total) * 100) : 0;
 
   return (
     <Card className="rounded-[28px] border-none shadow-sm overflow-hidden bg-white hover:shadow-md transition-all group">
        <CardContent className="p-6">
           <div className="flex items-center justify-between mb-4">
-             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all group-hover:scale-110 ${colorClasses[color]}`}>
+             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all group-hover:scale-110 ${colorClasses[displayColor]}`}>
                 <Icon className="w-6 h-6" />
              </div>
-             {total > 0 && (
+             {!isString && total > 0 && (
                <div className="text-[10px] font-black px-2 py-1 rounded-lg text-slate-500 bg-slate-50 border border-slate-100">
                   {percentage}%
                </div>
@@ -624,7 +676,9 @@ function KpiCard({ title, value, total, icon: Icon, color }: any) {
           </div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{title}</p>
           <div className="flex items-baseline gap-1 mt-1">
-             <h3 className="text-3xl font-black text-slate-900 tracking-tighter">{value}</h3>
+             <h3 className={`font-black text-slate-900 tracking-tighter ${isString ? 'text-xs text-rose-500 font-bold uppercase tracking-wider' : 'text-3xl'}`}>
+               {value}
+             </h3>
           </div>
        </CardContent>
     </Card>

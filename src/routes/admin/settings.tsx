@@ -31,7 +31,10 @@ import {
   Clock,
   Search,
   PackageCheck,
-  Sparkles
+  Sparkles,
+  MapPin,
+  Compass,
+  ExternalLink
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -104,6 +107,52 @@ const DEFAULT_SPA_EQUIPMENT_SCRIPTS = {
   }
 };
 
+function parseGoogleMapsUrlToCoordinates(input: string): { latitude: number; longitude: number } | null {
+  const trimmed = input.trim();
+  
+  // 1. Tọa độ trực tiếp dạng "21.028511, 105.804817" hoặc "21.028511,105.804817"
+  const directMatch = trimmed.match(/^([-+]?[0-9]*\.?[0-9]+)\s*,\s*([-+]?[0-9]*\.?[0-9]+)$/);
+  if (directMatch) {
+    const lat = parseFloat(directMatch[1]);
+    const lng = parseFloat(directMatch[2]);
+    if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      return { latitude: lat, longitude: lng };
+    }
+  }
+
+  // 2. URL chứa cấu trúc @latitude,longitude
+  const urlAtMatch = trimmed.match(/@([-+]?[0-9]*\.?[0-9]+),([-+]?[0-9]*\.?[0-9]+)/);
+  if (urlAtMatch) {
+    const lat = parseFloat(urlAtMatch[1]);
+    const lng = parseFloat(urlAtMatch[2]);
+    if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      return { latitude: lat, longitude: lng };
+    }
+  }
+
+  // 3. URL chứa /place/latitude,longitude
+  const placeMatch = trimmed.match(/\/place\/([-+]?[0-9]*\.?[0-9]+),([-+]?[0-9]*\.?[0-9]+)/);
+  if (placeMatch) {
+    const lat = parseFloat(placeMatch[1]);
+    const lng = parseFloat(placeMatch[2]);
+    if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      return { latitude: lat, longitude: lng };
+    }
+  }
+
+  // 4. URL chứa query parameter q=latitude,longitude
+  const qMatch = trimmed.match(/[?&]q=([-+]?[0-9]*\.?[0-9]+),([-+]?[0-9]*\.?[0-9]+)/);
+  if (qMatch) {
+    const lat = parseFloat(qMatch[1]);
+    const lng = parseFloat(qMatch[2]);
+    if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      return { latitude: lat, longitude: lng };
+    }
+  }
+
+  return null;
+}
+
 export const Route = createFileRoute("/admin/settings")({
   component: SystemSettingsPage,
 });
@@ -140,6 +189,182 @@ function SystemSettingsPage() {
     spaEquipmentScripts: DEFAULT_SPA_EQUIPMENT_SCRIPTS
   });
   const [loadingConfig, setLoadingConfig] = useState(true);
+
+  // States cho cấu hình Văn phòng / Mốc định vị
+  const [officeConfig, setOfficeConfig] = useState<any>(null);
+  const [loadingOffice, setLoadingOffice] = useState(true);
+  const [savingOffice, setSavingOffice] = useState(false);
+  const [mapsUrlInput, setMapsUrlInput] = useState("");
+
+  const loadOffice = async () => {
+    try {
+      setLoadingOffice(true);
+      const { data, error } = await supabase
+        .from('company_locations' as any)
+        .select('*')
+        .eq('is_default', true)
+        .eq('is_active', true)
+        .limit(1);
+
+      if (error) {
+        console.error("Error loading office:", error);
+      } else if (data && data.length > 0) {
+        setOfficeConfig(data[0]);
+      } else {
+        setOfficeConfig(null);
+      }
+    } catch (err) {
+      console.error("Failed to load office:", err);
+    } finally {
+      setLoadingOffice(false);
+    }
+  };
+
+  useEffect(() => {
+    loadOffice();
+  }, []);
+
+  const handleInitializeOffice = async () => {
+    try {
+      setSavingOffice(true);
+      const payload = {
+        name: "Văn phòng Hà Nội",
+        code: "hanoi_office",
+        address: "Chưa cập nhật, Hà Nội",
+        city: "Hà Nội",
+        district: "Ba Đình",
+        location_type: "office",
+        is_default: true,
+        is_active: true,
+        latitude: 21.028511,
+        longitude: 105.804817
+      };
+      
+      const { data, error } = await supabase
+        .from('company_locations' as any)
+        .insert([payload])
+        .select();
+        
+      if (error) {
+        toast.error("Lỗi khởi tạo văn phòng: " + error.message);
+      } else {
+        toast.success("Đã khởi tạo văn phòng Hà Nội mặc định!");
+        if (data && data.length > 0) {
+          setOfficeConfig(data[0]);
+        } else {
+          await loadOffice();
+        }
+      }
+    } catch (err: any) {
+      toast.error("Lỗi hệ thống: " + err.message);
+    } finally {
+      setSavingOffice(false);
+    }
+  };
+
+  const handleOfficeFieldChange = (field: string, value: any) => {
+    setOfficeConfig((prev: any) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        [field]: value
+      };
+    });
+  };
+
+  const handleParseGoogleMaps = () => {
+    if (!mapsUrlInput.trim()) {
+      toast.error("Vui lòng nhập URL hoặc tọa độ từ Google Maps!");
+      return;
+    }
+    
+    const coords = parseGoogleMapsUrlToCoordinates(mapsUrlInput);
+    if (coords) {
+      handleOfficeFieldChange("latitude", coords.latitude);
+      handleOfficeFieldChange("longitude", coords.longitude);
+      toast.success(`Đã nhận diện tọa độ: ${coords.latitude}, ${coords.longitude}`);
+      setMapsUrlInput(""); // clear input
+    } else {
+      toast.error("Không đọc được tọa độ từ nội dung đã dán.");
+    }
+  };
+
+  const handleOpenGoogleMaps = () => {
+    if (!officeConfig) return;
+    const lat = parseFloat(officeConfig.latitude);
+    const lng = parseFloat(officeConfig.longitude);
+    if (!isNaN(lat) && lat >= -90 && lat <= 90 && !isNaN(lng) && lng >= -180 && lng <= 180) {
+      window.open(`https://www.google.com/maps/place/${lat},${lng}`, "_blank");
+    } else {
+      toast.error("Tọa độ hiện tại không hợp lệ để mở Google Maps!");
+    }
+  };
+
+  const handleSaveOffice = async () => {
+    if (!officeConfig) return;
+    
+    if (!officeConfig.name?.trim()) {
+      toast.error("Tên mốc định vị không được để trống!");
+      return;
+    }
+    if (!officeConfig.code?.trim()) {
+      toast.error("Mã mốc không được để trống!");
+      return;
+    }
+    
+    const lat = parseFloat(officeConfig.latitude);
+    const lng = parseFloat(officeConfig.longitude);
+    
+    if (isNaN(lat) || lat < -90 || lat > 90) {
+      toast.error("Vĩ độ (Latitude) phải là số từ -90 đến 90!");
+      return;
+    }
+    if (isNaN(lng) || lng < -180 || lng > 180) {
+      toast.error("Kinh độ (Longitude) phải là số từ -180 đến 180!");
+      return;
+    }
+    
+    try {
+      setSavingOffice(true);
+      const payload = {
+        name: officeConfig.name.trim(),
+        code: officeConfig.code.trim(),
+        address: officeConfig.address || "",
+        city: officeConfig.city || "",
+        district: officeConfig.district || "",
+        location_type: officeConfig.location_type || "office",
+        latitude: lat,
+        longitude: lng,
+        is_default: officeConfig.is_default ?? true,
+        is_active: officeConfig.is_active ?? true
+      };
+      
+      let error;
+      if (officeConfig.id) {
+        const { error: err } = await supabase
+          .from('company_locations' as any)
+          .update(payload)
+          .eq('id', officeConfig.id);
+        error = err;
+      } else {
+        const { error: err } = await supabase
+          .from('company_locations' as any)
+          .insert([payload]);
+        error = err;
+      }
+      
+      if (error) {
+        toast.error("Lỗi lưu cấu hình văn phòng: " + error.message);
+      } else {
+        toast.success("Đã cập nhật mốc định vị công ty.");
+        await loadOffice();
+      }
+    } catch (err: any) {
+      toast.error("Lỗi hệ thống khi lưu: " + err.message);
+    } finally {
+      setSavingOffice(false);
+    }
+  };
 
   useEffect(() => {
     async function loadConfig() {
@@ -508,34 +733,235 @@ function SystemSettingsPage() {
            </TabsContent>
 
            {/* COMPANY TAB */}
-           <TabsContent value="company">
-              <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white max-w-3xl mx-auto">
-                 <CardHeader className="p-8">
-                    <CardTitle className="text-lg font-black text-slate-900">Thông tin Pháp lý</CardTitle>
-                    <CardDescription>Thông tin này sẽ xuất hiện trên Hợp đồng và Hóa đơn</CardDescription>
-                 </CardHeader>
-                 <CardContent className="p-8 pt-0 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                       <div className="space-y-2 md:col-span-2">
-                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tên công ty đầy đủ</Label>
-                          <Input value={config.companyName} onChange={e => setConfig({...config, companyName: e.target.value})} className="h-12 rounded-xl font-bold" />
-                       </div>
-                       <div className="space-y-2 md:col-span-2">
-                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Địa chỉ trụ sở chính</Label>
-                          <Input value={config.address} onChange={e => setConfig({...config, address: e.target.value})} className="h-12 rounded-xl" />
-                       </div>
-                       <div className="space-y-2">
-                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Email hỗ trợ</Label>
-                          <Input value={config.supportEmail} onChange={e => setConfig({...config, supportEmail: e.target.value})} className="h-12 rounded-xl" />
-                       </div>
-                       <div className="space-y-2">
-                          <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hotline tổng đài</Label>
-                          <Input value={config.supportPhone} onChange={e => setConfig({...config, supportPhone: e.target.value})} className="h-12 rounded-xl" />
-                       </div>
-                    </div>
-                 </CardContent>
-              </Card>
-           </TabsContent>
+            <TabsContent value="company">
+               <div className="space-y-8 max-w-3xl mx-auto">
+                  <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white">
+                     <CardHeader className="p-8">
+                        <CardTitle className="text-lg font-black text-slate-900">Thông tin Pháp lý</CardTitle>
+                        <CardDescription>Thông tin này sẽ xuất hiện trên Hợp đồng và Hóa đơn</CardDescription>
+                     </CardHeader>
+                     <CardContent className="p-8 pt-0 space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                           <div className="space-y-2 md:col-span-2">
+                              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tên công ty đầy đủ</Label>
+                              <Input value={config.companyName} onChange={e => setConfig({...config, companyName: e.target.value})} className="h-12 rounded-xl font-bold" />
+                           </div>
+                           <div className="space-y-2 md:col-span-2">
+                              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Địa chỉ trụ sở chính</Label>
+                              <Input value={config.address} onChange={e => setConfig({...config, address: e.target.value})} className="h-12 rounded-xl" />
+                           </div>
+                           <div className="space-y-2">
+                              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Email hỗ trợ</Label>
+                              <Input value={config.supportEmail} onChange={e => setConfig({...config, supportEmail: e.target.value})} className="h-12 rounded-xl" />
+                           </div>
+                           <div className="space-y-2">
+                              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hotline tổng đài</Label>
+                              <Input value={config.supportPhone} onChange={e => setConfig({...config, supportPhone: e.target.value})} className="h-12 rounded-xl" />
+                           </div>
+                        </div>
+                     </CardContent>
+                  </Card>
+
+                  <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white">
+                     <CardHeader className="p-8">
+                        <div className="flex items-center gap-3">
+                           <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+                              <MapPin className="w-5 h-5" />
+                           </div>
+                           <div>
+                              <CardTitle className="text-lg font-black text-slate-900">Văn phòng / Mốc định vị</CardTitle>
+                              <CardDescription>Mốc này dùng để tính khoảng cách khách hàng, phân tuyến Sale/Tele và lập tuyến đi.</CardDescription>
+                           </div>
+                        </div>
+                     </CardHeader>
+                     
+                     <CardContent className="p-8 pt-0 space-y-6">
+                        {loadingOffice ? (
+                           <div className="py-12 flex flex-col items-center justify-center gap-2">
+                              <RefreshCw className="h-8 w-8 animate-spin text-slate-400" />
+                              <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Đang tải cấu hình văn phòng...</p>
+                           </div>
+                        ) : !officeConfig ? (
+                           <div className="py-12 text-center space-y-4">
+                              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-400">
+                                 <Compass className="w-8 h-8" />
+                              </div>
+                              <div className="space-y-1">
+                                 <p className="text-sm font-bold text-slate-900">Chưa cấu hình văn phòng mặc định.</p>
+                                 <p className="text-xs text-slate-400">Mốc định vị văn phòng Hà Nội mặc định chưa được khởi tạo trên hệ thống.</p>
+                              </div>
+                              <Button 
+                                 type="button"
+                                 onClick={handleInitializeOffice}
+                                 disabled={savingOffice}
+                                 className="rounded-xl bg-slate-900 hover:bg-black font-black text-xs h-11 px-6 mt-2"
+                              >
+                                 {savingOffice ? (
+                                    <>
+                                       <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Đang khởi tạo...
+                                    </>
+                                 ) : (
+                                    "Khởi tạo văn phòng Hà Nội"
+                                 )}
+                              </Button>
+                           </div>
+                        ) : (
+                           <div className="space-y-6">
+                              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                                 <Label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Dán URL hoặc tọa độ Google Maps</Label>
+                                 <p className="text-[10px] text-slate-400 leading-normal">
+                                    Hỗ trợ tọa độ thô <code>21.028511, 105.804817</code> hoặc liên kết chia sẻ từ Google Maps.
+                                 </p>
+                                 <div className="flex flex-col sm:flex-row gap-3">
+                                    <Input 
+                                       value={mapsUrlInput}
+                                       onChange={e => setMapsUrlInput(e.target.value)}
+                                       placeholder="Ví dụ: https://maps.google.com/?q=21.028511,105.804817 hoặc 21.028511, 105.804817"
+                                       className="h-11 rounded-xl bg-white border-slate-200 text-sm flex-1"
+                                    />
+                                    <Button 
+                                       type="button"
+                                       onClick={handleParseGoogleMaps}
+                                       className="h-11 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 font-bold text-xs shrink-0"
+                                    >
+                                       Dán tọa độ từ Google Maps
+                                    </Button>
+                                 </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                 <div className="space-y-2">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tên mốc định vị</Label>
+                                    <Input 
+                                       value={officeConfig.name || ""} 
+                                       onChange={e => handleOfficeFieldChange("name", e.target.value)} 
+                                       className="h-12 rounded-xl font-bold" 
+                                    />
+                                 </div>
+                                 <div className="space-y-2">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mã mốc (Unique Code)</Label>
+                                    <Input 
+                                       value={officeConfig.code || ""} 
+                                       onChange={e => handleOfficeFieldChange("code", e.target.value)} 
+                                       className="h-12 rounded-xl font-bold font-mono" 
+                                    />
+                                 </div>
+                                 <div className="space-y-2 md:col-span-2">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Địa chỉ chi tiết</Label>
+                                    <Input 
+                                       value={officeConfig.address || ""} 
+                                       onChange={e => handleOfficeFieldChange("address", e.target.value)} 
+                                       className="h-12 rounded-xl" 
+                                    />
+                                 </div>
+                                 <div className="space-y-2">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Thành phố</Label>
+                                    <Input 
+                                       value={officeConfig.city || ""} 
+                                       onChange={e => handleOfficeFieldChange("city", e.target.value)} 
+                                       className="h-12 rounded-xl" 
+                                    />
+                                 </div>
+                                 <div className="space-y-2">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quận / Huyện</Label>
+                                    <Input 
+                                       value={officeConfig.district || ""} 
+                                       onChange={e => handleOfficeFieldChange("district", e.target.value)} 
+                                       className="h-12 rounded-xl" 
+                                    />
+                                 </div>
+                                 
+                                 <div className="space-y-2">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vĩ độ (Latitude)</Label>
+                                    <Input 
+                                       value={officeConfig.latitude ?? ""} 
+                                       onChange={e => handleOfficeFieldChange("latitude", e.target.value)} 
+                                       className="h-12 rounded-xl font-mono" 
+                                       type="number"
+                                       step="any"
+                                    />
+                                 </div>
+                                 <div className="space-y-2">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kinh độ (Longitude)</Label>
+                                    <Input 
+                                       value={officeConfig.longitude ?? ""} 
+                                       onChange={e => handleOfficeFieldChange("longitude", e.target.value)} 
+                                       className="h-12 rounded-xl font-mono" 
+                                       type="number"
+                                       step="any"
+                                    />
+                                 </div>
+
+                                 <div className="space-y-2">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Loại địa điểm</Label>
+                                    <select 
+                                       value={officeConfig.location_type || "office"} 
+                                       onChange={e => handleOfficeFieldChange("location_type", e.target.value)}
+                                       className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-white font-bold text-sm outline-none focus:border-indigo-500"
+                                    >
+                                       <option value="office">Văn phòng (Office)</option>
+                                       <option value="warehouse">Kho hàng (Warehouse)</option>
+                                       <option value="store">Cửa hàng (Store)</option>
+                                       <option value="landmark">Mốc định vị (Landmark)</option>
+                                    </select>
+                                 </div>
+
+                                 <div className="flex flex-col gap-4 justify-center md:pl-2">
+                                    <div className="flex items-center justify-between">
+                                       <div className="space-y-0.5">
+                                          <p className="text-xs font-bold text-slate-900">Là mốc mặc định</p>
+                                          <p className="text-[10px] text-slate-400">Dùng làm tọa độ xuất phát chính</p>
+                                       </div>
+                                       <Switch 
+                                          checked={officeConfig.is_default ?? false}
+                                          onCheckedChange={checked => handleOfficeFieldChange("is_default", checked)}
+                                       />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                       <div className="space-y-0.5">
+                                          <p className="text-xs font-bold text-slate-900">Trạng thái hoạt động</p>
+                                          <p className="text-[10px] text-slate-400">Cho phép hệ thống sử dụng mốc này</p>
+                                       </div>
+                                       <Switch 
+                                          checked={officeConfig.is_active ?? false}
+                                          onCheckedChange={checked => handleOfficeFieldChange("is_active", checked)}
+                                       />
+                                    </div>
+                                 </div>
+                              </div>
+
+                              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-100">
+                                 <Button 
+                                    type="button"
+                                    onClick={handleOpenGoogleMaps}
+                                    variant="outline"
+                                    className="h-12 rounded-xl font-bold text-xs flex-1 hover:bg-slate-50 border-slate-200"
+                                 >
+                                    <ExternalLink className="w-4 h-4 mr-2" /> Mở Google Maps
+                                 </Button>
+                                 <Button 
+                                    type="button"
+                                    onClick={handleSaveOffice}
+                                    disabled={savingOffice}
+                                    className="h-12 rounded-xl bg-slate-900 hover:bg-black font-black text-xs flex-1"
+                                 >
+                                    {savingOffice ? (
+                                       <>
+                                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Đang lưu cấu hình...
+                                       </>
+                                    ) : (
+                                       <>
+                                          <Save className="w-4 h-4 mr-2" /> Lưu cấu hình
+                                       </>
+                                    )}
+                                 </Button>
+                              </div>
+                           </div>
+                        )}
+                     </CardContent>
+                  </Card>
+               </div>
+            </TabsContent>
 
            {/* RULES TAB */}
            <TabsContent value="rules">

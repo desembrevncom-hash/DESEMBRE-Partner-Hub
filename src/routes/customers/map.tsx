@@ -39,8 +39,11 @@ import {
   buildGoogleMapsRouteUrl, 
   getRouteDistanceEstimate, 
   formatDistance, 
-  hasValidCoordinates 
+  hasValidCoordinates,
+  calculateDistanceMeters,
+  parseGoogleMapsUrlToCoordinates
 } from "@/lib/geo";
+import { RouteScheduleDialog } from "@/components/customers/RouteScheduleDialog";
 import {
   Dialog,
   DialogContent,
@@ -138,6 +141,28 @@ const getStartIcon = () => {
   });
 };
 
+// Custom L.divIcon helper for default company landmark office
+const getOfficeIcon = () => {
+  return L.divIcon({
+    className: "custom-leaflet-marker-office",
+    html: `
+      <div class="relative flex items-center justify-center w-9 h-9">
+        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500 opacity-20"></span>
+        <div class="w-7 h-7 rounded-full bg-rose-600 border-2 border-white shadow-lg flex items-center justify-center text-white ring-4 ring-rose-100">
+          <svg class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+        </div>
+      </div>
+    `,
+    iconSize: [36, 36],
+    iconAnchor: [18, 36],
+    popupAnchor: [0, -36],
+  });
+};
+
+
 // Map controller to fit bounds
 function MapController({ customers, selectedCustomer }: { customers: any[]; selectedCustomer: any | null }) {
   const map = useMap();
@@ -190,48 +215,218 @@ function CustomerMapPage() {
   const [gettingLocation, setGettingLocation] = useState(false);
   const [returnToOrigin, setReturnToOrigin] = useState(false);
 
-  // States cho tính năng Lên lịch viếng thăm hàng loạt (Phase 4)
-  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
-  const [savingSchedule, setSavingSchedule] = useState(false);
-  const [visitDate, setVisitDate] = useState(new Date().toISOString().split('T')[0]);
-  const [startTime, setStartTime] = useState("08:00");
-  const [durationMinutes, setDurationMinutes] = useState(60);
-  const [bufferMinutes, setBufferMinutes] = useState(15);
-  const [generalNote, setGeneralNote] = useState("");
+  // States cho cấu hình mốc mặc định doanh nghiệp
+  const [defaultLocation, setDefaultLocation] = useState<any>(null);
+  const [loadingLocation, setLoadingLocation] = useState(true);
 
-  // Lấy vị trí GPS xuất phát khi bật chế độ Lập tuyến đi
+  // Lấy mốc văn phòng mặc định từ company_locations
+  useEffect(() => {
+    async function fetchDefaultLocation() {
+      try {
+        setLoadingLocation(true);
+        const { data, error } = await supabase
+          .from("company_locations" as any)
+          .select("*")
+          .eq("is_default", true)
+          .eq("is_active", true)
+          .limit(1);
+
+        if (error) {
+          console.error("Error loading default company location:", error);
+        } else if (data && data.length > 0) {
+          setDefaultLocation(data[0]);
+        } else {
+          setDefaultLocation(null);
+        }
+      } catch (err) {
+        console.error("Failed to fetch default company location:", err);
+      } finally {
+        setLoadingLocation(false);
+      }
+    }
+    fetchDefaultLocation();
+  }, []);
+
+
+  // States cho tính năng Lập tuyến đi nâng cấp (Phase 4 & Phase 5)
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [startPointType, setStartPointType] = useState<'office' | 'current' | 'manual'>('office');
+  const [routeOriginLabel, setRouteOriginLabel] = useState<string | null>(null);
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
+  const [manualLat, setManualLat] = useState<string>("");
+  const [manualLng, setManualLng] = useState<string>("");
+  const [pasteInput, setPasteInput] = useState<string>("");
+
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Trình duyệt của bạn không hỗ trợ định vị vị trí GPS.");
+      return;
+    }
+
+    setGettingLocation(true);
+    setGpsAccuracy(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        setGpsAccuracy(accuracy);
+
+        const applyGps = () => {
+          setRouteOrigin({ latitude, longitude });
+          setRouteOriginLabel(`Vị trí hiện tại (Sai số: ${Math.round(accuracy)}m)`);
+          setGettingLocation(false);
+          toast.success(`Đã nhận vị trí GPS xuất phát! (Sai số: ${Math.round(accuracy)}m)`);
+        };
+
+        if (accuracy > 1000) {
+          const confirmUse = window.confirm(
+            `Vị trí hiện tại có độ chính xác rất thấp (sai số khoảng ${Math.round(accuracy)}m > 1000m). Bạn có chắc chắn muốn dùng tọa độ này để lập tuyến không?`
+          );
+          if (confirmUse) {
+            applyGps();
+          } else {
+            setGettingLocation(false);
+            // Quay về văn phòng mặc định nếu có
+            if (defaultLocation?.latitude && defaultLocation?.longitude) {
+              handleStartPointTypeChange('office');
+            } else {
+              setRouteOrigin(null);
+              setRouteOriginLabel(null);
+            }
+          }
+        } else {
+          applyGps();
+        }
+      },
+      (error) => {
+        console.error("GPS fetching error:", error);
+        setGettingLocation(false);
+        toast.warning("Không thể truy cập định vị vị trí GPS của bạn.");
+        // Quay về văn phòng mặc định nếu có
+        if (defaultLocation?.latitude && defaultLocation?.longitude) {
+          handleStartPointTypeChange('office');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
+
+  const handleStartPointTypeChange = (type: 'office' | 'current' | 'manual') => {
+    setStartPointType(type);
+    setGpsAccuracy(null);
+
+    if (type === 'office') {
+      if (defaultLocation && defaultLocation.latitude && defaultLocation.longitude) {
+        setRouteOrigin({
+          latitude: Number(defaultLocation.latitude),
+          longitude: Number(defaultLocation.longitude)
+        });
+        setRouteOriginLabel(defaultLocation.name);
+      } else {
+        toast.error("Không có văn phòng mặc định được cấu hình.");
+        setRouteOrigin(null);
+        setRouteOriginLabel(null);
+      }
+    } else if (type === 'current') {
+      getCurrentLocation();
+    } else if (type === 'manual') {
+      setRouteOrigin(null);
+      setRouteOriginLabel(null);
+      setManualLat("");
+      setManualLng("");
+      setPasteInput("");
+    }
+  };
+
+  const handlePasteCoordinates = (val: string) => {
+    setPasteInput(val);
+    if (!val) return;
+
+    const parsed = parseGoogleMapsUrlToCoordinates(val);
+    if (parsed) {
+      setManualLat(parsed.latitude.toString());
+      setManualLng(parsed.longitude.toString());
+      setRouteOrigin({
+        latitude: parsed.latitude,
+        longitude: parsed.longitude
+      });
+      setRouteOriginLabel(`Tọa độ thủ công: ${parsed.latitude.toFixed(6)}, ${parsed.longitude.toFixed(6)}`);
+      toast.success("Đã phân tích tọa độ thành công!");
+    } else {
+      const parts = val.split(/[\s,]+/);
+      if (parts.length === 2) {
+        const lat = parseFloat(parts[0]);
+        const lng = parseFloat(parts[1]);
+        if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          setManualLat(lat.toString());
+          setManualLng(lng.toString());
+          setRouteOrigin({ latitude: lat, longitude: lng });
+          setRouteOriginLabel(`Tọa độ thủ công: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+        }
+      }
+    }
+  };
+
+  const handleManualCoordsChange = (latStr: string, lngStr: string) => {
+    setManualLat(latStr);
+    setManualLng(lngStr);
+
+    if (!latStr || !lngStr) {
+      setRouteOrigin(null);
+      setRouteOriginLabel(null);
+      return;
+    }
+
+    const lat = parseFloat(latStr);
+    const lng = parseFloat(lngStr);
+
+    if (isNaN(lat) || isNaN(lng)) {
+      setRouteOrigin(null);
+      setRouteOriginLabel(null);
+      return;
+    }
+
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      setRouteOrigin(null);
+      setRouteOriginLabel(null);
+      return;
+    }
+
+    setRouteOrigin({ latitude: lat, longitude: lng });
+    setRouteOriginLabel(`Tọa độ thủ công: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+  };
+
+  // Lấy vị trí GPS xuất phát khi bật chế độ Lập tuyến đi nâng cấp
   useEffect(() => {
     if (routeMode) {
       if (!canRoute) {
         setRouteMode(false);
         return;
       }
-      if (navigator.geolocation) {
-        setGettingLocation(true);
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            setRouteOrigin({
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude
-            });
-            setGettingLocation(false);
-            toast.success("Đã xác định vị trí GPS xuất phát!");
-          },
-          (error) => {
-            console.error("GPS error:", error);
-            setGettingLocation(false);
-            toast.warning("Chưa có vị trí xuất phát. Tuyến đường sẽ được vẽ theo thứ tự chọn.");
-          },
-          { enableHighAccuracy: true, timeout: 8000 }
-        );
+      
+      if (defaultLocation && defaultLocation.latitude && defaultLocation.longitude) {
+        setStartPointType('office');
+        setRouteOrigin({
+          latitude: Number(defaultLocation.latitude),
+          longitude: Number(defaultLocation.longitude)
+        });
+        setRouteOriginLabel(defaultLocation.name);
       } else {
-        toast.warning("Trình duyệt không hỗ trợ định vị vị trí.");
+        setStartPointType('current');
+        getCurrentLocation();
+        toast.warning("Không tìm thấy văn phòng mặc định. Hệ thống tự động chuyển sang Vị trí hiện tại.");
       }
     } else {
       setRouteOrigin(null);
+      setRouteOriginLabel(null);
       setSelectedCustomerIds([]);
+      setStartPointType('office');
+      setGpsAccuracy(null);
+      setManualLat("");
+      setManualLng("");
+      setPasteInput("");
     }
-  }, [routeMode, canRoute]);
+  }, [routeMode, canRoute, defaultLocation]);
 
   // Lấy các khách hàng được chọn
   const selectedCustomers = useMemo(() => {
@@ -251,114 +446,6 @@ function CustomerMapPage() {
     if (!routeOrigin) return 0;
     return getRouteDistanceEstimate(routeOrigin, orderedRouteCustomers);
   }, [routeOrigin, orderedRouteCustomers]);
-
-  const parsedVisitDate = visitDate || new Date().toISOString().split('T')[0];
-  const parsedStartTime = startTime || "08:00";
-  const parsedDuration = Number(durationMinutes) || 60;
-  const parsedBuffer = Number(bufferMinutes) || 15;
-
-  const previewEvents = useMemo(() => {
-    const list: any[] = [];
-    if (orderedRouteCustomers.length === 0) return list;
-
-    let currentPointer = new Date(`${parsedVisitDate}T${parsedStartTime}:00`);
-    if (isNaN(currentPointer.getTime())) {
-      currentPointer = new Date();
-    }
-
-    orderedRouteCustomers.forEach((customer, index) => {
-      const startsAt = new Date(currentPointer.getTime());
-      const endsAt = new Date(currentPointer.getTime() + parsedDuration * 60 * 1000);
-      list.push({
-        customer,
-        startsAt,
-        endsAt,
-        title: `Viếng thăm ${customer.facility_name || customer.name}`
-      });
-      // Advance pointer
-      currentPointer = new Date(endsAt.getTime() + parsedBuffer * 60 * 1000);
-    });
-
-    return list;
-  }, [orderedRouteCustomers, parsedVisitDate, parsedStartTime, parsedDuration, parsedBuffer]);
-
-  const handleSaveSchedule = async () => {
-    if (previewEvents.length === 0 || !user) return;
-    setSavingSchedule(true);
-    try {
-      // Loop over events and insert to database
-      for (const ev of previewEvents) {
-        const { customer, startsAt, endsAt, title } = ev;
-
-        // 1. Insert calendar event
-        const { data: eventData, error: eventError } = await supabase
-          .from("calendar_events")
-          .insert({
-            customer_id: customer.id,
-            title: title,
-            event_type: 'direct_visit',
-            status: 'pending',
-            starts_at: startsAt.toISOString(),
-            ends_at: endsAt.toISOString(),
-            assigned_sale_id: isSale ? user.id : (customer.owner_sale_id || null),
-            created_by: user.id,
-            description: generalNote || null
-          })
-          .select()
-          .single();
-
-        if (eventError) throw eventError;
-
-        // 2. Insert customer task
-        const { data: taskData, error: taskError } = await supabase
-          .from("customer_tasks")
-          .insert({
-            customer_id: customer.id,
-            assigned_to: customer.owner_sale_id || user.id,
-            assigned_by: user.id,
-            task_type: 'direct_visit',
-            status: 'pending',
-            due_at: startsAt.toISOString(),
-            title: title,
-            note: generalNote || null
-          })
-          .select()
-          .single();
-
-        if (taskError) throw taskError;
-
-        // 3. Insert customer activity
-        const { error: activityError } = await supabase
-          .from("customer_activities")
-          .insert({
-            customer_id: customer.id,
-            created_by: user.id,
-            activity_type: 'follow_up',
-            title: 'Đã lên lịch viếng thăm theo tuyến',
-            content: `Lịch hẹn lúc: ${startsAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - ${endsAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}, ngày ${startsAt.toLocaleDateString('vi-VN')}. Ghi chú: ${generalNote || 'Không có'}`
-          });
-
-        if (activityError) throw activityError;
-      }
-
-      toast.success(`Đã tạo lịch viếng thăm cho ${previewEvents.length} khách!`);
-      
-      // Ask user to clear route
-      const clearRoute = window.confirm("Bạn có muốn xóa danh sách khách đã chọn trong tuyến không?");
-      if (clearRoute) {
-        setSelectedCustomerIds([]);
-      }
-      setIsScheduleModalOpen(false);
-      
-      // Reset form
-      setGeneralNote("");
-    } catch (err: any) {
-      console.error("Save schedule error:", err);
-      toast.error("Lỗi khi lưu lịch viếng thăm: " + err.message);
-    } finally {
-      setSavingSchedule(false);
-    }
-  };
 
   const handleExportGoogleMyMapsCSV = () => {
     if (mapCustomers.length === 0) {
@@ -449,14 +536,14 @@ function CustomerMapPage() {
             .select("customer_id")
             .eq("assigned_to", user.id);
           if (tasks) {
-            tasks.forEach(t => {
+            tasks.forEach((t: any) => {
               if (t.customer_id) assignedCustomerIds.add(t.customer_id);
             });
           }
         }
 
         // Apply strict role-based visibility filter on loaded customers
-        const filteredByRole = (data || []).filter(c => {
+        const filteredByRole = (data || []).filter((c: any) => {
           if (isManager) return true; // Admin/Sub Admin see all
           if (isTeleLead && user) return c.owner_tele_id === user.id; // Tele Lead see their tele queue
           if (isSale && user) {
@@ -649,6 +736,36 @@ function CustomerMapPage() {
       <div className="flex flex-1 overflow-hidden relative">
         {/* SIDEBAR */}
         <aside className="w-80 sm:w-96 bg-white border-r border-slate-200 flex flex-col shrink-0 z-20 shadow-lg">
+          {/* LANDMARK OFFICE BANNER */}
+          <div className="p-4 border-b border-slate-100 bg-slate-50/30">
+            {loadingLocation ? (
+              <div className="py-2 flex items-center justify-center">
+                <RefreshCw className="h-4 w-4 animate-spin text-slate-400 mr-2" />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">Đang tải mốc định vị...</span>
+              </div>
+            ) : defaultLocation ? (
+              <div className="p-3 bg-rose-50/70 border border-rose-100 rounded-2xl flex items-center gap-2.5 shadow-2xs">
+                <div className="w-8 h-8 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600 shrink-0">
+                  <MapPin className="w-4.5 h-4.5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-black text-rose-750 uppercase tracking-wider">Mốc định vị đang dùng</p>
+                  <p className="text-xs font-bold text-slate-900 truncate mt-0.5">Mốc: {defaultLocation.name}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-2.5">
+                <AlertCircle className="w-5 h-5 shrink-0 text-amber-600 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-amber-900 leading-tight">Chưa cấu hình văn phòng mặc định.</p>
+                  <p className="text-[9px] text-amber-600 font-bold uppercase tracking-wide">
+                    Hãy cập nhật trong Cấu hình hệ thống.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* SEARCH & FILTERS */}
           <div className="p-4 border-b border-slate-100 space-y-3">
             <div className="relative">
@@ -757,32 +874,67 @@ function CustomerMapPage() {
                 </Badge>
               </div>
 
-              {!routeOrigin && !gettingLocation && (
-                <div className="p-2.5 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-2 text-[10px] text-amber-800 font-bold leading-normal">
-                  <AlertCircle className="w-4.5 h-4.5 shrink-0 text-amber-600 mt-0.5" />
-                  <div>
-                    <p>Chưa có vị trí xuất phát.</p>
-                    <p className="text-[9px] text-amber-600 font-medium mt-0.5">Tuyến đường sẽ được vẽ theo thứ tự chọn thay vì khoảng cách tối ưu.</p>
+              {/* Selector điểm xuất phát (Phase 4) */}
+              <div className="space-y-1.5 bg-white p-3 rounded-2xl border border-slate-100 shadow-2xs">
+                <label className="text-[10px] font-black text-slate-450 uppercase tracking-wider block">
+                  Điểm xuất phát
+                </label>
+                <select
+                  value={startPointType}
+                  onChange={(e) => handleStartPointTypeChange(e.target.value as any)}
+                  className="w-full rounded-xl border border-slate-200 bg-white h-9 px-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 cursor-pointer"
+                >
+                  <option value="office" disabled={!defaultLocation}>
+                    🏢 {defaultLocation ? defaultLocation.name : "Văn phòng mặc định (chưa có)"}
+                  </option>
+                  <option value="current">📍 Vị trí hiện tại (GPS)</option>
+                  <option value="manual">🌐 Nhập tọa độ thủ công</option>
+                </select>
+
+                {startPointType === 'manual' && (
+                  <div className="space-y-2 mt-2 pt-2 border-t border-slate-100">
+                    <Input
+                      placeholder="Dán tọa độ / URL Google Maps..."
+                      value={pasteInput}
+                      onChange={(e) => handlePasteCoordinates(e.target.value)}
+                      className="h-8 text-xs rounded-xl border-slate-200"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        placeholder="Latitude"
+                        value={manualLat}
+                        onChange={(e) => handleManualCoordsChange(e.target.value, manualLng)}
+                        className="h-8 text-xs rounded-xl border-slate-200 text-center"
+                      />
+                      <Input
+                        placeholder="Longitude"
+                        value={manualLng}
+                        onChange={(e) => handleManualCoordsChange(manualLat, e.target.value)}
+                        className="h-8 text-xs rounded-xl border-slate-200 text-center"
+                      />
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+
+                {startPointType === 'current' && gpsAccuracy !== null && (
+                  <div className={`px-2 py-1 rounded-lg text-[9px] font-bold mt-1.5 ${
+                    gpsAccuracy > 1000 
+                      ? 'bg-rose-50 text-rose-700 border border-rose-100' 
+                      : gpsAccuracy > 200 
+                        ? 'bg-amber-50 text-amber-700 border border-amber-100' 
+                        : 'bg-emerald-50 text-emerald-750'
+                  }`}>
+                    Sai số GPS: {Math.round(gpsAccuracy)}m
+                    {gpsAccuracy > 1000 && " (Rất thấp - Cảnh báo)"}
+                    {gpsAccuracy > 200 && gpsAccuracy <= 1000 && " (Trung bình)"}
+                  </div>
+                )}
+              </div>
 
               {gettingLocation && (
                 <div className="p-2.5 bg-slate-100 rounded-xl flex items-center justify-center gap-2 text-[10px] text-slate-500 font-bold">
                   <Compass className="w-4.5 h-4.5 animate-spin text-slate-400" />
                   <span>Đang định vị GPS của bạn...</span>
-                </div>
-              )}
-
-              {routeOrigin && (
-                <div className="p-2.5 bg-indigo-100/50 border border-indigo-100 rounded-xl flex items-start gap-2 text-[10px] text-indigo-900 font-bold leading-normal">
-                  <CheckCircle2 className="w-4.5 h-4.5 shrink-0 text-indigo-600 mt-0.5" />
-                  <div>
-                    <p>Đã nhận vị trí của bạn.</p>
-                    <p className="text-[9px] text-indigo-600 font-medium mt-0.5">
-                      Thứ tự tuyến đường được sắp xếp tối ưu (Nearest Neighbor).
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -802,12 +954,18 @@ function CustomerMapPage() {
                 <div className="space-y-3">
                   <div className="space-y-1.5 text-[10px] font-bold text-slate-500 px-1 pt-1">
                     <div className="flex justify-between items-center">
+                      <span>Xuất phát từ:</span>
+                      <span className="text-slate-900 font-black truncate max-w-[170px]">
+                        {routeOrigin ? routeOriginLabel : "Chưa xác định"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
                       <span>Tổng số khách đã chọn:</span>
                       <span className="text-slate-900 font-black">{selectedCustomerIds.length} khách</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span>Tổng khoảng cách ước tính:</span>
-                      <span className="text-slate-900 font-black">
+                      <span className="text-slate-900 font-black font-mono">
                         {routeOrigin ? formatDistance(routeDistance) : "Chưa xác định"}
                       </span>
                     </div>
@@ -989,12 +1147,90 @@ function CustomerMapPage() {
               url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
             />
             
+            {/* Marker văn phòng / mốc mặc định */}
+            {defaultLocation && defaultLocation.latitude && defaultLocation.longitude && (
+              <Marker
+                position={[Number(defaultLocation.latitude), Number(defaultLocation.longitude)]}
+                icon={getOfficeIcon()}
+              >
+                <Popup className="custom-leaflet-popup">
+                  <div className="p-1 space-y-2 max-w-[240px]">
+                    <div className="border-b border-rose-100 pb-1.5">
+                      <div className="flex items-center gap-1">
+                        <Badge className="bg-rose-100 text-rose-700 hover:bg-rose-100 border-none font-black text-[8px] uppercase">
+                          Mốc định vị mặc định
+                        </Badge>
+                      </div>
+                      <h4 className="font-black text-xs text-slate-900 leading-tight mt-1">
+                        {defaultLocation.name}
+                      </h4>
+                      {defaultLocation.code && (
+                        <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">Mã: {defaultLocation.code}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1 text-[9px] text-slate-500 font-bold">
+                      {defaultLocation.address && (
+                        <p className="line-clamp-2 leading-relaxed">
+                          📍 {defaultLocation.address}
+                        </p>
+                      )}
+                      {(defaultLocation.district || defaultLocation.city) && (
+                        <p>
+                          🏙️ {defaultLocation.district ? `${defaultLocation.district}, ` : ""}{defaultLocation.city || ""}
+                        </p>
+                      )}
+                      <p className="text-[8px] text-slate-400">
+                        🌐 Tọa độ: {defaultLocation.latitude}, {defaultLocation.longitude}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-slate-100">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[8px] font-black rounded-lg border-slate-200"
+                        onClick={() => {
+                          const url = `https://www.google.com/maps/search/?api=1&query=${defaultLocation.latitude},${defaultLocation.longitude}`;
+                          window.open(url, "_blank");
+                        }}
+                      >
+                        Mở Google Maps
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-7 text-[8px] font-black rounded-lg bg-rose-600 hover:bg-rose-700 text-white"
+                        onClick={() => {
+                          const url = `https://www.google.com/maps/dir/?api=1&destination=${defaultLocation.latitude},${defaultLocation.longitude}`;
+                          window.open(url, "_blank");
+                        }}
+                      >
+                        Chỉ đường
+                      </Button>
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            )}
+
             {mapCustomers.map(customer => {
               const isTeleSales = customer.customer_channel === "tele_sales";
               const isFilterTeleActive = activeFilter === "tele_sales";
               const isSelected = selectedCustomerIds.includes(customer.id);
               const icon = getMarkerIcon(customer.ownership_status, isTeleSales || isFilterTeleActive, isSelected);
               
+              // Tính khoảng cách đến văn phòng mặc định
+              let distanceText = "";
+              if (defaultLocation && defaultLocation.latitude && defaultLocation.longitude && customer.latitude && customer.longitude) {
+                const distMeters = calculateDistanceMeters(
+                  Number(customer.latitude),
+                  Number(customer.longitude),
+                  Number(defaultLocation.latitude),
+                  Number(defaultLocation.longitude)
+                );
+                distanceText = formatDistance(distMeters);
+              }
+
               return (
                 <Marker
                   key={customer.id}
@@ -1014,6 +1250,13 @@ function CustomerMapPage() {
                         <p>👤 {customer.contact_name || customer.name}</p>
                         {customer.phone && <p>📞 {customer.phone}</p>}
                         {customer.address && <p className="line-clamp-2 leading-relaxed">📍 {customer.address}</p>}
+                        {distanceText && (
+                          <div className="mt-1">
+                            <span className="text-[9px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md inline-block">
+                              📍 Cách {defaultLocation.name}: {distanceText}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-between pt-1 gap-1.5">
@@ -1093,10 +1336,10 @@ function CustomerMapPage() {
             if (!open) {
               setPreviewCustomer(null);
               // Refresh customers in map to get coordinates updates if the user pinned them inside the drawer
-              supabase.from("customers").select("*, orders(id, total, status)").is("deleted_at", null).then(({ data }) => {
+              supabase.from("customers").select("*, orders(id, total, status)").is("deleted_at", null).then(({ data }: any) => {
                 if (data) {
                   // Re-apply same role visibility filters
-                  const filteredByRole = data.filter(c => {
+                  const filteredByRole = data.filter((c: any) => {
                     if (isManager) return true;
                     if (isTeleLead && user) return c.owner_tele_id === user.id;
                     if (isSale && user) return c.owner_sale_id === user.id || c.ownership_status === 'free_pool';
@@ -1217,140 +1460,19 @@ function CustomerMapPage() {
         </DialogContent>
       </Dialog>
 
-      {/* MODAL LÊN LỊCH VIẾNG THĂM HÀNG LOẠT (Phase 4) */}
-      <Dialog open={isScheduleModalOpen} onOpenChange={setIsScheduleModalOpen}>
-        <DialogContent className="sm:max-w-2xl rounded-3xl p-6 border-slate-100 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
-              <span className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-650 flex items-center justify-center">
-                <PlusCircle className="w-4 h-4" />
-              </span>
-              Lên lịch viếng thăm hàng loạt
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-1">
-              Tự động tạo sự kiện và đầu việc chăm sóc khách hàng theo chặng tối ưu
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-y-auto pr-1 py-3 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              {/* Ngày đi */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ngày đi thăm</label>
-                <Input
-                  type="date"
-                  value={visitDate}
-                  onChange={(e) => setVisitDate(e.target.value)}
-                  className="rounded-xl border-slate-200 h-10 text-xs font-bold"
-                />
-              </div>
-
-              {/* Giờ bắt đầu */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Giờ xuất phát</label>
-                <Input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="rounded-xl border-slate-200 h-10 text-xs font-bold"
-                />
-              </div>
-
-              {/* Thời lượng mỗi điểm */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Thời lượng mỗi điểm (phút)</label>
-                <Input
-                  type="number"
-                  min="5"
-                  step="5"
-                  value={durationMinutes}
-                  onChange={(e) => setDurationMinutes(Number(e.target.value))}
-                  className="rounded-xl border-slate-200 h-10 text-xs font-bold"
-                />
-              </div>
-
-              {/* Khoảng nghỉ */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Thời gian di chuyển/nghỉ (phút)</label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="5"
-                  value={bufferMinutes}
-                  onChange={(e) => setBufferMinutes(Number(e.target.value))}
-                  className="rounded-xl border-slate-200 h-10 text-xs font-bold"
-                />
-              </div>
-            </div>
-
-            {/* Ghi chú chung */}
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ghi chú chung</label>
-              <textarea
-                placeholder="Nội dung, kế hoạch làm việc, chuẩn bị tài liệu..."
-                value={generalNote}
-                onChange={(e) => setGeneralNote(e.target.value)}
-                className="w-full min-h-[70px] rounded-xl border border-slate-200 p-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white"
-              />
-            </div>
-
-            {/* Preview các chặng dừng */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-slate-450 uppercase tracking-widest block">Xem trước lịch trình ({previewEvents.length} chặng)</label>
-              <div className="border border-slate-100 rounded-2xl overflow-hidden bg-slate-50/50 p-3 space-y-2 max-h-[220px] overflow-y-auto">
-                {previewEvents.map((ev, idx) => (
-                  <div key={ev.customer.id} className="flex items-start justify-between bg-white border border-slate-100 p-2.5 rounded-xl gap-2 shadow-2xs">
-                    <div className="flex gap-2">
-                      <span className="w-5 h-5 rounded-md bg-indigo-50 text-indigo-750 flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5">
-                        {idx + 1}
-                      </span>
-                      <div>
-                        <h5 className="text-[11px] font-bold text-slate-900 leading-normal">
-                          {ev.customer.facility_name || ev.customer.name}
-                        </h5>
-                        <p className="text-[9px] text-slate-455 font-bold">
-                          📍 {ev.customer.address || "Chưa cập nhật địa chỉ"}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <Badge className="bg-emerald-50 text-emerald-750 hover:bg-emerald-100 border-none font-bold text-[9px]">
-                        {ev.startsAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - {ev.endsAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                      </Badge>
-                      <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wide mt-1">
-                        {ev.startsAt.toLocaleDateString('vi-VN')}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter className="border-t border-slate-100 pt-4 mt-2 col-span-2">
-            <DialogClose asChild>
-              <Button variant="outline" className="rounded-xl border-slate-200 font-black text-xs h-10 px-5 bg-white hover:bg-slate-50 text-slate-700">
-                Hủy
-              </Button>
-            </DialogClose>
-            <Button
-              onClick={handleSaveSchedule}
-              disabled={savingSchedule || previewEvents.length === 0}
-              className="rounded-xl bg-indigo-650 hover:bg-indigo-700 disabled:bg-slate-100 text-white font-black text-xs h-10 px-5 shadow-lg shadow-indigo-100 flex items-center gap-1.5"
-            >
-              {savingSchedule ? (
-                <>
-                  <Compass className="w-4 h-4 animate-spin" /> Đang tạo lịch...
-                </>
-              ) : (
-                <>
-                  Lưu tuyến lịch ({previewEvents.length} điểm)
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* ROUTE SCHEDULE BATCH DIALOG (Phase 5) */}
+      <RouteScheduleDialog
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        orderedCustomers={orderedRouteCustomers}
+        routeOrigin={routeOrigin}
+        routeOriginLabel={routeOriginLabel}
+        currentUser={user}
+        isAdminOrSubAdmin={isAdmin || isSubAdmin}
+        onSuccess={(succeededIds) => {
+          setSelectedCustomerIds(prev => prev.filter(id => !succeededIds.includes(id)));
+        }}
+      />
     </div>
   );
 }

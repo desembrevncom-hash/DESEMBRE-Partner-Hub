@@ -153,7 +153,8 @@ export function RoutingAlertsWidget() {
         
         await createNotification({
           recipient_user_id: selectedStaffId,
-          customer_id: target.id,
+          entity_id: target.id,
+          entity_type: "customer",
           title: "Bạn được giao Khách hàng mới",
           message: `Khách hàng ${target.facility_name || target.name} vừa được chia cho bạn từ hệ thống phân tuyến.`,
           type: "lead_assigned",
@@ -367,7 +368,7 @@ export function RoutingAlertsWidget() {
         <CustomerPreviewDrawer
           open={!!previewCustomer}
           onOpenChange={(open) => !open && setPreviewCustomer(null)}
-          customerId={previewCustomer.id}
+          customer={previewCustomer}
           getStaffName={getStaffName}
         />
       )}
