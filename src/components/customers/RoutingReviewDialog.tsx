@@ -29,11 +29,13 @@ import {
 } from "@/lib/geo";
 import { 
   getDistanceTypeFromMeters, 
-  getRecommendedRoutingByDistance,
+  getRecommendedRoutingByDistance
+} from "@/lib/customerRouting";
+import {
   getCustomerChannelLabel,
   getCustomerDistanceLabel,
   getCareModelLabel
-} from "@/lib/customerRouting";
+} from "@/lib/customerOwnership";
 
 interface RoutingReviewDialogProps {
   open: boolean;

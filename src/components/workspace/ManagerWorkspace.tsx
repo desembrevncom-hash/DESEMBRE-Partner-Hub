@@ -13,11 +13,13 @@ import {
   BarChart3, 
   LayoutDashboard,
   Plus,
-  AlertTriangle
+  AlertTriangle,
+  MapPin
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
 import { WorkspaceCalendarCard } from "./WorkspaceCalendarCard";
+import { RoutingAlertsWidget } from "@/components/customers/RoutingAlertsWidget";
 
 export const ManagerWorkspace: React.FC = () => {
   const { user } = useAuth();
@@ -69,6 +71,11 @@ export const ManagerWorkspace: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-100">
         <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Liên kết nhanh quản trị</h3>
         <div className="flex items-center gap-2 flex-wrap">
+          <Link to="/reports/routing">
+            <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-emerald-600" /> PHÂN TUYẾN
+            </Button>
+          </Link>
           <Link to="/admin/reclamation">
             <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg">
               🎯 Quản lý Thu hồi
@@ -85,6 +92,10 @@ export const ManagerWorkspace: React.FC = () => {
             </Button>
           </Link>
         </div>
+      </div>
+
+      <div className="mb-6">
+        <RoutingAlertsWidget />
       </div>
 
       {data.reclaimCount > 0 && (

@@ -26,11 +26,13 @@ import {
   calculateDistanceMeters
 } from "@/lib/geo";
 import { 
-  getRecommendedRoutingByDistance,
+  getRecommendedRoutingByDistance
+} from "@/lib/customerRouting";
+import {
   getCustomerChannelLabel,
   getCustomerDistanceLabel,
   getCareModelLabel
-} from "@/lib/customerRouting";
+} from "@/lib/customerOwnership";
 
 export const Route = createFileRoute("/reports/routing")({
   component: RoutingReportPage,
