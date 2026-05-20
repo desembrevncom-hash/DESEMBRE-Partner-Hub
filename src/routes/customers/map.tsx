@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { getStaffName } from "@/lib/customerOwnership";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
+import { RoutingReviewDialog } from "@/components/customers/RoutingReviewDialog";
 import { 
   MapPin, 
   Search, 
@@ -22,7 +23,8 @@ import {
   Download,
   Map,
   PlusCircle,
-  UploadCloud
+  UploadCloud,
+  RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -179,6 +181,7 @@ function CustomerMapPage() {
   const [previewCustomer, setPreviewCustomer] = useState<any | null>(null);
   const [focusCustomer, setFocusCustomer] = useState<any | null>(null);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
   // States cho tính năng Lập tuyến đi
   const [routeMode, setRouteMode] = useState(false);
@@ -506,6 +509,11 @@ function CustomerMapPage() {
           return c.customer_channel === "direct_sales";
         case "tele_sales":
           return c.customer_channel === "tele_sales";
+        case "route_priority":
+          const isDirect = c.customer_channel === "direct_sales";
+          const isNear = c.customer_distance_type === "near_company" || c.customer_distance_type === "same_city";
+          const isMine = isSale && user ? c.owner_sale_id === user.id : true;
+          return isDirect && isNear && isMine;
         case "no_geo":
           return !c.latitude || !c.longitude;
         default:
@@ -603,7 +611,12 @@ function CustomerMapPage() {
           {canRoute && (
             <Button
               variant={routeMode ? "default" : "outline"}
-              onClick={() => setRouteMode(!routeMode)}
+              onClick={() => {
+                const newMode = !routeMode;
+                setRouteMode(newMode);
+                if (newMode) setActiveFilter("route_priority");
+                else setActiveFilter("all");
+              }}
               className={`rounded-xl font-black text-[10px] uppercase h-10 px-4 shadow-sm transition-all flex items-center gap-1.5 ${
                 routeMode 
                   ? "bg-indigo-650 hover:bg-indigo-700 text-white border-transparent" 
@@ -611,6 +624,15 @@ function CustomerMapPage() {
               }`}
             >
               <Navigation className="w-4 h-4" /> {routeMode ? "Tắt Lập tuyến" : "Lập tuyến đi"}
+            </Button>
+          )}
+          {isManager && (
+            <Button
+              variant="outline"
+              onClick={() => setIsReviewModalOpen(true)}
+              className="rounded-xl border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 font-black text-[10px] uppercase h-10 px-4 shadow-sm transition-all flex items-center gap-1.5"
+            >
+              <RefreshCw className="w-4 h-4" /> Rà soát tuyến
             </Button>
           )}
           <Button
@@ -701,6 +723,16 @@ function CustomerMapPage() {
                 >
                   🟣 Tuyến Tele/Online ({customers.filter(c => c.customer_channel === "tele_sales").length})
                 </Button>
+                {canRoute && (
+                  <Button
+                    variant={activeFilter === "route_priority" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setActiveFilter("route_priority")}
+                    className="rounded-lg text-[10px] font-black h-8 text-left justify-start px-2.5 col-span-2 border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+                  >
+                    🔥 Ưu tiên đi tuyến ({customers.filter(c => c.customer_channel === "direct_sales" && (c.customer_distance_type === "near_company" || c.customer_distance_type === "same_city") && (isSale && user ? c.owner_sale_id === user.id : true)).length})
+                  </Button>
+                )}
                 <Button
                   variant={activeFilter === "no_geo" ? "default" : "outline"}
                   size="sm"
@@ -1076,6 +1108,14 @@ function CustomerMapPage() {
             }
           }}
           getStaffName={getStaffName}
+        />
+      )}
+
+      {isManager && (
+        <RoutingReviewDialog 
+          open={isReviewModalOpen} 
+          onOpenChange={setIsReviewModalOpen} 
+          user={user} 
         />
       )}
 
