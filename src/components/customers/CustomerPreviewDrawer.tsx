@@ -83,7 +83,8 @@ import {
   buildGoogleMapsSearchUrl, 
   buildGoogleMapsDirectionsUrl,
   calculateDistanceMeters,
-  isWithinRadius
+  isWithinRadius,
+  parseGoogleMapsUrlToCoordinates
 } from "@/lib/geo";
 
 interface CustomerPreviewDrawerProps {
@@ -111,6 +112,16 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   const [checkinNote, setCheckinNote] = useState("");
   const [checkinSubmitting, setCheckinSubmitting] = useState(false);
   const [showCheckinDialog, setShowCheckinDialog] = useState(false);
+  
+  const [showEditLocationDialog, setShowEditLocationDialog] = useState(false);
+  const [editLocationMethod, setEditLocationMethod] = useState<"gps" | "manual" | "url">("gps");
+  const [editLocationForm, setEditLocationForm] = useState({
+    latitude: "",
+    longitude: "",
+    url: "",
+    accuracy: null as number | null
+  });
+  const [editLocationSubmitting, setEditLocationSubmitting] = useState(false);
   
   const [activeCustomer, setActiveCustomer] = useState<any | null>(null);
   const customer = activeCustomer || customerProp || {};
@@ -661,6 +672,106 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     }
   };
 
+  const handleGetGpsForEdit = () => {
+    if (!navigator.geolocation) {
+      toast.error("Trình duyệt không hỗ trợ Geolocation.");
+      return;
+    }
+    toast.loading("Đang lấy tọa độ GPS...", { id: "gps_edit" });
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        toast.dismiss("gps_edit");
+        setEditLocationForm(prev => ({
+          ...prev,
+          latitude: pos.coords.latitude.toString(),
+          longitude: pos.coords.longitude.toString(),
+          accuracy: pos.coords.accuracy
+        }));
+        toast.success("Đã lấy tọa độ GPS thành công");
+      },
+      (err) => {
+        toast.dismiss("gps_edit");
+        toast.error("Không thể lấy tọa độ: " + err.message);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const handlePreviewUrl = () => {
+    if (!editLocationForm.url.trim()) return;
+    const coords = parseGoogleMapsUrlToCoordinates(editLocationForm.url);
+    if (coords) {
+      setEditLocationForm(prev => ({
+        ...prev,
+        latitude: coords.latitude.toString(),
+        longitude: coords.longitude.toString()
+      }));
+      toast.success("Đã trích xuất tọa độ thành công!");
+    } else {
+      toast.error("Không thể trích xuất tọa độ từ URL/Text này. Vui lòng kiểm tra lại định dạng.");
+    }
+  };
+
+  const handleSaveLocation = async () => {
+    const lat = parseFloat(editLocationForm.latitude);
+    const lng = parseFloat(editLocationForm.longitude);
+
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      toast.error("Tọa độ không hợp lệ.");
+      return;
+    }
+
+    if (editLocationMethod === "gps" && editLocationForm.accuracy && editLocationForm.accuracy > 1000) {
+      const confirm = window.confirm("Độ chính xác vị trí rất thấp (> 1000m). Bạn có chắc chắn muốn lưu?");
+      if (!confirm) return;
+    }
+
+    let geoSource = "manual";
+    if (editLocationMethod === "gps") geoSource = "gps_checkin";
+    if (editLocationMethod === "url") geoSource = "google_maps_url";
+
+    setEditLocationSubmitting(true);
+    try {
+      const { error: updateErr } = await supabase
+        .from("customers")
+        .update({
+          latitude: lat,
+          longitude: lng,
+          geo_source: geoSource,
+          geo_verified_at: new Date().toISOString(),
+          geo_verified_by: user?.id
+        })
+        .eq("id", customer.id);
+
+      if (updateErr) throw updateErr;
+
+      let content = `Nguồn cập nhật: ${editLocationMethod === "gps" ? "GPS trực tiếp" : editLocationMethod === "url" ? "Link Google Maps" : "Nhập tay"}\nToạ độ: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      if (editLocationMethod === "gps" && editLocationForm.accuracy) {
+        content += `\nĐộ chính xác: +/- ${Math.round(editLocationForm.accuracy)}m`;
+      }
+
+      const { error: actErr } = await supabase
+        .from("customer_activities")
+        .insert({
+          customer_id: customer.id,
+          created_by: user?.id,
+          activity_type: "note",
+          title: "Cập nhật vị trí khách hàng",
+          content: content
+        });
+
+      if (actErr) throw actErr;
+
+      toast.success("Cập nhật vị trí thành công!");
+      setShowEditLocationDialog(false);
+      fetchCustomerDetails();
+    } catch (err: any) {
+      toast.error("Lỗi cập nhật vị trí: " + err.message);
+    } finally {
+      setEditLocationSubmitting(false);
+    }
+  };
+
   const getCareModelWarning = () => {
     if (!customer.care_model) return "Chưa xác lập mô hình hỗ trợ.";
     if ((customer.care_model === "sale_only" || customer.care_model === "direct_sale") && !customer.owner_sale_id) {
@@ -954,8 +1065,17 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
 
             {/* GEOGRAPHIC LOCATION SECTION */}
             <section className="space-y-4">
-              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                <MapPin className="w-4 h-4 text-primary" /> Vị trí khách hàng
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                  <MapPin className="w-4 h-4 text-primary" /> Vị trí khách hàng
+                </div>
+                <button
+                  onClick={() => setShowEditLocationDialog(true)}
+                  className="flex items-center gap-1.5 text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors"
+                >
+                  <MapPin className="w-3 h-3" />
+                  Sửa vị trí
+                </button>
               </div>
 
               {hasValidCoordinates(customer) ? (
@@ -981,7 +1101,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                       Mở Google Maps
                     </a>
                     <a
-                      href={buildGoogleMapsDirectionsUrl(Number(customer.latitude), Number(customer.longitude))}
+                      href={buildGoogleMapsDirectionsUrl(customer)}
                       target="_blank"
                       rel="noreferrer"
                       className="flex items-center justify-center gap-2 h-10 px-4 rounded-xl bg-slate-900 hover:bg-black text-[11px] font-black text-white shadow-md shadow-slate-100 transition-all hover:scale-102"
@@ -1013,6 +1133,11 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                       <span className="w-2 h-2 rounded-full bg-slate-350" />
                       <span className="text-[11px] font-black text-slate-550 uppercase tracking-wider">Chưa có tọa độ định vị</span>
                     </div>
+                  </div>
+
+                  <div className="text-[11px] text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-100 flex items-start gap-1.5 font-medium">
+                    <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                    Khách chưa có tọa độ chính xác, Google Maps sẽ tìm theo địa chỉ/tên cơ sở.
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
@@ -1708,6 +1833,142 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
               ) : (
                 "Xác nhận Check-in"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showEditLocationDialog} onOpenChange={setShowEditLocationDialog}>
+        <DialogContent className="sm:max-w-md rounded-2xl p-5">
+          <DialogHeader>
+            <DialogTitle className="text-base font-black text-slate-900 flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-blue-600" />
+              Cập nhật vị trí khách hàng
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500 font-medium">
+              Chọn cách cập nhật tọa độ phù hợp.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="flex bg-slate-100 p-1 rounded-lg">
+              <button 
+                className={`flex-1 text-[11px] font-bold py-1.5 rounded-md transition-colors ${editLocationMethod === "gps" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"}`}
+                onClick={() => setEditLocationMethod("gps")}
+              >
+                GPS Hiện tại
+              </button>
+              <button 
+                className={`flex-1 text-[11px] font-bold py-1.5 rounded-md transition-colors ${editLocationMethod === "url" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"}`}
+                onClick={() => setEditLocationMethod("url")}
+              >
+                Link Google Maps
+              </button>
+              <button 
+                className={`flex-1 text-[11px] font-bold py-1.5 rounded-md transition-colors ${editLocationMethod === "manual" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"}`}
+                onClick={() => setEditLocationMethod("manual")}
+              >
+                Nhập tay
+              </button>
+            </div>
+
+            {editLocationMethod === "gps" && (
+              <div className="space-y-3">
+                <Button onClick={handleGetGpsForEdit} variant="outline" className="w-full text-xs font-bold border-dashed border-slate-300">
+                  <MapPin className="w-3.5 h-3.5 mr-2 text-primary" />
+                  Lấy toạ độ GPS hiện tại
+                </Button>
+                
+                {editLocationForm.latitude && editLocationForm.longitude && (
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Vĩ độ (Lat):</span>
+                      <span className="font-bold">{editLocationForm.latitude}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Kinh độ (Lng):</span>
+                      <span className="font-bold">{editLocationForm.longitude}</span>
+                    </div>
+                    {editLocationForm.accuracy && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">Độ chính xác:</span>
+                        <span className={`font-bold ${editLocationForm.accuracy > 200 ? 'text-red-500' : 'text-emerald-500'}`}>
+                          +/- {Math.round(editLocationForm.accuracy)}m
+                        </span>
+                      </div>
+                    )}
+                    
+                    {editLocationForm.accuracy && editLocationForm.accuracy > 200 && (
+                      <div className="text-[11px] text-amber-600 bg-amber-50 p-2 rounded flex items-start gap-1.5 mt-2">
+                        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                        Vị trí có độ chính xác thấp, không nên dùng để ghim khách.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {editLocationMethod === "url" && (
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Link Google Maps hoặc Toạ độ text</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      placeholder="VD: https://goo.gl/maps/... hoặc 10.123, 106.456" 
+                      value={editLocationForm.url}
+                      onChange={(e) => setEditLocationForm({...editLocationForm, url: e.target.value})}
+                      className="text-xs bg-white"
+                    />
+                    <Button onClick={handlePreviewUrl} variant="secondary" className="text-xs shrink-0 font-bold px-3">
+                      Kiểm tra
+                    </Button>
+                  </div>
+                </div>
+                
+                {editLocationForm.latitude && editLocationForm.longitude && (
+                  <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100 flex items-center justify-between">
+                    <div className="text-xs font-medium text-emerald-800">
+                      Lat: {editLocationForm.latitude}<br/>
+                      Lng: {editLocationForm.longitude}
+                    </div>
+                    <Check className="w-5 h-5 text-emerald-500" />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {editLocationMethod === "manual" && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Vĩ độ (Latitude)</Label>
+                  <Input 
+                    placeholder="VD: 10.762622" 
+                    value={editLocationForm.latitude}
+                    onChange={(e) => setEditLocationForm({...editLocationForm, latitude: e.target.value})}
+                    className="text-xs bg-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Kinh độ (Longitude)</Label>
+                  <Input 
+                    placeholder="VD: 106.660172" 
+                    value={editLocationForm.longitude}
+                    onChange={(e) => setEditLocationForm({...editLocationForm, longitude: e.target.value})}
+                    className="text-xs bg-white"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="grid grid-cols-2 gap-3 sm:space-x-0">
+            <Button variant="outline" onClick={() => setShowEditLocationDialog(false)} className="w-full text-xs font-bold">
+              Hủy
+            </Button>
+            <Button onClick={handleSaveLocation} disabled={editLocationSubmitting || !editLocationForm.latitude || !editLocationForm.longitude} className="w-full text-xs font-bold">
+              {editLocationSubmitting && <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />}
+              Lưu vị trí
             </Button>
           </DialogFooter>
         </DialogContent>

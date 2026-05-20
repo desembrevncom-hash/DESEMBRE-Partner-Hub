@@ -87,7 +87,13 @@ export function buildGoogleMapsSearchUrl(customer: {
   facility_name?: string | null;
   address?: string | null;
   name?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }): string {
+  if (hasValidCoordinates(customer)) {
+    return `https://www.google.com/maps/search/?api=1&query=${customer.latitude},${customer.longitude}`;
+  }
+
   const queryParts: string[] = [];
 
   if (customer.facility_name) {
@@ -108,8 +114,32 @@ export function buildGoogleMapsSearchUrl(customer: {
 /**
  * Tạo liên kết chỉ đường Google Maps đến toạ độ khách hàng
  */
-export function buildGoogleMapsDirectionsUrl(lat: number, lng: number): string {
-  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+export function buildGoogleMapsDirectionsUrl(customer: {
+  facility_name?: string | null;
+  address?: string | null;
+  name?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}): string {
+  if (hasValidCoordinates(customer)) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${customer.latitude},${customer.longitude}`;
+  }
+
+  const queryParts: string[] = [];
+
+  if (customer.facility_name) {
+    queryParts.push(customer.facility_name);
+  }
+  if (customer.address) {
+    queryParts.push(customer.address);
+  } else if (!customer.facility_name && customer.name) {
+    queryParts.push(customer.name);
+  }
+
+  const query = queryParts.join(", ");
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+    query
+  )}`;
 }
 
 export interface RouteCustomer {
@@ -244,3 +274,52 @@ export function getRouteDistanceEstimate(
   return totalDistance;
 }
 
+/**
+ * Phân tích URL Google Maps để trích xuất toạ độ latitude, longitude
+ */
+export function parseGoogleMapsUrlToCoordinates(url: string): { latitude: number; longitude: number } | null {
+  if (!url) return null;
+
+  try {
+    let lat: number | null = null;
+    let lng: number | null = null;
+
+    // Trường hợp 1: @lat,lng (Bao gồm cả URL có dạng place/.../@lat,lng)
+    const atMatch = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (atMatch && atMatch.length >= 3) {
+      lat = parseFloat(atMatch[1]);
+      lng = parseFloat(atMatch[2]);
+    } else {
+      // Trường hợp 2: ?q=lat,lng hoặc &q=lat,lng
+      const qMatch = url.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+      if (qMatch && qMatch.length >= 3) {
+        lat = parseFloat(qMatch[1]);
+        lng = parseFloat(qMatch[2]);
+      } else {
+        // Trường hợp 3: ll=lat,lng
+        const llMatch = url.match(/[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/);
+        if (llMatch && llMatch.length >= 3) {
+          lat = parseFloat(llMatch[1]);
+          lng = parseFloat(llMatch[2]);
+        } else {
+          // Trường hợp 4: Text thô dạng "lat, lng" hoặc "lat,lng"
+          const textMatch = url.trim().match(/^(-?\d+\.\d+),\s*(-?\d+\.\d+)$/);
+          if (textMatch && textMatch.length >= 3) {
+            lat = parseFloat(textMatch[1]);
+            lng = parseFloat(textMatch[2]);
+          }
+        }
+      }
+    }
+
+    if (lat !== null && lng !== null) {
+      if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        return { latitude: lat, longitude: lng };
+      }
+    }
+
+    return null;
+  } catch (error) {
+    return null;
+  }
+}
