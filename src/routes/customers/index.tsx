@@ -51,6 +51,17 @@ import {
   DropdownMenuContent,
   DropdownMenuItem
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  VIETNAM_PROVINCES,
+  stripAccents,
+  findProvinceByName,
+} from "@/lib/vietnamProvinces";
+import { Check, ChevronsUpDown, Map } from "lucide-react";
 
 export const Route = createFileRoute("/customers/")({
   component: CustomersPage,
@@ -65,6 +76,10 @@ function CustomersPage() {
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [activeStage, setActiveStage] = useState<string>("all");
   const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
+  
+  const [cityFilter, setCityFilter] = useState<string>("all");
+  const [cityOpen, setCityOpen] = useState(false);
+  const [citySearch, setCitySearch] = useState("");
   
   // Quick Log State
   const [logTarget, setLogTarget] = useState<any | null>(null);
@@ -213,15 +228,15 @@ function CustomersPage() {
       setLoading(false);
     }
   };
-
   const filteredCustomers = useMemo(() => {
     return customers.filter(c => {
       const matchSearch = (c.name || c.facility_name || "").toLowerCase().includes(searchQuery.toLowerCase());
       const matchStage = activeStage === "all" || c.lifecycle_stage === activeStage;
       const matchUnassigned = !showUnassignedOnly || (!c.owner_sale_id && !c.owner_tele_id);
-      return matchSearch && matchStage && matchUnassigned;
+      const matchCity = cityFilter === "all" || c.city === cityFilter;
+      return matchSearch && matchStage && matchUnassigned && matchCity;
     });
-  }, [customers, searchQuery, activeStage, showUnassignedOnly]);
+  }, [customers, searchQuery, activeStage, showUnassignedOnly, cityFilter]);
 
   // Executive Admin & SubAdmin Stats
   const adminStats = useMemo(() => {
@@ -398,7 +413,7 @@ function CustomersPage() {
         )}
         {/* TOP FILTER BAR */}
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-           <div className="relative w-full md:w-96">
+           <div className="relative w-full md:w-96 shrink-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input 
                 placeholder="Tìm tên Spa, tên chủ, số điện thoại..." 
@@ -408,7 +423,113 @@ function CustomersPage() {
               />
            </div>
            
-           <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:w-auto no-scrollbar">
+           <div className="relative w-full md:w-64 shrink-0 z-50">
+             <Popover open={cityOpen} onOpenChange={(o) => { setCityOpen(o); if (!o) setCitySearch(""); }}>
+               <PopoverTrigger asChild>
+                 <button
+                   type="button"
+                   role="combobox"
+                   aria-expanded={cityOpen}
+                   className="w-full text-sm h-11 rounded-xl border border-slate-100 bg-white shadow-sm px-3 flex items-center justify-between gap-2 hover:border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all"
+                 >
+                   <div className="flex items-center gap-2 overflow-hidden">
+                     <Map className="w-4 h-4 text-slate-400 shrink-0" />
+                     <span className={cityFilter !== "all" ? "text-slate-800 font-medium truncate" : "text-slate-400 truncate"}>
+                       {cityFilter === "all" ? "Tất cả tỉnh/thành" : cityFilter}
+                     </span>
+                   </div>
+                   <ChevronsUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                 </button>
+               </PopoverTrigger>
+               <PopoverContent
+                 className="p-0 rounded-2xl shadow-xl border border-slate-100 overflow-hidden"
+                 style={{ width: "var(--radix-popover-trigger-width)", zIndex: 9999 }}
+                 align="start"
+                 sideOffset={4}
+               >
+                 <div className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-100 bg-slate-50/80">
+                   <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                   <input
+                     autoFocus
+                     value={citySearch}
+                     onChange={(e) => setCitySearch(e.target.value)}
+                     placeholder="Gõ tìm tỉnh/thành..."
+                     className="flex-1 text-sm bg-transparent outline-none placeholder:text-slate-300 text-slate-800"
+                   />
+                   {citySearch && (
+                     <button
+                       type="button"
+                       onClick={() => setCitySearch("")}
+                       className="text-slate-300 hover:text-slate-500 text-xs font-bold"
+                     >
+                       ✕
+                     </button>
+                   )}
+                 </div>
+                 <div className="max-h-52 overflow-y-auto">
+                   <button
+                     type="button"
+                     onClick={() => {
+                       setCityFilter("all");
+                       setCitySearch("");
+                       setCityOpen(false);
+                     }}
+                     className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-slate-50 transition-colors"
+                   >
+                     <Check
+                       className={`w-3.5 h-3.5 shrink-0 transition-opacity ${
+                         cityFilter === "all" ? "opacity-100 text-slate-900" : "opacity-0"
+                       }`}
+                     />
+                     <span className={`font-medium ${cityFilter === "all" ? "text-slate-900" : "text-slate-600"}`}>
+                       Tất cả tỉnh/thành
+                     </span>
+                   </button>
+                   {(() => {
+                     const q = stripAccents(citySearch);
+                     const matched = VIETNAM_PROVINCES.filter((p) => {
+                       if (!q) return true;
+                       const alias = findProvinceByName(citySearch);
+                       if (alias === p) return true;
+                       return stripAccents(p).includes(q);
+                     });
+                     if (matched.length === 0) {
+                       return (
+                         <div className="py-4 text-center text-xs text-slate-400 font-semibold">
+                           Không tìm thấy.
+                         </div>
+                       );
+                     }
+                     return matched.map((province) => (
+                       <button
+                         key={province}
+                         type="button"
+                         onClick={() => {
+                           setCityFilter(province);
+                           setCitySearch("");
+                           setCityOpen(false);
+                         }}
+                         className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-slate-50 transition-colors"
+                       >
+                         <Check
+                           className={`w-3.5 h-3.5 shrink-0 transition-opacity ${
+                             cityFilter === province ? "opacity-100 text-slate-900" : "opacity-0"
+                           }`}
+                         />
+                         <span className={`font-medium ${
+                           cityFilter === province ? "text-slate-900" : "text-slate-600"
+                         }`}>
+                           {province}
+                         </span>
+                       </button>
+                     ));
+                   })()}
+                 </div>
+               </PopoverContent>
+             </Popover>
+           </div>
+           
+           <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 w-full no-scrollbar">
               <Button 
                 variant={activeStage === 'all' ? 'default' : 'ghost'} 
                 size="sm" 

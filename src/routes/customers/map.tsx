@@ -24,8 +24,20 @@ import {
   Map,
   PlusCircle,
   UploadCloud,
-  RefreshCw
+  RefreshCw,
+  Check,
+  ChevronsUpDown
 } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  VIETNAM_PROVINCES,
+  stripAccents,
+  findProvinceByName,
+} from "@/lib/vietnamProvinces";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -207,6 +219,10 @@ function CustomerMapPage() {
   const [focusCustomer, setFocusCustomer] = useState<any | null>(null);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+
+  const [cityFilter, setCityFilter] = useState<string>("all");
+  const [cityOpen, setCityOpen] = useState(false);
+  const [citySearch, setCitySearch] = useState("");
 
   // States cho tính năng Lập tuyến đi
   const [routeMode, setRouteMode] = useState(false);
@@ -580,7 +596,10 @@ function CustomerMapPage() {
         (c.phone || "").toLowerCase().includes(searchLower) ||
         (c.address || "").toLowerCase().includes(searchLower);
 
+        (c.address || "").toLowerCase().includes(searchLower);
+
       if (!matchSearch) return false;
+      if (cityFilter !== "all" && c.city !== cityFilter) return false;
 
       // 2. Active Filter
       switch (activeFilter) {
@@ -607,7 +626,7 @@ function CustomerMapPage() {
           return true;
       }
     });
-  }, [customers, searchQuery, activeFilter, user]);
+  }, [customers, searchQuery, activeFilter, user, cityFilter]);
 
   // Split filtered customers into geo (has coordinates) and non-geo (lacks coordinates)
   const mapCustomers = useMemo(() => {
@@ -776,6 +795,112 @@ function CustomerMapPage() {
                 onChange={e => setSearchQuery(e.target.value)}
                 className="pl-9 h-10 rounded-xl border-slate-200 bg-slate-50 shadow-inner focus:ring-2 focus:ring-slate-900"
               />
+            </div>
+
+            <div className="relative w-full z-50">
+             <Popover open={cityOpen} onOpenChange={(o) => { setCityOpen(o); if (!o) setCitySearch(""); }}>
+               <PopoverTrigger asChild>
+                 <button
+                   type="button"
+                   role="combobox"
+                   aria-expanded={cityOpen}
+                   className="w-full text-sm h-10 rounded-xl border border-slate-200 bg-slate-50 shadow-inner px-3 flex items-center justify-between gap-2 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all"
+                 >
+                   <div className="flex items-center gap-2 overflow-hidden">
+                     <Map className="w-4 h-4 text-slate-400 shrink-0" />
+                     <span className={cityFilter !== "all" ? "text-slate-800 font-medium truncate" : "text-slate-400 truncate"}>
+                       {cityFilter === "all" ? "Tất cả tỉnh/thành" : cityFilter}
+                     </span>
+                   </div>
+                   <ChevronsUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                 </button>
+               </PopoverTrigger>
+               <PopoverContent
+                 className="p-0 rounded-2xl shadow-xl border border-slate-100 overflow-hidden"
+                 style={{ width: "var(--radix-popover-trigger-width)", zIndex: 9999 }}
+                 align="start"
+                 sideOffset={4}
+               >
+                 <div className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-100 bg-slate-50/80">
+                   <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                   <input
+                     autoFocus
+                     value={citySearch}
+                     onChange={(e) => setCitySearch(e.target.value)}
+                     placeholder="Gõ tìm tỉnh/thành..."
+                     className="flex-1 text-sm bg-transparent outline-none placeholder:text-slate-300 text-slate-800"
+                   />
+                   {citySearch && (
+                     <button
+                       type="button"
+                       onClick={() => setCitySearch("")}
+                       className="text-slate-300 hover:text-slate-500 text-xs font-bold"
+                     >
+                       ✕
+                     </button>
+                   )}
+                 </div>
+                 <div className="max-h-52 overflow-y-auto">
+                   <button
+                     type="button"
+                     onClick={() => {
+                       setCityFilter("all");
+                       setCitySearch("");
+                       setCityOpen(false);
+                     }}
+                     className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-slate-50 transition-colors"
+                   >
+                     <Check
+                       className={`w-3.5 h-3.5 shrink-0 transition-opacity ${
+                         cityFilter === "all" ? "opacity-100 text-slate-900" : "opacity-0"
+                       }`}
+                     />
+                     <span className={`font-medium ${cityFilter === "all" ? "text-slate-900" : "text-slate-600"}`}>
+                       Tất cả tỉnh/thành
+                     </span>
+                   </button>
+                   {(() => {
+                     const q = stripAccents(citySearch);
+                     const matched = VIETNAM_PROVINCES.filter((p) => {
+                       if (!q) return true;
+                       const alias = findProvinceByName(citySearch);
+                       if (alias === p) return true;
+                       return stripAccents(p).includes(q);
+                     });
+                     if (matched.length === 0) {
+                       return (
+                         <div className="py-4 text-center text-xs text-slate-400 font-semibold">
+                           Không tìm thấy.
+                         </div>
+                       );
+                     }
+                     return matched.map((province) => (
+                       <button
+                         key={province}
+                         type="button"
+                         onClick={() => {
+                           setCityFilter(province);
+                           setCitySearch("");
+                           setCityOpen(false);
+                         }}
+                         className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-slate-50 transition-colors"
+                       >
+                         <Check
+                           className={`w-3.5 h-3.5 shrink-0 transition-opacity ${
+                             cityFilter === province ? "opacity-100 text-slate-900" : "opacity-0"
+                           }`}
+                         />
+                         <span className={`font-medium ${
+                           cityFilter === province ? "text-slate-900" : "text-slate-600"
+                         }`}>
+                           {province}
+                         </span>
+                       </button>
+                     ));
+                   })()}
+                 </div>
+               </PopoverContent>
+             </Popover>
             </div>
 
             {/* QUICK FILTERS LIST */}
