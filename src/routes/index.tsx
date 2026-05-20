@@ -15,7 +15,8 @@ import {
   ShieldCheck,
   Bell,
   Star,
-  ShoppingCart
+  ShoppingCart,
+  MapPin
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -341,6 +342,9 @@ function Dashboard() {
                  <QuickActionLink to="/orders" label="ĐƠN HÀNG" icon={Package} color="bg-amber-500" />
                  <QuickActionLink to="/marketing" label="MARKETING" icon={Sparkles} color="bg-purple-600" />
                  <QuickActionLink to="/admin/settings" label="CÀI ĐẶT" icon={Zap} color="bg-slate-900" />
+                 {isManager && (
+                   <QuickActionLink to="/reports/routing" label="PHÂN TUYẾN" icon={MapPin} color="bg-emerald-600" />
+                 )}
               </div>
               
               {isManager && (

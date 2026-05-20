@@ -22,6 +22,7 @@ import { Route as ReportsIndexRouteImport } from './routes/reports/index'
 import { Route as OrdersIndexRouteImport } from './routes/orders/index'
 import { Route as MarketingIndexRouteImport } from './routes/marketing/index'
 import { Route as CustomersIndexRouteImport } from './routes/customers/index'
+import { Route as ReportsRoutingRouteImport } from './routes/reports/routing'
 import { Route as ReportsCrmRouteImport } from './routes/reports/crm'
 import { Route as OrdersNewRouteImport } from './routes/orders/new'
 import { Route as OrdersIdRouteImport } from './routes/orders/$id'
@@ -101,6 +102,11 @@ const CustomersIndexRoute = CustomersIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => CustomersRoute,
+} as any)
+const ReportsRoutingRoute = ReportsRoutingRouteImport.update({
+  id: '/reports/routing',
+  path: '/reports/routing',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ReportsCrmRoute = ReportsCrmRouteImport.update({
   id: '/reports/crm',
@@ -197,6 +203,7 @@ export interface FileRoutesByFullPath {
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
   '/reports/crm': typeof ReportsCrmRoute
+  '/reports/routing': typeof ReportsRoutingRoute
   '/customers/': typeof CustomersIndexRoute
   '/marketing/': typeof MarketingIndexRoute
   '/orders/': typeof OrdersIndexRoute
@@ -225,6 +232,7 @@ export interface FileRoutesByTo {
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
   '/reports/crm': typeof ReportsCrmRoute
+  '/reports/routing': typeof ReportsRoutingRoute
   '/customers': typeof CustomersIndexRoute
   '/marketing': typeof MarketingIndexRoute
   '/orders': typeof OrdersIndexRoute
@@ -255,6 +263,7 @@ export interface FileRoutesById {
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
   '/reports/crm': typeof ReportsCrmRoute
+  '/reports/routing': typeof ReportsRoutingRoute
   '/customers/': typeof CustomersIndexRoute
   '/marketing/': typeof MarketingIndexRoute
   '/orders/': typeof OrdersIndexRoute
@@ -286,6 +295,7 @@ export interface FileRouteTypes {
     | '/orders/$id'
     | '/orders/new'
     | '/reports/crm'
+    | '/reports/routing'
     | '/customers/'
     | '/marketing/'
     | '/orders/'
@@ -314,6 +324,7 @@ export interface FileRouteTypes {
     | '/orders/$id'
     | '/orders/new'
     | '/reports/crm'
+    | '/reports/routing'
     | '/customers'
     | '/marketing'
     | '/orders'
@@ -343,6 +354,7 @@ export interface FileRouteTypes {
     | '/orders/$id'
     | '/orders/new'
     | '/reports/crm'
+    | '/reports/routing'
     | '/customers/'
     | '/marketing/'
     | '/orders/'
@@ -371,6 +383,7 @@ export interface RootRouteChildren {
   OrdersIdRoute: typeof OrdersIdRoute
   OrdersNewRoute: typeof OrdersNewRoute
   ReportsCrmRoute: typeof ReportsCrmRoute
+  ReportsRoutingRoute: typeof ReportsRoutingRoute
   MarketingIndexRoute: typeof MarketingIndexRoute
   OrdersIndexRoute: typeof OrdersIndexRoute
   ReportsIndexRoute: typeof ReportsIndexRoute
@@ -468,6 +481,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/customers/'
       preLoaderRoute: typeof CustomersIndexRouteImport
       parentRoute: typeof CustomersRoute
+    }
+    '/reports/routing': {
+      id: '/reports/routing'
+      path: '/reports/routing'
+      fullPath: '/reports/routing'
+      preLoaderRoute: typeof ReportsRoutingRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/reports/crm': {
       id: '/reports/crm'
@@ -608,6 +628,7 @@ const rootRouteChildren: RootRouteChildren = {
   OrdersIdRoute: OrdersIdRoute,
   OrdersNewRoute: OrdersNewRoute,
   ReportsCrmRoute: ReportsCrmRoute,
+  ReportsRoutingRoute: ReportsRoutingRoute,
   MarketingIndexRoute: MarketingIndexRoute,
   OrdersIndexRoute: OrdersIndexRoute,
   ReportsIndexRoute: ReportsIndexRoute,
