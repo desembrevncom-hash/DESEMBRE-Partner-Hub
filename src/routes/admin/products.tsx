@@ -35,6 +35,7 @@ import { FullCatalogPDF } from "@/components/FullCatalogPDF";
 import { EditUnlockProvider } from "@/hooks/useEditUnlock";
 import { getDisplayPrice, UserRole } from "@/lib/pricing";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
+import { ProductKnowledgeDialog } from "@/components/ProductKnowledgeDialog";
 
 export const Route = createFileRoute("/admin/products")({
   component: ProductCatalogPage,
@@ -51,7 +52,9 @@ function ProductCatalogPage() {
   const [vatOn, setVatOn] = useState(false);
   const [saleViewMode, setSaleViewMode] = useState(false);
   const [cart, setCart] = useState<{ no: number; sizeType: "retail" | "salon" }[]>([]);
+  const [selectedKnowledgeProductId, setSelectedKnowledgeProductId] = useState<number | null>(null);
   const navigate = useNavigate();
+  const isManager = isAdmin || roles.some(r => ["admin", "sub_admin"].includes(r));
 
   useEffect(() => {
     fetchOverrides();
@@ -386,7 +389,17 @@ function ProductCatalogPage() {
                                     onChange={(url) => handleUpdate(p.id, 'link_url', url)}
                                   />
                                </td>
-                               <td className="px-6 py-6 text-center">
+                               <td className="px-6 py-6 text-center flex items-center justify-end gap-2 h-full min-h-[120px]">
+                                  {isManager && (
+                                     <Button 
+                                       variant="ghost" 
+                                       size="sm"
+                                       onClick={() => setSelectedKnowledgeProductId(p.id)}
+                                       className="h-9 px-3 text-[10px] font-black text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 uppercase tracking-wider rounded-xl transition-all whitespace-nowrap"
+                                     >
+                                       <Sparkles className="w-3.5 h-3.5 mr-1 animate-pulse" /> Tri thức
+                                     </Button>
+                                  )}
                                   <DropdownAction />
                                </td>
                             </tr>
@@ -423,6 +436,17 @@ function ProductCatalogPage() {
              </Button>
           </div>
         )}
+
+        <ProductKnowledgeDialog 
+          productId={selectedKnowledgeProductId}
+          productName={mergedProducts.find(p => p.id === selectedKnowledgeProductId)?.name || ""}
+          productsList={mergedProducts.map(p => ({ id: p.id, name: p.name }))}
+          onClose={() => setSelectedKnowledgeProductId(null)}
+          onSaved={() => {
+            // Optional: Reload logic here if we were caching knowledge state in this parent component,
+            // but since dialog fetches on mount, it's already fresh next time it opens.
+          }}
+        />
       </div>
     </EditUnlockProvider>
   );
