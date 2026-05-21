@@ -122,13 +122,6 @@ function RootLayout() {
           <div className="flex items-center gap-4">
              <div className="flex items-center gap-2 pr-4 border-r border-slate-100">
                 <NotificationBell />
-                {isAdmin && (
-                  <Link to="/admin/settings">
-                    <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-slate-400 hover:text-slate-900">
-                       <Settings className="w-5 h-5" />
-                    </Button>
-                  </Link>
-                )}
              </div>
 
              {/* USER PROFILE */}
