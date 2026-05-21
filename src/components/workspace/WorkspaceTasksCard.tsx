@@ -198,7 +198,7 @@ export const WorkspaceTasksCard: React.FC<WorkspaceTasksCardProps> = ({
 
                     {/* Quá hạn */}
                     {!isAppointment && isTaskOverdue(item.due_at, item.status) && (
-                      <Badge className="bg-red-50 text-red-650 border-red-100 text-[9px] font-bold uppercase tracking-wider animate-pulse">Quá hạn</Badge>
+                      <Badge className="bg-red-50 text-red-655 border-red-100 text-[9px] font-bold uppercase tracking-wider">Quá hạn</Badge>
                     )}
                   </div>
 

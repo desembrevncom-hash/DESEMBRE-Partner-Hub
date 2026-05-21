@@ -626,7 +626,7 @@ export function TasksPage() {
                           <Clock className="w-3 h-3 text-slate-400" />
                           <span>Hạn chót:</span>
                         </span>
-                        <span className={`font-mono font-medium ${isOverdue ? "text-red-600 font-bold animate-pulse" : "text-slate-700"}`}>
+                        <span className={`font-mono font-medium ${isOverdue ? "text-red-600 font-bold" : "text-slate-700"}`}>
                           {t.due_at ? new Date(t.due_at).toLocaleDateString("vi-VN", { hour: '2-digit', minute: '2-digit' }) : "Không thời hạn"}
                         </span>
                       </div>
