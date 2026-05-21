@@ -165,14 +165,49 @@ Deno.serve(async (req) => {
 
     // 2. Parse input
     const body = await req.json();
-    const { customerId, mode, taskId } = body;
+    const { customerId, mode, taskId, debugQuery } = body;
 
-    if (!customerId) {
+    if (mode !== "summary" && mode !== "rewrite_suggestions" && mode !== "debug_rag") {
+      return json({ error: "Only mode='summary', 'rewrite_suggestions', and 'debug_rag' are supported" }, 400);
+    }
+
+    if (mode !== "debug_rag" && !customerId) {
       return json({ error: "customerId is required" }, 400);
     }
-    if (mode !== "summary" && mode !== "rewrite_suggestions") {
-      return json({ error: "Only mode='summary' and mode='rewrite_suggestions' are supported" }, 400);
+
+    // --- PHASE 7: RAG Sandbox Debug Mode ---
+    if (mode === "debug_rag") {
+      if (!debugQuery) return json({ error: "debugQuery is required" }, 400);
+      try {
+        const queryEmbedding = await generateEmbedding(debugQuery);
+        const { data: chunksData } = await adminClient.rpc("match_product_chunks", {
+          query_embedding: queryEmbedding,
+          match_threshold: 0.3,
+          match_count: 5
+        });
+
+        const retrievedChunks = chunksData || [];
+        const systemPrompt = `[AI SAFETY LAYER]: Tuyệt đối không bịa thông tin sản phẩm. Chỉ sử dụng kiến thức từ mục <KNOWLEDGE_CHUNKS> bên dưới.`;
+        const userPrompt = `=== KNOWLEDGE_CHUNKS ===\n${retrievedChunks.map((c: any, i: number) => `[Chunk ${i+1}] ${c.content}`).join('\\n')}\n\n=== CÂU HỎI ===\n${debugQuery}`;
+        
+        // Simulate prompt (don't actually call AI to save token unless strictly requested, but we'll return the prompt structure)
+        return json({
+          query_generated: debugQuery,
+          retrieved_chunks: retrievedChunks.map((c: any) => ({
+            chunk_id: c.id,
+            product_id: c.product_id,
+            chunk_type: c.chunk_type,
+            score: c.similarity,
+            content: c.content
+          })),
+          final_prompt_preview: `SYSTEM: ${systemPrompt}\n\nUSER: ${userPrompt}`,
+          ai_response_preview: "Simulation mode (no tokens used)"
+        });
+      } catch (err: any) {
+        return json({ error: err.message }, 500);
+      }
     }
+    // ---------------------------------------
 
     // 3. Check user permission to view this customer
     const { data: customerData, error: customerError } = await userClient
@@ -406,6 +441,7 @@ Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
       prompt_tokens: aiResponse.prompt_tokens,
       completion_tokens: aiResponse.completion_tokens,
       total_tokens: aiResponse.total_tokens,
+      retrieved_chunks: productChunks.map(c => ({ chunk_id: c.id, score: c.similarity }))
     });
 
     // 9. Return structured response

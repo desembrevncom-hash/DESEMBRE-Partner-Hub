@@ -41,6 +41,7 @@ import { Route as AdminProductsRouteImport } from './routes/admin/products'
 import { Route as AdminProductKnowledgeRouteImport } from './routes/admin/product-knowledge'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
 import { Route as AdminAutomationRouteImport } from './routes/admin/automation'
+import { Route as AdminAiDebugRouteImport } from './routes/admin/ai-debug'
 
 const WorkspaceRoute = WorkspaceRouteImport.update({
   id: '/workspace',
@@ -202,6 +203,11 @@ const AdminAutomationRoute = AdminAutomationRouteImport.update({
   path: '/admin/automation',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAiDebugRoute = AdminAiDebugRouteImport.update({
+  id: '/admin/ai-debug',
+  path: '/admin/ai-debug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -213,6 +219,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
   '/workspace': typeof WorkspaceRoute
+  '/admin/ai-debug': typeof AdminAiDebugRoute
   '/admin/automation': typeof AdminAutomationRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/product-knowledge': typeof AdminProductKnowledgeRoute
@@ -246,6 +253,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
   '/workspace': typeof WorkspaceRoute
+  '/admin/ai-debug': typeof AdminAiDebugRoute
   '/admin/automation': typeof AdminAutomationRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/product-knowledge': typeof AdminProductKnowledgeRoute
@@ -281,6 +289,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
   '/workspace': typeof WorkspaceRoute
+  '/admin/ai-debug': typeof AdminAiDebugRoute
   '/admin/automation': typeof AdminAutomationRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/product-knowledge': typeof AdminProductKnowledgeRoute
@@ -317,6 +326,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/tasks'
     | '/workspace'
+    | '/admin/ai-debug'
     | '/admin/automation'
     | '/admin/inventory'
     | '/admin/product-knowledge'
@@ -350,6 +360,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/tasks'
     | '/workspace'
+    | '/admin/ai-debug'
     | '/admin/automation'
     | '/admin/inventory'
     | '/admin/product-knowledge'
@@ -384,6 +395,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/tasks'
     | '/workspace'
+    | '/admin/ai-debug'
     | '/admin/automation'
     | '/admin/inventory'
     | '/admin/product-knowledge'
@@ -419,6 +431,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   TasksRoute: typeof TasksRoute
   WorkspaceRoute: typeof WorkspaceRoute
+  AdminAiDebugRoute: typeof AdminAiDebugRoute
   AdminAutomationRoute: typeof AdminAutomationRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminProductKnowledgeRoute: typeof AdminProductKnowledgeRoute
@@ -667,6 +680,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAutomationRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/ai-debug': {
+      id: '/admin/ai-debug'
+      path: '/admin/ai-debug'
+      fullPath: '/admin/ai-debug'
+      preLoaderRoute: typeof AdminAiDebugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -696,6 +716,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   TasksRoute: TasksRoute,
   WorkspaceRoute: WorkspaceRoute,
+  AdminAiDebugRoute: AdminAiDebugRoute,
   AdminAutomationRoute: AdminAutomationRoute,
   AdminInventoryRoute: AdminInventoryRoute,
   AdminProductKnowledgeRoute: AdminProductKnowledgeRoute,
