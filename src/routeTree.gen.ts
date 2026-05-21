@@ -25,6 +25,7 @@ import { Route as CustomersIndexRouteImport } from './routes/customers/index'
 import { Route as ReportsRoutingRouteImport } from './routes/reports/routing'
 import { Route as ReportsCrmRouteImport } from './routes/reports/crm'
 import { Route as ReportsAutomationRouteImport } from './routes/reports/automation'
+import { Route as ProductsKnowledgeRouteImport } from './routes/products/knowledge'
 import { Route as OrdersNewRouteImport } from './routes/orders/new'
 import { Route as OrdersIdRouteImport } from './routes/orders/$id'
 import { Route as MarketingReportsRouteImport } from './routes/marketing/reports'
@@ -37,6 +38,7 @@ import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminSegmentsRouteImport } from './routes/admin/segments'
 import { Route as AdminReclamationRouteImport } from './routes/admin/reclamation'
 import { Route as AdminProductsRouteImport } from './routes/admin/products'
+import { Route as AdminProductKnowledgeRouteImport } from './routes/admin/product-knowledge'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
 import { Route as AdminAutomationRouteImport } from './routes/admin/automation'
 
@@ -120,6 +122,11 @@ const ReportsAutomationRoute = ReportsAutomationRouteImport.update({
   path: '/reports/automation',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProductsKnowledgeRoute = ProductsKnowledgeRouteImport.update({
+  id: '/products/knowledge',
+  path: '/products/knowledge',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OrdersNewRoute = OrdersNewRouteImport.update({
   id: '/orders/new',
   path: '/orders/new',
@@ -180,6 +187,11 @@ const AdminProductsRoute = AdminProductsRouteImport.update({
   path: '/admin/products',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminProductKnowledgeRoute = AdminProductKnowledgeRouteImport.update({
+  id: '/admin/product-knowledge',
+  path: '/admin/product-knowledge',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminInventoryRoute = AdminInventoryRouteImport.update({
   id: '/admin/inventory',
   path: '/admin/inventory',
@@ -203,6 +215,7 @@ export interface FileRoutesByFullPath {
   '/workspace': typeof WorkspaceRoute
   '/admin/automation': typeof AdminAutomationRoute
   '/admin/inventory': typeof AdminInventoryRoute
+  '/admin/product-knowledge': typeof AdminProductKnowledgeRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/reclamation': typeof AdminReclamationRoute
   '/admin/segments': typeof AdminSegmentsRoute
@@ -215,6 +228,7 @@ export interface FileRoutesByFullPath {
   '/marketing/reports': typeof MarketingReportsRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
+  '/products/knowledge': typeof ProductsKnowledgeRoute
   '/reports/automation': typeof ReportsAutomationRoute
   '/reports/crm': typeof ReportsCrmRoute
   '/reports/routing': typeof ReportsRoutingRoute
@@ -234,6 +248,7 @@ export interface FileRoutesByTo {
   '/workspace': typeof WorkspaceRoute
   '/admin/automation': typeof AdminAutomationRoute
   '/admin/inventory': typeof AdminInventoryRoute
+  '/admin/product-knowledge': typeof AdminProductKnowledgeRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/reclamation': typeof AdminReclamationRoute
   '/admin/segments': typeof AdminSegmentsRoute
@@ -246,6 +261,7 @@ export interface FileRoutesByTo {
   '/marketing/reports': typeof MarketingReportsRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
+  '/products/knowledge': typeof ProductsKnowledgeRoute
   '/reports/automation': typeof ReportsAutomationRoute
   '/reports/crm': typeof ReportsCrmRoute
   '/reports/routing': typeof ReportsRoutingRoute
@@ -267,6 +283,7 @@ export interface FileRoutesById {
   '/workspace': typeof WorkspaceRoute
   '/admin/automation': typeof AdminAutomationRoute
   '/admin/inventory': typeof AdminInventoryRoute
+  '/admin/product-knowledge': typeof AdminProductKnowledgeRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/reclamation': typeof AdminReclamationRoute
   '/admin/segments': typeof AdminSegmentsRoute
@@ -279,6 +296,7 @@ export interface FileRoutesById {
   '/marketing/reports': typeof MarketingReportsRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
+  '/products/knowledge': typeof ProductsKnowledgeRoute
   '/reports/automation': typeof ReportsAutomationRoute
   '/reports/crm': typeof ReportsCrmRoute
   '/reports/routing': typeof ReportsRoutingRoute
@@ -301,6 +319,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/admin/automation'
     | '/admin/inventory'
+    | '/admin/product-knowledge'
     | '/admin/products'
     | '/admin/reclamation'
     | '/admin/segments'
@@ -313,6 +332,7 @@ export interface FileRouteTypes {
     | '/marketing/reports'
     | '/orders/$id'
     | '/orders/new'
+    | '/products/knowledge'
     | '/reports/automation'
     | '/reports/crm'
     | '/reports/routing'
@@ -332,6 +352,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/admin/automation'
     | '/admin/inventory'
+    | '/admin/product-knowledge'
     | '/admin/products'
     | '/admin/reclamation'
     | '/admin/segments'
@@ -344,6 +365,7 @@ export interface FileRouteTypes {
     | '/marketing/reports'
     | '/orders/$id'
     | '/orders/new'
+    | '/products/knowledge'
     | '/reports/automation'
     | '/reports/crm'
     | '/reports/routing'
@@ -364,6 +386,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/admin/automation'
     | '/admin/inventory'
+    | '/admin/product-knowledge'
     | '/admin/products'
     | '/admin/reclamation'
     | '/admin/segments'
@@ -376,6 +399,7 @@ export interface FileRouteTypes {
     | '/marketing/reports'
     | '/orders/$id'
     | '/orders/new'
+    | '/products/knowledge'
     | '/reports/automation'
     | '/reports/crm'
     | '/reports/routing'
@@ -397,6 +421,7 @@ export interface RootRouteChildren {
   WorkspaceRoute: typeof WorkspaceRoute
   AdminAutomationRoute: typeof AdminAutomationRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
+  AdminProductKnowledgeRoute: typeof AdminProductKnowledgeRoute
   AdminProductsRoute: typeof AdminProductsRoute
   AdminReclamationRoute: typeof AdminReclamationRoute
   AdminSegmentsRoute: typeof AdminSegmentsRoute
@@ -407,6 +432,7 @@ export interface RootRouteChildren {
   MarketingReportsRoute: typeof MarketingReportsRoute
   OrdersIdRoute: typeof OrdersIdRoute
   OrdersNewRoute: typeof OrdersNewRoute
+  ProductsKnowledgeRoute: typeof ProductsKnowledgeRoute
   ReportsAutomationRoute: typeof ReportsAutomationRoute
   ReportsCrmRoute: typeof ReportsCrmRoute
   ReportsRoutingRoute: typeof ReportsRoutingRoute
@@ -529,6 +555,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReportsAutomationRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/products/knowledge': {
+      id: '/products/knowledge'
+      path: '/products/knowledge'
+      fullPath: '/products/knowledge'
+      preLoaderRoute: typeof ProductsKnowledgeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/orders/new': {
       id: '/orders/new'
       path: '/orders/new'
@@ -613,6 +646,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminProductsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/product-knowledge': {
+      id: '/admin/product-knowledge'
+      path: '/admin/product-knowledge'
+      fullPath: '/admin/product-knowledge'
+      preLoaderRoute: typeof AdminProductKnowledgeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/inventory': {
       id: '/admin/inventory'
       path: '/admin/inventory'
@@ -658,6 +698,7 @@ const rootRouteChildren: RootRouteChildren = {
   WorkspaceRoute: WorkspaceRoute,
   AdminAutomationRoute: AdminAutomationRoute,
   AdminInventoryRoute: AdminInventoryRoute,
+  AdminProductKnowledgeRoute: AdminProductKnowledgeRoute,
   AdminProductsRoute: AdminProductsRoute,
   AdminReclamationRoute: AdminReclamationRoute,
   AdminSegmentsRoute: AdminSegmentsRoute,
@@ -668,6 +709,7 @@ const rootRouteChildren: RootRouteChildren = {
   MarketingReportsRoute: MarketingReportsRoute,
   OrdersIdRoute: OrdersIdRoute,
   OrdersNewRoute: OrdersNewRoute,
+  ProductsKnowledgeRoute: ProductsKnowledgeRoute,
   ReportsAutomationRoute: ReportsAutomationRoute,
   ReportsCrmRoute: ReportsCrmRoute,
   ReportsRoutingRoute: ReportsRoutingRoute,
