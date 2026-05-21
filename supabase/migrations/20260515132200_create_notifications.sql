@@ -38,6 +38,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_priority ON public.notifications(pr
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
 -- Chính sách: Người nhận chỉ xem được thông báo của mình
+DROP POLICY IF EXISTS "Users can view their own notifications" ON public.notifications;
 CREATE POLICY "Users can view their own notifications" 
 ON public.notifications 
 FOR SELECT 
@@ -45,6 +46,7 @@ TO authenticated
 USING (recipient_user_id = auth.uid());
 
 -- Chính sách: Người nhận có thể cập nhật trạng thái (read/dismiss) thông báo của mình
+DROP POLICY IF EXISTS "Users can update their own notifications" ON public.notifications;
 CREATE POLICY "Users can update their own notifications" 
 ON public.notifications 
 FOR UPDATE 
@@ -53,6 +55,7 @@ USING (recipient_user_id = auth.uid())
 WITH CHECK (recipient_user_id = auth.uid());
 
 -- Chính sách: Admin/Sub Admin có quyền xem tất cả để hỗ trợ xử lý sự cố
+DROP POLICY IF EXISTS "Admins can view all notifications" ON public.notifications;
 CREATE POLICY "Admins can view all notifications" 
 ON public.notifications 
 FOR SELECT 
@@ -60,7 +63,17 @@ TO authenticated
 USING (public.is_admin_or_sub_admin(auth.uid()));
 
 -- Kích hoạt Realtime cho bảng notifications (Chuẩn bị cho bước sau)
-ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' 
+      AND schemaname = 'public' 
+      AND tablename = 'notifications'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+  END IF;
+END $$;
 
 -- Làm mới PostgREST cache
 NOTIFY pgrst, 'reload schema';

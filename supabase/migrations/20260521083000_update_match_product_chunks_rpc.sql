@@ -1,5 +1,5 @@
--- Migration: Update match_product_chunks RPC to enforce active products, approved QA status, and knowledge_version filter
-
+DROP FUNCTION IF EXISTS public.match_product_chunks(vector(1536), double precision, integer, integer[]) CASCADE;
+DROP FUNCTION IF EXISTS public.match_product_chunks(vector(1536), double precision, integer, integer[], integer) CASCADE;
 CREATE OR REPLACE FUNCTION match_product_chunks(
     query_embedding vector(1536),
     match_threshold float,

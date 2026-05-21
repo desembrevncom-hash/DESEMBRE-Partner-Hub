@@ -37,17 +37,20 @@ CREATE INDEX IF NOT EXISTS idx_customer_tasks_lead_id ON public.customer_tasks(l
 ALTER TABLE public.customer_tasks ENABLE ROW LEVEL SECURITY;
 
 -- Chính sách cho Admin/Sub Admin: Quản lý tất cả
+DROP POLICY IF EXISTS "Admins manage all customer tasks" ON public.customer_tasks;
 CREATE POLICY "Admins manage all customer tasks" ON public.customer_tasks
     FOR ALL TO authenticated
     USING (public.is_admin_or_sub_admin(auth.uid()))
     WITH CHECK (public.is_admin_or_sub_admin(auth.uid()));
 
 -- Chính sách cho User: Xem task assigned_to = auth.uid()
+DROP POLICY IF EXISTS "Users view assigned tasks" ON public.customer_tasks;
 CREATE POLICY "Users view assigned tasks" ON public.customer_tasks
     FOR SELECT TO authenticated
     USING (assigned_to = auth.uid());
 
 -- Chính sách cho Tele Lead: Xem task owner_tele_id = auth.uid()
+DROP POLICY IF EXISTS "Tele leads view owned tasks" ON public.customer_tasks;
 CREATE POLICY "Tele leads view owned tasks" ON public.customer_tasks
     FOR SELECT TO authenticated
     USING (
@@ -56,12 +59,14 @@ CREATE POLICY "Tele leads view owned tasks" ON public.customer_tasks
     );
 
 -- Chính sách cho User: Update task assigned_to = auth.uid()
+DROP POLICY IF EXISTS "Users update assigned tasks" ON public.customer_tasks;
 CREATE POLICY "Users update assigned tasks" ON public.customer_tasks
     FOR UPDATE TO authenticated
     USING (assigned_to = auth.uid())
     WITH CHECK (assigned_to = auth.uid());
 
 -- Cho phép người dùng được gán việc tạo mới hoặc tác vụ phân công tự do
+DROP POLICY IF EXISTS "Staff insert customer tasks" ON public.customer_tasks;
 CREATE POLICY "Staff insert customer tasks" ON public.customer_tasks
     FOR INSERT TO authenticated
     WITH CHECK (

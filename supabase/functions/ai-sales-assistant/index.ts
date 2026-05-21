@@ -276,6 +276,23 @@ Deno.serve(async (req) => {
       return json({ error: "Unauthorized" }, 401);
     }
 
+    // --- Phase I: Load AI settings and check module toggle ---
+    const { data: aiSettings, error: aiError } = await adminClient
+      .from('ai_settings')
+      .select('*')
+      .eq('id', 'default')
+      .single();
+    if (aiError || !aiSettings) {
+      return json({ error: 'Failed to load AI settings' }, 500);
+    }
+    // Check module toggle: sales assistant must be enabled
+    if (!aiSettings.module_sales_assistant) {
+      return json({ error: "AI module này đang bị Admin tắt." }, 403);
+    }
+    // Optional: could set ENV overrides here based on aiSettings if we want to dynamically override the model, 
+    // but the `callAI` function currently uses Deno.env directly. 
+    // We'll leave `callAI` as is for now, but this is the gatekeeper.
+
     // 2. Parse input
     const body = await req.json();
     const { customerId, mode, taskId, debugQuery } = body;

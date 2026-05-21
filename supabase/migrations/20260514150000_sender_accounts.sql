@@ -40,18 +40,14 @@ CREATE TRIGGER trg_sender_accounts_updated_at
 
 -- RLS Policies
 -- 1. Admin và Sub-Admin được toàn quyền CRUD
+DROP POLICY IF EXISTS "Cho phép Admin và Sub-Admin quản lý sender_accounts" ON public.sender_accounts;
 CREATE POLICY "Cho phép Admin và Sub-Admin quản lý sender_accounts"
     ON public.sender_accounts
     FOR ALL
-    USING (
-        EXISTS (
-            SELECT 1 FROM public.user_roles
-            WHERE user_roles.user_id = auth.uid()
-            AND user_roles.role IN ('admin', 'sub_admin')
-        )
-    );
+    USING (public.is_admin_or_sub_admin(auth.uid()));
 
 -- 2. Bộ phận Sale (Users thông thường) chỉ được phép đọc các tài khoản đang kích hoạt
+DROP POLICY IF EXISTS "Cho phép người dùng xác thực đọc sender_accounts kích hoạt" ON public.sender_accounts;
 CREATE POLICY "Cho phép người dùng xác thực đọc sender_accounts kích hoạt"
     ON public.sender_accounts
     FOR SELECT

@@ -46,6 +46,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_type ON public.customer_tasks(task_type);
 ALTER TABLE public.customer_tasks ENABLE ROW LEVEL SECURITY;
 
 -- Chính sách: Admin/Sub Admin quản lý tất cả
+DROP POLICY IF EXISTS "Admins manage all tasks" ON public.customer_tasks;
 CREATE POLICY "Admins manage all tasks" 
 ON public.customer_tasks 
 FOR ALL 
@@ -53,6 +54,7 @@ TO authenticated
 USING (public.is_admin_or_sub_admin(auth.uid()));
 
 -- Chính sách: Trưởng Tele xem được các Task trong Pool mình phụ trách
+DROP POLICY IF EXISTS "Tele Leads view their pool tasks" ON public.customer_tasks;
 CREATE POLICY "Tele Leads view their pool tasks" 
 ON public.customer_tasks 
 FOR SELECT 
@@ -60,6 +62,7 @@ TO authenticated
 USING (owner_tele_id = auth.uid());
 
 -- Chính sách: User xem được Task gán cho mình
+DROP POLICY IF EXISTS "Users view assigned tasks" ON public.customer_tasks;
 CREATE POLICY "Users view assigned tasks" 
 ON public.customer_tasks 
 FOR SELECT 
@@ -67,6 +70,7 @@ TO authenticated
 USING (assigned_to = auth.uid());
 
 -- Chính sách: User cập nhật trạng thái Task gán cho mình
+DROP POLICY IF EXISTS "Users update assigned tasks" ON public.customer_tasks;
 CREATE POLICY "Users update assigned tasks" 
 ON public.customer_tasks 
 FOR UPDATE 

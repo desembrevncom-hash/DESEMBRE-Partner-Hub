@@ -46,6 +46,7 @@ ALTER TABLE public.product_knowledge ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_objections ENABLE ROW LEVEL SECURITY;
 
 -- Helper to check if a user belongs to sales roles (sale, tele_lead, telesale)
+CREATE SEQUENCE IF NOT EXISTS public.order_no_seq START 1000;
 CREATE OR REPLACE FUNCTION public.is_sales_member(user_id uuid)
 RETURNS boolean AS $$
 BEGIN

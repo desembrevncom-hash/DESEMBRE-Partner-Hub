@@ -77,31 +77,37 @@ ALTER TABLE public.google_calendar_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.template_test_logs ENABLE ROW LEVEL SECURITY;
 
 -- Quyền trên Message Templates
+DROP POLICY IF EXISTS "Admins manage message templates" ON public.message_templates;
 CREATE POLICY "Admins manage message templates" ON public.message_templates
     FOR ALL TO authenticated
     USING (public.is_admin_or_sub_admin(auth.uid()))
     WITH CHECK (public.is_admin_or_sub_admin(auth.uid()));
 
+DROP POLICY IF EXISTS "Anyone view active message templates" ON public.message_templates;
 CREATE POLICY "Anyone view active message templates" ON public.message_templates
     FOR SELECT TO authenticated
     USING (is_active = true);
 
 -- Quyền trên Google Calendar Accounts
+DROP POLICY IF EXISTS "Admins manage google calendar accounts" ON public.google_calendar_accounts;
 CREATE POLICY "Admins manage google calendar accounts" ON public.google_calendar_accounts
     FOR ALL TO authenticated
     USING (public.is_admin_or_sub_admin(auth.uid()))
     WITH CHECK (public.is_admin_or_sub_admin(auth.uid()));
 
+DROP POLICY IF EXISTS "Anyone view active calendar accounts" ON public.google_calendar_accounts;
 CREATE POLICY "Anyone view active calendar accounts" ON public.google_calendar_accounts
     FOR SELECT TO authenticated
     USING (is_active = true);
 
 -- Quyền trên Template Test Logs
+DROP POLICY IF EXISTS "Admins manage template test logs" ON public.template_test_logs;
 CREATE POLICY "Admins manage template test logs" ON public.template_test_logs
     FOR ALL TO authenticated
     USING (public.is_admin_or_sub_admin(auth.uid()))
     WITH CHECK (public.is_admin_or_sub_admin(auth.uid()));
 
+DROP POLICY IF EXISTS "Users view and create their own test logs" ON public.template_test_logs;
 CREATE POLICY "Users view and create their own test logs" ON public.template_test_logs
     FOR ALL TO authenticated
     USING (tested_by = auth.uid())

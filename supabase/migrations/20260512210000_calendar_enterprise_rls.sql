@@ -7,6 +7,7 @@ alter table public.event_registrations enable row level security;
 -- ==========================================
 
 -- 1. Admins have full access to company events
+DROP POLICY IF EXISTS "Admins manage company events" ON public.company_events;
 create policy "Admins manage company events"
 on public.company_events
 for all
@@ -15,6 +16,7 @@ using (public.has_role(auth.uid(), 'admin'))
 with check (public.has_role(auth.uid(), 'admin'));
 
 -- 2. Sales can view published, closed, or completed events
+DROP POLICY IF EXISTS "Sales view active company events" ON public.company_events;
 create policy "Sales view active company events"
 on public.company_events
 for select
@@ -29,6 +31,7 @@ using (
 -- ==========================================
 
 -- 1. Admins have full access to all registrations
+DROP POLICY IF EXISTS "Admins manage all event registrations" ON public.event_registrations;
 create policy "Admins manage all event registrations"
 on public.event_registrations
 for all
@@ -37,6 +40,7 @@ using (public.has_role(auth.uid(), 'admin'))
 with check (public.has_role(auth.uid(), 'admin'));
 
 -- 2. Sales can view registrations they created or are assigned to
+DROP POLICY IF EXISTS "Sales view own event registrations" ON public.event_registrations;
 create policy "Sales view own event registrations"
 on public.event_registrations
 for select
@@ -47,6 +51,7 @@ using (
 );
 
 -- 3. Sales can create registrations (must set themselves as registered_by or assigned_sale_id)
+DROP POLICY IF EXISTS "Sales create event registrations" ON public.event_registrations;
 create policy "Sales create event registrations"
 on public.event_registrations
 for insert
@@ -60,6 +65,7 @@ with check (
 );
 
 -- 4. Sales can update registrations they created or are assigned to
+DROP POLICY IF EXISTS "Sales update own event registrations" ON public.event_registrations;
 create policy "Sales update own event registrations"
 on public.event_registrations
 for update
@@ -74,6 +80,7 @@ with check (
 );
 
 -- 5. Sales can delete registrations they created (optional, but good for cleanup)
+DROP POLICY IF EXISTS "Sales delete own registrations" ON public.event_registrations;
 create policy "Sales delete own registrations"
 on public.event_registrations
 for delete

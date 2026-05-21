@@ -24,6 +24,7 @@ UPDATE public.product_knowledge SET qa_status = 'approved' WHERE qa_status = 'dr
 -- 5. Update the match_product_chunks RPC to accept a status filter
 -- We'll join chunks to product_knowledge and filter by qa_status = 'approved'
 -- Re-create the function with the approved filter
+DROP FUNCTION IF EXISTS public.match_product_chunks(vector(1536), double precision, integer, integer[]) CASCADE;
 CREATE OR REPLACE FUNCTION match_product_chunks(
     query_embedding vector(1536),
     match_threshold float,

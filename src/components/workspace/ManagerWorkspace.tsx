@@ -91,9 +91,12 @@ export const ManagerWorkspace: React.FC = () => {
           </Link>
           <Link to="/admin/settings">
             <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg">
-              ⚙️ Cấu hình Hệ thống
+              ⚙️ Cấu hình AI
             </Button>
           </Link>
+          <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg">
+            ⚙️ Cấu hình Hệ thống
+          </Button>
           <Link to="/admin/automation">
             <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg flex items-center gap-1.5">
               <ShieldAlert className="w-3.5 h-3.5 text-indigo-600" /> Automation
@@ -107,6 +110,11 @@ export const ManagerWorkspace: React.FC = () => {
           <Link to="/admin/pilot">
             <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg flex items-center gap-1.5">
               <Settings2 className="w-3.5 h-3.5 text-indigo-600" /> Pilot Mode
+            </Button>
+          </Link>
+          <Link to="/admin/product-import">
+            <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg flex items-center gap-1.5">
+              📥 Import Tri thức
             </Button>
           </Link>
           <Link to="/admin/crm-health">

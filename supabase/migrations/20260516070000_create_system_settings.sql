@@ -21,10 +21,12 @@ CREATE TABLE IF NOT EXISTS public.system_settings (
 ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
 
 -- Policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON public.system_settings;
 CREATE POLICY "Enable read access for all users"
     ON public.system_settings FOR SELECT
     USING (true);
 
+DROP POLICY IF EXISTS "Enable update for admins and sub_admins" ON public.system_settings;
 CREATE POLICY "Enable update for admins and sub_admins"
     ON public.system_settings FOR UPDATE
     USING (
@@ -35,6 +37,7 @@ CREATE POLICY "Enable update for admins and sub_admins"
         )
     );
 
+DROP POLICY IF EXISTS "Enable insert for admins and sub_admins" ON public.system_settings;
 CREATE POLICY "Enable insert for admins and sub_admins"
     ON public.system_settings FOR INSERT
     WITH CHECK (
@@ -61,10 +64,23 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_system_settings_timestamp ON public.system_settings;
 CREATE TRIGGER update_system_settings_timestamp
     BEFORE UPDATE ON public.system_settings
     FOR EACH ROW
     EXECUTE FUNCTION update_system_settings_updated_at();
 
 -- Add system_settings to realtime publication
-ALTER PUBLICATION supabase_realtime ADD TABLE system_settings;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' 
+          AND schemaname = 'public' 
+          AND tablename = 'system_settings'
+    ) THEN
+        NULL;
+    ELSE
+        ALTER PUBLICATION supabase_realtime ADD TABLE system_settings;
+    END IF;
+END $$;

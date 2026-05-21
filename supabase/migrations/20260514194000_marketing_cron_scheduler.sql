@@ -50,7 +50,7 @@ BEGIN
             EXCEPTION WHEN OTHERS THEN
                 -- Bỏ qua lỗi ngầm nếu giao thức HTTP bị nghẽn
             END;
-        END;
+        END IF;
 
         -- Ghi nhận log ngầm hệ thống
         RAISE NOTICE 'Đã kích hoạt tự động luồng Dispatcher cho chiến dịch: %', v_campaign.name;
@@ -64,7 +64,7 @@ DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
         -- Hủy lịch trình cũ nếu tồn tại để đăng ký lại nguyên vẹn
-        PERFORM cron.unschedule('process_scheduled_marketing_campaigns');
+        PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'process_scheduled_marketing_campaigns';
         
         -- Kích hoạt bộ quét tự động mỗi 1 phút
         PERFORM cron.schedule(

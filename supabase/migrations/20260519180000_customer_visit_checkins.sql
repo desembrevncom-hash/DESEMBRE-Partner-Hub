@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS public.customer_visit_checkins (
 ALTER TABLE public.customer_visit_checkins ENABLE ROW LEVEL SECURITY;
 
 -- Tạo chính sách xem dữ liệu: Admin/Sub Admin xem toàn bộ, nhân viên xem check-in của chính mình
+DROP POLICY IF EXISTS "Users view checkins" ON public.customer_visit_checkins;
 CREATE POLICY "Users view checkins"
 ON public.customer_visit_checkins
 FOR SELECT
@@ -34,6 +35,7 @@ USING (
 );
 
 -- Tạo chính sách thêm mới: Cho phép mọi nhân viên đã đăng nhập thêm check-in
+DROP POLICY IF EXISTS "Users insert checkins" ON public.customer_visit_checkins;
 CREATE POLICY "Users insert checkins"
 ON public.customer_visit_checkins
 FOR INSERT

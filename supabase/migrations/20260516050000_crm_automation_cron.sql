@@ -116,7 +116,7 @@ $$;
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
-        PERFORM cron.unschedule('crm_maintenance_job');
+        PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'crm_maintenance_job';
         PERFORM cron.schedule(
             'crm_maintenance_job',
             '0 */6 * * *', -- Chạy vào phút 0 mỗi 6 giờ

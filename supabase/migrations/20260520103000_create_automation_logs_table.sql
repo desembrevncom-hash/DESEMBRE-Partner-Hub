@@ -47,7 +47,19 @@ TO authenticated
 WITH CHECK (true);
 
 -- Enable realtime if needed (optional)
-ALTER PUBLICATION supabase_realtime ADD TABLE public.automation_logs;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' 
+          AND schemaname = 'public' 
+          AND tablename = 'automation_logs'
+    ) THEN
+        NULL;
+    ELSE
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.automation_logs;
+    END IF;
+END $$;
 
 -- Notify schema reload
 NOTIFY pgrst, 'reload schema';

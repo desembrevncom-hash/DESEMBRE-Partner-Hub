@@ -1,0 +1,95 @@
+import { createFileRoute } from '@tanstack/react-router';
+import React, { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import ProviderConfigCard from "@/components/ai/ProviderConfigCard";
+import ModulesControlCard from "@/components/ai/ModulesControlCard";
+import BehaviorLimitsCard from "@/components/ai/BehaviorLimitsCard";
+import TestConnectionButton from "@/components/ai/TestConnectionButton";
+import { WorkspaceShell } from "@/components/workspace/WorkspaceShell"; // Assuming existing layout component
+import { toast } from "sonner";
+
+export const AiSettingsPage: React.FC = () => {
+  const [settings, setSettings] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const fetchSettings = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.rpc("get_ai_settings_masked");
+    if (error) {
+      console.error(error);
+      toast.error("Failed to load AI settings");
+    } else {
+      setSettings(data);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const handleRefresh = () => {
+    fetchSettings();
+  };
+
+  // Update local settings when child components change values
+  const handleChange = (updated: Partial<any>) => {
+    setSettings((prev: any) => ({ ...prev, ...updated }));
+    // Do NOT auto-save. Wait for the user to click Save Settings.
+  };
+
+  const handleSaveAll = async () => {
+    if (!settings) return;
+    setSaving(true);
+    const { error } = await supabase.rpc("update_ai_settings", {
+      p_provider: settings.provider,
+      p_chat_model: settings.chat_model,
+      p_embedding_model: settings.embedding_model,
+      p_module_product_tutor: settings.module_product_tutor,
+      p_module_rewrite: settings.module_rewrite,
+      p_module_customer_summary: settings.module_customer_summary,
+      p_module_sales_assistant: settings.module_sales_assistant,
+      p_max_tokens: settings.max_tokens,
+      p_temperature: settings.temperature,
+      p_system_tone: settings.system_tone,
+      p_daily_token_limit: settings.daily_token_limit,
+      p_monthly_cost_limit: settings.monthly_cost_limit,
+    });
+    if (error) {
+      console.error(error);
+      toast.error("Failed to save AI settings");
+    } else {
+      toast.success("AI settings saved successfully");
+      handleRefresh();
+    }
+    setSaving(false);
+  };
+
+  return (
+    <WorkspaceShell title="AI Settings & Provider Control Center" loading={loading}>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Cấu hình AI</h2>
+          <TestConnectionButton onSuccess={handleRefresh} />
+        </div>
+        <ProviderConfigCard settings={settings} onChange={handleChange} />
+        <ModulesControlCard settings={settings} onChange={handleChange} />
+        <BehaviorLimitsCard settings={settings} onChange={handleChange} />
+        <div className="flex justify-end space-x-2">
+          <button
+            onClick={handleSaveAll}
+            disabled={saving || loading}
+            className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {saving ? "Saving…" : "Save Settings"}
+          </button>
+        </div>
+      </div>
+    </WorkspaceShell>
+  );
+};
+
+export const Route = createFileRoute('/admin/ai-settings')({
+  component: AiSettingsPage,
+});

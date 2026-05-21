@@ -9,6 +9,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_user_roles_user_role ON public.user_roles 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_user_roles_single_admin ON public.user_roles (role) WHERE role = 'admin';
 
 -- 4. Khởi tạo hàm kiểm tra quyền truy cập gộp (Admin hoặc Sub-Admin)
+DROP FUNCTION IF EXISTS public.is_admin_or_sub_admin(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.is_admin_or_sub_admin(_user_id uuid)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
