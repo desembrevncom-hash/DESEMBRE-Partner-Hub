@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { 
   Search, Activity, BugPlay, DatabaseZap, CheckCircle2, AlertTriangle, 
-  XCircle, Code, RefreshCw, AlertOctagon, ShieldX, Star, Clock, GitFork
+  XCircle, Code, RefreshCw, AlertOctagon, ShieldX, Star, Clock, GitFork, FlaskConical, Play
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -32,11 +32,17 @@ function AIDebugAdmin() {
   const [conversations, setConversations] = useState<any[]>([]);
   const [auditStats, setAuditStats] = useState<any[]>([]);
 
+  // Phase 10: Search QA Tests
+  const [searchQaTests, setSearchQaTests] = useState<any[]>([]);
+  const [searchQaResults, setSearchQaResults] = useState<Record<string, 'pass' | 'fail' | 'running'>>({});
+  const [isRunningQa, setIsRunningQa] = useState(false);
+
   useEffect(() => {
     fetchHealthMetrics();
     fetchStaleChunks();
     fetchConversations();
     fetchAuditStats();
+    fetchSearchQaTests();
   }, []);
 
   const fetchHealthMetrics = async () => {
@@ -113,6 +119,45 @@ function AIDebugAdmin() {
     } catch (e: any) { toast.error(e.message); }
   };
 
+  // Phase 10: Search QA Tests
+  const fetchSearchQaTests = async () => {
+    try {
+      const { data } = await supabase.from('ai_search_qa_tests').select('*').eq('is_active', true).order('created_at');
+      setSearchQaTests(data || []);
+    } catch (e: any) { console.error(e); }
+  };
+
+  const runSearchQaTests = async () => {
+    if (!searchQaTests.length) return;
+    setIsRunningQa(true);
+    setSearchQaResults({});
+    const { data: session } = await supabase.auth.getSession();
+    const token = session?.session?.access_token;
+
+    for (const test of searchQaTests) {
+      setSearchQaResults(prev => ({ ...prev, [test.id]: 'running' }));
+      try {
+        const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-sales-assistant`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ mode: 'debug_rag', debugQuery: test.query })
+        });
+        const result = await res.json();
+        // Check if any retrieved chunk content contains the expected keyword
+        const chunks: any[] = result.retrieved_chunks || [];
+        const matched = chunks.some((c: any) =>
+          c.content?.toLowerCase().includes(test.expected_keyword.toLowerCase())
+        );
+        setSearchQaResults(prev => ({ ...prev, [test.id]: matched ? 'pass' : 'fail' }));
+      } catch {
+        setSearchQaResults(prev => ({ ...prev, [test.id]: 'fail' }));
+      }
+      // Small delay to avoid rate limiting
+      await new Promise(r => setTimeout(r, 300));
+    }
+    setIsRunningQa(false);
+  };
+
   if (!isAdminOrSubAdmin) {
     return <div className="p-8 text-center text-rose-500 font-bold">Bạn không có quyền truy cập trang này.</div>;
   }
@@ -143,6 +188,7 @@ function AIDebugAdmin() {
             {staleChunks.length > 0 && <span className="w-2 h-2 rounded-full bg-amber-500 ml-1"></span>}
           </TabsTrigger>
           <TabsTrigger value="audit" className="flex items-center gap-2"><AlertOctagon className="w-4 h-4"/> Conversation Audit</TabsTrigger>
+          <TabsTrigger value="search_qa" className="flex items-center gap-2"><FlaskConical className="w-4 h-4"/> Search QA Test</TabsTrigger>
         </TabsList>
 
         {/* TAB 1: SANDBOX */}
@@ -332,6 +378,62 @@ function AIDebugAdmin() {
                 ))}
                 {conversations.length === 0 && (
                   <div className="py-12 text-center text-slate-400">Chưa có AI conversation nào được ghi nhận.</div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB 5: SEARCH QA TEST */}
+        <TabsContent value="search_qa" className="space-y-4">
+          <Card className="shadow-sm">
+            <CardHeader className="border-b border-slate-100 pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <FlaskConical className="w-5 h-5 text-indigo-500"/> Search Quality Test Suite
+                  </CardTitle>
+                  <CardDescription className="mt-1">Chạy bộ test tự động để xác nhận RAG retrieve đúng thông tin theo keyword. Pass = ✅, Fail = ❌.</CardDescription>
+                </div>
+                <Button onClick={runSearchQaTests} disabled={isRunningQa} className="bg-indigo-600 hover:bg-indigo-700 gap-2">
+                  {isRunningQa ? <RefreshCw className="w-4 h-4 animate-spin"/> : <Play className="w-4 h-4"/>}
+                  {isRunningQa ? 'Đang chạy...' : 'Chạy Tất cả Tests'}
+                </Button>
+              </div>
+              {Object.keys(searchQaResults).length > 0 && (
+                <div className="mt-3 flex items-center gap-4 text-sm">
+                  <span className="font-bold text-emerald-600">✅ Pass: {Object.values(searchQaResults).filter(r => r === 'pass').length}</span>
+                  <span className="font-bold text-rose-600">❌ Fail: {Object.values(searchQaResults).filter(r => r === 'fail').length}</span>
+                  <span className="font-bold text-slate-400">⏳ Chờ: {Object.values(searchQaResults).filter(r => r === 'running').length}</span>
+                </div>
+              )}
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y divide-slate-100">
+                {searchQaTests.map((test: any) => {
+                  const result = searchQaResults[test.id];
+                  return (
+                    <div key={test.id} className={`flex items-center gap-4 px-5 py-4 transition-colors ${result === 'pass' ? 'bg-emerald-50/30' : result === 'fail' ? 'bg-rose-50/30' : ''}`}>
+                      <div className="w-7 h-7 flex items-center justify-center rounded-full shrink-0">
+                        {result === 'pass' && <CheckCircle2 className="w-5 h-5 text-emerald-500"/>}
+                        {result === 'fail' && <XCircle className="w-5 h-5 text-rose-500"/>}
+                        {result === 'running' && <RefreshCw className="w-4 h-4 text-indigo-500 animate-spin"/>}
+                        {!result && <div className="w-4 h-4 rounded-full border-2 border-slate-200"/>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-800 text-sm">"{test.query}"</p>
+                        <p className="text-xs text-slate-500 mt-0.5">{test.description} — expected keyword: <code className="bg-slate-100 px-1 rounded">{test.expected_keyword}</code></p>
+                      </div>
+                      {result && (
+                        <Badge variant={result === 'pass' ? 'default' : result === 'fail' ? 'destructive' : 'secondary'} className={result === 'pass' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : ''}>
+                          {result === 'pass' ? 'PASS ✅' : result === 'fail' ? 'FAIL ❌' : '⏳'}
+                        </Badge>
+                      )}
+                    </div>
+                  );
+                })}
+                {searchQaTests.length === 0 && (
+                  <div className="py-12 text-center text-slate-400">Không có test case nào. Vui lòng chạy migration seed data.</div>
                 )}
               </div>
             </CardContent>

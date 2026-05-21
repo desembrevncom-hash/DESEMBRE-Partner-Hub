@@ -1,16 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { RawSuggestion } from "@/lib/aiSuggestionEngine";
 import { Button } from "@/components/ui/button";
 import { 
-  Sparkles, 
-  Copy, 
-  Check, 
-  TrendingUp, 
-  AlertTriangle, 
-  MessageCircle, 
-  RefreshCw,
-  Clock
+  Sparkles, Copy, Check, TrendingUp, AlertTriangle, 
+  MessageCircle, RefreshCw, Clock, ThumbsUp, ThumbsDown
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,60 +12,36 @@ import { useAuth } from "@/hooks/useAuth";
 interface AISuggestionCardProps {
   suggestions: RawSuggestion[];
   customerId: string;
+  conversationId?: string | null; // Phase 9: link to ai_conversations for feedback
 }
 
-export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({ suggestions, customerId }) => {
+export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({ 
+  suggestions, 
+  customerId,
+  conversationId 
+}) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [rewrittenSuggestions, setRewrittenSuggestions] = useState<RawSuggestion[]>(suggestions);
   const [hasRewritten, setHasRewritten] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  // Track 'shown' event on mount
-  useEffect(() => {
-    if (!user || suggestions.length === 0) return;
-
-    const trackShown = async () => {
-      try {
-        const logs = suggestions.map(s => ({
-          suggestion_type: s.type,
-          suggestion_rule: s.rule_id,
-          suggested_products: s.suggestedProducts || [],
-          customer_id: customerId,
-          sale_user_id: user.id,
-          status: 'shown'
-        }));
-        await supabase.from("ai_suggestion_analytics").insert(logs);
-      } catch (err) {
-        console.error("Failed to track suggestion shown", err);
-      }
-    };
-    trackShown();
-  }, [suggestions, customerId, user]);
+  const [feedbackGiven, setFeedbackGiven] = useState<'thumbs_up' | 'thumbs_down' | null>(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
 
   const handleRewrite = async () => {
     if (suggestions.length === 0) return;
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("ai-sales-assistant", {
-        body: {
-          customerId,
-          mode: "rewrite_suggestions",
-          suggestions: suggestions
-        }
+        body: { customerId, mode: "rewrite_suggestions", suggestions }
       });
-
-      if (error || data?.error) {
-        throw new Error(error?.message || data?.error || "Failed to rewrite");
-      }
-
+      if (error || data?.error) throw new Error(error?.message || data?.error);
       if (data?.rewrites && Array.isArray(data.rewrites)) {
         const rewriteMap = new Map(data.rewrites.map((r: any) => [r.id, r.generatedPrompt]));
-        const updated = suggestions.map(s => ({
+        setRewrittenSuggestions(suggestions.map(s => ({
           ...s,
           generatedPrompt: rewriteMap.get(s.id) || s.generatedPrompt
-        }));
-        setRewrittenSuggestions(updated);
+        })));
         setHasRewritten(true);
         toast.success("AI đã tạo xong nội dung!");
       }
@@ -85,14 +55,11 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({ suggestions,
   const handleCopy = async (suggestion: RawSuggestion) => {
     const textToCopy = suggestion.generatedPrompt || suggestion.reason;
     if (!textToCopy) return;
-
     try {
       await navigator.clipboard.writeText(textToCopy);
       setCopiedId(suggestion.id);
       toast.success("Đã copy nội dung");
       setTimeout(() => setCopiedId(null), 2000);
-
-      // Track 'copied'
       if (user) {
         await supabase.from("ai_suggestion_analytics").insert({
           suggestion_type: suggestion.type,
@@ -103,8 +70,28 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({ suggestions,
           status: 'copied'
         });
       }
-    } catch (err) {
-      toast.error("Lỗi khi copy");
+    } catch { toast.error("Lỗi khi copy"); }
+  };
+
+  // Phase 9: Feedback Loop (RLHF mini)
+  const handleFeedback = async (type: 'thumbs_up' | 'thumbs_down') => {
+    if (!user || feedbackGiven) return;
+    setFeedbackLoading(true);
+    try {
+      await supabase.from("ai_feedback").insert({
+        conversation_id: conversationId || null,
+        user_id: user.id,
+        customer_id: customerId,
+        feedback_type: type,
+        mode: 'suggestion',
+        content_shown: rewrittenSuggestions.map(s => s.title).join(', ')
+      });
+      setFeedbackGiven(type);
+      toast.success(type === 'thumbs_up' ? '👍 Cảm ơn! Phản hồi đã ghi nhận.' : '👎 Đã ghi nhận. Sẽ cải thiện.');
+    } catch (err: any) {
+      toast.error("Không thể ghi nhận phản hồi");
+    } finally {
+      setFeedbackLoading(false);
     }
   };
 
@@ -139,7 +126,6 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({ suggestions,
 
   return (
     <div className="space-y-3 rounded-2xl bg-white border border-indigo-100 p-4 shadow-sm relative overflow-hidden">
-      {/* Decorative gradient */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />
 
       <div className="flex items-center justify-between relative z-10">
@@ -148,10 +134,7 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({ suggestions,
         </div>
         {!hasRewritten && (
           <Button 
-            size="sm" 
-            variant="ghost" 
-            onClick={handleRewrite}
-            disabled={loading}
+            size="sm" variant="ghost" onClick={handleRewrite} disabled={loading}
             className="text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 h-7"
           >
             {loading ? <RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1" />}
@@ -161,7 +144,7 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({ suggestions,
       </div>
 
       <div className="space-y-3 relative z-10">
-        {rewrittenSuggestions.map((s, idx) => (
+        {rewrittenSuggestions.map((s) => (
           <div key={s.id} className={`p-3 rounded-xl border ${getColorClass(s.type)} space-y-2`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 font-bold text-xs">
@@ -172,26 +155,18 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({ suggestions,
                 )}
               </div>
             </div>
-            
-            <div className="text-[11px] text-slate-600 font-medium">
-              {s.reason}
-            </div>
-
+            <div className="text-[11px] text-slate-600 font-medium">{s.reason}</div>
             {hasRewritten && s.generatedPrompt && (
               <div className="mt-2 p-2.5 bg-white/60 rounded-lg border border-slate-100 relative group">
-                <div className="text-[11px] text-slate-800 font-medium italic pr-8">
-                  "{s.generatedPrompt}"
-                </div>
+                <div className="text-[11px] text-slate-800 font-medium italic pr-8">"{s.generatedPrompt}"</div>
                 <button
                   onClick={() => handleCopy(s)}
                   className="absolute top-2 right-2 p-1.5 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                  title="Copy Prompt"
                 >
                   {copiedId === s.id ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               </div>
             )}
-            
             {!hasRewritten && (
               <div className="text-[10px] text-slate-500 font-medium flex items-center gap-1 pt-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
@@ -200,6 +175,37 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({ suggestions,
             )}
           </div>
         ))}
+      </div>
+
+      {/* Phase 9: Feedback Buttons */}
+      <div className="relative z-10 flex items-center justify-between pt-2 border-t border-slate-100 mt-2">
+        <span className="text-[10px] text-slate-400 font-medium">AI hữu ích không?</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleFeedback('thumbs_up')}
+            disabled={!!feedbackGiven || feedbackLoading}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+              feedbackGiven === 'thumbs_up'
+                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                : 'bg-slate-50 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 border border-slate-200 hover:border-emerald-200'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            <ThumbsUp className="w-3.5 h-3.5" />
+            Hữu ích
+          </button>
+          <button
+            onClick={() => handleFeedback('thumbs_down')}
+            disabled={!!feedbackGiven || feedbackLoading}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+              feedbackGiven === 'thumbs_down'
+                ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                : 'bg-slate-50 text-slate-500 hover:bg-rose-50 hover:text-rose-600 border border-slate-200 hover:border-rose-200'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            <ThumbsDown className="w-3.5 h-3.5" />
+            Không phù hợp
+          </button>
+        </div>
       </div>
     </div>
   );

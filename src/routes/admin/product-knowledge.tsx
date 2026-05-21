@@ -6,10 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Search, Save, BookOpen, MessageSquare, Upload, Tag } from 'lucide-react';
+import { Search, Save, BookOpen, MessageSquare, Upload, Tag, ShieldCheck, ArchiveX, FileEdit, Eye } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 
 export const Route = createFileRoute('/admin/product-knowledge')({
   component: AdminProductKnowledge
@@ -63,10 +63,7 @@ function AdminProductKnowledge() {
 
   const handleSaveStructuredData = async () => {
     if (!selectedProduct) return;
-    
-    // Convert comma separated strings to arrays
     const toArray = (str: string) => str.split(',').map(s => s.trim()).filter(Boolean);
-
     const { error } = await supabase
       .from('product_knowledge')
       .update({
@@ -79,13 +76,32 @@ function AdminProductKnowledge() {
         updated_at: new Date().toISOString(),
       })
       .eq('id', selectedProduct.id);
-
     if (error) {
       toast.error('Lỗi khi lưu dữ liệu');
-      console.error(error);
     } else {
       toast.success('Đã lưu Structured Data');
-      fetchProducts(); // refresh
+      fetchProducts();
+    }
+  };
+
+  // Phase 8: QA Status changer
+  const handleChangeStatus = async (newStatus: string) => {
+    if (!selectedProduct) return;
+    const { error } = await supabase
+      .from('product_knowledge')
+      .update({
+        qa_status: newStatus,
+        reviewed_by: (await supabase.auth.getUser()).data.user?.id,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq('id', selectedProduct.id);
+    if (error) {
+      toast.error('Lỗi khi cập nhật trạng thái');
+    } else {
+      const label = { draft: 'Nháp', review: 'Chờ duyệt', approved: 'Đã duyệt', archived: 'Lưu trữ' }[newStatus] || newStatus;
+      toast.success(`Đã chuyển trạng thái sang: ${label}`);
+      setSelectedProduct({ ...selectedProduct, qa_status: newStatus });
+      fetchProducts();
     }
   };
 
@@ -112,16 +128,32 @@ function AdminProductKnowledge() {
           </div>
         </CardHeader>
         <CardContent className="flex-1 overflow-y-auto space-y-2">
-          {products.filter(p => p.product_id.toString().includes(searchQuery)).map(p => (
-            <div 
-              key={p.id}
-              onClick={() => handleSelectProduct(p)}
-              className={`p-3 rounded-xl border cursor-pointer transition-colors ${selectedProduct?.id === p.id ? 'bg-indigo-50 border-indigo-200' : 'hover:bg-slate-50'}`}
-            >
-              <div className="font-bold text-slate-800">Sản phẩm ID: {p.product_id}</div>
-              <div className="text-xs text-slate-500 truncate mt-1">{p.benefits}</div>
-            </div>
-          ))}
+          {products.filter(p => p.product_id.toString().includes(searchQuery)).map(p => {
+            const statusColor: Record<string, string> = {
+              draft: 'bg-slate-100 text-slate-500',
+              review: 'bg-amber-100 text-amber-700',
+              approved: 'bg-emerald-100 text-emerald-700',
+              archived: 'bg-rose-100 text-rose-500'
+            };
+            const statusLabel: Record<string, string> = {
+              draft: 'Nháp', review: 'Duyệt', approved: 'OK', archived: 'Archive'
+            };
+            return (
+              <div 
+                key={p.id}
+                onClick={() => handleSelectProduct(p)}
+                className={`p-3 rounded-xl border cursor-pointer transition-colors ${selectedProduct?.id === p.id ? 'bg-indigo-50 border-indigo-200' : 'hover:bg-slate-50'}`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="font-bold text-slate-800">Sản phẩm ID: {p.product_id}</div>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${statusColor[p.qa_status] || statusColor.draft}`}>
+                    {statusLabel[p.qa_status] || p.qa_status}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-500 truncate mt-1">{p.benefits}</div>
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
 
@@ -129,10 +161,38 @@ function AdminProductKnowledge() {
       <Card className="w-2/3 flex flex-col h-full overflow-hidden">
         {selectedProduct ? (
           <div className="flex flex-col h-full">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <h2 className="text-xl font-bold text-slate-800">
-                Sản phẩm #{selectedProduct.product_id}
-              </h2>
+            <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-slate-800">Sản phẩm #{selectedProduct.product_id}</h2>
+                {/* Phase 8: QA Status Controls */}
+                <div className="flex items-center gap-2">
+                  {selectedProduct.qa_status !== 'draft' && (
+                    <Button size="sm" variant="outline" onClick={() => handleChangeStatus('draft')} className="gap-1 text-slate-600 h-7 text-xs">
+                      <FileEdit className="w-3 h-3"/> Nháp
+                    </Button>
+                  )}
+                  {selectedProduct.qa_status !== 'review' && (
+                    <Button size="sm" variant="outline" onClick={() => handleChangeStatus('review')} className="gap-1 text-amber-600 border-amber-200 h-7 text-xs hover:bg-amber-50">
+                      <Eye className="w-3 h-3"/> Gửi Duyệt
+                    </Button>
+                  )}
+                  {selectedProduct.qa_status !== 'approved' && (
+                    <Button size="sm" onClick={() => handleChangeStatus('approved')} className="gap-1 bg-emerald-600 hover:bg-emerald-700 h-7 text-xs">
+                      <ShieldCheck className="w-3 h-3"/> Duyệt (AI dùng)
+                    </Button>
+                  )}
+                  {selectedProduct.qa_status !== 'archived' && (
+                    <Button size="sm" variant="outline" onClick={() => handleChangeStatus('archived')} className="gap-1 text-rose-600 border-rose-200 h-7 text-xs hover:bg-rose-50">
+                      <ArchiveX className="w-3 h-3"/> Archive
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {selectedProduct.qa_status !== 'approved' && (
+                <div className="mt-3 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 font-medium">
+                  ⚠️ Tri thức này chưa được AI sử dụng. Chỉ status <strong>Approved</strong> mới được đưa vào Retrieval.
+                </div>
+              )}
             </div>
             
             <div className="flex-1 overflow-y-auto p-6">
