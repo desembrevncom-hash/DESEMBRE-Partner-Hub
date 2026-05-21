@@ -246,22 +246,24 @@ Deno.serve(async (req) => {
     const orders = ordersResult.data || [];
     const tasks = tasksResult.data || [];
 
-    // --- PHASE 6.6 Step 3: RAG Semantic Search ---
-    // Instead of loading all product_knowledge, we search for relevant chunks
+    // --- PHASE 7.1: RAG Semantic Search WITH VERSION CHECK ---
     let productChunks: any[] = [];
+    let activeKnowledgeVersion: number | null = null;
     try {
       const searchContext = `Da khách hàng: ${customerData.skin_concern_focus || "không rõ"}. Ghi chú: ${customerData.notes || ""}. Các vấn đề quan tâm: mụn, nám, lão hóa, nhạy cảm.`;
       const queryEmbedding = await generateEmbedding(searchContext);
-      
       const { data: chunksData } = await adminClient.rpc("match_product_chunks", {
         query_embedding: queryEmbedding,
-        match_threshold: 0.3, // Lower threshold to get more context
+        match_threshold: 0.3,
         match_count: 5
       });
       productChunks = chunksData || [];
+      // Capture the max knowledge_version seen in these chunks for audit
+      if (productChunks.length > 0) {
+        activeKnowledgeVersion = Math.max(...productChunks.map((c: any) => c.knowledge_version || 1));
+      }
     } catch (e) {
       console.error("RAG Search Error:", e);
-      // Fallback to empty chunks if embedding fails
     }
 
     // --- PHASE 6.2B: REWRITE SUGGESTIONS ---
@@ -405,12 +407,14 @@ Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
     try {
       aiResponse = await callAI(userPrompt, systemPrompt);
     } catch (aiError: any) {
-      // Log failed attempt
-      await adminClient.from("ai_assistant_logs").insert({
+      // Log failed attempt to ai_conversations
+      await adminClient.from("ai_conversations").insert({
         user_id: user.id,
         customer_id: customerId,
-        task_id: taskId || null,
         mode: "summary",
+        prompt: userPrompt,
+        retrieved_chunks: productChunks.map(c => ({ chunk_id: c.id, score: c.similarity })),
+        knowledge_version: activeKnowledgeVersion,
         status: "error",
         error_message: aiError.message || "Unknown AI error",
       });
@@ -431,21 +435,26 @@ Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
       };
     }
 
-    // 8. Log success
-    await adminClient.from("ai_assistant_logs").insert({
+    // 8. Log to ai_conversations (full audit trail)
+    const { data: convRow } = await adminClient.from("ai_conversations").insert({
       user_id: user.id,
       customer_id: customerId,
-      task_id: taskId || null,
       mode: "summary",
-      status: "success",
+      prompt: userPrompt,
+      response: aiResponse.content,
+      retrieved_chunks: productChunks.map(c => ({ chunk_id: c.id, product_id: c.product_id, chunk_type: c.chunk_type, score: c.similarity })),
+      knowledge_version: activeKnowledgeVersion,
       prompt_tokens: aiResponse.prompt_tokens,
       completion_tokens: aiResponse.completion_tokens,
       total_tokens: aiResponse.total_tokens,
-      retrieved_chunks: productChunks.map(c => ({ chunk_id: c.id, score: c.similarity }))
-    });
+      status: "success",
+    }).select('id').single();
 
-    // 9. Return structured response
+    const conversationId = convRow?.id || null;
+
+    // 9. Return structured response (include conversationId for feedback)
     return json({
+      conversation_id: conversationId,
       summary: parsed.summary || "",
       current_status: parsed.current_status || "",
       key_insights: Array.isArray(parsed.key_insights) ? parsed.key_insights : [],

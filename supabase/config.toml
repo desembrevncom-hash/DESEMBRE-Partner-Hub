@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.embed-product-knowledge]
 verify_jwt = false
+
+[functions.ai-conversation-feedback]
+verify_jwt = false
