@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.ai-sales-assistant]
 verify_jwt = false
+
+[functions.embed-product-knowledge]
+verify_jwt = false
