@@ -110,29 +110,136 @@ async function callAI(prompt: string, systemPrompt: string): Promise<AIResponse>
 }
 
 // ---------- RAG Helpers ----------
-async function generateEmbedding(text: string): Promise<number[]> {
+async function generateEmbedding(text: string, adminClient: any): Promise<number[]> {
+  // --- PHASE 7.5: Cache Layer for Embeddings (TTL: forever) ---
+  const cacheKey = `emb:${await hashText(text)}`;
+  const { data: cached } = await adminClient
+    .from("ai_cache")
+    .select("payload")
+    .eq("cache_key", cacheKey)
+    .single();
+  if (cached?.payload?.embedding) {
+    // Increment hit count async (fire & forget)
+    adminClient.from("ai_cache").update({ hit_count: cached.payload.hit_count + 1 }).eq("cache_key", cacheKey);
+    return cached.payload.embedding;
+  }
+
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) throw new Error("Missing OPENAI_API_KEY for embeddings.");
   const res = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      input: text,
-      model: "text-embedding-3-small"
-    }),
+    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ input: text, model: "text-embedding-3-small" }),
   });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Embedding failed: ${err}`);
-  }
+  if (!res.ok) throw new Error(`Embedding failed: ${await res.text()}`);
   const data = await res.json();
-  return data.data[0].embedding;
+  const embedding = data.data[0].embedding;
+
+  // Store in cache (no expiry for embeddings)
+  await adminClient.from("ai_cache").upsert({
+    cache_key: cacheKey,
+    cache_type: "embedding",
+    payload: { embedding, hit_count: 0 },
+    expires_at: null
+  }, { onConflict: "cache_key" });
+
+  return embedding;
+}
+
+// Simple hash helper using Web Crypto API (available in Deno)
+async function hashText(text: string): Promise<string> {
+  const encoded = new TextEncoder().encode(text);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", encoded);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// ---------- Phase 7.3: Hallucination Detector ----------
+interface HallucinationResult {
+  blocked: boolean;
+  detectedPhrases: string[];
+  safeResponse?: string;
+}
+
+async function validateAIOutput(
+  responseText: string,
+  adminClient: any
+): Promise<HallucinationResult> {
+  // Load banned phrases from DB (or use hardcoded fallback if DB fails)
+  const DEFAULT_BANNED = [
+    "trị dứt điểm", "chữa khỏi", "chữa hoàn toàn", "cam kết hiệu quả",
+    "đảm bảo 100%", "hiệu quả 100%", "tuyệt đối an toàn", "không tác dụng phụ",
+    "điều trị y khoa", "kê đơn", "thuốc đặc trị", "trị nám dứt điểm",
+    "xóa sẹo hoàn toàn", "thần kỳ"
+  ];
+
+  let bannedPhrases = DEFAULT_BANNED;
+  try {
+    const { data } = await adminClient
+      .from("ai_banned_phrases")
+      .select("phrase")
+      .eq("is_active", true);
+    if (data && data.length > 0) {
+      bannedPhrases = data.map((r: any) => r.phrase);
+    }
+  } catch (_) { /* fallback to default */ }
+
+  const lowerResponse = responseText.toLowerCase();
+  const detected = bannedPhrases.filter(phrase => lowerResponse.includes(phrase.toLowerCase()));
+
+  if (detected.length > 0) {
+    return {
+      blocked: true,
+      detectedPhrases: detected,
+      safeResponse: "⚠️ Phản hồi này đã bị chặn vì chứa nội dung không phù hợp (cam kết y khoa). Vui lòng tư vấn dựa trên dữ liệu trong Cẩm nang sản phẩm."
+    };
+  }
+
+  return { blocked: false, detectedPhrases: [] };
+}
+
+// ---------- Phase 7.6: Cost Logger ----------
+async function logUsage(adminClient: any, params: {
+  userId: string;
+  customerId?: string;
+  mode: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  cacheHit?: boolean;
+  latencyMs?: number;
+}) {
+  // Estimate cost for gpt-4o-mini: $0.15/1M input, $0.6/1M output
+  const inputCost = (params.promptTokens / 1_000_000) * 0.15;
+  const outputCost = (params.completionTokens / 1_000_000) * 0.6;
+  const totalCost = inputCost + outputCost;
+
+  const provider = (Deno.env.get("AI_PROVIDER") || "openai").toLowerCase();
+  const model = provider === "openai"
+    ? (Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini")
+    : (Deno.env.get("GEMINI_MODEL") || "gemini-2.0-flash");
+
+  try {
+    await adminClient.from("ai_usage_logs").insert({
+      user_id: params.userId,
+      customer_id: params.customerId || null,
+      mode: params.mode,
+      provider,
+      model,
+      prompt_tokens: params.promptTokens,
+      completion_tokens: params.completionTokens,
+      total_tokens: params.totalTokens,
+      estimated_cost_usd: totalCost,
+      cache_hit: params.cacheHit || false,
+      latency_ms: params.latencyMs || null,
+    });
+  } catch (e) {
+    console.error("Usage log error:", e);
+  }
 }
 
 // ---------- Main Handler ----------
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -249,16 +356,16 @@ Deno.serve(async (req) => {
     // --- PHASE 7.1: RAG Semantic Search WITH VERSION CHECK ---
     let productChunks: any[] = [];
     let activeKnowledgeVersion: number | null = null;
+    const startTime = Date.now();
     try {
       const searchContext = `Da khách hàng: ${customerData.skin_concern_focus || "không rõ"}. Ghi chú: ${customerData.notes || ""}. Các vấn đề quan tâm: mụn, nám, lão hóa, nhạy cảm.`;
-      const queryEmbedding = await generateEmbedding(searchContext);
+      const queryEmbedding = await generateEmbedding(searchContext, adminClient);
       const { data: chunksData } = await adminClient.rpc("match_product_chunks", {
         query_embedding: queryEmbedding,
         match_threshold: 0.3,
         match_count: 5
       });
       productChunks = chunksData || [];
-      // Capture the max knowledge_version seen in these chunks for audit
       if (productChunks.length > 0) {
         activeKnowledgeVersion = Math.max(...productChunks.map((c: any) => c.knowledge_version || 1));
       }
@@ -402,12 +509,11 @@ ${productChunks.length > 0
 
 Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
 
-    // 6. Call AI
+    // 6. Call AI (with latency tracking)
     let aiResponse: AIResponse;
     try {
       aiResponse = await callAI(userPrompt, systemPrompt);
     } catch (aiError: any) {
-      // Log failed attempt to ai_conversations
       await adminClient.from("ai_conversations").insert({
         user_id: user.id,
         customer_id: customerId,
@@ -420,6 +526,8 @@ Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
       });
       return json({ error: aiError.message || "Lỗi khi gọi AI provider." }, 500);
     }
+
+    const latencyMs = Date.now() - startTime;
 
     // 7. Parse AI response
     let parsed: any;
@@ -435,6 +543,12 @@ Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
       };
     }
 
+    // --- PHASE 7.3: Hallucination Detector ---
+    const hallucinationCheck = await validateAIOutput(aiResponse.content, adminClient);
+    const finalSummary = hallucinationCheck.blocked
+      ? hallucinationCheck.safeResponse!
+      : (parsed.summary || "");
+
     // 8. Log to ai_conversations (full audit trail)
     const { data: convRow } = await adminClient.from("ai_conversations").insert({
       user_id: user.id,
@@ -448,18 +562,34 @@ Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
       completion_tokens: aiResponse.completion_tokens,
       total_tokens: aiResponse.total_tokens,
       status: "success",
+      hallucination_flag: hallucinationCheck.blocked,
+      hallucination_note: hallucinationCheck.blocked
+        ? `Auto-detected: ${hallucinationCheck.detectedPhrases.join(", ")}`
+        : null,
     }).select('id').single();
 
     const conversationId = convRow?.id || null;
 
-    // 9. Return structured response (include conversationId for feedback)
+    // --- PHASE 7.4: Log token cost ---
+    await logUsage(adminClient, {
+      userId: user.id,
+      customerId,
+      mode: "summary",
+      promptTokens: aiResponse.prompt_tokens,
+      completionTokens: aiResponse.completion_tokens,
+      totalTokens: aiResponse.total_tokens,
+      latencyMs,
+    });
+
+    // 9. Return structured response
     return json({
       conversation_id: conversationId,
-      summary: parsed.summary || "",
-      current_status: parsed.current_status || "",
-      key_insights: Array.isArray(parsed.key_insights) ? parsed.key_insights : [],
-      risks: Array.isArray(parsed.risks) ? parsed.risks : [],
-      suggested_next_actions: Array.isArray(parsed.suggested_next_actions) ? parsed.suggested_next_actions : [],
+      summary: finalSummary,
+      hallucination_blocked: hallucinationCheck.blocked,
+      current_status: hallucinationCheck.blocked ? "Blocked" : (parsed.current_status || ""),
+      key_insights: hallucinationCheck.blocked ? [] : (Array.isArray(parsed.key_insights) ? parsed.key_insights : []),
+      risks: hallucinationCheck.blocked ? [] : (Array.isArray(parsed.risks) ? parsed.risks : []),
+      suggested_next_actions: hallucinationCheck.blocked ? [] : (Array.isArray(parsed.suggested_next_actions) ? parsed.suggested_next_actions : []),
     });
 
   } catch (error) {
