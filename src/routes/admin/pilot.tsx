@@ -24,9 +24,26 @@ function PilotModePage() {
     async function load() {
       if (!isAdmin && !isSubAdmin) return;
       try {
-        const { data, error } = await supabase.from("profiles").select("id, display_name, email, role");
-        if (error) throw error;
-        setUsersList(data || []);
+        const [profilesRes, rolesRes] = await Promise.all([
+          supabase.from("profiles").select("id, display_name, email"),
+          supabase.from("user_roles").select("user_id, role"),
+        ]);
+        if (profilesRes.error) throw profilesRes.error;
+        // Build a map of user_id -> primary role for display
+        const rolesMap = new Map<string, string>();
+        (rolesRes.data || []).forEach((r: any) => {
+          // Prioritize: admin > sub_admin > tele_lead > sale > telesale
+          const priority: Record<string, number> = { admin: 5, sub_admin: 4, tele_lead: 3, sale: 2, telesale: 1 };
+          const existing = rolesMap.get(r.user_id);
+          if (!existing || (priority[r.role] || 0) > (priority[existing] || 0)) {
+            rolesMap.set(r.user_id, r.role);
+          }
+        });
+        const enriched = (profilesRes.data || []).map((p: any) => ({
+          ...p,
+          role: rolesMap.get(p.id) || "staff",
+        }));
+        setUsersList(enriched);
         setSettings(getPilotSettings());
       } catch (e: any) {
         toast.error("Lỗi tải danh sách user: " + e.message);
