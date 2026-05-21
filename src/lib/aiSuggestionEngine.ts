@@ -14,6 +14,8 @@ export interface RawSuggestion {
   suggestedProducts?: number[]; // Array of product_ids
   suggestedAction?: string;
   generatedPrompt?: string; // Filled by AI Rewrite later
+  score?: number; // Phase 6.4 - Computed score for ranking
+  purchase_probability?: number; // Base probability (0-100) assigned by rule
 }
 
 // Rules
@@ -32,6 +34,7 @@ function evaluateNoReorder(orders: any[]): RawSuggestion | null {
       reason: "Khách hàng có đơn hàng cuối cùng cách đây hơn 30 ngày. Cần hỏi thăm tình trạng sử dụng sản phẩm.",
       rule_id: "no_reorder_30d",
       suggestedAction: "Gọi điện hỏi thăm, xin feedback",
+      purchase_probability: 60,
     };
   }
   return null;
@@ -47,6 +50,7 @@ function evaluateInactiveCustomer(activities: any[]): RawSuggestion | null {
       reason: "Chưa có bất kỳ hoạt động tương tác nào được ghi nhận với khách hàng này.",
       rule_id: "no_activity",
       suggestedAction: "Lên lịch gọi tư vấn và tìm hiểu nhu cầu",
+      purchase_probability: 40,
     };
   }
 
@@ -62,6 +66,7 @@ function evaluateInactiveCustomer(activities: any[]): RawSuggestion | null {
       reason: "Đã hơn 60 ngày không có tương tác nào được ghi nhận.",
       rule_id: "inactive_customer_60d",
       suggestedAction: "Gửi chương trình khuyến mãi re-engagement hoặc nhắn tin hỏi thăm",
+      purchase_probability: 20,
     };
   }
   return null;
@@ -80,6 +85,7 @@ function evaluateHighValueCustomer(orders: any[]): RawSuggestion | null {
       reason: "Khách hàng đã chi tiêu mức VIP. Có khả năng cao chốt được các combo/sản phẩm cao cấp mới.",
       rule_id: "high_value_customer",
       suggestedAction: "Giới thiệu bộ sản phẩm cao cấp mới ra mắt",
+      purchase_probability: 75,
     };
   }
   return null;
@@ -101,6 +107,7 @@ function evaluateProductPairing(orders: any[], items: any[]): RawSuggestion | nu
       rule_id: "bought_x_not_y",
       suggestedProducts: [2],
       suggestedAction: "Tư vấn thêm Nước tẩy trang để tối ưu chu trình làm sạch",
+      purchase_probability: 85,
     };
   }
   return null;
@@ -125,6 +132,7 @@ function evaluatePendingQuote(tasks: any[]): RawSuggestion | null {
         reason: "Đã gửi báo giá cách đây vài ngày nhưng chưa chốt.",
         rule_id: "no_activity_after_quote",
         suggestedAction: "Hỏi khách đã xem qua báo giá chưa và có thắc mắc gì không",
+        purchase_probability: 50,
       };
     }
   }
@@ -159,30 +167,33 @@ export function generateSuggestions(params: {
     if (result) allSuggestions.push(result);
   }
 
+  // --- PHASE 6.4: SCORING ENGINE ---
+  
+  // 1. Calculate normalized LTV score (0-100)
+  // Assume 50,000,000 VND is the top benchmark for 100 score
+  const totalSpend = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const ltv_score = Math.min((totalSpend / 50000000) * 100, 100);
+
+  // 2. Calculate normalized Days Inactive score (0-100)
+  // 0 days = 0 score, 90+ days = 100 score (high risk/need to act)
+  let days_inactive = 0;
+  if (activities && activities.length > 0) {
+    days_inactive = (new Date().getTime() - new Date(activities[0].created_at).getTime()) / (1000 * 3600 * 24);
+  } else {
+    days_inactive = 90; // Max inactive if no activities
+  }
+  const inactive_score = Math.min((days_inactive / 90) * 100, 100);
+
+  // 3. Apply formula to all suggestions
+  allSuggestions.forEach(suggestion => {
+    const prob = suggestion.purchase_probability || 50;
+    // Formula: score = (customer_ltv * 0.3) + (days_inactive * 0.4) + (purchase_probability * 0.3)
+    suggestion.score = Math.round((ltv_score * 0.3) + (inactive_score * 0.4) + (prob * 0.3));
+  });
+
+  // 4. Sort by score descending
+  allSuggestions.sort((a, b) => (b.score || 0) - (a.score || 0));
+
   // Pick TOP 3
-  const top3: RawSuggestion[] = [];
-
-  // 1. Pick 1 High Priority / Risk
-  const riskIndex = allSuggestions.findIndex(s => s.type === "risk" || (s.priority === "high" && s.type !== "upsell"));
-  if (riskIndex !== -1) {
-    top3.push(allSuggestions[riskIndex]);
-    allSuggestions.splice(riskIndex, 1);
-  }
-
-  // 2. Pick 1 Upsell
-  const upsellIndex = allSuggestions.findIndex(s => s.type === "upsell");
-  if (upsellIndex !== -1) {
-    top3.push(allSuggestions[upsellIndex]);
-    allSuggestions.splice(upsellIndex, 1);
-  }
-
-  // 3. Pick 1 Remaining High/Medium
-  if (allSuggestions.length > 0 && top3.length < 3) {
-    // Sort by priority (high > medium > low)
-    const priorityWeight: Record<AISuggestionPriority, number> = { high: 3, medium: 2, low: 1 };
-    allSuggestions.sort((a, b) => priorityWeight[b.priority] - priorityWeight[a.priority]);
-    top3.push(allSuggestions[0]);
-  }
-
-  return top3;
+  return allSuggestions.slice(0, 3);
 }
