@@ -5,6 +5,7 @@
 -- ============================================================
 -- 1. Replace get_ai_settings_masked (remove Deno.env.get which is invalid SQL)
 -- ============================================================
+DROP FUNCTION IF EXISTS public.get_ai_settings_masked();
 CREATE OR REPLACE FUNCTION public.get_ai_settings_masked()
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -45,6 +46,7 @@ $$;
 -- ============================================================
 -- 2. Replace update_ai_settings: use public.is_admin_or_sub_admin()
 -- ============================================================
+DROP FUNCTION IF EXISTS public.update_ai_settings(TEXT, TEXT, TEXT, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, INTEGER, NUMERIC, TEXT, INTEGER, NUMERIC);
 CREATE OR REPLACE FUNCTION public.update_ai_settings(
     p_provider TEXT DEFAULT NULL,
     p_chat_model TEXT DEFAULT NULL,
