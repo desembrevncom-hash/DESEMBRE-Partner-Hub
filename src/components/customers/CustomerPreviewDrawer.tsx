@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { CustomerUpsellIntel } from "./CustomerUpsellIntel";
 import { CustomerKnowledgeUpsell } from "./CustomerKnowledgeUpsell";
 import { ProductKnowledgeBook } from "./ProductKnowledgeBook";
+import { CustomerAISummary } from "./CustomerAISummary";
 import {
   Sheet,
   SheetContent,
@@ -1722,6 +1723,14 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 <Sparkles className="w-4 h-4" /> Cẩm nang sản phẩm
               </div>
               <ProductKnowledgeBook />
+            </section>
+
+            {/* AI CUSTOMER SUMMARY */}
+            <section className="space-y-4 pt-4 border-t border-slate-100">
+              <CustomerAISummary 
+                customerId={customer.id}
+                customerName={customer.name}
+              />
             </section>
 
             {/* RECENT ORDERS */}
