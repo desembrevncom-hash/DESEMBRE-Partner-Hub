@@ -147,8 +147,8 @@ Deno.serve(async (req) => {
     if (!customerId) {
       return json({ error: "customerId is required" }, 400);
     }
-    if (mode !== "summary") {
-      return json({ error: "Only mode='summary' is supported" }, 400);
+    if (mode !== "summary" && mode !== "rewrite_suggestions") {
+      return json({ error: "Only mode='summary' and mode='rewrite_suggestions' are supported" }, 400);
     }
 
     // 3. Check user permission to view this customer
@@ -194,7 +194,68 @@ Deno.serve(async (req) => {
     const tasks = tasksResult.data || [];
     const productKnowledge = productKnowledgeResult.data || [];
 
-    // 5. Build prompt
+    // --- PHASE 6.2B: REWRITE SUGGESTIONS ---
+    if (mode === "rewrite_suggestions") {
+      const { suggestions } = body;
+      if (!Array.isArray(suggestions) || suggestions.length === 0) {
+        return json({ error: "suggestions array is required for rewrite_suggestions mode" }, 400);
+      }
+
+      const rewriteSystemPrompt = `Bạn là trợ lý sale mỹ phẩm chuyên nghiệp.
+Chỉ được sử dụng dữ liệu được cung cấp.
+Không được bịa sản phẩm.
+Không được thêm công dụng ngoài catalog.
+
+Viết lại các suggestion dưới dạng một đoạn tin nhắn gửi cho Sale để họ tham khảo nói chuyện với khách. Yêu cầu:
+- Rất ngắn gọn (1-2 câu).
+- Lịch sự, tinh tế.
+- Tập trung vào việc tạo ra lý do chính đáng để liên hệ khách hàng (Ví dụ: "Hỏi thăm da sau 1 tháng sử dụng", "Giới thiệu Toner kết hợp Sữa rửa mặt để làm sạch sâu hơn").
+
+Trả về dữ liệu dạng JSON:
+{
+  "rewrites": [
+    { "id": "id_của_suggestion", "generatedPrompt": "Nội dung đã viết lại..." }
+  ]
+}`;
+
+      const rewriteUserPrompt = `=== THÔNG TIN KHÁCH HÀNG ===
+Tên: ${customerData.name || "Khách hàng"}
+Hạng: ${customerData.tier || "N/A"}
+
+=== CÁC GỢI Ý CẦN REWRITE ===
+${suggestions.map(s => `ID: ${s.id}\nTiêu đề: ${s.title}\nLý do: ${s.reason}\nHành động đề xuất: ${s.suggestedAction}`).join("\n\n")}
+
+Hãy viết lại các suggestion trên theo format JSON được yêu cầu.`;
+
+      try {
+        const rewriteResponse = await callAI(rewriteUserPrompt, rewriteSystemPrompt);
+        let parsedRewrite: any;
+        try {
+          parsedRewrite = JSON.parse(rewriteResponse.content);
+        } catch {
+          parsedRewrite = { rewrites: [] };
+        }
+
+        // Log AI usage
+        await adminClient.from("ai_assistant_logs").insert({
+          user_id: user.id,
+          customer_id: customerId,
+          task_id: taskId || null,
+          mode: "rewrite_suggestions",
+          status: "success",
+          prompt_tokens: rewriteResponse.prompt_tokens,
+          completion_tokens: rewriteResponse.completion_tokens,
+          total_tokens: rewriteResponse.total_tokens,
+        });
+
+        return json({ rewrites: parsedRewrite.rewrites || [] });
+      } catch (err: any) {
+        return json({ error: err.message || "Lỗi AI rewrite" }, 500);
+      }
+    }
+    // ---------------------------------------
+
+    // 5. Build prompt for SUMMARY mode
     const systemPrompt = `Bạn là AI trợ lý bán hàng cho hệ thống CRM Desembre Partner Hub.
 
 NGUYÊN TẮC BẮT BUỘC (GUARDRAILS):

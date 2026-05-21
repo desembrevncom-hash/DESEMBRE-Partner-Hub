@@ -4,6 +4,8 @@ import { CustomerUpsellIntel } from "./CustomerUpsellIntel";
 import { CustomerKnowledgeUpsell } from "./CustomerKnowledgeUpsell";
 import { ProductKnowledgeBook } from "./ProductKnowledgeBook";
 import { CustomerAISummary } from "./CustomerAISummary";
+import { AISuggestionCard } from "../ai/AISuggestionCard";
+import { generateSuggestions } from "@/lib/aiSuggestionEngine";
 import {
   Sheet,
   SheetContent,
@@ -223,10 +225,25 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       setCheckinNote("");
       setShowCheckinDialog(false);
       fetchCustomerDetails();
+    if (open && customerProp?.id) {
+      fetchOrderItems();
+    }
     } else {
       setActiveCustomer(null);
     }
-  }, [open, customerProp?.id, initialQuickAction]);
+  }, [open, customerProp?.id, initialQuickAction, orders]);
+
+  // Generate AI Suggestions using Rule Engine
+  const actionSuggestions = useMemo(() => {
+    if (!customerProp?.id) return [];
+    return generateSuggestions({
+      customer: activeCustomer || customerProp,
+      orders,
+      items: orderItems,
+      activities,
+      tasks
+    });
+  }, [customerProp?.id, activeCustomer, orders, orderItems, activities, tasks]);
 
   const fetchCustomerDetails = async () => {
     if (!customerProp?.id) return;
@@ -1638,6 +1655,13 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 items={orderItems}
               />
             </section>
+
+            {/* ACTION SUGGESTIONS (Phase 6.2) */}
+            {actionSuggestions.length > 0 && (
+              <section className="space-y-4">
+                <AISuggestionCard suggestions={actionSuggestions} customerId={customer.id} />
+              </section>
+            )}
 
             {/* TIMELINE ACTIVITIES */}
             <section className="space-y-4">
