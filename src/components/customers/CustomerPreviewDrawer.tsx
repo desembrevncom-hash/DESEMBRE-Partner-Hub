@@ -226,9 +226,6 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       setCheckinNote("");
       setShowCheckinDialog(false);
       fetchCustomerDetails();
-    if (open && customerProp?.id) {
-      fetchOrderItems();
-    }
     } else {
       setActiveCustomer(null);
     }
