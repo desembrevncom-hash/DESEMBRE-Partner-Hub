@@ -109,6 +109,29 @@ async function callAI(prompt: string, systemPrompt: string): Promise<AIResponse>
   throw new Error("Chưa cấu hình AI provider. Vui lòng set secret AI_PROVIDER = 'openai' hoặc 'gemini'.");
 }
 
+// ---------- RAG Helpers ----------
+async function generateEmbedding(text: string): Promise<number[]> {
+  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!apiKey) throw new Error("Missing OPENAI_API_KEY for embeddings.");
+  const res = await fetch("https://api.openai.com/v1/embeddings", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      input: text,
+      model: "text-embedding-3-small"
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Embedding failed: ${err}`);
+  }
+  const data = await res.json();
+  return data.data[0].embedding;
+}
+
 // ---------- Main Handler ----------
 
 Deno.serve(async (req) => {
@@ -163,7 +186,7 @@ Deno.serve(async (req) => {
     }
 
     // 4. Load related data using adminClient for completeness
-    const [activitiesResult, ordersResult, tasksResult, productKnowledgeResult] = await Promise.all([
+    const [activitiesResult, ordersResult, tasksResult] = await Promise.all([
       adminClient
         .from("customer_activities")
         .select("*")
@@ -181,18 +204,30 @@ Deno.serve(async (req) => {
         .select("*")
         .eq("customer_id", customerId)
         .order("created_at", { ascending: false })
-        .limit(5),
-      adminClient
-        .from("product_knowledge")
-        .select("*")
-        .eq("is_active", true)
-        .limit(20),
+        .limit(5)
     ]);
 
     const activities = activitiesResult.data || [];
     const orders = ordersResult.data || [];
     const tasks = tasksResult.data || [];
-    const productKnowledge = productKnowledgeResult.data || [];
+
+    // --- PHASE 6.6 Step 3: RAG Semantic Search ---
+    // Instead of loading all product_knowledge, we search for relevant chunks
+    let productChunks: any[] = [];
+    try {
+      const searchContext = `Da khách hàng: ${customerData.skin_concern_focus || "không rõ"}. Ghi chú: ${customerData.notes || ""}. Các vấn đề quan tâm: mụn, nám, lão hóa, nhạy cảm.`;
+      const queryEmbedding = await generateEmbedding(searchContext);
+      
+      const { data: chunksData } = await adminClient.rpc("match_product_chunks", {
+        query_embedding: queryEmbedding,
+        match_threshold: 0.3, // Lower threshold to get more context
+        match_count: 5
+      });
+      productChunks = chunksData || [];
+    } catch (e) {
+      console.error("RAG Search Error:", e);
+      // Fallback to empty chunks if embedding fails
+    }
 
     // --- PHASE 6.2B: REWRITE SUGGESTIONS ---
     if (mode === "rewrite_suggestions") {
@@ -210,6 +245,11 @@ Viết lại các suggestion dưới dạng một đoạn tin nhắn gửi cho S
 - Rất ngắn gọn (1-2 câu).
 - Lịch sự, tinh tế.
 - Tập trung vào việc tạo ra lý do chính đáng để liên hệ khách hàng (Ví dụ: "Hỏi thăm da sau 1 tháng sử dụng", "Giới thiệu Toner kết hợp Sữa rửa mặt để làm sạch sâu hơn").
+
+[AI SAFETY LAYER]:
+- Tuyệt đối không bịa thông tin sản phẩm. Nếu thông tin không có trong <KNOWLEDGE_CHUNKS>, hãy nói 'Tôi không có thông tin này'.
+- Không được kê đơn thuốc điều trị (treatment) y khoa.
+- Không claim y khoa (chữa bách bệnh, trị dứt điểm 100%).
 
 Trả về dữ liệu dạng JSON:
 {
@@ -264,7 +304,12 @@ NGUYÊN TẮC BẮT BUỘC (GUARDRAILS):
 - KHÔNG ĐƯỢC đề xuất hành động ngoài phạm vi quyền của nhân viên bán hàng (ví dụ: không đề xuất xoá khách, sửa giá, truy cập admin).
 - KHÔNG ĐƯỢC đề cập đến AI hoặc "tôi là AI" trong kết quả trả về.
 - Trả lời bằng tiếng Việt, chuyên nghiệp, ngắn gọn.
-- Sử dụng dữ liệu product_knowledge nếu có để nhận diện sản phẩm khách đã mua.
+
+[AI SAFETY LAYER]:
+- Tuyệt đối không bịa thông tin sản phẩm. Chỉ sử dụng kiến thức từ mục <KNOWLEDGE_CHUNKS> bên dưới.
+- Nếu không có thông tin trong <KNOWLEDGE_CHUNKS>, KHÔNG ĐƯỢC tự suy diễn hay bịa ra.
+- Không được kê đơn thuốc điều trị y khoa.
+- Không claim y khoa (chữa bách bệnh, trị dứt điểm 100%).
 
 Trả về kết quả dạng JSON với cấu trúc:
 {
@@ -309,12 +354,14 @@ ${tasks.length > 0
     ).join("\n")
   : "Chưa có task."}
 
-=== CƠ SỞ TRI THỨC SẢN PHẨM (${productKnowledge.length} sản phẩm) ===
-${productKnowledge.length > 0
-  ? productKnowledge.map((pk: any, i: number) =>
-      `${i + 1}. Product ID ${pk.product_id}: ${pk.benefits?.slice(0, 100) || "N/A"}... | Skin concerns: ${(pk.skin_concerns || []).join(", ")} | Restock: ${pk.restock_cycle_days || 60} ngày`
+
+<KNOWLEDGE_CHUNKS> (${productChunks.length} chunks tìm thấy bằng Semantic Search)
+${productChunks.length > 0
+  ? productChunks.map((chunk: any, i: number) =>
+      `[Chunk ${i + 1}] Product ID ${chunk.product_id} (${chunk.chunk_type}): ${chunk.content}`
     ).join("\n")
-  : "Chưa có tri thức sản phẩm."}
+  : "Không tìm thấy dữ liệu sản phẩm liên quan trong Database."}
+</KNOWLEDGE_CHUNKS>
 
 Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
 
