@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { isFeatureEnabledForUser } from "@/lib/pilotMode";
 
 interface AISuggestionCardProps {
   suggestions: RawSuggestion[];
@@ -132,7 +133,7 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
         <div className="flex items-center gap-2 text-indigo-700 font-black text-sm uppercase tracking-widest">
           <Sparkles className="w-4 h-4 text-indigo-500" /> Action Suggestion
         </div>
-        {!hasRewritten && (
+        {!hasRewritten && isFeatureEnabledForUser('ai_rewrite', user?.id) && (
           <Button 
             size="sm" variant="ghost" onClick={handleRewrite} disabled={loading}
             className="text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 h-7"

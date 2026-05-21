@@ -15,7 +15,9 @@ import {
   Plus,
   AlertTriangle,
   MapPin,
-  ShieldAlert
+  ShieldAlert,
+  Settings2,
+  ActivitySquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
@@ -95,6 +97,21 @@ export const ManagerWorkspace: React.FC = () => {
           <Link to="/admin/automation">
             <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg flex items-center gap-1.5">
               <ShieldAlert className="w-3.5 h-3.5 text-indigo-600" /> Automation
+            </Button>
+          </Link>
+          <Link to="/admin/uat">
+            <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg">
+              ✅ UAT Checklist
+            </Button>
+          </Link>
+          <Link to="/admin/pilot">
+            <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg flex items-center gap-1.5">
+              <Settings2 className="w-3.5 h-3.5 text-indigo-600" /> Pilot Mode
+            </Button>
+          </Link>
+          <Link to="/admin/crm-health">
+            <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg flex items-center gap-1.5">
+              <ActivitySquare className="w-3.5 h-3.5 text-rose-500" /> CRM Health
             </Button>
           </Link>
         </div>

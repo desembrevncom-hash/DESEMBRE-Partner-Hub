@@ -31,6 +31,8 @@ function AIDebugAdmin() {
 
   const [conversations, setConversations] = useState<any[]>([]);
   const [auditStats, setAuditStats] = useState<any[]>([]);
+  const [safetyEvents, setSafetyEvents] = useState<any[]>([]);
+  const [notifiedEventIds, setNotifiedEventIds] = useState<string[]>([]);
 
   // Phase 10: Search QA Tests
   const [searchQaTests, setSearchQaTests] = useState<any[]>([]);
@@ -42,7 +44,16 @@ function AIDebugAdmin() {
     fetchStaleChunks();
     fetchConversations();
     fetchAuditStats();
+    fetchSafetyEvents();
     fetchSearchQaTests();
+  }, []);
+
+  // Poll safety events every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchSafetyEvents();
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchHealthMetrics = async () => {
@@ -78,6 +89,29 @@ function AIDebugAdmin() {
       const { data, error } = await supabase.from('ai_conversation_analytics').select('*');
       if (error) throw error;
       setAuditStats(data || []);
+    } catch (e: any) { console.error(e); }
+  };
+
+  const fetchSafetyEvents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('ai_safety_events')
+        .select('id, event_type, phrase, severity, original_response_preview, handled, created_at')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      const events = data || [];
+      setSafetyEvents(events);
+
+      // Find new unhandled events that we haven't notified about yet
+      const newUnhandled = events.filter(
+        (ev: any) => !ev.handled && !notifiedEventIds.includes(ev.id)
+      );
+      if (newUnhandled.length > 0) {
+        toast.warning('Có cảnh báo AI Safety mới cần xử lý.');
+        // Add their IDs to the notified list
+        setNotifiedEventIds(prev => [...prev, ...newUnhandled.map((ev: any) => ev.id)]);
+      }
     } catch (e: any) { console.error(e); }
   };
 
@@ -188,6 +222,7 @@ function AIDebugAdmin() {
             {staleChunks.length > 0 && <span className="w-2 h-2 rounded-full bg-amber-500 ml-1"></span>}
           </TabsTrigger>
           <TabsTrigger value="audit" className="flex items-center gap-2"><AlertOctagon className="w-4 h-4"/> Conversation Audit</TabsTrigger>
+          <TabsTrigger value="safety" className="flex items-center gap-2"><ShieldX className="w-4 h-4"/> Safety Events</TabsTrigger>
           <TabsTrigger value="search_qa" className="flex items-center gap-2"><FlaskConical className="w-4 h-4"/> Search QA Test</TabsTrigger>
         </TabsList>
 
@@ -383,6 +418,51 @@ function AIDebugAdmin() {
             </CardContent>
           </Card>
         </TabsContent>
+
+          {/* TAB 5: SAFETY EVENTS */}
+          <TabsContent value="safety" className="space-y-6">
+            <Card className="shadow-sm">
+              <CardHeader className="border-b border-slate-100 pb-4">
+                <CardTitle className="text-lg">Safety Events</CardTitle>
+                <CardDescription>AI safety guard detections (banned phrases, risky content)</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y divide-slate-100">
+                  {safetyEvents.map((ev: any) => (
+                    <div key={ev.id} className="flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className={`w-2 h-2 rounded-full shrink-0 ${ev.severity === 'high' ? 'bg-rose-500' : ev.severity === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'}`}></div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-800 truncate">{ev.event_type}</p>
+                          <p className="text-xs text-slate-500">{ev.phrase}</p>
+                          <div className="flex items-center gap-2 mt-1 text-xs text-slate-400">
+                            <Clock className="w-3 h-3"/> {new Date(ev.created_at).toLocaleString('vi-VN')}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 ml-4 shrink-0">
+                        {ev.handled ? (
+                          <Badge variant="default" className="text-xs">Handled</Badge>
+                        ) : (
+                          <Button size="sm" variant="outline" onClick={async () => {
+                            try {
+                              const { error } = await supabase.from('ai_safety_events').update({ handled: true }).eq('id', ev.id);
+                              if (error) throw error;
+                              toast.success('Marked as handled');
+                              fetchSafetyEvents();
+                            } catch (e:any) { toast.error(e.message); }
+                          }} className="h-7 px-2 text-xs">Mark Handled</Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {safetyEvents.length === 0 && (
+                    <div className="py-12 text-center text-slate-400">No safety events logged.</div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
         {/* TAB 5: SEARCH QA TEST */}
         <TabsContent value="search_qa" className="space-y-4">

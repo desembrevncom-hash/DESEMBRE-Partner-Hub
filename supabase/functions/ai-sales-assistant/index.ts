@@ -154,6 +154,12 @@ async function hashText(text: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
+// Helper to truncate long strings for preview (max 500 chars)
+function truncateString(str: string, maxLen = 500): string {
+  if (str.length <= maxLen) return str;
+  return str.slice(0, maxLen) + "...";
+}
+
 // ---------- Phase 7.3: Hallucination Detector ----------
 interface HallucinationResult {
   blocked: boolean;
@@ -549,26 +555,49 @@ Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
       ? hallucinationCheck.safeResponse!
       : (parsed.summary || "");
 
+    // Log safety event if blocked
+    if (hallucinationCheck.blocked) {
+      try {
+        await adminClient.from("ai_safety_events").insert({
+          request_id: crypto.randomUUID(),
+          user_id: user.id,
+          customer_id: customerId,
+          event_type: "banned_phrase",
+          phrase: hallucinationCheck.detectedPhrases.join(", "),
+          severity: "high",
+          original_response_preview: truncateString(aiResponse.content),
+          handled: false,
+        });
+      } catch (e) {
+        console.error("Safety event log error:", e);
+      }
+    }
+
     // 8. Log to ai_conversations (full audit trail)
-    const { data: convRow } = await adminClient.from("ai_conversations").insert({
+    // Estimate cost (same logic as logUsage)
+    const inputCost = (aiResponse.prompt_tokens / 1_000_000) * 0.15;
+    const outputCost = (aiResponse.completion_tokens / 1_000_000) * 0.6;
+    const estimatedCostUsd = inputCost + outputCost;
+
+    const { data: convRow } = await adminClient.from("ai_conversation_logs").insert({
+      request_id: crypto.randomUUID(),
       user_id: user.id,
       customer_id: customerId,
+      task_id: taskId || null,
       mode: "summary",
-      prompt: userPrompt,
-      response: aiResponse.content,
-      retrieved_chunks: productChunks.map(c => ({ chunk_id: c.id, product_id: c.product_id, chunk_type: c.chunk_type, score: c.similarity })),
-      knowledge_version: activeKnowledgeVersion,
+      request_preview: truncateString(userPrompt),
+      response_preview: truncateString(aiResponse.content),
+      retrieved_chunks: JSON.stringify(productChunks.map(c => ({ chunk_id: c.id, product_id: c.product_id, chunk_type: c.chunk_type, score: c.similarity }))),
       prompt_tokens: aiResponse.prompt_tokens,
       completion_tokens: aiResponse.completion_tokens,
       total_tokens: aiResponse.total_tokens,
+      estimated_cost_usd: estimatedCostUsd,
       status: "success",
-      hallucination_flag: hallucinationCheck.blocked,
-      hallucination_note: hallucinationCheck.blocked
-        ? `Auto-detected: ${hallucinationCheck.detectedPhrases.join(", ")}`
-        : null,
+      error_message: null,
     }).select('id').single();
 
     const conversationId = convRow?.id || null;
+
 
     // --- PHASE 7.4: Log token cost ---
     await logUsage(adminClient, {

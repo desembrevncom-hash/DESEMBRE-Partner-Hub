@@ -33,13 +33,16 @@ import { Route as MarketingCampaignsRouteImport } from './routes/marketing/campa
 import { Route as CustomersMapRouteImport } from './routes/customers/map'
 import { Route as CustomersIdRouteImport } from './routes/customers/$id'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
+import { Route as AdminUatRouteImport } from './routes/admin/uat'
 import { Route as AdminTemplatesRouteImport } from './routes/admin/templates'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminSegmentsRouteImport } from './routes/admin/segments'
 import { Route as AdminReclamationRouteImport } from './routes/admin/reclamation'
 import { Route as AdminProductsRouteImport } from './routes/admin/products'
 import { Route as AdminProductKnowledgeRouteImport } from './routes/admin/product-knowledge'
+import { Route as AdminPilotRouteImport } from './routes/admin/pilot'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
+import { Route as AdminCrmHealthRouteImport } from './routes/admin/crm-health'
 import { Route as AdminAutomationRouteImport } from './routes/admin/automation'
 import { Route as AdminAiDebugRouteImport } from './routes/admin/ai-debug'
 
@@ -163,6 +166,11 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
   path: '/admin/users',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminUatRoute = AdminUatRouteImport.update({
+  id: '/admin/uat',
+  path: '/admin/uat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminTemplatesRoute = AdminTemplatesRouteImport.update({
   id: '/admin/templates',
   path: '/admin/templates',
@@ -193,9 +201,19 @@ const AdminProductKnowledgeRoute = AdminProductKnowledgeRouteImport.update({
   path: '/admin/product-knowledge',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminPilotRoute = AdminPilotRouteImport.update({
+  id: '/admin/pilot',
+  path: '/admin/pilot',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminInventoryRoute = AdminInventoryRouteImport.update({
   id: '/admin/inventory',
   path: '/admin/inventory',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminCrmHealthRoute = AdminCrmHealthRouteImport.update({
+  id: '/admin/crm-health',
+  path: '/admin/crm-health',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminAutomationRoute = AdminAutomationRouteImport.update({
@@ -221,13 +239,16 @@ export interface FileRoutesByFullPath {
   '/workspace': typeof WorkspaceRoute
   '/admin/ai-debug': typeof AdminAiDebugRoute
   '/admin/automation': typeof AdminAutomationRoute
+  '/admin/crm-health': typeof AdminCrmHealthRoute
   '/admin/inventory': typeof AdminInventoryRoute
+  '/admin/pilot': typeof AdminPilotRoute
   '/admin/product-knowledge': typeof AdminProductKnowledgeRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/reclamation': typeof AdminReclamationRoute
   '/admin/segments': typeof AdminSegmentsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/templates': typeof AdminTemplatesRoute
+  '/admin/uat': typeof AdminUatRoute
   '/admin/users': typeof AdminUsersRoute
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
@@ -255,13 +276,16 @@ export interface FileRoutesByTo {
   '/workspace': typeof WorkspaceRoute
   '/admin/ai-debug': typeof AdminAiDebugRoute
   '/admin/automation': typeof AdminAutomationRoute
+  '/admin/crm-health': typeof AdminCrmHealthRoute
   '/admin/inventory': typeof AdminInventoryRoute
+  '/admin/pilot': typeof AdminPilotRoute
   '/admin/product-knowledge': typeof AdminProductKnowledgeRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/reclamation': typeof AdminReclamationRoute
   '/admin/segments': typeof AdminSegmentsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/templates': typeof AdminTemplatesRoute
+  '/admin/uat': typeof AdminUatRoute
   '/admin/users': typeof AdminUsersRoute
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
@@ -291,13 +315,16 @@ export interface FileRoutesById {
   '/workspace': typeof WorkspaceRoute
   '/admin/ai-debug': typeof AdminAiDebugRoute
   '/admin/automation': typeof AdminAutomationRoute
+  '/admin/crm-health': typeof AdminCrmHealthRoute
   '/admin/inventory': typeof AdminInventoryRoute
+  '/admin/pilot': typeof AdminPilotRoute
   '/admin/product-knowledge': typeof AdminProductKnowledgeRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/reclamation': typeof AdminReclamationRoute
   '/admin/segments': typeof AdminSegmentsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/templates': typeof AdminTemplatesRoute
+  '/admin/uat': typeof AdminUatRoute
   '/admin/users': typeof AdminUsersRoute
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
@@ -328,13 +355,16 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/admin/ai-debug'
     | '/admin/automation'
+    | '/admin/crm-health'
     | '/admin/inventory'
+    | '/admin/pilot'
     | '/admin/product-knowledge'
     | '/admin/products'
     | '/admin/reclamation'
     | '/admin/segments'
     | '/admin/settings'
     | '/admin/templates'
+    | '/admin/uat'
     | '/admin/users'
     | '/customers/$id'
     | '/customers/map'
@@ -362,13 +392,16 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/admin/ai-debug'
     | '/admin/automation'
+    | '/admin/crm-health'
     | '/admin/inventory'
+    | '/admin/pilot'
     | '/admin/product-knowledge'
     | '/admin/products'
     | '/admin/reclamation'
     | '/admin/segments'
     | '/admin/settings'
     | '/admin/templates'
+    | '/admin/uat'
     | '/admin/users'
     | '/customers/$id'
     | '/customers/map'
@@ -397,13 +430,16 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/admin/ai-debug'
     | '/admin/automation'
+    | '/admin/crm-health'
     | '/admin/inventory'
+    | '/admin/pilot'
     | '/admin/product-knowledge'
     | '/admin/products'
     | '/admin/reclamation'
     | '/admin/segments'
     | '/admin/settings'
     | '/admin/templates'
+    | '/admin/uat'
     | '/admin/users'
     | '/customers/$id'
     | '/customers/map'
@@ -433,13 +469,16 @@ export interface RootRouteChildren {
   WorkspaceRoute: typeof WorkspaceRoute
   AdminAiDebugRoute: typeof AdminAiDebugRoute
   AdminAutomationRoute: typeof AdminAutomationRoute
+  AdminCrmHealthRoute: typeof AdminCrmHealthRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
+  AdminPilotRoute: typeof AdminPilotRoute
   AdminProductKnowledgeRoute: typeof AdminProductKnowledgeRoute
   AdminProductsRoute: typeof AdminProductsRoute
   AdminReclamationRoute: typeof AdminReclamationRoute
   AdminSegmentsRoute: typeof AdminSegmentsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminTemplatesRoute: typeof AdminTemplatesRoute
+  AdminUatRoute: typeof AdminUatRoute
   AdminUsersRoute: typeof AdminUsersRoute
   MarketingCampaignsRoute: typeof MarketingCampaignsRoute
   MarketingReportsRoute: typeof MarketingReportsRoute
@@ -624,6 +663,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/uat': {
+      id: '/admin/uat'
+      path: '/admin/uat'
+      fullPath: '/admin/uat'
+      preLoaderRoute: typeof AdminUatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/templates': {
       id: '/admin/templates'
       path: '/admin/templates'
@@ -666,11 +712,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminProductKnowledgeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/pilot': {
+      id: '/admin/pilot'
+      path: '/admin/pilot'
+      fullPath: '/admin/pilot'
+      preLoaderRoute: typeof AdminPilotRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/inventory': {
       id: '/admin/inventory'
       path: '/admin/inventory'
       fullPath: '/admin/inventory'
       preLoaderRoute: typeof AdminInventoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/crm-health': {
+      id: '/admin/crm-health'
+      path: '/admin/crm-health'
+      fullPath: '/admin/crm-health'
+      preLoaderRoute: typeof AdminCrmHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/automation': {
@@ -718,13 +778,16 @@ const rootRouteChildren: RootRouteChildren = {
   WorkspaceRoute: WorkspaceRoute,
   AdminAiDebugRoute: AdminAiDebugRoute,
   AdminAutomationRoute: AdminAutomationRoute,
+  AdminCrmHealthRoute: AdminCrmHealthRoute,
   AdminInventoryRoute: AdminInventoryRoute,
+  AdminPilotRoute: AdminPilotRoute,
   AdminProductKnowledgeRoute: AdminProductKnowledgeRoute,
   AdminProductsRoute: AdminProductsRoute,
   AdminReclamationRoute: AdminReclamationRoute,
   AdminSegmentsRoute: AdminSegmentsRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminTemplatesRoute: AdminTemplatesRoute,
+  AdminUatRoute: AdminUatRoute,
   AdminUsersRoute: AdminUsersRoute,
   MarketingCampaignsRoute: MarketingCampaignsRoute,
   MarketingReportsRoute: MarketingReportsRoute,

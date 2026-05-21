@@ -95,6 +95,7 @@ import {
   getDistanceTypeFromMeters, 
   getRecommendedRoutingByDistance 
 } from "@/lib/customerRouting";
+import { isFeatureEnabledForUser } from "@/lib/pilotMode";
 
 interface CustomerPreviewDrawerProps {
   customer: any;
@@ -1657,7 +1658,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
             </section>
 
             {/* ACTION SUGGESTIONS (Phase 6.2) */}
-            {actionSuggestions.length > 0 && (
+            {actionSuggestions.length > 0 && isFeatureEnabledForUser("ai_suggestion", user?.id) && (
               <section className="space-y-4">
                 <AISuggestionCard suggestions={actionSuggestions} customerId={customer.id} />
               </section>
@@ -1742,20 +1743,24 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
             </section>
 
             {/* PRODUCT KNOWLEDGE BOOK */}
-            <section className="space-y-4 pt-4 border-t border-slate-100">
-              <div className="flex items-center gap-2 text-indigo-600 font-black text-sm uppercase tracking-widest">
-                <Sparkles className="w-4 h-4" /> Cẩm nang sản phẩm
-              </div>
-              <ProductKnowledgeBook />
-            </section>
+            {isFeatureEnabledForUser("product_knowledge_qa", user?.id) && (
+              <section className="space-y-4 pt-4 border-t border-slate-100">
+                <div className="flex items-center gap-2 text-indigo-600 font-black text-sm uppercase tracking-widest">
+                  <Sparkles className="w-4 h-4" /> Cẩm nang sản phẩm
+                </div>
+                <ProductKnowledgeBook />
+              </section>
+            )}
 
             {/* AI CUSTOMER SUMMARY */}
-            <section className="space-y-4 pt-4 border-t border-slate-100">
-              <CustomerAISummary 
-                customerId={customer.id}
-                customerName={customer.name}
-              />
-            </section>
+            {isFeatureEnabledForUser("ai_summary", user?.id) && (
+              <section className="space-y-4 pt-4 border-t border-slate-100">
+                <CustomerAISummary 
+                  customerId={customer.id}
+                  customerName={customer.name}
+                />
+              </section>
+            )}
 
             {/* RECENT ORDERS */}
             <section className="space-y-4">
