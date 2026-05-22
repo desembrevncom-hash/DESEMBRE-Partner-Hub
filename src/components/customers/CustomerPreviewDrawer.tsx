@@ -229,7 +229,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     } else {
       setActiveCustomer(null);
     }
-  }, [open, customerProp?.id, initialQuickAction, orders]);
+  }, [open, customerProp?.id, initialQuickAction]);
 
   // Generate AI Suggestions using Rule Engine
   const actionSuggestions = useMemo(() => {
