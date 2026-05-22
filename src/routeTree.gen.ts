@@ -38,6 +38,7 @@ import { Route as AdminTemplatesRouteImport } from './routes/admin/templates'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminSegmentsRouteImport } from './routes/admin/segments'
 import { Route as AdminReclamationRouteImport } from './routes/admin/reclamation'
+import { Route as AdminRagAuditRouteImport } from './routes/admin/rag-audit'
 import { Route as AdminProductsRouteImport } from './routes/admin/products'
 import { Route as AdminProductKnowledgeRouteImport } from './routes/admin/product-knowledge'
 import { Route as AdminProductImportRouteImport } from './routes/admin/product-import'
@@ -193,6 +194,11 @@ const AdminReclamationRoute = AdminReclamationRouteImport.update({
   path: '/admin/reclamation',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRagAuditRoute = AdminRagAuditRouteImport.update({
+  id: '/admin/rag-audit',
+  path: '/admin/rag-audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminProductsRoute = AdminProductsRouteImport.update({
   id: '/admin/products',
   path: '/admin/products',
@@ -258,6 +264,7 @@ export interface FileRoutesByFullPath {
   '/admin/product-import': typeof AdminProductImportRoute
   '/admin/product-knowledge': typeof AdminProductKnowledgeRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/rag-audit': typeof AdminRagAuditRoute
   '/admin/reclamation': typeof AdminReclamationRoute
   '/admin/segments': typeof AdminSegmentsRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -297,6 +304,7 @@ export interface FileRoutesByTo {
   '/admin/product-import': typeof AdminProductImportRoute
   '/admin/product-knowledge': typeof AdminProductKnowledgeRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/rag-audit': typeof AdminRagAuditRoute
   '/admin/reclamation': typeof AdminReclamationRoute
   '/admin/segments': typeof AdminSegmentsRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -338,6 +346,7 @@ export interface FileRoutesById {
   '/admin/product-import': typeof AdminProductImportRoute
   '/admin/product-knowledge': typeof AdminProductKnowledgeRoute
   '/admin/products': typeof AdminProductsRoute
+  '/admin/rag-audit': typeof AdminRagAuditRoute
   '/admin/reclamation': typeof AdminReclamationRoute
   '/admin/segments': typeof AdminSegmentsRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -380,6 +389,7 @@ export interface FileRouteTypes {
     | '/admin/product-import'
     | '/admin/product-knowledge'
     | '/admin/products'
+    | '/admin/rag-audit'
     | '/admin/reclamation'
     | '/admin/segments'
     | '/admin/settings'
@@ -419,6 +429,7 @@ export interface FileRouteTypes {
     | '/admin/product-import'
     | '/admin/product-knowledge'
     | '/admin/products'
+    | '/admin/rag-audit'
     | '/admin/reclamation'
     | '/admin/segments'
     | '/admin/settings'
@@ -459,6 +470,7 @@ export interface FileRouteTypes {
     | '/admin/product-import'
     | '/admin/product-knowledge'
     | '/admin/products'
+    | '/admin/rag-audit'
     | '/admin/reclamation'
     | '/admin/segments'
     | '/admin/settings'
@@ -500,6 +512,7 @@ export interface RootRouteChildren {
   AdminProductImportRoute: typeof AdminProductImportRoute
   AdminProductKnowledgeRoute: typeof AdminProductKnowledgeRoute
   AdminProductsRoute: typeof AdminProductsRoute
+  AdminRagAuditRoute: typeof AdminRagAuditRoute
   AdminReclamationRoute: typeof AdminReclamationRoute
   AdminSegmentsRoute: typeof AdminSegmentsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
@@ -724,6 +737,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminReclamationRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/rag-audit': {
+      id: '/admin/rag-audit'
+      path: '/admin/rag-audit'
+      fullPath: '/admin/rag-audit'
+      preLoaderRoute: typeof AdminRagAuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/products': {
       id: '/admin/products'
       path: '/admin/products'
@@ -825,6 +845,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminProductImportRoute: AdminProductImportRoute,
   AdminProductKnowledgeRoute: AdminProductKnowledgeRoute,
   AdminProductsRoute: AdminProductsRoute,
+  AdminRagAuditRoute: AdminRagAuditRoute,
   AdminReclamationRoute: AdminReclamationRoute,
   AdminSegmentsRoute: AdminSegmentsRoute,
   AdminSettingsRoute: AdminSettingsRoute,

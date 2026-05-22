@@ -308,11 +308,11 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { customerId, mode, taskId, debugQuery } = body;
 
-    if (mode !== "summary" && mode !== "rewrite_suggestions" && mode !== "debug_rag") {
-      return json({ error: "Only mode='summary', 'rewrite_suggestions', and 'debug_rag' are supported" }, 400);
+    if (mode !== "summary" && mode !== "rewrite_suggestions" && mode !== "debug_rag" && mode !== "rag_audit") {
+      return json({ error: "Only mode='summary', 'rewrite_suggestions', 'debug_rag', and 'rag_audit' are supported" }, 400);
     }
 
-    if (mode !== "debug_rag" && !customerId) {
+    if (mode !== "debug_rag" && mode !== "rag_audit" && !customerId) {
       return json({ error: "customerId is required" }, 400);
     }
 
@@ -344,6 +344,159 @@ Deno.serve(async (req) => {
           final_prompt_preview: `SYSTEM: ${systemPrompt}\n\nUSER: ${userPrompt}`,
           ai_response_preview: "Simulation mode (no tokens used)"
         });
+      } catch (err: any) {
+        return json({ error: err.message }, 500);
+      }
+    }
+
+    // --- PHASE P1: RAG Audit Mode ---
+    if (mode === "rag_audit") {
+      const { query: auditQuery, auditMode, threshold } = body;
+      if (!auditQuery) return json({ error: "query is required for rag_audit mode" }, 400);
+      if (!auditMode) return json({ error: "auditMode is required for rag_audit mode" }, 400);
+
+      // Verify that calling user is admin or sub_admin
+      const { data: isAdmin, error: roleError } = await adminClient.rpc("is_admin_or_sub_admin", {
+        _user_id: user.id
+      });
+      if (roleError || !isAdmin) {
+        return json({ error: "Access denied. Only Admin or Sub Admin can perform RAG audits." }, 403);
+      }
+
+      try {
+        // 1. Generate query embedding
+        const queryEmbedding = await generateEmbedding(auditQuery, adminClient, aiConfig);
+
+        // 2. Search chunks in DB using match_product_chunks
+        const parsedThreshold = parseFloat(threshold) || 0.5;
+        const { data: chunksData, error: matchError } = await adminClient.rpc("match_product_chunks", {
+          query_embedding: queryEmbedding,
+          match_threshold: parsedThreshold,
+          match_count: 5
+        });
+
+        if (matchError) throw matchError;
+
+        const rawChunks = chunksData || [];
+
+        // 3. Fetch details: product names, is_active, knowledge_version
+        const retrievedChunks = [];
+        if (rawChunks.length > 0) {
+          const productIds = Array.from(new Set(rawChunks.map((c: any) => c.product_id)));
+          const chunkIds = rawChunks.map((c: any) => c.id);
+
+          // Get product names
+          const { data: productsData } = await adminClient
+            .from("products")
+            .select("id, name")
+            .in("id", productIds);
+          const productNamesMap: Record<number, string> = {};
+          productsData?.forEach((p: any) => {
+            productNamesMap[p.id] = p.name;
+          });
+
+          // Get chunk level details (is_active, knowledge_version)
+          const { data: chunksDb } = await adminClient
+            .from("product_knowledge_chunks")
+            .select("id, is_active, knowledge_version")
+            .in("id", chunkIds);
+          const chunkDbMap: Record<string, any> = {};
+          chunksDb?.forEach((c: any) => {
+            chunkDbMap[c.id] = c;
+          });
+
+          // Get product knowledge qa_status and is_active
+          const { data: pkData } = await adminClient
+            .from("product_knowledge")
+            .select("product_id, is_active, qa_status")
+            .in("product_id", productIds);
+          const pkMap: Record<number, any> = {};
+          pkData?.forEach((pk: any) => {
+            pkMap[pk.product_id] = pk;
+          });
+
+          for (const c of rawChunks) {
+            const prodName = productNamesMap[c.product_id] || `Sản phẩm #${c.product_id}`;
+            const dbChunk = chunkDbMap[c.id] || {};
+            const pk = pkMap[c.product_id] || {};
+
+            retrievedChunks.push({
+              chunk_id: c.id,
+              product_id: c.product_id,
+              product_name: prodName,
+              chunk_type: c.chunk_type,
+              similarity_score: c.similarity,
+              knowledge_version: dbChunk.knowledge_version || c.metadata?.knowledge_version || 1,
+              content: c.content,
+              qa_status: pk.qa_status || "approved",
+              is_active: dbChunk.is_active !== undefined ? dbChunk.is_active : true
+            });
+          }
+        }
+
+        // 4. Construct prompts based on auditMode
+        let systemPrompt = "";
+        if (auditMode === "product_tutor") {
+          systemPrompt = `Bạn là Trợ lý Đào tạo Sản phẩm (Product Tutor) cho thương hiệu mỹ phẩm Desembre.
+Nhiệm vụ của bạn là trả lời thắc mắc của Sales về sản phẩm dựa trên các thông tin được cung cấp trong <KNOWLEDGE_CHUNKS>.
+Yêu cầu:
+- Trả lời bằng tiếng Việt, ngắn gọn, chính xác, bám sát tài liệu.
+- Tuyệt đối không tự bịa ra thông tin không có trong tài liệu.
+- Nếu tài liệu không đủ thông tin, hãy ghi rõ "Không có đủ thông tin trong tài liệu để trả lời".`;
+        } else if (auditMode === "objection_handling") {
+          systemPrompt = `Bạn là Chuyên gia xử lý từ chối (Objection Handling) cho Sales mỹ phẩm Desembre.
+Nhiệm vụ của bạn là hướng dẫn Sales cách phản hồi khách hàng khi gặp các câu hỏi khó, thắc mắc hoặc từ chối, dựa trên các thông tin được cung cấp trong <KNOWLEDGE_CHUNKS>.
+Yêu cầu:
+- Trả lời bằng tiếng Việt, khéo léo, thuyết phục, bám sát tài liệu sản phẩm.
+- Tuyệt đối không cam kết y khoa hoặc nói quá công dụng.
+- Nếu tài liệu không đủ thông tin, hãy ghi rõ "Không có đủ thông tin trong tài liệu để xử lý".`;
+        } else if (auditMode === "usage_script") {
+          systemPrompt = `Bạn là Trợ lý hướng dẫn sử dụng (Usage Script) cho thương hiệu mỹ phẩm Desembre.
+Nhiệm vụ của bạn là xây dựng kịch bản tư vấn sử dụng sản phẩm (thứ tự dùng, lượng dùng, lưu ý...) cho Sales gửi khách hàng dựa trên <KNOWLEDGE_CHUNKS>.
+Yêu cầu:
+- Viết ngắn gọn, dễ hiểu, chuyên nghiệp bằng tiếng Việt.
+- Chỉ dùng các bước và lưu ý có trong tài liệu được cung cấp.`;
+        } else if (auditMode === "compare_products") {
+          systemPrompt = `Bạn là Chuyên gia so sánh sản phẩm (Compare Products) cho thương hiệu mỹ phẩm Desembre.
+Nhiệm vụ của bạn là so sánh các sản phẩm được hỏi dựa trên <KNOWLEDGE_CHUNKS>.
+Yêu cầu:
+- Làm nổi bật sự khác biệt về thành phần, công dụng, loại da phù hợp.
+- Chỉ so sánh dựa trên các thông tin có trong tài liệu được cung cấp.`;
+        } else {
+          throw new Error(`Audit mode không hợp lệ: ${auditMode}`);
+        }
+
+        // Add instructions to return JSON response format with "final_answer"
+        systemPrompt += `\n\nBạn BẮT BUỘC phải trả về một đối tượng JSON có cấu trúc sau:
+{
+  "final_answer": "Nội dung câu trả lời chi tiết và chính xác của bạn."
+}`;
+
+        const userPrompt = `=== KNOWLEDGE_CHUNKS ===\n${retrievedChunks.length > 0 
+          ? retrievedChunks.map((c: any, i: number) => `[Chunk ${i+1}] (Sản phẩm: ${c.product_name}): ${c.content}`).join('\n') 
+          : 'Không tìm thấy chunks nào.'}\n\n=== CÂU HỎI CỦA SALES ===\n${auditQuery}`;
+
+        // 5. Call AI
+        const aiResponse = await callAI(userPrompt, systemPrompt, aiConfig);
+
+        let finalAnswer = "";
+        try {
+          const parsed = JSON.parse(aiResponse.content);
+          finalAnswer = parsed.final_answer || aiResponse.content;
+        } catch {
+          finalAnswer = aiResponse.content;
+        }
+
+        return json({
+          retrieved_chunks: retrievedChunks,
+          final_answer: finalAnswer,
+          prompt_tokens: aiResponse.prompt_tokens,
+          completion_tokens: aiResponse.completion_tokens,
+          total_tokens: aiResponse.total_tokens,
+          model_used: aiConfig.chatModel,
+          provider: aiConfig.provider
+        });
+
       } catch (err: any) {
         return json({ error: err.message }, 500);
       }
