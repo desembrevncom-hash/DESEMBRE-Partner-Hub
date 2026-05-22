@@ -95,6 +95,7 @@ USING (
 -- ================================================================
 
 DROP POLICY IF EXISTS "Sales staff can view chunks" ON public.product_knowledge_chunks;
+DROP POLICY IF EXISTS "Sales staff can view active approved chunks" ON public.product_knowledge_chunks;
 CREATE POLICY "Sales staff can view active approved chunks"
 ON public.product_knowledge_chunks
 FOR SELECT

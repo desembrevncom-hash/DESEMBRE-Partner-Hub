@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { 
   Search, Activity, BugPlay, DatabaseZap, CheckCircle2, AlertTriangle, 
-  XCircle, Code, RefreshCw, AlertOctagon, ShieldX, Star, Clock, GitFork, FlaskConical, Play
+  XCircle, Code, RefreshCw, AlertOctagon, ShieldX, Star, Clock, GitFork, FlaskConical, Play,
+  TrendingUp, Coins, Gauge, Zap
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -40,6 +41,24 @@ function AIDebugAdmin() {
   const [searchQaResults, setSearchQaResults] = useState<Record<string, 'pass' | 'fail' | 'running'>>({});
   const [isRunningQa, setIsRunningQa] = useState(false);
 
+  // Phase P4: Performance Analytics
+  const [performanceSummary, setPerformanceSummary] = useState<any>(null);
+  const [isLoadingPerformance, setIsLoadingPerformance] = useState(false);
+
+  const fetchPerformanceSummary = async () => {
+    setIsLoadingPerformance(true);
+    try {
+      const { data, error } = await supabase.rpc('get_ai_performance_summary');
+      if (error) throw error;
+      setPerformanceSummary(data);
+    } catch (e: any) {
+      console.error(e);
+      toast.error('Lỗi tải dữ liệu hiệu suất: ' + e.message);
+    } finally {
+      setIsLoadingPerformance(false);
+    }
+  };
+
   useEffect(() => {
     fetchHealthMetrics();
     fetchStaleChunks();
@@ -47,6 +66,7 @@ function AIDebugAdmin() {
     fetchAuditStats();
     fetchSafetyEvents();
     fetchSearchQaTests();
+    fetchPerformanceSummary();
   }, []);
 
   // Poll safety events every 30 seconds
@@ -225,6 +245,9 @@ function AIDebugAdmin() {
           <TabsTrigger value="audit" className="flex items-center gap-2"><AlertOctagon className="w-4 h-4"/> Conversation Audit</TabsTrigger>
           <TabsTrigger value="safety" className="flex items-center gap-2"><ShieldX className="w-4 h-4"/> Safety Events</TabsTrigger>
           <TabsTrigger value="search_qa" className="flex items-center gap-2"><FlaskConical className="w-4 h-4"/> Search QA Test</TabsTrigger>
+          <TabsTrigger value="performance" onClick={fetchPerformanceSummary} className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4"/> Performance & Cost
+          </TabsTrigger>
         </TabsList>
 
         {/* TAB 1: SANDBOX */}
@@ -576,6 +599,230 @@ function AIDebugAdmin() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* TAB 6: PERFORMANCE & COST */}
+        <TabsContent value="performance" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <Gauge className="w-5 h-5 text-indigo-500"/>
+                AI Cost & Performance Analytics
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">Số liệu tổng hợp token, chi phí và độ trễ AI trong 30 ngày qua.</p>
+            </div>
+            <Button onClick={fetchPerformanceSummary} disabled={isLoadingPerformance} variant="outline" size="sm" className="gap-2 bg-white">
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingPerformance ? 'animate-spin' : ''}`}/>
+              Làm mới số liệu
+            </Button>
+          </div>
+
+          {performanceSummary ? (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              
+              {/* Today's Overview Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {[
+                  {
+                    label: 'Hôm nay: Số request',
+                    value: performanceSummary.today?.total_requests ?? 0,
+                    sub: 'lần gọi AI',
+                    color: 'text-indigo-600',
+                    bg: 'bg-indigo-50/40 border-indigo-100'
+                  },
+                  {
+                    label: 'Hôm nay: Tokens tiêu thụ',
+                    value: performanceSummary.today?.total_tokens?.toLocaleString() ?? 0,
+                    sub: 'tokens',
+                    color: 'text-sky-600',
+                    bg: 'bg-sky-50/40 border-sky-100'
+                  },
+                  {
+                    label: 'Hôm nay: Chi phí ước tính',
+                    value: `$${(performanceSummary.today?.total_cost_usd ?? 0).toFixed(4)}`,
+                    sub: `Tuần này: $${(performanceSummary.this_week?.total_cost_usd ?? 0).toFixed(3)}`,
+                    color: 'text-emerald-600 font-mono',
+                    bg: 'bg-emerald-50/40 border-emerald-100'
+                  },
+                  {
+                    label: 'Độ trễ trung bình',
+                    value: `${performanceSummary.today?.avg_latency_ms ? (performanceSummary.today.avg_latency_ms / 1000).toFixed(2) : '—'}s`,
+                    sub: `${performanceSummary.today?.avg_latency_ms ?? 0} ms`,
+                    color: 'text-amber-600 font-mono',
+                    bg: 'bg-amber-50/40 border-amber-100'
+                  },
+                  {
+                    label: 'Cache Hit Rate (Hôm nay)',
+                    value: `${performanceSummary.today?.cache_hit_rate ?? 0}%`,
+                    sub: `${performanceSummary.today?.cache_hits ?? 0} hits`,
+                    color: 'text-violet-600',
+                    bg: 'bg-violet-50/40 border-violet-100'
+                  }
+                ].map((item, idx) => (
+                  <Card key={idx} className={`shadow-sm border ${item.bg}`}>
+                    <CardContent className="p-4">
+                      <p className="text-xs font-semibold text-slate-500">{item.label}</p>
+                      <p className={`text-xl font-black mt-2 ${item.color}`}>{item.value}</p>
+                      <p className="text-[10px] text-slate-400 mt-1">{item.sub}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Mode Breakdown Table */}
+              <Card className="shadow-sm border-slate-200">
+                <CardHeader className="bg-slate-50/60 pb-3 border-b border-slate-100">
+                  <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                    <Zap className="w-4 h-4 text-amber-500"/> Hiệu suất chi tiết theo tính năng (30 ngày gần đây)
+                  </CardTitle>
+                  <CardDescription>Chi tiết chi phí, latency và tỷ lệ cache hit của từng mode trợ lý.</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-50/40 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
+                          <th className="p-3 pl-4">Chế độ (Mode)</th>
+                          <th className="p-3">Số Requests</th>
+                          <th className="p-3">Tokens TB / Req</th>
+                          <th className="p-3">Độ trễ TB</th>
+                          <th className="p-3">Chi phí TB / Req</th>
+                          <th className="p-3">Tổng Chi phí</th>
+                          <th className="p-3">Tỉ lệ Cache Hit</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {performanceSummary.by_mode?.map((item: any, idx: number) => (
+                          <tr key={idx} className="hover:bg-slate-50/30 transition-colors">
+                            <td className="p-3 pl-4 font-bold text-slate-800">
+                              <code className="bg-slate-100 px-1.5 py-0.5 rounded text-indigo-700 font-mono text-[11px]">
+                                {item.mode}
+                              </code>
+                            </td>
+                            <td className="p-3 font-semibold text-slate-600">{item.total_requests?.toLocaleString()}</td>
+                            <td className="p-3 text-slate-600 font-mono">{item.avg_tokens?.toLocaleString()}</td>
+                            <td className="p-3 text-slate-600 font-mono">{(item.avg_latency_ms / 1000).toFixed(2)}s ({item.avg_latency_ms} ms)</td>
+                            <td className="p-3 text-emerald-600 font-bold font-mono">${(item.avg_cost_usd ?? 0).toFixed(5)}</td>
+                            <td className="p-3 text-emerald-700 font-black font-mono">${(item.total_cost_usd ?? 0).toFixed(3)}</td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                item.cache_hit_rate > 50 ? 'bg-emerald-100 text-emerald-700' :
+                                item.cache_hit_rate > 20 ? 'bg-indigo-100 text-indigo-700' :
+                                item.cache_hit_rate > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-400'
+                              }`}>
+                                {item.cache_hit_rate ?? 0}% ({item.cache_hit_count} hits)
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                        {(!performanceSummary.by_mode || performanceSummary.by_mode.length === 0) && (
+                          <tr>
+                            <td colSpan={7} className="p-8 text-center text-slate-400 font-medium">
+                              Chưa ghi nhận logs sử dụng AI nào trong 30 ngày qua.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Grid 2 columns: Expensive Queries & Active Caches */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                {/* Top 5 Expensive Single Requests */}
+                <Card className="shadow-sm border-slate-200">
+                  <CardHeader className="pb-3 border-b border-slate-100">
+                    <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                      <Coins className="w-4 h-4 text-rose-500"/> Top 5 cuộc gọi AI đắt nhất (7 ngày gần đây)
+                    </CardTitle>
+                    <CardDescription>Danh sách truy vấn tiêu tốn nhiều token nhất để audit payload.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0 divide-y divide-slate-100">
+                    {performanceSummary.top_expensive?.map((req: any, idx: number) => (
+                      <div key={idx} className="p-3.5 hover:bg-slate-50/20 transition-colors flex items-center justify-between text-xs">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-700 uppercase tracking-wider">{req.mode}</span>
+                            <span className="text-[10px] bg-slate-100 text-slate-500 font-mono px-1 rounded">{req.model}</span>
+                          </div>
+                          <p className="text-[10px] text-slate-400">
+                            {new Date(req.created_at).toLocaleString('vi-VN')} · Độ trễ: {(req.latency_ms / 1000).toFixed(2)}s
+                          </p>
+                        </div>
+                        <div className="text-right space-y-0.5">
+                          <p className="text-rose-600 font-black font-mono text-sm">${(req.estimated_cost_usd ?? 0).toFixed(4)}</p>
+                          <p className="text-[10px] text-slate-400 font-mono">{req.total_tokens?.toLocaleString()} tokens</p>
+                        </div>
+                      </div>
+                    ))}
+                    {(!performanceSummary.top_expensive || performanceSummary.top_expensive.length === 0) && (
+                      <div className="p-8 text-center text-slate-400">Không có dữ liệu.</div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* AI Cache Stats */}
+                <Card className="shadow-sm border-slate-200">
+                  <CardHeader className="pb-3 border-b border-slate-100">
+                    <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                      <DatabaseZap className="w-4 h-4 text-indigo-500"/> Trạng thái bộ nhớ đệm (AI Cache Table)
+                    </CardTitle>
+                    <CardDescription>Số lượng bản ghi và số lần cache hit được lưu trữ.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-50/40 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
+                            <th className="p-3 pl-4">Loại Cache</th>
+                            <th className="p-3">Tổng Bản ghi</th>
+                            <th className="p-3">Đang Hoạt động</th>
+                            <th className="p-3 text-right pr-4">Số lượt Hit</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {performanceSummary.cache_stats?.map((cache: any, idx: number) => (
+                            <tr key={idx} className="hover:bg-slate-50/30 transition-colors">
+                              <td className="p-3 pl-4 font-bold text-slate-800">
+                                <code className="bg-slate-100 px-1.5 py-0.5 rounded text-indigo-700 font-mono text-[11px]">
+                                  {cache.cache_type}
+                                </code>
+                              </td>
+                              <td className="p-3 text-slate-600 font-medium">{cache.total_entries?.toLocaleString()}</td>
+                              <td className="p-3">
+                                <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 font-bold text-[10px]">
+                                  {cache.active_entries?.toLocaleString()}
+                                </span>
+                              </td>
+                              <td className="p-3 text-right pr-4 text-indigo-600 font-bold font-mono">
+                                {cache.total_hits?.toLocaleString() ?? 0} hits
+                              </td>
+                            </tr>
+                          ))}
+                          {(!performanceSummary.cache_stats || performanceSummary.cache_stats.length === 0) && (
+                            <tr>
+                              <td colSpan={4} className="p-8 text-center text-slate-400">
+                                Chưa có bản ghi cache nào trong database.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+              </div>
+
+            </div>
+          ) : (
+            <div className="py-12 text-center text-slate-400">
+              <RefreshCw className="w-8 h-8 text-slate-300 animate-spin mx-auto mb-2"/>
+              Đang tải dữ liệu Performance AI...
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

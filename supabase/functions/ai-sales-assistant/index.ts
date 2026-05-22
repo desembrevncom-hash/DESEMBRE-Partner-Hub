@@ -274,7 +274,23 @@ async function validateAIOutput(
   return { blocked: false, detectedPhrases: [] };
 }
 
-// ---------- Phase 7.6: Cost Logger ----------
+// ---------- Phase 7.6: Cost Logger (P4: dynamic pricing per model) ----------
+
+// P4: Dynamic cost per 1M tokens by model
+function estimateCost(promptTokens: number, completionTokens: number, model: string): number {
+  const pricing: Record<string, [number, number]> = {
+    'gpt-4o-mini':        [0.15,  0.60],
+    'gpt-4o':             [2.50, 10.00],
+    'gpt-4o-2024-11-20':  [2.50, 10.00],
+    'gpt-4o-2024-05-13':  [5.00, 15.00],
+    'gpt-4-turbo':        [10.0, 30.00],
+    'gemini-1.5-flash':   [0.075, 0.30],
+    'gemini-1.5-pro':     [1.25,  5.00],
+  };
+  const [inPrice, outPrice] = pricing[model] ?? [0.15, 0.60];
+  return (promptTokens / 1_000_000) * inPrice + (completionTokens / 1_000_000) * outPrice;
+}
+
 async function logUsage(adminClient: any, config: AIConfig, params: {
   userId: string;
   customerId?: string;
@@ -284,14 +300,11 @@ async function logUsage(adminClient: any, config: AIConfig, params: {
   totalTokens: number;
   cacheHit?: boolean;
   latencyMs?: number;
+  modelOverride?: string;
 }) {
-  // Estimate cost for gpt-4o-mini: $0.15/1M input, $0.6/1M output
-  const inputCost = (params.promptTokens / 1_000_000) * 0.15;
-  const outputCost = (params.completionTokens / 1_000_000) * 0.6;
-  const totalCost = inputCost + outputCost;
-
+  const model = params.modelOverride ?? config.chatModel;
+  const totalCost = estimateCost(params.promptTokens, params.completionTokens, model);
   const provider = config.provider.toLowerCase();
-  const model = config.chatModel;
 
   try {
     await adminClient.from("ai_usage_logs").insert({
@@ -310,6 +323,69 @@ async function logUsage(adminClient: any, config: AIConfig, params: {
   } catch (e) {
     console.error("Usage log error:", e);
   }
+}
+
+// ---------- Phase P4: Performance Helpers ----------
+
+// Trim long chunk content to max characters (preserves safety quality)
+function trimChunk(content: string, maxLen = 400): string {
+  if (!content) return '';
+  return content.length > maxLen ? content.slice(0, maxLen) + '…' : content;
+}
+
+// Model routing: rewrite_suggestions always use gpt-4o-mini (simple task)
+function resolveModel(mode: string, config: AIConfig): string {
+  if (mode === 'rewrite_suggestions') return 'gpt-4o-mini';
+  return config.chatModel;
+}
+
+// SHA-256 hash for cache keys using Web Crypto (available in Deno)
+async function hashCacheKey(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+  return 'res:' + Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Generic cache get-or-set for response caching
+async function getOrSetCache<T>(
+  adminClient: any,
+  key: string,
+  cacheType: string,
+  ttlMinutes: number,
+  fn: () => Promise<T>
+): Promise<{ result: T; cacheHit: boolean }> {
+  try {
+    const { data: cached } = await adminClient
+      .from('ai_cache')
+      .select('payload, expires_at, hit_count')
+      .eq('cache_key', key)
+      .maybeSingle();
+
+    if (cached && (!cached.expires_at || new Date(cached.expires_at) > new Date())) {
+      // Cache HIT — update hit_count asynchronously (fire-and-forget)
+      adminClient.from('ai_cache')
+        .update({ hit_count: (cached.hit_count ?? 0) + 1, updated_at: new Date().toISOString() })
+        .eq('cache_key', key)
+        .then(() => {})
+        .catch(() => {});
+      return { result: cached.payload.data as T, cacheHit: true };
+    }
+  } catch (_) { /* cache unavailable — proceed to fn */ }
+
+  // Cache MISS — execute function
+  const result = await fn();
+  const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000).toISOString();
+  try {
+    await adminClient.from('ai_cache').upsert({
+      cache_key: key,
+      cache_type: cacheType,
+      payload: { data: result },
+      expires_at: expiresAt,
+      hit_count: 0,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'cache_key' });
+  } catch (_) { /* non-fatal: cache write failure */ }
+
+  return { result, cacheHit: false };
 }
 
 // ---------- Main Handler ----------
@@ -379,6 +455,11 @@ Deno.serve(async (req) => {
       return json({ error: "customerId is required" }, 400);
     }
 
+    // --- PHASE P4: Model routing (resolve per mode) ---
+    // rewrite_suggestions always uses gpt-4o-mini; others use ai_settings.chat_model
+    const resolvedModel = resolveModel(mode, aiConfig);
+    const aiConfigForMode = { ...aiConfig, chatModel: resolvedModel };
+
     // --- PHASE 7: RAG Sandbox Debug Mode ---
     if (mode === "debug_rag") {
       if (!debugQuery) return json({ error: "debugQuery is required" }, 400);
@@ -432,6 +513,8 @@ Deno.serve(async (req) => {
       if (roleError || !isAdmin) {
         return json({ error: "Access denied. Only Admin or Sub Admin can perform RAG audits." }, 403);
       }
+
+      const auditStartTime = Date.now(); // P4: latency tracking
 
       try {
         // 1. Generate query embedding
@@ -588,12 +671,25 @@ Yêu cầu:
   "final_answer": "Nội dung câu trả lời chi tiết và chính xác của bạn."
 }`;
 
-        const userPrompt = `=== KNOWLEDGE_CHUNKS ===\n${promptChunks.length > 0 
-          ? promptChunks.map((c: any, i: number) => `[Chunk ${i+1}] (Sản phẩm: ${c.product_name}): ${c.content}`).join('\n') 
+        // P4: trim chunk content, apply cache key for rag_audit
+        const auditCacheKey = await hashCacheKey(`rag_audit:${auditMode}:${auditQuery}:${parsedThreshold}`);
+
+        const userPrompt = `=== KNOWLEDGE_CHUNKS ===\n${promptChunks.length > 0
+          ? promptChunks.map((c: any, i: number) => `[Chunk ${i+1}] (Sản phẩm: ${c.product_name}): ${trimChunk(c.content)}`).join('\n')
           : 'Không tìm thấy chunks nào.'}\n\n=== CÂU HỎI CỦA SALES ===\n${auditQuery}`;
 
-        // 5. Call AI
-        const aiResponse = await callAI(userPrompt, systemPrompt, aiConfig);
+        // 5. Call AI (with 30-min cache for rag_audit repeated queries)
+        const { result: auditAiResult, cacheHit: auditCacheHit } = await getOrSetCache(
+          adminClient,
+          auditCacheKey,
+          'rag_audit',
+          30, // 30 minutes TTL
+          async () => {
+            const resp = await callAI(userPrompt, systemPrompt, aiConfig);
+            return resp;
+          }
+        );
+        const aiResponse = auditAiResult as any;
 
         let finalAnswer = "";
         try {
@@ -632,14 +728,28 @@ Yêu cầu:
           }
         }
 
+        // P4: Log usage for rag_audit (was missing before)
+        const auditLatencyMs = Date.now() - auditStartTime;
+        await logUsage(adminClient, aiConfig, {
+          userId: user.id,
+          customerId: undefined,
+          mode: 'rag_audit',
+          promptTokens: auditCacheHit ? 0 : (aiResponse.prompt_tokens ?? 0),
+          completionTokens: auditCacheHit ? 0 : (aiResponse.completion_tokens ?? 0),
+          totalTokens: auditCacheHit ? 0 : (aiResponse.total_tokens ?? 0),
+          latencyMs: auditLatencyMs,
+          cacheHit: auditCacheHit,
+        });
+
         return json({
           retrieved_chunks: retrievedChunks,
           final_answer: finalAnswer,
-          prompt_tokens: aiResponse.prompt_tokens,
-          completion_tokens: aiResponse.completion_tokens,
-          total_tokens: aiResponse.total_tokens,
+          prompt_tokens: auditCacheHit ? 0 : (aiResponse.prompt_tokens ?? 0),
+          completion_tokens: auditCacheHit ? 0 : (aiResponse.completion_tokens ?? 0),
+          total_tokens: auditCacheHit ? 0 : (aiResponse.total_tokens ?? 0),
           model_used: aiConfig.chatModel,
-          provider: aiConfig.provider
+          provider: aiConfig.provider,
+          cache_hit: auditCacheHit,
         });
 
       } catch (err: any) {
@@ -666,19 +776,19 @@ Yêu cầu:
         .select("*")
         .eq("customer_id", customerId)
         .order("created_at", { ascending: false })
-        .limit(10),
+        .limit(5),  // P4: reduced from 10 → 5
       adminClient
         .from("orders")
         .select("*")
         .eq("customer_id", customerId)
         .order("created_at", { ascending: false })
-        .limit(5),
+        .limit(3),  // P4: reduced from 5 → 3
       adminClient
         .from("customer_tasks")
         .select("*")
         .eq("customer_id", customerId)
         .order("created_at", { ascending: false })
-        .limit(5)
+        .limit(3)   // P4: reduced from 5 → 3
     ]);
 
     const activities = activitiesResult.data || [];
@@ -695,7 +805,7 @@ Yêu cầu:
       const { data: chunksData } = await adminClient.rpc("match_product_chunks", {
         query_embedding: queryEmbedding,
         match_threshold: 0.3,
-        match_count: 5
+        match_count: 3  // P4: reduced from 5 → 3 (top 3 most relevant chunks sufficient for summary)
       });
       productChunks = chunksData || [];
       if (productChunks.length > 0) {
@@ -712,39 +822,44 @@ Yêu cầu:
         return json({ error: "suggestions array is required for rewrite_suggestions mode" }, 400);
       }
 
+      // P4: Compressed system prompt (removed duplicate safety block)
       const rewriteSystemPrompt = `Bạn là trợ lý sale mỹ phẩm chuyên nghiệp.
-Chỉ được sử dụng dữ liệu được cung cấp.
-Không được bịa sản phẩm.
-Không được thêm công dụng ngoài catalog.
-
-Viết lại các suggestion dưới dạng một đoạn tin nhắn gửi cho Sale để họ tham khảo nói chuyện với khách. Yêu cầu:
-- Rất ngắn gọn (1-2 câu).
-- Lịch sự, tinh tế.
-- Tập trung vào việc tạo ra lý do chính đáng để liên hệ khách hàng (Ví dụ: "Hỏi thăm da sau 1 tháng sử dụng", "Giới thiệu Toner kết hợp Sữa rửa mặt để làm sạch sâu hơn").
-
-[AI SAFETY LAYER]:
-- Tuyệt đối không bịa thông tin sản phẩm. Nếu thông tin không có trong <KNOWLEDGE_CHUNKS>, hãy nói 'Tôi không có thông tin này'.
-- Không được kê đơn thuốc điều trị (treatment) y khoa.
-- Không claim y khoa (chữa bách bệnh, trị dứt điểm 100%).
-
-Trả về dữ liệu dạng JSON:
-{
-  "rewrites": [
-    { "id": "id_của_suggestion", "generatedPrompt": "Nội dung đã viết lại..." }
-  ]
-}`;
+Viết lại các suggestion thành tin nhắn ngắn (1-2 câu) lịch sự cho Sale gửi khách.
+Yêu cầu: ngắn gọn, tinh tế, tạo lý do chính đáng để liên hệ.
+Ràng buộc: Chỉ dùng thông tin được cung cấp. Không bịa sản phẩm. Không claim y khoa.
+Trả về JSON: { "rewrites": [{ "id": "...", "generatedPrompt": "..." }] }`;
 
       const rewriteUserPrompt = `=== THÔNG TIN KHÁCH HÀNG ===
 Tên: ${customerData.name || "Khách hàng"}
 Hạng: ${customerData.tier || "N/A"}
 
 === CÁC GỢI Ý CẦN REWRITE ===
-${suggestions.map(s => `ID: ${s.id}\nTiêu đề: ${s.title}\nLý do: ${s.reason}\nHành động đề xuất: ${s.suggestedAction}`).join("\n\n")}
+${suggestions.map((s: any) => `ID: ${s.id}\nTiêu đề: ${s.title}\nLý do: ${s.reason}\nHành động: ${s.suggestedAction}`).join("\n\n")}
 
-Hãy viết lại các suggestion trên theo format JSON được yêu cầu.`;
+Hãy viết lại theo format JSON.`;
+
+      const rewriteStartTime = Date.now(); // P4: latency tracking
 
       try {
-        const rewriteResponse = await callAI(rewriteUserPrompt, rewriteSystemPrompt, aiConfig);
+        // P4: Cache rewrite results for 1 hour (same customer + same suggestions)
+        const rewriteCacheKey = await hashCacheKey(
+          `rewrite:${customerId}:${JSON.stringify(suggestions.map((s: any) => s.id).sort())}`
+        );
+
+        const { result: rewriteCacheResult, cacheHit: rewriteCacheHit } = await getOrSetCache(
+          adminClient,
+          rewriteCacheKey,
+          'rewrite',
+          60, // 1 hour TTL
+          async () => {
+            // P4: model routing — rewrite always uses gpt-4o-mini
+            const resp = await callAI(rewriteUserPrompt, rewriteSystemPrompt, aiConfigForMode);
+            return resp;
+          }
+        );
+        const rewriteResponse = rewriteCacheResult as any;
+        const rewriteLatencyMs = Date.now() - rewriteStartTime;
+
         let parsedRewrite: any;
         try {
           parsedRewrite = JSON.parse(rewriteResponse.content);
@@ -752,19 +867,32 @@ Hãy viết lại các suggestion trên theo format JSON được yêu cầu.`;
           parsedRewrite = { rewrites: [] };
         }
 
-        // Log AI usage
+        // P4: Log to ai_assistant_logs
         await adminClient.from("ai_assistant_logs").insert({
           user_id: user.id,
           customer_id: customerId,
           task_id: taskId || null,
           mode: "rewrite_suggestions",
           status: "success",
-          prompt_tokens: rewriteResponse.prompt_tokens,
-          completion_tokens: rewriteResponse.completion_tokens,
-          total_tokens: rewriteResponse.total_tokens,
+          prompt_tokens: rewriteCacheHit ? 0 : (rewriteResponse.prompt_tokens ?? 0),
+          completion_tokens: rewriteCacheHit ? 0 : (rewriteResponse.completion_tokens ?? 0),
+          total_tokens: rewriteCacheHit ? 0 : (rewriteResponse.total_tokens ?? 0),
         });
 
-        return json({ rewrites: parsedRewrite.rewrites || [] });
+        // P4: Log usage (was missing before)
+        await logUsage(adminClient, aiConfig, {
+          userId: user.id,
+          customerId,
+          mode: 'rewrite_suggestions',
+          promptTokens: rewriteCacheHit ? 0 : (rewriteResponse.prompt_tokens ?? 0),
+          completionTokens: rewriteCacheHit ? 0 : (rewriteResponse.completion_tokens ?? 0),
+          totalTokens: rewriteCacheHit ? 0 : (rewriteResponse.total_tokens ?? 0),
+          latencyMs: rewriteLatencyMs,
+          cacheHit: rewriteCacheHit,
+          modelOverride: resolvedModel, // gpt-4o-mini
+        });
+
+        return json({ rewrites: parsedRewrite.rewrites || [], cache_hit: rewriteCacheHit });
       } catch (err: any) {
         return json({ error: err.message || "Lỗi AI rewrite" }, 500);
       }
@@ -857,31 +985,25 @@ Hãy viết lại các suggestion trên theo format JSON được yêu cầu.`;
     const promptChunks = productChunks.filter(c => (c.similarity ?? 0) >= 0.7);
 
     // 5. Build prompt for SUMMARY mode
-    const systemPrompt = `Bạn là AI trợ lý bán hàng cho hệ thống CRM Desembre Partner Hub.
+    // P4: merged duplicate safety blocks (NGUYÊN TẮC + AI SAFETY LAYER) into one
+    const systemPrompt = `Bạn là AI trợ lý bán hàng CRM Desembre Partner Hub.
 
-NGUYÊN TẮC BẮT BUỘC (GUARDRAILS):
-- Bạn CHỈ ĐƯỢC tóm tắt và phân tích dựa trên DỮ LIỆU ĐƯỢC CUNG CẤP bên dưới.
-- KHÔNG ĐƯỢC bịa ra sản phẩm, công dụng, hoặc thông tin nào không có trong dữ liệu.
-- KHÔNG ĐƯỢC đề xuất hành động ngoài phạm vi quyền của nhân viên bán hàng (ví dụ: không đề xuất xoá khách, sửa giá, truy cập admin).
-- KHÔNG ĐƯỢC đề cập đến AI hoặc "tôi là AI" trong kết quả trả về.
+NGUYÊN TẮC BẮT BUỘC:
+- Chỉ tóm tắt và phân tích dựa trên DỮ LIỆU ĐƯỢC CUNG CẤP.
+- Không bịa sản phẩm, công dụng, hay thông tin ngoài dữ liệu.
+- Không claim y khoa (chữa bách bệnh, trị dứt điểm 100%, kê đơn điều trị).
+- Không đề xuất hành động ngoài quyền bán hàng. Không nhắc đến AI.
+- Chỉ dùng kiến thức từ <KNOWLEDGE_CHUNKS>. Nếu không có thông tin, ghi rõ thay vì suy diễn.
 - Trả lời bằng tiếng Việt, chuyên nghiệp, ngắn gọn.
 
-[AI SAFETY LAYER]:
-- Tuyệt đối không bịa thông tin sản phẩm. Chỉ sử dụng kiến thức từ mục <KNOWLEDGE_CHUNKS> bên dưới.
-- Nếu không có thông tin trong <KNOWLEDGE_CHUNKS>, KHÔNG ĐƯỢC tự suy diễn hay bịa ra.
-- Không được kê đơn thuốc điều trị y khoa.
-- Không claim y khoa (chữa bách bệnh, trị dứt điểm 100%).
-
-Trả về kết quả dạng JSON với cấu trúc:
+Trả về JSON:
 {
-  "summary": "Tóm tắt tổng quan về khách hàng trong 2-3 câu",
-  "current_status": "Tình trạng hiện tại của khách hàng (VD: Đang hoạt động, Cần chăm sóc lại, Nguy cơ mất khách...)",
-  "key_insights": ["Insight 1", "Insight 2", "Insight 3"],
-  "risks": ["Rủi ro 1", "Rủi ro 2"],
-  "suggested_next_actions": ["Hành động 1", "Hành động 2", "Hành động 3"]
-}
-
-Nếu dữ liệu ít, hãy nêu rõ thay vì bịa thêm. Ví dụ: "Chưa đủ dữ liệu để đánh giá rủi ro."`;
+  "summary": "Tóm tắt tổng quan 2-3 câu",
+  "current_status": "Tình trạng hiện tại",
+  "key_insights": ["Insight 1", "Insight 2"],
+  "risks": ["Rủi ro 1"],
+  "suggested_next_actions": ["Hành động 1", "Hành động 2"]
+}`;
 
     const userPrompt = `=== THÔNG TIN KHÁCH HÀNG ===
 Tên: ${customerData.name || "N/A"}
@@ -916,12 +1038,12 @@ ${tasks.length > 0
   : "Chưa có task."}
 
 
-<KNOWLEDGE_CHUNKS> (${promptChunks.length} chunks tìm thấy bằng Semantic Search)
+<KNOWLEDGE_CHUNKS> (${promptChunks.length} chunks)
 ${promptChunks.length > 0
   ? promptChunks.map((chunk: any, i: number) =>
-      `[Chunk ${i + 1}] Product ID ${chunk.product_id} (${chunk.chunk_type}): ${chunk.content}`
+      `[Chunk ${i + 1}] Product ID ${chunk.product_id} (${chunk.chunk_type}): ${trimChunk(chunk.content)}`
     ).join("\n")
-  : "Không tìm thấy dữ liệu sản phẩm liên quan trong Database."}
+  : "Không tìm thấy dữ liệu sản phẩm liên quan."}
 </KNOWLEDGE_CHUNKS>
 
 Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
