@@ -26,9 +26,17 @@ interface AIResponse {
   total_tokens: number;
 }
 
-async function callOpenAI(prompt: string, systemPrompt: string): Promise<AIResponse> {
-  const apiKey = Deno.env.get("OPENAI_API_KEY");
-  const model = Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini";
+interface AIConfig {
+  provider: string;
+  chatModel: string;
+  embeddingModel: string;
+  openAiKey: string;
+  geminiKey: string;
+}
+
+async function callOpenAI(prompt: string, systemPrompt: string, config: AIConfig): Promise<AIResponse> {
+  const apiKey = config.openAiKey;
+  const model = config.chatModel;
   if (!apiKey) throw new Error("Chưa cấu hình AI provider. Thiếu OPENAI_API_KEY.");
 
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -62,9 +70,9 @@ async function callOpenAI(prompt: string, systemPrompt: string): Promise<AIRespo
   };
 }
 
-async function callGemini(prompt: string, systemPrompt: string): Promise<AIResponse> {
-  const apiKey = Deno.env.get("GEMINI_API_KEY");
-  const model = Deno.env.get("GEMINI_MODEL") || "gemini-2.0-flash";
+async function callGemini(prompt: string, systemPrompt: string, config: AIConfig): Promise<AIResponse> {
+  const apiKey = config.geminiKey;
+  const model = config.chatModel;
   if (!apiKey) throw new Error("Chưa cấu hình AI provider. Thiếu GEMINI_API_KEY.");
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -102,15 +110,15 @@ async function callGemini(prompt: string, systemPrompt: string): Promise<AIRespo
   };
 }
 
-async function callAI(prompt: string, systemPrompt: string): Promise<AIResponse> {
-  const provider = (Deno.env.get("AI_PROVIDER") || "").toLowerCase();
-  if (provider === "openai") return callOpenAI(prompt, systemPrompt);
-  if (provider === "gemini") return callGemini(prompt, systemPrompt);
-  throw new Error("Chưa cấu hình AI provider. Vui lòng set secret AI_PROVIDER = 'openai' hoặc 'gemini'.");
+async function callAI(prompt: string, systemPrompt: string, config: AIConfig): Promise<AIResponse> {
+  const provider = config.provider.toLowerCase();
+  if (provider === "openai") return callOpenAI(prompt, systemPrompt, config);
+  if (provider === "gemini") return callGemini(prompt, systemPrompt, config);
+  throw new Error(`Chưa cấu hình AI provider. Vui lòng chọn OpenAI hoặc Gemini. Hiện tại đang chọn: ${provider}`);
 }
 
 // ---------- RAG Helpers ----------
-async function generateEmbedding(text: string, adminClient: any): Promise<number[]> {
+async function generateEmbedding(text: string, adminClient: any, config: AIConfig): Promise<number[]> {
   // --- PHASE 7.5: Cache Layer for Embeddings (TTL: forever) ---
   const cacheKey = `emb:${await hashText(text)}`;
   const { data: cached } = await adminClient
@@ -124,12 +132,12 @@ async function generateEmbedding(text: string, adminClient: any): Promise<number
     return cached.payload.embedding;
   }
 
-  const apiKey = Deno.env.get("OPENAI_API_KEY");
-  if (!apiKey) throw new Error("Missing OPENAI_API_KEY for embeddings.");
+  const apiKey = config.openAiKey;
+  if (!apiKey) throw new Error("Chưa cấu hình OpenAI API Key để tạo embedding.");
   const res = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
     headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ input: text, model: "text-embedding-3-small" }),
+    body: JSON.stringify({ input: text, model: config.embeddingModel }),
   });
   if (!res.ok) throw new Error(`Embedding failed: ${await res.text()}`);
   const data = await res.json();
@@ -205,7 +213,7 @@ async function validateAIOutput(
 }
 
 // ---------- Phase 7.6: Cost Logger ----------
-async function logUsage(adminClient: any, params: {
+async function logUsage(adminClient: any, config: AIConfig, params: {
   userId: string;
   customerId?: string;
   mode: string;
@@ -220,10 +228,8 @@ async function logUsage(adminClient: any, params: {
   const outputCost = (params.completionTokens / 1_000_000) * 0.6;
   const totalCost = inputCost + outputCost;
 
-  const provider = (Deno.env.get("AI_PROVIDER") || "openai").toLowerCase();
-  const model = provider === "openai"
-    ? (Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini")
-    : (Deno.env.get("GEMINI_MODEL") || "gemini-2.0-flash");
+  const provider = config.provider.toLowerCase();
+  const model = config.chatModel;
 
   try {
     await adminClient.from("ai_usage_logs").insert({
@@ -289,9 +295,14 @@ Deno.serve(async (req) => {
     if (!aiSettings.module_sales_assistant) {
       return json({ error: "AI module này đang bị Admin tắt." }, 403);
     }
-    // Optional: could set ENV overrides here based on aiSettings if we want to dynamically override the model, 
-    // but the `callAI` function currently uses Deno.env directly. 
-    // We'll leave `callAI` as is for now, but this is the gatekeeper.
+    
+    const aiConfig: AIConfig = {
+      provider: aiSettings.provider || Deno.env.get("AI_PROVIDER") || "openai",
+      chatModel: aiSettings.chat_model || "gpt-4o-mini",
+      embeddingModel: aiSettings.embedding_model || "text-embedding-3-small",
+      openAiKey: aiSettings.openai_api_key || Deno.env.get("OPENAI_API_KEY") || "",
+      geminiKey: aiSettings.gemini_api_key || Deno.env.get("GEMINI_API_KEY") || "",
+    };
 
     // 2. Parse input
     const body = await req.json();
@@ -309,7 +320,7 @@ Deno.serve(async (req) => {
     if (mode === "debug_rag") {
       if (!debugQuery) return json({ error: "debugQuery is required" }, 400);
       try {
-        const queryEmbedding = await generateEmbedding(debugQuery);
+        const queryEmbedding = await generateEmbedding(debugQuery, adminClient, aiConfig);
         const { data: chunksData } = await adminClient.rpc("match_product_chunks", {
           query_embedding: queryEmbedding,
           match_threshold: 0.3,
@@ -382,7 +393,7 @@ Deno.serve(async (req) => {
     const startTime = Date.now();
     try {
       const searchContext = `Da khách hàng: ${customerData.skin_concern_focus || "không rõ"}. Ghi chú: ${customerData.notes || ""}. Các vấn đề quan tâm: mụn, nám, lão hóa, nhạy cảm.`;
-      const queryEmbedding = await generateEmbedding(searchContext, adminClient);
+      const queryEmbedding = await generateEmbedding(searchContext, adminClient, aiConfig);
       const { data: chunksData } = await adminClient.rpc("match_product_chunks", {
         query_embedding: queryEmbedding,
         match_threshold: 0.3,
@@ -435,7 +446,7 @@ ${suggestions.map(s => `ID: ${s.id}\nTiêu đề: ${s.title}\nLý do: ${s.reason
 Hãy viết lại các suggestion trên theo format JSON được yêu cầu.`;
 
       try {
-        const rewriteResponse = await callAI(rewriteUserPrompt, rewriteSystemPrompt);
+        const rewriteResponse = await callAI(rewriteUserPrompt, rewriteSystemPrompt, aiConfig);
         let parsedRewrite: any;
         try {
           parsedRewrite = JSON.parse(rewriteResponse.content);
@@ -535,7 +546,7 @@ Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
     // 6. Call AI (with latency tracking)
     let aiResponse: AIResponse;
     try {
-      aiResponse = await callAI(userPrompt, systemPrompt);
+      aiResponse = await callAI(userPrompt, systemPrompt, aiConfig);
     } catch (aiError: any) {
       await adminClient.from("ai_conversations").insert({
         user_id: user.id,
@@ -617,7 +628,7 @@ Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
 
 
     // --- PHASE 7.4: Log token cost ---
-    await logUsage(adminClient, {
+    await logUsage(adminClient, aiConfig, {
       userId: user.id,
       customerId,
       mode: "summary",

@@ -38,11 +38,6 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-    const openAiKey = Deno.env.get('OPENAI_API_KEY') || '';
-
-    if (!openAiKey) {
-      throw new Error("Missing OPENAI_API_KEY environment variable");
-    }
 
     // 1. Kiểm tra user auth (The request must contain a valid auth header)
     const authHeader = req.headers.get('Authorization');
@@ -72,6 +67,12 @@ serve(async (req) => {
     if (aiError || !aiSettings) {
       throw new Error('Failed to load AI settings');
     }
+
+    const openAiKey = aiSettings.openai_api_key || Deno.env.get('OPENAI_API_KEY') || '';
+    if (!openAiKey) {
+      throw new Error("Chưa cấu hình OpenAI API Key. Vui lòng thiết lập trong Cấu hình AI.");
+    }
+
     // Ensure provider is openai (MVP)
     if (aiSettings.provider !== 'openai') {
       throw new Error('Embedding provider must be OpenAI in MVP');

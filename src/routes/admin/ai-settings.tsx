@@ -55,6 +55,9 @@ export const AiSettingsPage: React.FC = () => {
       p_system_tone: settings.system_tone,
       p_daily_token_limit: settings.daily_token_limit,
       p_monthly_cost_limit: settings.monthly_cost_limit,
+      p_openai_api_key: settings.openai_api_key,
+      p_gemini_api_key: settings.gemini_api_key,
+      p_anthropic_api_key: settings.anthropic_api_key,
     });
     if (error) {
       console.error(error);
@@ -71,7 +74,7 @@ export const AiSettingsPage: React.FC = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold">Cấu hình AI</h2>
-          <TestConnectionButton onSuccess={handleRefresh} />
+          <TestConnectionButton settings={settings} onSuccess={handleRefresh} />
         </div>
         <ProviderConfigCard settings={settings} onChange={handleChange} />
         <ModulesControlCard settings={settings} onChange={handleChange} />
