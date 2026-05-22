@@ -94,6 +94,11 @@ export const ManagerWorkspace: React.FC = () => {
               ⚙️ Cấu hình AI
             </Button>
           </Link>
+          <Link to="/admin/rag-audit">
+            <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg">
+              🧪 RAG Audit
+            </Button>
+          </Link>
           <Link to="/admin/settings">
             <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg">
               ⚙️ Cấu hình Hệ thống
