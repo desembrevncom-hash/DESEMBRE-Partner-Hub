@@ -69,7 +69,8 @@ const presetGroups = [
 ];
 
 function RAGAuditPage() {
-  const { isAdminOrSubAdmin } = useAuth();
+  const { isAdmin, isSubAdmin } = useAuth();
+  const isAdminOrSubAdmin = isAdmin || isSubAdmin;
   
   // Test controls
   const [query, setQuery] = useState('');
