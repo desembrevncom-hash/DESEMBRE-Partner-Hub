@@ -12,11 +12,15 @@ type AuthCtx = {
   isAdmin: boolean;
   isSubAdmin: boolean;
   isManager: boolean;
+  /** Alias for isAdmin || isSubAdmin — used by admin route guards */
+  isAdminOrSubAdmin: boolean;
   isSale: boolean;
   isTeleLead: boolean;
   isTelesale: boolean;
   isTeleUser: boolean;
   isFieldUser: boolean;
+  /** Alias for isSale || isTeleLead || isTelesale — used by sales route guards */
+  isSalesMember: boolean;
   canManageUsers: boolean;
   canManageLeads: boolean;
   canViewReports: boolean;
@@ -164,6 +168,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const isTeleUser = isTeleLead || isTelesale;
     const isFieldUser = isSale || isTeleLead || isTelesale;
+    const isAdminOrSubAdmin = isAdmin || isSubAdmin;
+    const isSalesMember = isSale || isTeleLead || isTelesale;
 
     return {
       user,
@@ -173,11 +179,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin,
       isSubAdmin,
       isManager,
+      isAdminOrSubAdmin,
       isSale,
       isTeleLead,
       isTelesale,
       isTeleUser,
       isFieldUser,
+      isSalesMember,
       canManageUsers: isManager,
       canManageLeads: isManager,
       canViewReports: isManager,

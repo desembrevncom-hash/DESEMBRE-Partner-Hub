@@ -1,14 +1,17 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import ProviderConfigCard from "@/components/ai/ProviderConfigCard";
 import ModulesControlCard from "@/components/ai/ModulesControlCard";
 import BehaviorLimitsCard from "@/components/ai/BehaviorLimitsCard";
 import TestConnectionButton from "@/components/ai/TestConnectionButton";
-import { WorkspaceShell } from "@/components/workspace/WorkspaceShell"; // Assuming existing layout component
+import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { toast } from "sonner";
+import { Lock } from "lucide-react";
 
 export const AiSettingsPage: React.FC = () => {
+  const { isAdminOrSubAdmin, loading: authLoading } = useAuth();
   const [settings, setSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -26,8 +29,10 @@ export const AiSettingsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchSettings();
-  }, []);
+    if (!authLoading && isAdminOrSubAdmin) {
+      fetchSettings();
+    }
+  }, [authLoading, isAdminOrSubAdmin]);
 
   const handleRefresh = () => {
     fetchSettings();
@@ -68,6 +73,27 @@ export const AiSettingsPage: React.FC = () => {
     }
     setSaving(false);
   };
+
+  // Phase P3: Guard — only admin/sub_admin may access this page
+  if (!authLoading && !isAdminOrSubAdmin) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 text-center">
+        <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mb-4">
+          <Lock className="w-8 h-8 text-rose-600" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-800">Không có quyền truy cập</h2>
+        <p className="text-slate-500 text-sm max-w-sm mt-2">
+          Trang Cấu hình AI chỉ dành riêng cho Admin hoặc Phó Admin.
+        </p>
+        <Link
+          to="/workspace"
+          className="mt-6 px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-black transition-all"
+        >
+          Quay lại Workspace
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <WorkspaceShell title="AI Settings & Provider Control Center" loading={loading}>

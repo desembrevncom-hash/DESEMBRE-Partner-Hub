@@ -382,6 +382,13 @@ Deno.serve(async (req) => {
     // --- PHASE 7: RAG Sandbox Debug Mode ---
     if (mode === "debug_rag") {
       if (!debugQuery) return json({ error: "debugQuery is required" }, 400);
+      // Phase P3: debug_rag requires Admin or Sub Admin
+      const { data: isAdminDebug, error: roleDebugError } = await adminClient.rpc("is_admin_or_sub_admin", {
+        user_id: user.id
+      });
+      if (roleDebugError || !isAdminDebug) {
+        return json({ error: "Access denied. Only Admin or Sub Admin can use debug_rag mode." }, 403);
+      }
       try {
         const queryEmbedding = await generateEmbedding(debugQuery, adminClient, aiConfig);
         const { data: chunksData } = await adminClient.rpc("match_product_chunks", {

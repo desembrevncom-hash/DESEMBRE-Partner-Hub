@@ -37,6 +37,7 @@ import { Route as AdminUatRouteImport } from './routes/admin/uat'
 import { Route as AdminTemplatesRouteImport } from './routes/admin/templates'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminSegmentsRouteImport } from './routes/admin/segments'
+import { Route as AdminSecurityAuditRouteImport } from './routes/admin/security-audit'
 import { Route as AdminReclamationRouteImport } from './routes/admin/reclamation'
 import { Route as AdminRagAuditRouteImport } from './routes/admin/rag-audit'
 import { Route as AdminProductsRouteImport } from './routes/admin/products'
@@ -189,6 +190,11 @@ const AdminSegmentsRoute = AdminSegmentsRouteImport.update({
   path: '/admin/segments',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminSecurityAuditRoute = AdminSecurityAuditRouteImport.update({
+  id: '/admin/security-audit',
+  path: '/admin/security-audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminReclamationRoute = AdminReclamationRouteImport.update({
   id: '/admin/reclamation',
   path: '/admin/reclamation',
@@ -266,6 +272,7 @@ export interface FileRoutesByFullPath {
   '/admin/products': typeof AdminProductsRoute
   '/admin/rag-audit': typeof AdminRagAuditRoute
   '/admin/reclamation': typeof AdminReclamationRoute
+  '/admin/security-audit': typeof AdminSecurityAuditRoute
   '/admin/segments': typeof AdminSegmentsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/templates': typeof AdminTemplatesRoute
@@ -306,6 +313,7 @@ export interface FileRoutesByTo {
   '/admin/products': typeof AdminProductsRoute
   '/admin/rag-audit': typeof AdminRagAuditRoute
   '/admin/reclamation': typeof AdminReclamationRoute
+  '/admin/security-audit': typeof AdminSecurityAuditRoute
   '/admin/segments': typeof AdminSegmentsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/templates': typeof AdminTemplatesRoute
@@ -348,6 +356,7 @@ export interface FileRoutesById {
   '/admin/products': typeof AdminProductsRoute
   '/admin/rag-audit': typeof AdminRagAuditRoute
   '/admin/reclamation': typeof AdminReclamationRoute
+  '/admin/security-audit': typeof AdminSecurityAuditRoute
   '/admin/segments': typeof AdminSegmentsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/templates': typeof AdminTemplatesRoute
@@ -391,6 +400,7 @@ export interface FileRouteTypes {
     | '/admin/products'
     | '/admin/rag-audit'
     | '/admin/reclamation'
+    | '/admin/security-audit'
     | '/admin/segments'
     | '/admin/settings'
     | '/admin/templates'
@@ -431,6 +441,7 @@ export interface FileRouteTypes {
     | '/admin/products'
     | '/admin/rag-audit'
     | '/admin/reclamation'
+    | '/admin/security-audit'
     | '/admin/segments'
     | '/admin/settings'
     | '/admin/templates'
@@ -472,6 +483,7 @@ export interface FileRouteTypes {
     | '/admin/products'
     | '/admin/rag-audit'
     | '/admin/reclamation'
+    | '/admin/security-audit'
     | '/admin/segments'
     | '/admin/settings'
     | '/admin/templates'
@@ -514,6 +526,7 @@ export interface RootRouteChildren {
   AdminProductsRoute: typeof AdminProductsRoute
   AdminRagAuditRoute: typeof AdminRagAuditRoute
   AdminReclamationRoute: typeof AdminReclamationRoute
+  AdminSecurityAuditRoute: typeof AdminSecurityAuditRoute
   AdminSegmentsRoute: typeof AdminSegmentsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminTemplatesRoute: typeof AdminTemplatesRoute
@@ -730,6 +743,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSegmentsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/security-audit': {
+      id: '/admin/security-audit'
+      path: '/admin/security-audit'
+      fullPath: '/admin/security-audit'
+      preLoaderRoute: typeof AdminSecurityAuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/reclamation': {
       id: '/admin/reclamation'
       path: '/admin/reclamation'
@@ -847,6 +867,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminProductsRoute: AdminProductsRoute,
   AdminRagAuditRoute: AdminRagAuditRoute,
   AdminReclamationRoute: AdminReclamationRoute,
+  AdminSecurityAuditRoute: AdminSecurityAuditRoute,
   AdminSegmentsRoute: AdminSegmentsRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminTemplatesRoute: AdminTemplatesRoute,

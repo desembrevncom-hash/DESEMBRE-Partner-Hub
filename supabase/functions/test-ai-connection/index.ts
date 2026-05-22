@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +12,47 @@ serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+
+    // ── Phase P3: Require valid JWT ────────────────────────────────────────────
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ configured: false, status: "fail", message: "Missing authorization header" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // Verify the token and get user identity
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: { user }, error: authError } = await userClient.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ configured: false, status: "fail", message: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // Verify caller is Admin or Sub Admin using admin client (service role)
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: isAdminResult, error: roleError } = await adminClient.rpc("is_admin_or_sub_admin", {
+      user_id: user.id,
+    });
+    if (roleError || !isAdminResult) {
+      return new Response(
+        JSON.stringify({ configured: false, status: "fail", message: "Forbidden: only Admin or Sub Admin can test AI connection" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    // ── End Phase P3 guard ─────────────────────────────────────────────────────
+
     const { provider, model, openai_api_key } = await req.json();
     // Currently only OpenAI is supported for connection test
     if (provider !== "openai") {
@@ -25,14 +67,8 @@ serve(async (req) => {
     // If key contains mask indicator or is empty, try loading it from DB
     if (!openAiKey || openAiKey.includes("...") || openAiKey === "••••••••") {
       try {
-        const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-        const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
         if (supabaseUrl && supabaseServiceKey) {
-          const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
-            auth: { persistSession: false, autoRefreshToken: false },
-          });
-          const { data } = await supabaseClient
+          const { data } = await adminClient
             .from("ai_settings")
             .select("openai_api_key")
             .eq("id", "default")
