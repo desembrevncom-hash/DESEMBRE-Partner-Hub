@@ -150,12 +150,12 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   useEffect(() => {
     if (!open) return;
     const ids = [
-      customerProp?.owner_sale_id,
-      customerProp?.owner_tele_id,
-      customerProp?.assigned_sale_id,
-      customerProp?.assigned_telesale_id,
-      customerProp?.created_by,
-      customerProp?.updated_by
+      customer?.owner_sale_id,
+      customer?.owner_tele_id,
+      customer?.assigned_sale_id,
+      customer?.assigned_telesale_id,
+      customer?.created_by,
+      customer?.updated_by
     ].filter(Boolean) as string[];
     
     const missingIds = ids.filter(id => !combinedStaffMap[id]);
@@ -178,7 +178,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       };
       fetchProfiles();
     }
-  }, [open, customerProp?.owner_sale_id, customerProp?.owner_tele_id, customerProp?.assigned_sale_id, customerProp?.assigned_telesale_id, customerProp?.created_by, customerProp?.updated_by, staffMap]);
+  }, [open, customer?.owner_sale_id, customer?.owner_tele_id, customer?.assigned_sale_id, customer?.assigned_telesale_id, customer?.created_by, customer?.updated_by, staffMap]);
 
   const [activities, setActivities] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
