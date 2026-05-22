@@ -4,6 +4,7 @@ import { CustomerUpsellIntel } from "./CustomerUpsellIntel";
 import { CustomerKnowledgeUpsell } from "./CustomerKnowledgeUpsell";
 import { ProductKnowledgeBook } from "./ProductKnowledgeBook";
 import { CustomerAISummary } from "./CustomerAISummary";
+import { CustomerContactChannels } from "./CustomerContactChannels";
 import { AISuggestionCard } from "../ai/AISuggestionCard";
 import { generateSuggestions } from "@/lib/aiSuggestionEngine";
 import {
@@ -1384,6 +1385,16 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                   </div>
                 </div>
               )}
+            </section>
+
+            {/* CONTACT CHANNELS & REMARKETING SECTION */}
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                  <Target className="w-4 h-4 text-primary" /> Kênh liên hệ & Remarketing
+                </div>
+              </div>
+              <CustomerContactChannels customerId={customer.id} />
             </section>
 
             {/* QUICK ACTIONS BLOCK */}

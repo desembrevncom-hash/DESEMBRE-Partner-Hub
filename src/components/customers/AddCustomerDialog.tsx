@@ -76,7 +76,7 @@ interface AddCustomerDialogProps {
 }
 
 export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomerDialogProps) {
-  const { user, isSale, isTeleLead } = useAuth();
+  const { user, isSale, isTeleLead, isAdmin, isSubAdmin } = useAuth();
   const [saving, setSaving] = useState(false);
   const [cityOpen, setCityOpen] = useState(false);
   const [citySearch, setCitySearch] = useState("");
@@ -255,9 +255,6 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
       care_model: form.care_model,
       owner_sale_id: form.owner_sale_id !== "none" ? form.owner_sale_id : null,
       owner_tele_id: form.owner_tele_id !== "none" ? form.owner_tele_id : null,
-      email: form.email,
-      zalo: form.zalo,
-      facebook: form.facebook,
       city: form.city,
       district: form.district,
       region: form.region,
@@ -322,9 +319,42 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
              user?.id || ""
            );
         }
+
+        // QUICK ADD SOCIAL CHANNELS
+        let socialErrors: string[] = [];
+        const scope = (isAdmin || isSubAdmin) ? "official" : "private";
+        const customerId = newCustomer.id;
+
+        const addChannel = async (channelType: string, value: string) => {
+          if (!value.trim()) return;
+          try {
+            const { data, error } = await supabase.functions.invoke("resolve-contact-channel", {
+              body: { customerId, channelType, value: value.trim(), scope, source: "manual" }
+            });
+            if (error) throw error;
+            if (data?.error) throw new Error(data.error);
+          } catch (err: any) {
+            socialErrors.push(`${channelType.toUpperCase()}: ${err.message}`);
+          }
+        };
+
+        await Promise.all([
+          addChannel("facebook", form.facebook),
+          addChannel("zalo", form.zalo),
+          addChannel("email", form.email)
+        ]);
+
+        if (socialErrors.length > 0) {
+          toast.warning(`Đã thêm khách hàng. Tuy nhiên một số kênh liên hệ chưa lưu được: ${socialErrors.join(" | ")}`, { duration: 5000 });
+        } else if (form.facebook?.trim() || form.zalo?.trim() || form.email?.trim()) {
+          toast.success("Đã thêm khách hàng và kênh liên hệ thành công!");
+        } else {
+          toast.success("Đã thêm khách hàng thành công!");
+        }
+      } else {
+        toast.success("Đã thêm khách hàng thành công!");
       }
 
-      toast.success("Đã thêm khách hàng thành công!");
       onOpenChange(false);
       if (onSuccess) onSuccess();
     }
@@ -534,6 +564,55 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
                       placeholder="MST doanh nghiệp"
                       className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm font-mono focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300"
                     />
+                  </div>
+                </div>
+
+                <div className="mt-8 border-t border-slate-100 pt-6 space-y-5">
+                  <div>
+                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                      <Target className="w-4 h-4 text-primary" /> Kênh liên hệ nhanh
+                    </h4>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      {(isAdmin || isSubAdmin) 
+                        ? "Các kênh này sẽ được lưu là Kênh Chính Thức (Official)."
+                        : "Các kênh này sẽ được lưu là Kênh Riêng Tư (Private) của bạn."}
+                    </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-5">
+                    <div className="space-y-2 col-span-2">
+                      <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                        Facebook URL
+                      </Label>
+                      <Input
+                        value={form.facebook}
+                        onChange={(e) => setForm({ ...form, facebook: e.target.value })}
+                        placeholder="https://facebook.com/..."
+                        className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300"
+                      />
+                    </div>
+                    <div className="space-y-2 col-span-2 sm:col-span-1">
+                      <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                        Zalo (Số điện thoại)
+                      </Label>
+                      <Input
+                        value={form.zalo}
+                        onChange={(e) => setForm({ ...form, zalo: e.target.value })}
+                        placeholder="0912345678"
+                        className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm font-mono focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300"
+                      />
+                    </div>
+                    <div className="space-y-2 col-span-2 sm:col-span-1">
+                      <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                        Email
+                      </Label>
+                      <Input
+                        value={form.email}
+                        onChange={(e) => setForm({ ...form, email: e.target.value })}
+                        placeholder="spa@example.com"
+                        className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300"
+                      />
+                    </div>
                   </div>
                 </div>
               </TabsContent>
