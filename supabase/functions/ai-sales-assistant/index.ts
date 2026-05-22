@@ -168,6 +168,68 @@ function truncateString(str: string, maxLen = 500): string {
   return str.slice(0, maxLen) + "...";
 }
 
+// Banned medical claims phrases
+const BANNED_MEDICAL_PHRASES = [
+  "trị dứt điểm",
+  "cam kết khỏi",
+  "chữa khỏi",
+  "khỏi 100%",
+  "điều trị bệnh",
+  "thay thế thuốc",
+  "không tái phát",
+  "hiệu quả vĩnh viễn",
+  "đảm bảo hết nám",
+  "đảm bảo hết mụn"
+];
+
+function detectBannedPhrases(text: string): string[] {
+  if (!text) return [];
+  const lowerText = text.toLowerCase();
+  return BANNED_MEDICAL_PHRASES.filter(phrase => lowerText.includes(phrase.toLowerCase()));
+}
+
+function detectUnsupportedProductMentions(text: string, retrievedChunks: any[], allProducts: any[]): string[] {
+  const lowerText = text.toLowerCase();
+  const allowedProducts = new Set(retrievedChunks.map(c => c.product_name?.toLowerCase()).filter(Boolean));
+  
+  const violations: string[] = [];
+  for (const p of allProducts) {
+    const pNameLower = p.name?.toLowerCase();
+    if (!pNameLower || pNameLower.length < 3) continue;
+    
+    // Check if response mentions product, but it's not in the retrieved chunks context
+    if (lowerText.includes(pNameLower) && !allowedProducts.has(pNameLower)) {
+      violations.push(p.name);
+    }
+  }
+  return violations;
+}
+
+async function logSafetyEvent(adminClient: any, params: {
+  requestId: string;
+  userId: string;
+  customerId?: string;
+  eventType: string;
+  phrase: string;
+  severity: string;
+  originalResponse?: string;
+}) {
+  try {
+    await adminClient.from("ai_safety_events").insert({
+      request_id: params.requestId,
+      user_id: params.userId,
+      customer_id: params.customerId || null,
+      event_type: params.eventType,
+      phrase: params.phrase || "N/A",
+      severity: params.severity,
+      original_response_preview: params.originalResponse ? truncateString(params.originalResponse, 500) : null,
+      handled: false
+    });
+  } catch (e) {
+    console.error("Failed to log safety event:", e);
+  }
+}
+
 // ---------- Phase 7.3: Hallucination Detector ----------
 interface HallucinationResult {
   blocked: boolean;
@@ -307,6 +369,7 @@ Deno.serve(async (req) => {
     // 2. Parse input
     const body = await req.json();
     const { customerId, mode, taskId, debugQuery } = body;
+    const requestId = crypto.randomUUID();
 
     if (mode !== "summary" && mode !== "rewrite_suggestions" && mode !== "debug_rag" && mode !== "rag_audit") {
       return json({ error: "Only mode='summary', 'rewrite_suggestions', 'debug_rag', and 'rag_audit' are supported" }, 400);
@@ -368,10 +431,11 @@ Deno.serve(async (req) => {
         const queryEmbedding = await generateEmbedding(auditQuery, adminClient, aiConfig);
 
         // 2. Search chunks in DB using match_product_chunks
-        const parsedThreshold = parseFloat(threshold) || 0.5;
+        // We query with a lower threshold (0.1) to allow detecting if there is any retrieval context at all
+        const parsedThreshold = (threshold !== undefined && threshold !== null) ? parseFloat(threshold) : 0.7;
         const { data: chunksData, error: matchError } = await adminClient.rpc("match_product_chunks", {
           query_embedding: queryEmbedding,
-          match_threshold: parsedThreshold,
+          match_threshold: 0.1,
           match_count: 5
         });
 
@@ -379,60 +443,105 @@ Deno.serve(async (req) => {
 
         const rawChunks = chunksData || [];
 
+        // Determine if no retrieval at all
+        const topScore = rawChunks.length > 0 ? Math.max(...rawChunks.map((c: any) => c.similarity ?? 0)) : 0;
+
+        if (rawChunks.length === 0) {
+          const fallbackText = "Hiện chưa có đủ dữ liệu chính thức trong Cẩm nang sản phẩm để tư vấn nội dung này.";
+          await logSafetyEvent(adminClient, {
+            requestId: requestId,
+            userId: user.id,
+            eventType: "no_retrieval",
+            phrase: "N/A",
+            severity: "medium"
+          });
+          return json({
+            retrieved_chunks: [],
+            final_answer: fallbackText,
+            prompt_tokens: 0,
+            completion_tokens: 0,
+            total_tokens: 0,
+            model_used: aiConfig.chatModel,
+            provider: aiConfig.provider
+          });
+        }
+
         // 3. Fetch details: product names, is_active, knowledge_version
         const retrievedChunks = [];
-        if (rawChunks.length > 0) {
-          const productIds = Array.from(new Set(rawChunks.map((c: any) => c.product_id)));
-          const chunkIds = rawChunks.map((c: any) => c.id);
+        const productIds = Array.from(new Set(rawChunks.map((c: any) => c.product_id)));
+        const chunkIds = rawChunks.map((c: any) => c.id);
 
-          // Get product names
-          const { data: productsData } = await adminClient
-            .from("products")
-            .select("id, name")
-            .in("id", productIds);
-          const productNamesMap: Record<number, string> = {};
-          productsData?.forEach((p: any) => {
-            productNamesMap[p.id] = p.name;
+        // Get product names
+        const { data: productsData } = await adminClient
+          .from("products")
+          .select("id, name")
+          .in("id", productIds);
+        const productNamesMap: Record<number, string> = {};
+        productsData?.forEach((p: any) => {
+          productNamesMap[p.id] = p.name;
+        });
+
+        // Get chunk level details (is_active, knowledge_version)
+        const { data: chunksDb } = await adminClient
+          .from("product_knowledge_chunks")
+          .select("id, is_active, knowledge_version")
+          .in("id", chunkIds);
+        const chunkDbMap: Record<string, any> = {};
+        chunksDb?.forEach((c: any) => {
+          chunkDbMap[c.id] = c;
+        });
+
+        // Get product knowledge qa_status and is_active
+        const { data: pkData } = await adminClient
+          .from("product_knowledge")
+          .select("product_id, is_active, qa_status")
+          .in("product_id", productIds);
+        const pkMap: Record<number, any> = {};
+        pkData?.forEach((pk: any) => {
+          pkMap[pk.product_id] = pk;
+        });
+
+        for (const c of rawChunks) {
+          const prodName = productNamesMap[c.product_id] || `Sản phẩm #${c.product_id}`;
+          const dbChunk = chunkDbMap[c.id] || {};
+          const pk = pkMap[c.product_id] || {};
+
+          retrievedChunks.push({
+            chunk_id: c.id,
+            product_id: c.product_id,
+            product_name: prodName,
+            chunk_type: c.chunk_type,
+            similarity_score: c.similarity,
+            knowledge_version: dbChunk.knowledge_version || c.metadata?.knowledge_version || 1,
+            content: c.content,
+            qa_status: pk.qa_status || "approved",
+            is_active: dbChunk.is_active !== undefined ? dbChunk.is_active : true
           });
-
-          // Get chunk level details (is_active, knowledge_version)
-          const { data: chunksDb } = await adminClient
-            .from("product_knowledge_chunks")
-            .select("id, is_active, knowledge_version")
-            .in("id", chunkIds);
-          const chunkDbMap: Record<string, any> = {};
-          chunksDb?.forEach((c: any) => {
-            chunkDbMap[c.id] = c;
-          });
-
-          // Get product knowledge qa_status and is_active
-          const { data: pkData } = await adminClient
-            .from("product_knowledge")
-            .select("product_id, is_active, qa_status")
-            .in("product_id", productIds);
-          const pkMap: Record<number, any> = {};
-          pkData?.forEach((pk: any) => {
-            pkMap[pk.product_id] = pk;
-          });
-
-          for (const c of rawChunks) {
-            const prodName = productNamesMap[c.product_id] || `Sản phẩm #${c.product_id}`;
-            const dbChunk = chunkDbMap[c.id] || {};
-            const pk = pkMap[c.product_id] || {};
-
-            retrievedChunks.push({
-              chunk_id: c.id,
-              product_id: c.product_id,
-              product_name: prodName,
-              chunk_type: c.chunk_type,
-              similarity_score: c.similarity,
-              knowledge_version: dbChunk.knowledge_version || c.metadata?.knowledge_version || 1,
-              content: c.content,
-              qa_status: pk.qa_status || "approved",
-              is_active: dbChunk.is_active !== undefined ? dbChunk.is_active : true
-            });
-          }
         }
+
+        // Check if top score fails threshold (Low Confidence Guard)
+        if (topScore < parsedThreshold) {
+          const fallbackText = "Hiện chưa có đủ dữ liệu chính thức trong Cẩm nang sản phẩm để tư vấn nội dung này. (Độ tin cậy của thông tin tìm thấy không đạt yêu cầu).";
+          await logSafetyEvent(adminClient, {
+            requestId: requestId,
+            userId: user.id,
+            eventType: "low_confidence_retrieval",
+            phrase: `Top score: ${topScore.toFixed(4)}`,
+            severity: "medium"
+          });
+          return json({
+            retrieved_chunks: retrievedChunks,
+            final_answer: fallbackText,
+            prompt_tokens: 0,
+            completion_tokens: 0,
+            total_tokens: 0,
+            model_used: aiConfig.chatModel,
+            provider: aiConfig.provider
+          });
+        }
+
+        // Only keep chunks passing threshold for LLM prompt context
+        const promptChunks = retrievedChunks.filter(c => c.similarity_score >= parsedThreshold);
 
         // 4. Construct prompts based on auditMode
         let systemPrompt = "";
@@ -472,8 +581,8 @@ Yêu cầu:
   "final_answer": "Nội dung câu trả lời chi tiết và chính xác của bạn."
 }`;
 
-        const userPrompt = `=== KNOWLEDGE_CHUNKS ===\n${retrievedChunks.length > 0 
-          ? retrievedChunks.map((c: any, i: number) => `[Chunk ${i+1}] (Sản phẩm: ${c.product_name}): ${c.content}`).join('\n') 
+        const userPrompt = `=== KNOWLEDGE_CHUNKS ===\n${promptChunks.length > 0 
+          ? promptChunks.map((c: any, i: number) => `[Chunk ${i+1}] (Sản phẩm: ${c.product_name}): ${c.content}`).join('\n') 
           : 'Không tìm thấy chunks nào.'}\n\n=== CÂU HỎI CỦA SALES ===\n${auditQuery}`;
 
         // 5. Call AI
@@ -485,6 +594,35 @@ Yêu cầu:
           finalAnswer = parsed.final_answer || aiResponse.content;
         } catch {
           finalAnswer = aiResponse.content;
+        }
+
+        // Post-processing safety checks
+        const medicalViolations = detectBannedPhrases(finalAnswer);
+        if (medicalViolations.length > 0) {
+          finalAnswer = "Nội dung AI tạo ra có nguy cơ chứa claim y khoa nên đã được chặn. Vui lòng kiểm tra lại Product Knowledge hoặc viết lại câu hỏi.";
+          await logSafetyEvent(adminClient, {
+            requestId: requestId,
+            userId: user.id,
+            eventType: "medical_claim_blocked",
+            phrase: medicalViolations.join(", "),
+            severity: "high",
+            originalResponse: aiResponse.content
+          });
+        } else {
+          const { data: allProductsData } = await adminClient.from("products").select("name");
+          const allProducts = allProductsData || [];
+          const productViolations = detectUnsupportedProductMentions(finalAnswer, promptChunks, allProducts);
+          if (productViolations.length > 0) {
+            finalAnswer = `Phản hồi đã bị chặn do nhắc đến sản phẩm không có trong tài liệu đối chiếu: ${productViolations.join(", ")}. Vui lòng viết lại câu hỏi.`;
+            await logSafetyEvent(adminClient, {
+              requestId: requestId,
+              userId: user.id,
+              eventType: "unsupported_product_mention",
+              phrase: productViolations.join(", "),
+              severity: "medium",
+              originalResponse: aiResponse.content
+            });
+          }
         }
 
         return json({
@@ -626,6 +764,91 @@ Hãy viết lại các suggestion trên theo format JSON được yêu cầu.`;
     }
     // ---------------------------------------
 
+    // --- PHASE P2: RAG Guards in Summary Mode ---
+    // A. Low Retrieval Guard (0 chunks fetched from match_product_chunks)
+    if (productChunks.length === 0) {
+      const fallbackText = "Hiện chưa có đủ dữ liệu chính thức trong Cẩm nang sản phẩm để tư vấn nội dung này.";
+      await logSafetyEvent(adminClient, {
+        requestId,
+        userId: user.id,
+        customerId,
+        eventType: "no_retrieval",
+        phrase: "N/A",
+        severity: "medium"
+      });
+
+      const { data: convRow } = await adminClient.from("ai_conversation_logs").insert({
+        request_id: requestId,
+        user_id: user.id,
+        customer_id: customerId,
+        task_id: taskId || null,
+        mode: "summary",
+        request_preview: "Summary mode: no retrieval",
+        response_preview: fallbackText,
+        retrieved_chunks: "[]",
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        total_tokens: 0,
+        estimated_cost_usd: 0,
+        status: "success",
+        error_message: null,
+      }).select('id').single();
+
+      return json({
+        conversation_id: convRow?.id || null,
+        summary: fallbackText,
+        hallucination_blocked: true,
+        current_status: "Blocked",
+        key_insights: [],
+        risks: [],
+        suggested_next_actions: [],
+      });
+    }
+
+    // B. Low Confidence Guard (< 0.7 Score)
+    const topScore = Math.max(...productChunks.map((c: any) => c.similarity ?? 0));
+    if (topScore < 0.7) {
+      const fallbackText = "Hiện chưa có đủ dữ liệu chính thức trong Cẩm nang sản phẩm để tư vấn nội dung này. (Độ tin cậy của thông tin tìm thấy không đạt yêu cầu).";
+      await logSafetyEvent(adminClient, {
+        requestId,
+        userId: user.id,
+        customerId,
+        eventType: "low_confidence_retrieval",
+        phrase: `Top score: ${topScore.toFixed(4)}`,
+        severity: "medium"
+      });
+
+      const { data: convRow } = await adminClient.from("ai_conversation_logs").insert({
+        request_id: requestId,
+        user_id: user.id,
+        customer_id: customerId,
+        task_id: taskId || null,
+        mode: "summary",
+        request_preview: "Summary mode: low confidence retrieval",
+        response_preview: fallbackText,
+        retrieved_chunks: JSON.stringify(productChunks.map(c => ({ chunk_id: c.id, product_id: c.product_id, chunk_type: c.chunk_type, score: c.similarity }))),
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        total_tokens: 0,
+        estimated_cost_usd: 0,
+        status: "success",
+        error_message: null,
+      }).select('id').single();
+
+      return json({
+        conversation_id: convRow?.id || null,
+        summary: fallbackText,
+        hallucination_blocked: true,
+        current_status: "Blocked",
+        key_insights: [],
+        risks: [],
+        suggested_next_actions: [],
+      });
+    }
+
+    // Keep only chunks passing threshold for LLM prompt context
+    const promptChunks = productChunks.filter(c => (c.similarity ?? 0) >= 0.7);
+
     // 5. Build prompt for SUMMARY mode
     const systemPrompt = `Bạn là AI trợ lý bán hàng cho hệ thống CRM Desembre Partner Hub.
 
@@ -686,9 +909,9 @@ ${tasks.length > 0
   : "Chưa có task."}
 
 
-<KNOWLEDGE_CHUNKS> (${productChunks.length} chunks tìm thấy bằng Semantic Search)
-${productChunks.length > 0
-  ? productChunks.map((chunk: any, i: number) =>
+<KNOWLEDGE_CHUNKS> (${promptChunks.length} chunks tìm thấy bằng Semantic Search)
+${promptChunks.length > 0
+  ? promptChunks.map((chunk: any, i: number) =>
       `[Chunk ${i + 1}] Product ID ${chunk.product_id} (${chunk.chunk_type}): ${chunk.content}`
     ).join("\n")
   : "Không tìm thấy dữ liệu sản phẩm liên quan trong Database."}
@@ -730,38 +953,70 @@ Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
       };
     }
 
-    // --- PHASE 7.3: Hallucination Detector ---
-    const hallucinationCheck = await validateAIOutput(aiResponse.content, adminClient);
-    const finalSummary = hallucinationCheck.blocked
-      ? hallucinationCheck.safeResponse!
-      : (parsed.summary || "");
+    // --- PHASE P2: Post-LLM Safety Guards in Summary Mode ---
+    let hallucinationBlocked = false;
+    let finalSummary = parsed.summary || "";
+    let finalStatus = parsed.current_status || "";
+    let finalInsights = Array.isArray(parsed.key_insights) ? parsed.key_insights : [];
+    let finalRisks = Array.isArray(parsed.risks) ? parsed.risks : [];
+    let finalActions = Array.isArray(parsed.suggested_next_actions) ? parsed.suggested_next_actions : [];
 
-    // Log safety event if blocked
-    if (hallucinationCheck.blocked) {
-      try {
-        await adminClient.from("ai_safety_events").insert({
-          request_id: crypto.randomUUID(),
-          user_id: user.id,
-          customer_id: customerId,
-          event_type: "banned_phrase",
-          phrase: hallucinationCheck.detectedPhrases.join(", "),
-          severity: "high",
-          original_response_preview: truncateString(aiResponse.content),
-          handled: false,
+    // 1. Check Medical Claims (both hardcoded list and DB active banned phrases list)
+    const medicalViolations = detectBannedPhrases(aiResponse.content);
+    // Also validate against DB banned phrases
+    const dbBannedCheck = await validateAIOutput(aiResponse.content, adminClient);
+    if (medicalViolations.length > 0 || dbBannedCheck.blocked) {
+      const matchedPhrases = Array.from(new Set([
+        ...medicalViolations,
+        ...(dbBannedCheck.detectedPhrases || [])
+      ]));
+      
+      hallucinationBlocked = true;
+      finalSummary = "Nội dung AI tạo ra có nguy cơ chứa claim y khoa nên đã được chặn. Vui lòng kiểm tra lại Product Knowledge hoặc viết lại câu hỏi.";
+      finalStatus = "Blocked";
+      finalInsights = [];
+      finalRisks = [];
+      finalActions = [];
+      await logSafetyEvent(adminClient, {
+        requestId,
+        userId: user.id,
+        customerId,
+        eventType: "medical_claim_blocked",
+        phrase: matchedPhrases.join(", "),
+        severity: "high",
+        originalResponse: aiResponse.content
+      });
+    } else {
+      // 2. Check Unsupported Products
+      const { data: allProductsData } = await adminClient.from("products").select("name");
+      const allProducts = allProductsData || [];
+      const productViolations = detectUnsupportedProductMentions(aiResponse.content, promptChunks, allProducts);
+      if (productViolations.length > 0) {
+        hallucinationBlocked = true;
+        finalSummary = `Phản hồi đã bị chặn do nhắc đến sản phẩm không có trong tài liệu đối chiếu: ${productViolations.join(", ")}. Vui lòng viết lại câu hỏi.`;
+        finalStatus = "Blocked";
+        finalInsights = [];
+        finalRisks = [];
+        finalActions = [];
+        await logSafetyEvent(adminClient, {
+          requestId,
+          userId: user.id,
+          customerId,
+          eventType: "unsupported_product_mention",
+          phrase: productViolations.join(", "),
+          severity: "medium",
+          originalResponse: aiResponse.content
         });
-      } catch (e) {
-        console.error("Safety event log error:", e);
       }
     }
 
     // 8. Log to ai_conversations (full audit trail)
-    // Estimate cost (same logic as logUsage)
     const inputCost = (aiResponse.prompt_tokens / 1_000_000) * 0.15;
     const outputCost = (aiResponse.completion_tokens / 1_000_000) * 0.6;
     const estimatedCostUsd = inputCost + outputCost;
 
     const { data: convRow } = await adminClient.from("ai_conversation_logs").insert({
-      request_id: crypto.randomUUID(),
+      request_id: requestId,
       user_id: user.id,
       customer_id: customerId,
       task_id: taskId || null,
@@ -779,7 +1034,6 @@ Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
 
     const conversationId = convRow?.id || null;
 
-
     // --- PHASE 7.4: Log token cost ---
     await logUsage(adminClient, aiConfig, {
       userId: user.id,
@@ -795,11 +1049,11 @@ Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
     return json({
       conversation_id: conversationId,
       summary: finalSummary,
-      hallucination_blocked: hallucinationCheck.blocked,
-      current_status: hallucinationCheck.blocked ? "Blocked" : (parsed.current_status || ""),
-      key_insights: hallucinationCheck.blocked ? [] : (Array.isArray(parsed.key_insights) ? parsed.key_insights : []),
-      risks: hallucinationCheck.blocked ? [] : (Array.isArray(parsed.risks) ? parsed.risks : []),
-      suggested_next_actions: hallucinationCheck.blocked ? [] : (Array.isArray(parsed.suggested_next_actions) ? parsed.suggested_next_actions : []),
+      hallucination_blocked: hallucinationBlocked,
+      current_status: finalStatus,
+      key_insights: finalInsights,
+      risks: finalRisks,
+      suggested_next_actions: finalActions,
     });
 
   } catch (error) {

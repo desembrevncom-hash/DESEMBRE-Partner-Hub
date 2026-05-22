@@ -33,6 +33,7 @@ function AIDebugAdmin() {
   const [auditStats, setAuditStats] = useState<any[]>([]);
   const [safetyEvents, setSafetyEvents] = useState<any[]>([]);
   const [notifiedEventIds, setNotifiedEventIds] = useState<string[]>([]);
+  const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>({});
 
   // Phase 10: Search QA Tests
   const [searchQaTests, setSearchQaTests] = useState<any[]>([]);
@@ -428,34 +429,91 @@ function AIDebugAdmin() {
               </CardHeader>
               <CardContent className="p-0">
                 <div className="divide-y divide-slate-100">
-                  {safetyEvents.map((ev: any) => (
-                    <div key={ev.id} className="flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors">
-                      <div className="flex items-center gap-4 min-w-0">
-                        <div className={`w-2 h-2 rounded-full shrink-0 ${ev.severity === 'high' ? 'bg-rose-500' : ev.severity === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'}`}></div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-800 truncate">{ev.event_type}</p>
-                          <p className="text-xs text-slate-500">{ev.phrase}</p>
-                          <div className="flex items-center gap-2 mt-1 text-xs text-slate-400">
-                            <Clock className="w-3 h-3"/> {new Date(ev.created_at).toLocaleString('vi-VN')}
+                  {safetyEvents.map((ev: any) => {
+                    const isExpanded = !!expandedEvents[ev.id];
+                    return (
+                      <div key={ev.id} className="p-5 hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-0">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {/* Severity Badge */}
+                            {ev.severity === 'high' && (
+                              <Badge variant="destructive" className="font-bold">HIGH</Badge>
+                            )}
+                            {ev.severity === 'medium' && (
+                              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 font-bold dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800">MEDIUM</Badge>
+                            )}
+                            {ev.severity === 'low' && (
+                              <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 font-bold dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700">LOW</Badge>
+                            )}
+
+                            {/* Event Type Badge */}
+                            {ev.event_type === 'no_retrieval' && (
+                              <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-300 dark:border-sky-800">No Retrieval</Badge>
+                            )}
+                            {ev.event_type === 'low_confidence_retrieval' && (
+                              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800">Low Confidence</Badge>
+                            )}
+                            {ev.event_type === 'medical_claim_blocked' && (
+                              <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-800">Medical Claim Blocked</Badge>
+                            )}
+                            {ev.event_type === 'unsupported_product_mention' && (
+                              <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950/30 dark:text-yellow-300 dark:border-yellow-800">Unsupported Product</Badge>
+                            )}
+                            {!['no_retrieval', 'low_confidence_retrieval', 'medical_claim_blocked', 'unsupported_product_mention'].includes(ev.event_type) && (
+                              <Badge variant="outline">{ev.event_type}</Badge>
+                            )}
+
+                            <span className="text-xs text-slate-400 flex items-center gap-1">
+                              <Clock className="w-3 h-3"/> {new Date(ev.created_at).toLocaleString('vi-VN')}
+                            </span>
+                          </div>
+
+                          <div className="shrink-0 flex items-center gap-2">
+                            {ev.original_response_preview && (
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                onClick={() => setExpandedEvents(prev => ({ ...prev, [ev.id]: !prev[ev.id] }))}
+                                className="h-7 px-2 text-xs text-indigo-600 hover:text-indigo-800"
+                              >
+                                {isExpanded ? 'Ẩn Preview' : 'Xem Preview'}
+                              </Button>
+                            )}
+                            {ev.handled ? (
+                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 font-medium">Đã xử lý</Badge>
+                            ) : (
+                              <Button size="sm" variant="outline" onClick={async () => {
+                                try {
+                                  const { error } = await supabase.from('ai_safety_events').update({ handled: true }).eq('id', ev.id);
+                                  if (error) throw error;
+                                  toast.success('Đã đánh dấu đã xử lý');
+                                  fetchSafetyEvents();
+                                } catch (e:any) { toast.error(e.message); }
+                              }} className="h-7 px-2 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50">Đánh dấu xử lý</Button>
+                            )}
                           </div>
                         </div>
+
+                        <div className="mt-3 space-y-2">
+                          <div className="text-sm">
+                            <span className="font-semibold text-slate-700">Chi tiết phát hiện: </span>
+                            <code className="px-2 py-0.5 bg-slate-100 rounded text-rose-600 font-mono text-xs break-all">
+                              {ev.phrase || "N/A"}
+                            </code>
+                          </div>
+
+                          {isExpanded && ev.original_response_preview && (
+                            <div className="mt-3 p-4 bg-slate-900 text-slate-300 font-mono text-xs rounded-lg whitespace-pre-wrap max-h-64 overflow-y-auto border border-slate-800">
+                              <div className="text-slate-500 border-b border-slate-800 pb-2 mb-2 uppercase text-[10px] font-bold tracking-wider">
+                                Original Response Generated by AI (Blocked):
+                              </div>
+                              {ev.original_response_preview}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 ml-4 shrink-0">
-                        {ev.handled ? (
-                          <Badge variant="default" className="text-xs">Handled</Badge>
-                        ) : (
-                          <Button size="sm" variant="outline" onClick={async () => {
-                            try {
-                              const { error } = await supabase.from('ai_safety_events').update({ handled: true }).eq('id', ev.id);
-                              if (error) throw error;
-                              toast.success('Marked as handled');
-                              fetchSafetyEvents();
-                            } catch (e:any) { toast.error(e.message); }
-                          }} className="h-7 px-2 text-xs">Mark Handled</Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {safetyEvents.length === 0 && (
                     <div className="py-12 text-center text-slate-400">No safety events logged.</div>
                   )}
