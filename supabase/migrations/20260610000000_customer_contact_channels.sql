@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS public.customer_contact_channels (
 
 -- 3. Check Constraints
 ALTER TABLE public.customer_contact_channels ADD CONSTRAINT check_channel_type 
-    CHECK (channel_type IN ('facebook','zalo','email','tiktok','instagram','website','youtube','whatsapp','other'));
+    CHECK (channel_type IN ('facebook','zalo','email','tiktok','instagram','website','youtube','whatsapp','phone','other'));
 
 ALTER TABLE public.customer_contact_channels ADD CONSTRAINT check_scope 
     CHECK (scope IN ('official','private'));
