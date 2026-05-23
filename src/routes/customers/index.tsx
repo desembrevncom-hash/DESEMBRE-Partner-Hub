@@ -37,8 +37,10 @@ import {
   Globe,
   Video,
   PhoneCall,
-  Facebook
+  Facebook,
+  Lock
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,7 +85,7 @@ function CustomersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [activeStage, setActiveStage] = useState<string>("all");
-  const [smartFilter, setSmartFilter] = useState<"all" | "no_phone" | "no_social" | "verified_fb" | "unassigned">("all");
+  const [smartFilter, setSmartFilter] = useState<"all" | "has_phone" | "has_facebook" | "has_zalo" | "has_email" | "has_tiktok" | "has_website" | "has_primary" | "no_primary" | "has_remarketing" | "no_social" | "unassigned">("all");
   
   const [cityFilter, setCityFilter] = useState<string>("all");
   const [cityOpen, setCityOpen] = useState(false);
@@ -251,11 +253,26 @@ function CustomersPage() {
            processed.forEach((c: any) => {
               const intel = intelMap.get(c.id);
               if (intel) {
-                 c.intelligence = intel;
+                 c.sales_intelligence = intel;
               }
            });
         } else if (intelError) {
            console.error("fetch intelligence error:", intelError);
+        }
+
+        const { data: channelData, error: channelError } = await supabase.rpc('get_customer_channel_summary', {
+           p_customer_ids: cIds
+        });
+        if (!channelError && channelData) {
+           const channelMap = new Map(channelData.map((i: any) => [i.customer_id, i] as [string, any]));
+           processed.forEach((c: any) => {
+              const channel = channelMap.get(c.id);
+              if (channel) {
+                 c.channel_summary = channel;
+              }
+           });
+        } else if (channelError) {
+           console.error("fetch channel summary error:", channelError);
         }
       }
 
@@ -290,9 +307,16 @@ function CustomersPage() {
       
       let matchSmart = true;
       if (smartFilter === "unassigned") matchSmart = !c.owner_sale_id && !c.owner_tele_id;
-      if (smartFilter === "no_phone") matchSmart = !c.phone || c.phone.length < 9;
-      if (smartFilter === "no_social") matchSmart = !c.intelligence || !c.intelligence.channels_summary || c.intelligence.channels_summary.length === 0;
-      if (smartFilter === "verified_fb") matchSmart = c.intelligence?.channels_summary?.some((ch: any) => ch.type === 'facebook' && ch.is_verified);
+      if (smartFilter === "has_phone") matchSmart = !!c.channel_summary?.has_phone;
+      if (smartFilter === "has_facebook") matchSmart = !!c.channel_summary?.has_facebook;
+      if (smartFilter === "has_zalo") matchSmart = !!c.channel_summary?.has_zalo;
+      if (smartFilter === "has_email") matchSmart = !!c.channel_summary?.has_email;
+      if (smartFilter === "has_tiktok") matchSmart = !!c.channel_summary?.has_tiktok;
+      if (smartFilter === "has_website") matchSmart = !!c.channel_summary?.has_website;
+      if (smartFilter === "has_primary") matchSmart = !!c.channel_summary?.has_primary;
+      if (smartFilter === "no_primary") matchSmart = c.channel_summary && !c.channel_summary.has_primary;
+      if (smartFilter === "has_remarketing") matchSmart = !!c.channel_summary?.has_remarketing;
+      if (smartFilter === "no_social") matchSmart = c.channel_summary && !c.channel_summary.has_facebook && !c.channel_summary.has_zalo && !c.channel_summary.has_tiktok;
 
       const matchCity = cityFilter === "all" || c.city === cityFilter;
       return matchSearch && matchStage && matchSmart && matchCity;
@@ -312,11 +336,27 @@ function CustomersPage() {
       return cValue >= 50000000;
     }).length;
     
+    let hasPhone = 0, hasFb = 0, hasZalo = 0, hasEmail = 0, hasPrimary = 0, noSocial = 0, privateChannels = 0;
+    
+    customers.forEach(c => {
+       const cs = c.channel_summary;
+       if (cs) {
+          if (cs.has_phone) hasPhone++;
+          if (cs.has_facebook) hasFb++;
+          if (cs.has_zalo) hasZalo++;
+          if (cs.has_email) hasEmail++;
+          if (cs.has_primary) hasPrimary++;
+          if (!cs.has_facebook && !cs.has_zalo && !cs.has_tiktok) noSocial++;
+          privateChannels += (cs.private_count || 0);
+       }
+    });
+
     return {
       totalRevenue,
       unassignedLeads,
       vipCount,
-      totalCustomers: customers.length
+      totalCustomers: customers.length,
+      channels: { hasPhone, hasFb, hasZalo, hasEmail, hasPrimary, noSocial, privateChannels }
     };
   }, [customers, isManager]);
 
@@ -472,7 +512,21 @@ function CustomersPage() {
              </div>
           </div>
         )}
-        {/* TOP FILTER BAR */}
+        
+        {isManager && adminStats && (
+          <div className="bg-white p-4 rounded-[24px] border border-slate-100 shadow-sm flex flex-wrap gap-4 items-center text-xs font-bold text-slate-600">
+             <span className="text-[10px] uppercase tracking-widest text-slate-400 bg-slate-50 px-2 py-1 rounded-md">Channel Intelligence</span>
+             <div className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-blue-500" /> {adminStats.channels.hasPhone}</div>
+             <div className="flex items-center gap-1.5"><Facebook className="w-3.5 h-3.5 text-blue-600" /> {adminStats.channels.hasFb}</div>
+             <div className="flex items-center gap-1.5"><MessageSquare className="w-3.5 h-3.5 text-blue-500" /> {adminStats.channels.hasZalo}</div>
+             <div className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 text-slate-500" /> {adminStats.channels.hasEmail}</div>
+             <div className="flex items-center gap-1.5 text-emerald-600"><Star className="w-3.5 h-3.5 fill-emerald-500" /> {adminStats.channels.hasPrimary} Kênh chính</div>
+             <div className="flex items-center gap-1.5 text-rose-500"><AlertCircle className="w-3.5 h-3.5" /> {adminStats.channels.noSocial} Thiếu Social</div>
+             <div className="flex items-center gap-1.5 text-indigo-500 ml-auto"><Lock className="w-3.5 h-3.5" /> {adminStats.channels.privateChannels} Kênh Private</div>
+          </div>
+        )}
+
+        {/* CONTROLS (SEARCH & FILTER) */}
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
            <div className="relative w-full md:w-96 shrink-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -617,50 +671,104 @@ function CustomersPage() {
               ))}
            </div>
 
-           {viewMode === 'list' && (
-              <div className="flex items-center gap-2 overflow-x-auto pt-2 w-full no-scrollbar border-t border-slate-100 mt-2">
-                 <Button 
-                   variant={smartFilter === 'all' ? 'default' : 'outline'} 
-                   size="sm" 
-                   className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'all' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}
-                   onClick={() => setSmartFilter('all')}
-                 >
-                    Không lọc
-                 </Button>
-                 <Button 
-                   variant={smartFilter === 'no_phone' ? 'default' : 'outline'} 
-                   size="sm" 
-                   className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'no_phone' ? 'bg-red-50 text-red-700 border-red-200' : 'text-slate-500 hover:bg-slate-50'}`}
-                   onClick={() => setSmartFilter('no_phone')}
-                 >
-                    🔴 Thiếu SĐT
-                 </Button>
-                 <Button 
-                   variant={smartFilter === 'no_social' ? 'default' : 'outline'} 
-                   size="sm" 
-                   className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'no_social' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'text-slate-500 hover:bg-slate-50'}`}
-                   onClick={() => setSmartFilter('no_social')}
-                 >
-                    🟡 Thiếu Social
-                 </Button>
-                 <Button 
-                   variant={smartFilter === 'verified_fb' ? 'default' : 'outline'} 
-                   size="sm" 
-                   className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'verified_fb' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-slate-500 hover:bg-slate-50'}`}
-                   onClick={() => setSmartFilter('verified_fb')}
-                 >
-                    📘 Đã xác minh FB
-                 </Button>
-                 <Button 
-                   variant={smartFilter === 'unassigned' ? 'default' : 'outline'} 
-                   size="sm" 
-                   className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'unassigned' ? 'bg-slate-800 text-white border-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}
-                   onClick={() => setSmartFilter('unassigned')}
-                 >
-                    👤 Chưa phân bổ
-                 </Button>
-              </div>
-           )}
+           <div className="flex items-center gap-2 overflow-x-auto pt-2 w-full no-scrollbar border-t border-slate-100 mt-2 pb-2">
+              <Button 
+                variant={smartFilter === 'all' ? 'default' : 'outline'} 
+                size="sm" 
+                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'all' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}
+                onClick={() => setSmartFilter('all')}
+              >
+                 Không lọc
+              </Button>
+              <Button 
+                variant={smartFilter === 'has_phone' ? 'default' : 'outline'} 
+                size="sm" 
+                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'has_phone' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-slate-500 hover:bg-slate-50'}`}
+                onClick={() => setSmartFilter('has_phone')}
+              >
+                 📞 Có SĐT
+              </Button>
+              <Button 
+                variant={smartFilter === 'has_facebook' ? 'default' : 'outline'} 
+                size="sm" 
+                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'has_facebook' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-slate-500 hover:bg-slate-50'}`}
+                onClick={() => setSmartFilter('has_facebook')}
+              >
+                 📘 Có FB
+              </Button>
+              <Button 
+                variant={smartFilter === 'has_zalo' ? 'default' : 'outline'} 
+                size="sm" 
+                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'has_zalo' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-slate-500 hover:bg-slate-50'}`}
+                onClick={() => setSmartFilter('has_zalo')}
+              >
+                 💬 Có Zalo
+              </Button>
+              <Button 
+                variant={smartFilter === 'has_email' ? 'default' : 'outline'} 
+                size="sm" 
+                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'has_email' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-slate-500 hover:bg-slate-50'}`}
+                onClick={() => setSmartFilter('has_email')}
+              >
+                 📧 Có Email
+              </Button>
+              <Button 
+                variant={smartFilter === 'has_tiktok' ? 'default' : 'outline'} 
+                size="sm" 
+                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'has_tiktok' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-slate-500 hover:bg-slate-50'}`}
+                onClick={() => setSmartFilter('has_tiktok')}
+              >
+                 🎵 Có TikTok
+              </Button>
+              <Button 
+                variant={smartFilter === 'has_website' ? 'default' : 'outline'} 
+                size="sm" 
+                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'has_website' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-slate-500 hover:bg-slate-50'}`}
+                onClick={() => setSmartFilter('has_website')}
+              >
+                 🌐 Có Website
+              </Button>
+              <Button 
+                variant={smartFilter === 'has_primary' ? 'default' : 'outline'} 
+                size="sm" 
+                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'has_primary' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'text-slate-500 hover:bg-slate-50'}`}
+                onClick={() => setSmartFilter('has_primary')}
+              >
+                 ⭐ Có Kênh Chính
+              </Button>
+              <Button 
+                variant={smartFilter === 'no_primary' ? 'default' : 'outline'} 
+                size="sm" 
+                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'no_primary' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'text-slate-500 hover:bg-slate-50'}`}
+                onClick={() => setSmartFilter('no_primary')}
+              >
+                 ❌ Chưa Có Kênh Chính
+              </Button>
+              <Button 
+                variant={smartFilter === 'has_remarketing' ? 'default' : 'outline'} 
+                size="sm" 
+                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'has_remarketing' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'text-slate-500 hover:bg-slate-50'}`}
+                onClick={() => setSmartFilter('has_remarketing')}
+              >
+                 🎯 Có Remarketing
+              </Button>
+              <Button 
+                variant={smartFilter === 'no_social' ? 'default' : 'outline'} 
+                size="sm" 
+                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'no_social' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'text-slate-500 hover:bg-slate-50'}`}
+                onClick={() => setSmartFilter('no_social')}
+              >
+                 🟡 Thiếu Social
+              </Button>
+              <Button 
+                variant={smartFilter === 'unassigned' ? 'default' : 'outline'} 
+                size="sm" 
+                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'unassigned' ? 'bg-slate-800 text-white border-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}
+                onClick={() => setSmartFilter('unassigned')}
+              >
+                 👤 Chưa phân bổ
+              </Button>
+           </div>
         </div>
 
         {viewMode === 'kanban' ? (
@@ -823,6 +931,17 @@ function CustomerCard({ customer, stage, isAdmin, isManager, onQuickLog, draggab
   const teleName = getStaffDisplayName(customer.owner_tele_id, staffMap);
   const saleInitials = getStaffInitials(customer.owner_sale_id, staffMap);
   const teleInitials = getStaffInitials(customer.owner_tele_id, staffMap);
+  
+  const channelIntel = customer.channel_summary || {};
+  const getChannelIcons = () => {
+     const icons = [];
+     if (channelIntel.has_facebook) icons.push(<Facebook key="fb" className="w-3 h-3 text-blue-600" />);
+     if (channelIntel.has_zalo) icons.push(<MessageSquare key="zl" className="w-3 h-3 text-blue-500" />);
+     if (channelIntel.has_email) icons.push(<Mail key="em" className="w-3 h-3 text-slate-500" />);
+     if (channelIntel.has_tiktok) icons.push(<Video key="tt" className="w-3 h-3 text-slate-900" />);
+     if (channelIntel.has_website) icons.push(<Globe key="wb" className="w-3 h-3 text-emerald-500" />);
+     return icons;
+  };
 
   return (
     <Card 
@@ -860,6 +979,9 @@ function CustomerCard({ customer, stage, isAdmin, isManager, onQuickLog, draggab
                    {!customer.owner_sale_id && !customer.owner_tele_id && <div className="w-5 h-5 rounded-full bg-slate-100 border border-white" />}
                 </div>
                 <span>• {customer.phone ? customer.phone.slice(-4).padStart(customer.phone.length, '*') : 'Chưa có SĐT'}</span>
+                <div className="flex items-center gap-1 ml-auto">
+                    {getChannelIcons()}
+                 </div>
              </div>
              
              <div className="flex justify-between items-center text-[9px] font-bold bg-slate-50 p-2 rounded-xl">
@@ -898,13 +1020,16 @@ function CustomerCard({ customer, stage, isAdmin, isManager, onQuickLog, draggab
 }
 
 function CustomerIntelligenceRow({ customer, staffMap, onPreview, onQuickLog }: any) {
-  const intel = customer.intelligence || {};
-  const hasPhone = customer.phone && customer.phone.length >= 9;
-  const hasSocial = intel.channels_summary && intel.channels_summary.length > 0;
+  const salesIntel = customer.sales_intelligence || {};
+  const channelIntel = customer.channel_summary || {};
   
-  let healthStatus = 'critical';
-  if (hasPhone && hasSocial) healthStatus = 'healthy';
-  else if (hasPhone && !hasSocial) healthStatus = 'partial';
+  const score = channelIntel.channel_health_score || 0;
+  let healthStatus = 'weak';
+  if (score >= 80) healthStatus = 'healthy';
+  else if (score >= 40) healthStatus = 'partial';
+  
+  const dupRisk = channelIntel.duplicate_risk;
+  const hasRisk = dupRisk && (dupRisk.has_value_duplicates || dupRisk.has_external_id_duplicates || dupRisk.has_primary_duplicates);
 
   const getHealthColor = () => {
     if (healthStatus === 'healthy') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
@@ -962,18 +1087,32 @@ function CustomerIntelligenceRow({ customer, staffMap, onPreview, onQuickLog }: 
              <p className="text-xs font-bold text-slate-500 mt-0.5 flex items-center gap-1">
                 {customer.contact_name || customer.name} • {customer.phone ? customer.phone.slice(-4).padStart(customer.phone.length, '*') : 'Chưa có SĐT'}
              </p>
-             <Badge className={`mt-2 text-[8px] px-1.5 py-0 h-4 uppercase font-black border ${getHealthColor()}`}>
-                {healthStatus === 'healthy' ? 'Healthy' : healthStatus === 'partial' ? 'Partial' : 'Critical'}
-             </Badge>
+             <div className="flex items-center">
+               <Badge className={`mt-2 text-[8px] px-1.5 py-0 h-4 uppercase font-black border ${getHealthColor()}`}>
+                  {healthStatus === 'healthy' ? 'Healthy' : healthStatus === 'partial' ? 'Partial' : 'Weak'} ({score})
+               </Badge>
+               {hasRisk && (
+                  <TooltipProvider>
+                     <Tooltip>
+                        <TooltipTrigger asChild>
+                           <AlertCircle className="w-4 h-4 text-rose-500 animate-pulse ml-2 mt-2" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                           Phát hiện trùng lặp kênh liên hệ. Cần kiểm tra!
+                        </TooltipContent>
+                     </Tooltip>
+                  </TooltipProvider>
+               )}
+             </div>
           </div>
        </div>
 
        {/* Col 2: Omnichannel */}
        <div className="w-full md:w-2/12 flex flex-wrap gap-2">
-          {intel.channels_summary?.length > 0 ? (
-             intel.channels_summary.map((ch: any) => renderChannelAction(ch))
+          {channelIntel.channels_summary?.length > 0 ? (
+             channelIntel.channels_summary.map((ch: any) => renderChannelAction(ch))
           ) : (
-             <span className="text-xs text-slate-400 italic">Chưa có kênh phụ</span>
+             <span className="text-xs text-slate-400 italic">Chưa có kênh liên hệ</span>
           )}
        </div>
 
@@ -982,11 +1121,11 @@ function CustomerIntelligenceRow({ customer, staffMap, onPreview, onQuickLog }: 
           <div className="flex items-center gap-2 mb-1">
              <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
                 <div 
-                   className={`h-full rounded-full ${intel.priority_score >= 80 ? 'bg-red-500' : intel.priority_score >= 50 ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                   style={{ width: `${Math.min(intel.priority_score || 0, 100)}%` }}
+                   className={`h-full rounded-full ${salesIntel.priority_score >= 80 ? 'bg-red-500' : salesIntel.priority_score >= 50 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                   style={{ width: `${Math.min(salesIntel.priority_score || 0, 100)}%` }}
                 />
              </div>
-             <span className="text-[10px] font-black text-slate-600">{intel.priority_score || 0}</span>
+             <span className="text-[10px] font-black text-slate-600" title="Priority Score">{salesIntel.priority_score || 0}</span>
           </div>
           <Badge variant="outline" className={`rounded-lg font-black text-[9px] uppercase border-none ${getPipelineStageColor(customer.lifecycle_stage)} bg-opacity-10 text-opacity-100 w-fit`}>
              {getPipelineStageLabel(customer.lifecycle_stage)}
@@ -995,11 +1134,11 @@ function CustomerIntelligenceRow({ customer, staffMap, onPreview, onQuickLog }: 
 
        {/* Col 4: Last Activity */}
        <div className="w-full md:w-3/12">
-          {intel.latest_activity ? (
+          {salesIntel.latest_activity ? (
              <>
-                <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">{intel.latest_activity}</p>
+                <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">{salesIntel.latest_activity}</p>
                 <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase flex items-center gap-1">
-                   <Clock className="w-3 h-3" /> {formatDistanceToNow(new Date(intel.activity_at), { addSuffix: true, locale: vi })}
+                   <Clock className="w-3 h-3" /> {formatDistanceToNow(new Date(salesIntel.activity_at), { addSuffix: true, locale: vi })}
                 </p>
              </>
           ) : (
@@ -1009,7 +1148,7 @@ function CustomerIntelligenceRow({ customer, staffMap, onPreview, onQuickLog }: 
 
        {/* Col 5: Quick Actions */}
        <div className="w-full md:w-2/12 flex items-center justify-end gap-2">
-          {hasPhone && (
+          {customer.phone && (
              <a href={`tel:${customer.phone}`} onClick={e => e.stopPropagation()} className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 transition-colors">
                 <PhoneCall className="w-4 h-4" />
              </a>

@@ -172,6 +172,47 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
     }
   };
 
+  const handlePromoteChannel = async (channel: any) => {
+    const setPrimary = window.confirm("Bạn có muốn đặt kênh này làm KÊNH CHÍNH chính thức luôn không?\n\n- Bấm OK: Duyệt + Đặt làm kênh chính\n- Bấm Cancel: Chỉ duyệt thành chính thức");
+
+    try {
+      if (setPrimary) {
+        // Unset all other official primaries
+        await supabase
+          .from("customer_contact_channels")
+          .update({ is_primary: false })
+          .eq("customer_id", customerId)
+          .eq("scope", "official");
+      }
+
+      const { error } = await supabase
+        .from("customer_contact_channels")
+        .update({
+          scope: "official",
+          visibility: "official",
+          owner_user_id: null,
+          updated_by: user?.id,
+          is_primary: setPrimary ? true : channel.is_primary
+        })
+        .eq("id", channel.id);
+      
+      if (error) throw error;
+
+      await supabase.from("customer_activities").insert({
+         customer_id: customerId,
+         created_by: user?.id,
+         activity_type: "system_update",
+         content: `Đã duyệt kênh liên hệ ${channel.channel_type} (${channel.channel_value}) thành chính thức`,
+         title: "Duyệt kênh liên hệ thành chính thức"
+      });
+
+      toast.success("Đã duyệt thành kênh chính thức");
+      fetchChannels();
+    } catch (err: any) {
+      toast.error("Lỗi duyệt kênh: " + err.message);
+    }
+  };
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success("Đã copy!");
@@ -331,9 +372,29 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
               size="icon"
               className="h-7 w-7 text-slate-300 hover:text-primary"
               onClick={() => copyToClipboard(c.normalized_value || c.channel_value)}
+              title="Copy"
             >
               <Copy className="w-3.5 h-3.5" />
             </Button>
+
+            {/* Promote to Official */}
+            {!isOfficial && (isAdmin || isSubAdmin) && (
+               <TooltipProvider>
+                 <Tooltip>
+                   <TooltipTrigger asChild>
+                     <Button
+                       variant="ghost"
+                       size="icon"
+                       className="h-7 w-7 text-indigo-300 hover:text-indigo-600 hover:bg-indigo-50"
+                       onClick={() => handlePromoteChannel(c)}
+                     >
+                       <Globe className="w-3.5 h-3.5" />
+                     </Button>
+                   </TooltipTrigger>
+                   <TooltipContent>Chuyển thành chính thức</TooltipContent>
+                 </Tooltip>
+               </TooltipProvider>
+            )}
 
             {/* External link */}
             {(c.channel_type === "facebook" ||
