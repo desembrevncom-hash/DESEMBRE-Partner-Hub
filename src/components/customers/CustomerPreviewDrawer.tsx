@@ -1450,6 +1450,13 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 {customer.phone ? (
                   <>
                     <a
+                      href={`tel:${customer.phone}`}
+                      className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[11px] font-bold transition-all"
+                    >
+                      <PhoneCall className="w-4 h-4 text-emerald-500" />
+                      Gọi điện
+                    </a>
+                    <a
                       href={`https://zalo.me/${customer.phone}`}
                       target="_blank"
                       rel="noreferrer"

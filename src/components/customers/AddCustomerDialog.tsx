@@ -1,38 +1,10 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { 
-  Plus, 
-  Building2, 
-  MapPin, 
-  Phone, 
-  UserCircle,
-  Headset,
-  UserCheck,
-  Target,
-  Map,
-  Sparkles,
-  Shield,
-  CalendarIcon,
-  Loader2,
-  Mail,
-  Check,
-  ChevronsUpDown,
-  AlertTriangle
-} from "lucide-react";
-import {
-  VIETNAM_PROVINCES,
-  stripAccents,
-  findProvinceByName,
-} from "@/lib/vietnamProvinces";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import React, { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { createLeadAssignedAutomation } from "@/lib/automation";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -48,26 +20,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  Tabs, 
-  TabsContent, 
-  TabsList, 
-  TabsTrigger 
-} from "@/components/ui/tabs";
-import { useAuth } from "@/hooks/useAuth";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Plus, Loader2, Phone, UserCircle, Building2, Map,
+  Zap, Link as LinkIcon, ExternalLink,
+  ChevronsUpDown, Check, Info, BadgeAlert,
+  ClipboardPaste, Wand2, CheckCircle2, XCircle, AlertCircle, X
+} from "lucide-react";
 import { normalizePhone } from "@/lib/phone";
-import { 
-  type CustomerChannel,
-  type CustomerDistanceType,
-  type CustomerCareModel,
-  CUSTOMER_CHANNEL_OPTIONS,
-  CUSTOMER_DISTANCE_OPTIONS,
-  CARE_MODEL_OPTIONS,
-  LIFECYCLE_STAGE_OPTIONS,
-  DEFAULT_CUSTOMER_CHANNEL,
-  DEFAULT_CUSTOMER_DISTANCE_TYPE,
-  DEFAULT_CARE_MODEL,
-} from "@/lib/customerOwnership";
+import { VIETNAM_PROVINCES, stripAccents, findProvinceByName } from "@/lib/vietnamProvinces";
+import { createLeadAssignedAutomation } from "@/lib/automation";
+import { Badge } from "@/components/ui/badge";
+import { checkPhoneNumberDuplicate } from "@/lib/customerPhone";
+import { createContactChannel } from "@/lib/contactChannels";
 
 interface AddCustomerDialogProps {
   open: boolean;
@@ -78,743 +47,733 @@ interface AddCustomerDialogProps {
 export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomerDialogProps) {
   const { user, isSale, isTeleLead, isAdmin, isSubAdmin } = useAuth();
   const [saving, setSaving] = useState(false);
+  const [isCheckingPhone, setIsCheckingPhone] = useState(false);
   const [cityOpen, setCityOpen] = useState(false);
   const [citySearch, setCitySearch] = useState("");
-  
-  const [salesUsers, setSalesUsers] = useState<Array<{ id: string; full_name?: string; email?: string }>>([]);
-  const [teleLeads, setTeleLeads] = useState<Array<{ id: string; full_name?: string; email?: string }>>([]);
+
+  const [duplicateInfo, setDuplicateInfo] = useState<any>(null);
 
   const [form, setForm] = useState({
-    name: "",
     facility_name: "",
+    name: "",
     phone: "",
-    address: "",
-    customer_channel: DEFAULT_CUSTOMER_CHANNEL,
-    customer_distance_type: DEFAULT_CUSTOMER_DISTANCE_TYPE,
-    care_model: DEFAULT_CARE_MODEL,
-    owner_sale_id: "none",
-    owner_tele_id: "none",
-    email: "",
-    zalo: "",
-    facebook: "",
     city: "",
-    district: "",
-    region: "",
-    business_type: "SPA_CLINIC",
-    business_size: "medium",
-    main_service: "",
-    skin_concern_focus: "",
-    interested_products: "",
-    current_brands: "",
-    monthly_purchase_potential: 0,
-    decision_maker: "",
-    decision_role: "OWNER",
-    preferred_contact_channel: "ZALO",
     source: "FACEBOOK",
-    status: "new",
-    potential_level: "warm",
     note: "",
-    tags: [] as string[],
-    marketing_opt_in: false,
-    tax_code: "",
-    bed_count: 0,
-    staff_count: 0,
-    tech_equipment: "",
-    decision_maker_dob: "",
-    lifecycle_stage: "new_lead",
-    personality_trait: "",
+    primary_channel_type: "facebook",
+    primary_channel_value: "",
   });
 
-  // Reset form when opening
+  // --- QUICK PASTE STATES ---
+  const [showPaste, setShowPaste] = useState(false);
+  const [pasteMode, setPasteMode] = useState<"auto" | "pipeline">("auto");
+  const [pasteText, setPasteText] = useState("");
+  const [parsedPreview, setParsedPreview] = useState<any>(null);
+  const [previewDuplicateInfo, setPreviewDuplicateInfo] = useState<any>(null);
+
   useEffect(() => {
     if (open) {
-      let defaultOwnerSaleId = "none";
-      let defaultOwnerTeleId = "none";
-      let defaultChannel = DEFAULT_CUSTOMER_CHANNEL;
-      let defaultCareModel = DEFAULT_CARE_MODEL;
-
-      if (isSale) {
-        defaultOwnerSaleId = user?.id || "none";
-      } else if (isTeleLead) {
-        defaultOwnerTeleId = user?.id || "none";
-        defaultChannel = "tele_sales" as CustomerChannel;
-        defaultCareModel = "tele_owned" as CustomerCareModel;
-      }
-
       setForm({
-        name: "",
         facility_name: "",
+        name: "",
         phone: "",
-        address: "",
-        customer_channel: defaultChannel,
-        customer_distance_type: DEFAULT_CUSTOMER_DISTANCE_TYPE,
-        care_model: defaultCareModel,
-        owner_sale_id: defaultOwnerSaleId,
-        owner_tele_id: defaultOwnerTeleId,
-        email: "",
-        zalo: "",
-        facebook: "",
         city: "",
-        district: "",
-        region: "",
-        business_type: "SPA_CLINIC",
-        business_size: "medium",
-        main_service: "",
-        skin_concern_focus: "",
-        interested_products: "",
-        current_brands: "",
-        monthly_purchase_potential: 0,
-        decision_maker: "",
-        decision_role: "OWNER",
-        preferred_contact_channel: "ZALO",
         source: "FACEBOOK",
-        status: "new",
-        potential_level: "warm",
         note: "",
-        tags: [],
-        marketing_opt_in: false,
-        tax_code: "",
-        bed_count: 0,
-        staff_count: 0,
-        tech_equipment: "",
-        decision_maker_dob: "",
-        lifecycle_stage: "new_lead",
-        personality_trait: "",
+        primary_channel_type: "facebook",
+        primary_channel_value: "",
       });
+      setDuplicateInfo(null);
+      setIsCheckingPhone(false);
+      setShowPaste(false);
+      setPasteText("");
+      setParsedPreview(null);
+      setPreviewDuplicateInfo(null);
     }
-  }, [open, user, isSale, isTeleLead]);
+  }, [open]);
 
-  useEffect(() => {
-    async function fetchStaff() {
-      try {
-        const { data: rolesData } = await supabase.from("user_roles").select("user_id, role");
-        if (!rolesData) return;
-        const { data: profilesData } = await supabase.from("profiles").select("id, display_name, email");
+  const handleOpenCustomer = (id: string) => {
+    // Tắt modal và emit sự kiện mở drawer
+    onOpenChange(false);
+    window.dispatchEvent(new CustomEvent('open-customer-preview', { detail: { customerId: id } }));
+  };
+
+  const checkPhoneDuplicate = async (phoneStr: string, isPreview = false) => {
+    const normPhone = normalizePhone(phoneStr);
+    if (!normPhone || normPhone.length < 9) {
+      if (isPreview) setPreviewDuplicateInfo(null);
+      else setDuplicateInfo(null);
+      return false;
+    }
+    
+    setIsCheckingPhone(true);
+    try {
+      const { data: existing, error: checkErr } = await supabase
+        .from("customers")
+        .select("id, name, facility_name, owner_sale_id, owner_tele_id, lifecycle_stage")
+        .eq("normalized_phone", normPhone)
+        .is("deleted_at", null)
+        .limit(1);
+
+      if (checkErr) throw checkErr;
+
+      if (existing && existing.length > 0) {
+        const c = existing[0];
+        let ownerName = "Chưa phân bổ";
+        const ownerId = c.owner_sale_id || c.owner_tele_id;
         
-        const profMap = new Map();
-        if (profilesData) {
-          profilesData.forEach(p => profMap.set(p.id, {
-            id: p.id,
-            full_name: p.display_name || p.email,
-            email: p.email
-          }));
+        if (ownerId) {
+          const { data: p } = await supabase.from("profiles").select("display_name, email").eq("id", ownerId).single();
+          if (p) ownerName = p.display_name || p.email || ownerName;
         }
 
-        const sList: any[] = [];
-        const tlList: any[] = [];
-        rolesData.forEach(ur => {
-          const p = profMap.get(ur.user_id);
-          if (!p) return;
-          if (ur.role === "sale") sList.push(p);
-          else if (ur.role === "tele_lead") tlList.push(p);
-        });
-        setSalesUsers(sList);
-        setTeleLeads(tlList);
-      } catch (e) { /* ignore */ }
+        if (isPreview) setPreviewDuplicateInfo({ ...c, ownerName });
+        else setDuplicateInfo({ ...c, ownerName });
+        return true;
+      }
+      if (isPreview) setPreviewDuplicateInfo(null);
+      else setDuplicateInfo(null);
+      return false;
+    } catch (err) {
+      console.error("Duplicate check error:", err);
+      return false;
+    } finally {
+      setIsCheckingPhone(false);
     }
-    fetchStaff();
-  }, []);
+  };
+
+  // --- PASTE LOGIC ---
+  const parseLeadPipeline = (text: string) => {
+    const parts = text.split('|').map(s => s.trim());
+    const phone = parts[0] || '';
+    const facility_name = parts[1] || '';
+    const contact_name = parts[2] || '';
+    const city = parts[3] || '';
+    const channel_value = parts[4] || '';
+    const note = parts[5] || '';
+    
+    let channel_type = 'facebook';
+    const valLower = channel_value.toLowerCase();
+    if (valLower.includes('zalo') || /^[0-9]+$/.test(valLower)) channel_type = 'zalo';
+    else if (valLower.includes('tiktok')) channel_type = 'tiktok';
+    else if (valLower.includes('@')) channel_type = 'email';
+    else if (valLower.includes('http') && !valLower.includes('fb') && !valLower.includes('facebook') && !valLower.includes('tiktok')) channel_type = 'website';
+
+    const confidence = (phone.length >= 9 && (facility_name || contact_name)) ? 'high' : 'low';
+
+    return { phone, facility_name, name: contact_name, city, primary_channel_type: channel_type, primary_channel_value: channel_value, note, confidence };
+  };
+
+  const parseLeadAuto = (text: string) => {
+    let t = text;
+    let phone = '';
+    let email = '';
+    let channel_value = '';
+    let channel_type = 'facebook';
+    let city = '';
+    
+    // phone
+    const phoneRegex = /(0|84|\+84)[3|5|7|8|9][0-9]{8}\b/g;
+    const phones = t.match(phoneRegex);
+    if (phones && phones.length > 0) {
+      phone = phones[0];
+      t = t.replace(phone, '').trim();
+    }
+
+    // email
+    const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/gi;
+    const emails = t.match(emailRegex);
+    if (emails && emails.length > 0) {
+      email = emails[0];
+      t = t.replace(email, '').trim();
+      if (!channel_value) {
+        channel_value = email;
+        channel_type = 'email';
+      }
+    }
+
+    // urls
+    const urlRegex = /(https?:\/\/[^\s]+)|(www\.[^\s]+)|([a-zA-Z0-9-]+\.[a-zA-Z]{2,}\/[^\s]*)/gi;
+    const urls = t.match(urlRegex);
+    if (urls && urls.length > 0) {
+      const u = urls[0];
+      t = t.replace(u, '').trim();
+      if (!channel_value) {
+        channel_value = u;
+        const uLow = u.toLowerCase();
+        if (uLow.includes('zalo')) channel_type = 'zalo';
+        else if (uLow.includes('tiktok')) channel_type = 'tiktok';
+        else if (uLow.includes('fb') || uLow.includes('facebook')) channel_type = 'facebook';
+        else channel_type = 'website';
+      }
+    }
+
+    // city
+    const tLow = stripAccents(t.toLowerCase());
+    for (const p of VIETNAM_PROVINCES) {
+      const pLow = stripAccents(p.toLowerCase());
+      const alias = stripAccents((findProvinceByName(pLow) || '').toLowerCase());
+      if (tLow.includes(pLow)) {
+        city = p;
+        t = t.replace(new RegExp(pLow, 'i'), '').replace(new RegExp(p, 'i'), '').trim();
+        break;
+      }
+      if (alias && tLow.includes(alias)) {
+        city = p;
+        t = t.replace(new RegExp(alias, 'i'), '').trim();
+        break;
+      }
+    }
+
+    // remaining chunks
+    const chunks = t.split(/[\n|]+/).map(s => s.trim()).filter(s => s.length > 0);
+    let facility_name = '';
+    let contact_name = '';
+    let note = '';
+
+    if (chunks.length > 0) facility_name = chunks[0];
+    if (chunks.length > 1) contact_name = chunks[1];
+    if (chunks.length > 2) note = chunks.slice(2).join(', ');
+
+    const confidence = (phone.length >= 9 && (facility_name || contact_name)) ? 'high' : 'low';
+
+    return { phone, facility_name, name: contact_name, city, primary_channel_type: channel_type, primary_channel_value: channel_value, note, confidence };
+  };
+
+  const handleParse = async () => {
+    if (!pasteText.trim()) return;
+    setPreviewDuplicateInfo(null);
+    const res = pasteMode === 'auto' ? parseLeadAuto(pasteText) : parseLeadPipeline(pasteText);
+    setParsedPreview(res);
+    if (res.phone) {
+      await checkPhoneDuplicate(res.phone, true);
+    }
+  };
+
+  const handleApplyPreview = () => {
+    if (previewDuplicateInfo) {
+      toast.error("Không thể áp dụng vì Số điện thoại đã tồn tại!");
+      return;
+    }
+    if (!parsedPreview.phone) {
+      toast.error("Không tìm thấy Số điện thoại, vui lòng kiểm tra lại text đã dán.");
+      return;
+    }
+    
+    setForm(prev => ({
+      ...prev,
+      phone: parsedPreview.phone || prev.phone,
+      facility_name: parsedPreview.facility_name || prev.facility_name,
+      name: parsedPreview.name || prev.name,
+      city: parsedPreview.city || prev.city,
+      primary_channel_type: parsedPreview.primary_channel_type || prev.primary_channel_type,
+      primary_channel_value: parsedPreview.primary_channel_value || prev.primary_channel_value,
+      note: parsedPreview.note ? (prev.note ? prev.note + '\n' + parsedPreview.note : parsedPreview.note) : prev.note,
+    }));
+    
+    setDuplicateInfo(null); // It will be checked again onBlur or Save
+    setShowPaste(false);
+    setPasteText("");
+    setParsedPreview(null);
+    toast.success("Đã điền thông tin vào form!");
+  };
+
 
   const handleSave = async () => {
+    if (!form.phone.trim()) {
+      toast.error("Vui lòng nhập số điện thoại (Bắt buộc)");
+      return;
+    }
+
     if (!form.facility_name.trim() && !form.name.trim()) {
       toast.error("Vui lòng nhập Tên cơ sở hoặc Tên liên hệ");
       return;
     }
-    
+
     setSaving(true);
-    const norm = normalizePhone(form.phone) || null;
-    if (norm) {
-      const { data: existing, error: checkError } = await supabase
-        .from("customers")
-        .select("id, facility_name, name")
-        .eq("normalized_phone", norm)
-        .is("deleted_at", null)
-        .limit(1);
-      
-      if (!checkError && existing && existing.length > 0) {
-        const confirmSave = window.confirm(
-          `⚠️ CẢNH BÁO TRÙNG LẶP DỮ LIỆU!\n\nSố điện thoại chuẩn hóa (${norm}) đã tồn tại trên một khách hàng đang hoạt động:\n- Tên/Cơ sở: ${existing[0].facility_name || existing[0].name}\n\nBạn có chắc chắn vẫn muốn lưu thêm khách hàng này không?`
-        );
-        if (!confirmSave) {
-          setSaving(false);
-          return;
-        }
-      }
+    setDuplicateInfo(null);
+
+    const normPhone = normalizePhone(form.phone);
+    if (!normPhone) {
+      toast.error("Số điện thoại không hợp lệ.");
+      setSaving(false);
+      return;
     }
 
-    const payload: any = {
-      name: form.name.trim(),
-      facility_name: form.facility_name.trim(),
-      contact_name: form.name.trim(),
-      business_name: form.facility_name.trim(),
-      phone: form.phone.trim(),
-      normalized_phone: norm,
-      address: form.address.trim(),
-      customer_channel: form.customer_channel,
-      customer_distance_type: form.customer_distance_type,
-      care_model: form.care_model,
-      owner_sale_id: form.owner_sale_id !== "none" ? form.owner_sale_id : null,
-      owner_tele_id: form.owner_tele_id !== "none" ? form.owner_tele_id : null,
-      city: form.city,
-      district: form.district,
-      region: form.region,
-      business_type: form.business_type,
-      business_size: form.business_size,
-      main_service: form.main_service,
-      skin_concern_focus: form.skin_concern_focus,
-      interested_products: form.interested_products,
-      current_brands: form.current_brands,
-      monthly_purchase_potential: form.monthly_purchase_potential,
-      decision_maker: form.decision_maker,
-      decision_role: form.decision_role,
-      preferred_contact_channel: form.preferred_contact_channel,
-      source: form.source,
-      status: form.status,
-      potential_level: form.potential_level,
-      note: form.note,
-      tags: form.tags,
-      marketing_opt_in: form.marketing_opt_in,
-      created_by: user?.id,
-      lifecycle_stage: form.lifecycle_stage === "new_lead" && (form.owner_sale_id !== "none" || form.owner_tele_id !== "none") ? "assigned" : form.lifecycle_stage,
-      bed_count: form.bed_count,
-      staff_count: form.staff_count,
-      tech_equipment: form.tech_equipment,
-      spa_equipment: (() => {
-        const equipments: string[] = [];
-        const techLower = form.tech_equipment.toLowerCase();
-        if (techLower.includes("laser") || techLower.includes("co2") || techLower.includes("yag")) equipments.push("laser");
-        if (techLower.includes("hifu") || techLower.includes("nâng cơ")) equipments.push("hifu");
-        if (techLower.includes("phi kim") || techLower.includes("lăn kim") || techLower.includes("needle")) equipments.push("needle");
-        if (techLower.includes("rf") || techLower.includes("giảm béo")) equipments.push("rf");
-        return equipments;
-      })(),
-    };
-
-    const { data: newCustomer, error } = await supabase.from("customers").insert([payload]).select().single();
-    
-    if (error) {
-      if (error.code === "23505") {
-        toast.error("Số điện thoại này đã tồn tại trên hệ thống. Vui lòng kiểm tra lại!");
-      } else {
-        toast.error("Lỗi: " + error.message);
+    try {
+      // 1. Double check duplicate just in case
+      const isDup = await checkPhoneDuplicate(form.phone, false);
+      if (isDup) {
+        toast.error("Số điện thoại này đã tồn tại trong hệ thống.");
+        setSaving(false);
+        return;
       }
-    } else {
-      // Trigger Automation if assigned
-      if (newCustomer) {
-        if (payload.owner_sale_id) {
-           await createLeadAssignedAutomation(
-             newCustomer.id, 
-             newCustomer.facility_name || newCustomer.name, 
-             payload.owner_sale_id, 
-             user?.display_name || user?.email || "Hệ thống",
-             user?.id || ""
-           );
-        }
-        if (payload.owner_tele_id && payload.owner_tele_id !== payload.owner_sale_id) {
-           await createLeadAssignedAutomation(
-             newCustomer.id, 
-             newCustomer.facility_name || newCustomer.name, 
-             payload.owner_tele_id, 
-             user?.display_name || user?.email || "Hệ thống",
-             user?.id || ""
-           );
-        }
 
-        // QUICK ADD SOCIAL CHANNELS
-        let socialErrors: string[] = [];
-        const scope = (isAdmin || isSubAdmin) ? "official" : "private";
-        const customerId = newCustomer.id;
+      // 2. Prepare payload
+      let defaultOwnerSaleId = null;
+      let defaultOwnerTeleId = null;
+      if (isSale) defaultOwnerSaleId = user?.id;
+      if (isTeleLead) defaultOwnerTeleId = user?.id;
 
-        const addChannel = async (channelType: string, value: string) => {
-          if (!value.trim()) return;
-          try {
-            const { data, error } = await supabase.functions.invoke("resolve-contact-channel", {
-              body: { customerId, channelType, value: value.trim(), scope, source: "manual" }
-            });
-            if (error) throw error;
-            if (data?.error) throw new Error(data.error);
-          } catch (err: any) {
-            socialErrors.push(`${channelType.toUpperCase()}: ${err.message}`);
-          }
-        };
+      const payload: any = {
+        facility_name: form.facility_name.trim(),
+        name: form.name.trim(),
+        contact_name: form.name.trim(),
+        business_name: form.facility_name.trim(),
+        phone: form.phone.trim(),
+        normalized_phone: normPhone,
+        city: form.city,
+        source: form.source,
+        note: form.note.trim(),
+        owner_sale_id: defaultOwnerSaleId,
+        owner_tele_id: defaultOwnerTeleId,
+        created_by: user?.id,
+        status: "new",
+        lifecycle_stage: "new_lead",
+      };
 
-        await Promise.all([
-          addChannel("facebook", form.facebook),
-          addChannel("zalo", form.zalo),
-          addChannel("email", form.email)
-        ]);
+      // 3. Create customer
+      const { data: newCustomer, error: insertErr } = await supabase
+        .from("customers")
+        .insert([payload])
+        .select()
+        .single();
 
-        if (socialErrors.length > 0) {
-          toast.warning(`Đã thêm khách hàng. Tuy nhiên một số kênh liên hệ chưa lưu được: ${socialErrors.join(" | ")}`, { duration: 5000 });
-        } else if (form.facebook?.trim() || form.zalo?.trim() || form.email?.trim()) {
-          toast.success("Đã thêm khách hàng và kênh liên hệ thành công!");
+      if (insertErr) {
+        // Fallback for race conditions
+        if (insertErr.code === "23505") {
+          toast.error("Số điện thoại này đã tồn tại trên hệ thống. Vui lòng thử lại!");
         } else {
-          toast.success("Đã thêm khách hàng thành công!");
+          toast.error("Lỗi khi tạo KH: " + insertErr.message);
+        }
+        setSaving(false);
+        return;
+      }
+
+      // Trigger automation manually since we removed standard form owner inputs 
+      // but we still have default assigns for Sale/Tele
+      if (newCustomer.owner_sale_id) {
+         await createLeadAssignedAutomation(
+           newCustomer.id, 
+           newCustomer.facility_name || newCustomer.name, 
+           newCustomer.owner_sale_id, 
+           user?.display_name || user?.email || "Hệ thống",
+           user?.id || ""
+         );
+      } else if (newCustomer.owner_tele_id) {
+         await createLeadAssignedAutomation(
+           newCustomer.id, 
+           newCustomer.facility_name || newCustomer.name, 
+           newCustomer.owner_tele_id, 
+           user?.display_name || user?.email || "Hệ thống",
+           user?.id || ""
+         );
+      }
+
+      // 4. Handle Primary Channel
+      const scope = (isAdmin || isSubAdmin) ? "official" : "private";
+      
+      // Create Phone Channel (always created)
+      try {
+        await createContactChannel({
+          customerId: newCustomer.id,
+          channelType: 'phone',
+          value: form.phone.trim(),
+          scope,
+          is_primary: form.primary_channel_type === 'phone',
+          channel_purpose: 'sales',
+          user
+        });
+      } catch (phoneErr: any) {
+        toast.warning("Khách đã tạo, nhưng không lưu được kênh SĐT: " + phoneErr.message);
+      }
+
+      if (form.primary_channel_type !== "phone" && form.primary_channel_value.trim()) {
+        // Create selected primary channel
+        try {
+          const { error: resErr } = await createContactChannel({
+              customerId: newCustomer.id,
+              channelType: form.primary_channel_type,
+              value: form.primary_channel_value.trim(),
+              scope,
+              is_primary: true,
+              channel_purpose: "sales",
+              user
+          });
+          if (resErr) throw resErr;
+          toast.success("Thêm khách hàng thành công!");
+        } catch (err: any) {
+          toast.warning("Khách đã tạo, nhưng kênh liên hệ chính chưa lưu được: " + err.message);
         }
       } else {
-        toast.success("Đã thêm khách hàng thành công!");
+        toast.success("Thêm khách hàng thành công!");
       }
 
       onOpenChange(false);
       if (onSuccess) onSuccess();
+
+    } catch (err: any) {
+      toast.error("Lỗi hệ thống: " + err.message);
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden rounded-[28px] border-none shadow-2xl">
+      <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden rounded-[28px] border-none shadow-2xl">
         <DialogHeader className="px-8 pt-8 pb-6 bg-slate-900 text-white relative">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center border border-primary/30 backdrop-blur-md">
-              <Plus className="w-6 h-6 text-primary" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30 backdrop-blur-md">
+                <Zap className="w-6 h-6 text-indigo-400 fill-indigo-400/20" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-black tracking-tight">Thêm Khách Nhanh</DialogTitle>
+                <p className="text-slate-400 text-xs font-bold mt-1">Tạo Lead & Khách hàng mới nhanh chóng</p>
+              </div>
             </div>
-            <div>
-              <DialogTitle className="text-xl font-black tracking-tight">Thêm Khách hàng</DialogTitle>
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Hồ sơ & Phân tuyến ownership</p>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowPaste(!showPaste)}
+              className={`rounded-xl border-slate-700 font-bold text-xs h-9 px-4 transition-all ${showPaste ? 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700' : 'bg-transparent text-slate-300 hover:text-white hover:bg-slate-800'}`}
+            >
+              <ClipboardPaste className="w-4 h-4 mr-2" />
+              {showPaste ? 'Đóng Dán Nhanh' : 'Dán Nhanh Lead'}
+            </Button>
           </div>
         </DialogHeader>
 
-        <div className="p-8 bg-white">
-          <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid grid-cols-4 gap-2 bg-slate-100/50 p-1 rounded-2xl mb-8">
-              <TabsTrigger value="profile" className="rounded-xl text-[10px] font-black uppercase py-2">Hồ sơ</TabsTrigger>
-              <TabsTrigger value="business" className="rounded-xl text-[10px] font-black uppercase py-2">Kinh doanh</TabsTrigger>
-              <TabsTrigger value="dm" className="rounded-xl text-[10px] font-black uppercase py-2">Quyết định</TabsTrigger>
-              <TabsTrigger value="care" className="rounded-xl text-[10px] font-black uppercase py-2">Chăm sóc</TabsTrigger>
-            </TabsList>
+        <div className="p-8 bg-slate-50 overflow-y-auto max-h-[60vh]">
 
-            <div className="max-h-[50vh] overflow-y-auto pr-2 -mr-2 scrollbar-thin scrollbar-thumb-slate-200">
-              <TabsContent value="profile" className="space-y-6 mt-0">
-                <div className="grid grid-cols-2 gap-5">
-                  <div className="space-y-2 col-span-2">
-                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                      <Building2 className="w-3.5 h-3.5 text-primary/70" /> Tên cơ sở (Spa/Clinic) <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      value={form.facility_name}
-                      onChange={(e) => setForm({ ...form, facility_name: e.target.value })}
-                      placeholder="VD: Desembre Premium Clinic"
-                      className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2 col-span-2 sm:col-span-1">
-                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                      <UserCircle className="w-3.5 h-3.5 text-primary/70" /> Người liên hệ
-                    </Label>
-                    <Input
-                      value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      placeholder="VD: Chị Lan Anh"
-                      className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300"
-                    />
-                  </div>
+          {/* QUICK PASTE SECTION */}
+          {showPaste && (
+            <div className="mb-8 p-5 bg-white border border-indigo-100 rounded-2xl shadow-sm animate-in fade-in slide-in-from-top-4">
+              <div className="flex items-center justify-between mb-3">
+                <Label className="text-xs font-extrabold text-indigo-800 uppercase tracking-widest flex items-center gap-2">
+                  <Wand2 className="w-4 h-4 text-indigo-500" />
+                  Dán chuỗi văn bản
+                </Label>
+                <div className="flex bg-slate-100 p-1 rounded-xl">
+                  <button
+                    className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-all ${pasteMode === 'auto' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    onClick={() => setPasteMode('auto')}
+                  >
+                    Tự Động Nhận Diện
+                  </button>
+                  <button
+                    className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-all ${pasteMode === 'pipeline' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    onClick={() => setPasteMode('pipeline')}
+                  >
+                    Theo Mẫu ( | )
+                  </button>
+                </div>
+              </div>
+              <Textarea
+                value={pasteText}
+                onChange={e => setPasteText(e.target.value)}
+                placeholder={pasteMode === 'auto' ? "Nhập bất kỳ đoạn chat, thông tin khách hàng nào. VD: Khách Lan Anh 0912345678 HN quan tâm giảm béo..." : "SĐT | Tên Spa | Người liên hệ | Tỉnh/TP | Kênh liên hệ | Ghi chú"}
+                className="text-sm min-h-[80px] rounded-xl border-slate-200 focus:ring-indigo-200 focus:border-indigo-400 mb-3 bg-slate-50"
+              />
+              <div className="flex gap-2 justify-end">
+                {pasteText && (
+                  <Button variant="ghost" size="sm" onClick={() => { setPasteText(""); setParsedPreview(null); setPreviewDuplicateInfo(null); }} className="text-slate-500 hover:text-rose-600 rounded-xl">
+                    Xóa
+                  </Button>
+                )}
+                <Button size="sm" onClick={handleParse} className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-xl font-bold px-5">
+                  Phân tích
+                </Button>
+              </div>
 
-                  <div className="space-y-2 col-span-2 sm:col-span-1">
-                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                      <Phone className="w-3.5 h-3.5 text-primary/70" /> Số điện thoại
-                    </Label>
-                    <Input
-                      value={form.phone}
-                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                      placeholder="0912345678"
-                      className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm font-mono focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300"
-                    />
+              {parsedPreview && (
+                <div className="mt-5 border border-slate-200 rounded-xl bg-slate-50 overflow-hidden">
+                  <div className="bg-slate-200/50 px-4 py-2 border-b border-slate-200 flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Preview Phân Tích</span>
+                    {parsedPreview.confidence === 'high' ? (
+                      <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 text-[10px] border-none"><CheckCircle2 className="w-3 h-3 mr-1" /> Độ tin cậy cao</Badge>
+                    ) : (
+                      <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 text-[10px] border-none"><AlertCircle className="w-3 h-3 mr-1" /> Cần kiểm tra lại</Badge>
+                    )}
                   </div>
-                  
-                  <div className="space-y-2 col-span-2">
-                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                      <MapPin className="w-3.5 h-3.5 text-primary/70" /> Địa chỉ chi tiết
-                    </Label>
-                    <Input
-                      value={form.address}
-                      onChange={(e) => setForm({ ...form, address: e.target.value })}
-                      placeholder="Số nhà, tên đường, phường/xã..."
-                      className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2 col-span-2 sm:col-span-1">
-                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                      <Map className="w-3.5 h-3.5 text-primary/70" /> Tỉnh / Thành phố
-                    </Label>
-                    <Popover open={cityOpen} onOpenChange={(o) => { setCityOpen(o); if (!o) setCitySearch(""); }}>
-                      <PopoverTrigger asChild>
-                        <button
-                          type="button"
-                          role="combobox"
-                          aria-expanded={cityOpen}
-                          className="w-full text-sm h-11 rounded-2xl border border-slate-200/60 bg-white shadow-sm px-3 flex items-center justify-between gap-2 hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                        >
-                          <span className={form.city ? "text-slate-800 font-medium" : "text-slate-300"}>
-                            {form.city || "Chọn tỉnh / thành phố..."}
-                          </span>
-                          <ChevronsUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        className="p-0 rounded-2xl shadow-xl border border-slate-100 overflow-hidden"
-                        style={{ width: "var(--radix-popover-trigger-width)", zIndex: 9999 }}
-                        align="start"
-                        side="bottom"
-                        sideOffset={4}
-                      >
-                        {/* Search input */}
-                        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-100 bg-slate-50/80">
-                          <Map className="w-3.5 h-3.5 text-primary/60 shrink-0" />
-                          <input
-                            autoFocus
-                            value={citySearch}
-                            onChange={(e) => setCitySearch(e.target.value)}
-                            placeholder="Gõ để tìm kiếm..."
-                            className="flex-1 text-sm bg-transparent outline-none placeholder:text-slate-300 text-slate-800"
-                          />
-                          {citySearch && (
-                            <button
-                              type="button"
-                              onClick={() => setCitySearch("")}
-                              className="text-slate-300 hover:text-slate-500 text-xs font-bold"
-                            >
-                              ✕
-                            </button>
-                          )}
-                        </div>
-                        {/* Province list */}
-                        <div className="max-h-52 overflow-y-auto">
-                          {(() => {
-                            const q = stripAccents(citySearch);
-                            const matched = VIETNAM_PROVINCES.filter((p) => {
-                              if (!q) return true;
-                              // Check alias match first
-                              const alias = findProvinceByName(citySearch);
-                              if (alias === p) return true;
-                              // Check accent-stripped name match
-                              return stripAccents(p).includes(q);
-                            });
-                            if (matched.length === 0) {
-                              return (
-                                <div className="py-6 text-center text-xs text-slate-400 font-semibold">
-                                  Không tìm thấy tỉnh/thành phố phù hợp.
-                                </div>
-                              );
-                            }
-                            return matched.map((province) => (
-                              <button
-                                key={province}
-                                type="button"
-                                onClick={() => {
-                                  setForm({ ...form, city: province });
-                                  setCitySearch("");
-                                  setCityOpen(false);
-                                }}
-                                className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-indigo-50 hover:text-indigo-700 transition-colors group"
-                              >
-                                <Check
-                                  className={`w-3.5 h-3.5 shrink-0 transition-opacity ${
-                                    form.city === province ? "opacity-100 text-indigo-600" : "opacity-0"
-                                  }`}
-                                />
-                                <span className={`font-medium ${
-                                  form.city === province ? "text-indigo-700" : "text-slate-700"
-                                }`}>
-                                  {province}
-                                </span>
-                              </button>
-                            ));
-                          })()}
-                        </div>
-                        {/* Clear option */}
-                        {form.city && (
-                          <div className="border-t border-slate-100">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setForm({ ...form, city: "" });
-                                setCitySearch("");
-                                setCityOpen(false);
-                              }}
-                              className="w-full text-left px-3 py-2 text-xs text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors font-semibold"
-                            >
-                              ✕ Xoá lựa chọn
-                            </button>
+                  <div className="p-4 space-y-3">
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div><span className="text-slate-400 text-xs">SĐT:</span> <span className="font-mono font-bold">{parsedPreview.phone || <span className="text-rose-400 italic">Trống</span>}</span></div>
+                      <div><span className="text-slate-400 text-xs">Spa:</span> <span className="font-bold">{parsedPreview.facility_name || '-'}</span></div>
+                      <div><span className="text-slate-400 text-xs">Liên hệ:</span> <span>{parsedPreview.name || '-'}</span></div>
+                      <div><span className="text-slate-400 text-xs">Khu vực:</span> <span>{parsedPreview.city || '-'}</span></div>
+                      <div className="col-span-2"><span className="text-slate-400 text-xs">Kênh:</span> <Badge variant="outline" className="ml-1 uppercase text-[10px]">{parsedPreview.primary_channel_type}</Badge> <span className="text-slate-600 ml-1">{parsedPreview.primary_channel_value}</span></div>
+                      <div className="col-span-2"><span className="text-slate-400 text-xs">Ghi chú:</span> <span className="text-slate-600 italic">{parsedPreview.note || '-'}</span></div>
+                    </div>
+
+                    {previewDuplicateInfo && (
+                      <div className="mt-3 bg-rose-50 border border-rose-200 rounded-xl p-3 shadow-sm">
+                        <div className="flex items-start gap-2">
+                          <XCircle className="w-4 h-4 text-rose-500 mt-0.5 shrink-0" />
+                          <div>
+                            <h4 className="text-xs font-bold text-rose-800">Số điện thoại này đã tồn tại!</h4>
+                            <p className="text-[10px] text-rose-600 mt-0.5">Thuộc về khách hàng <b>{previewDuplicateInfo.facility_name || previewDuplicateInfo.name}</b> (Phụ trách: {previewDuplicateInfo.ownerName})</p>
                           </div>
-                        )}
-                      </PopoverContent>
-                    </Popover>
-                    {/* Warning: current value not in standard list */}
-                    {form.city && !VIETNAM_PROVINCES.includes(form.city) && (
-                      <div className="flex items-center gap-1.5 mt-1 px-1">
-                        <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
-                        <span className="text-[10px] font-bold text-amber-600">
-                          Giá trị này chưa nằm trong danh sách chuẩn.
-                        </span>
+                        </div>
                       </div>
                     )}
                   </div>
-                  
-                  <div className="space-y-2 col-span-2 sm:col-span-1">
-                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                      <Shield className="w-3.5 h-3.5 text-primary/70" /> Mã số thuế (B2B)
-                    </Label>
-                    <Input
-                      value={form.tax_code}
-                      onChange={(e) => setForm({ ...form, tax_code: e.target.value })}
-                      placeholder="MST doanh nghiệp"
-                      className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm font-mono focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300"
-                    />
+                  <div className="bg-white p-3 border-t border-slate-100 flex justify-end">
+                    <Button 
+                      size="sm" 
+                      onClick={handleApplyPreview} 
+                      disabled={!!previewDuplicateInfo}
+                      className="rounded-xl font-bold text-xs bg-indigo-600 hover:bg-indigo-700 shadow-md text-white px-6"
+                    >
+                      ÁP DỤNG VÀO FORM DƯỚI
+                    </Button>
                   </div>
                 </div>
-
-                <div className="mt-8 border-t border-slate-100 pt-6 space-y-5">
-                  <div>
-                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                      <Target className="w-4 h-4 text-primary" /> Kênh liên hệ nhanh
-                    </h4>
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      {(isAdmin || isSubAdmin) 
-                        ? "Các kênh này sẽ được lưu là Kênh Chính Thức (Official)."
-                        : "Các kênh này sẽ được lưu là Kênh Riêng Tư (Private) của bạn."}
-                    </p>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-5">
-                    <div className="space-y-2 col-span-2">
-                      <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                        Facebook URL
-                      </Label>
-                      <Input
-                        value={form.facebook}
-                        onChange={(e) => setForm({ ...form, facebook: e.target.value })}
-                        placeholder="https://facebook.com/..."
-                        className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300"
-                      />
-                    </div>
-                    <div className="space-y-2 col-span-2 sm:col-span-1">
-                      <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                        Zalo (Số điện thoại)
-                      </Label>
-                      <Input
-                        value={form.zalo}
-                        onChange={(e) => setForm({ ...form, zalo: e.target.value })}
-                        placeholder="0912345678"
-                        className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm font-mono focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300"
-                      />
-                    </div>
-                    <div className="space-y-2 col-span-2 sm:col-span-1">
-                      <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                        Email
-                      </Label>
-                      <Input
-                        value={form.email}
-                        onChange={(e) => setForm({ ...form, email: e.target.value })}
-                        placeholder="spa@example.com"
-                        className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="business" className="space-y-6 mt-0">
-                <div className="grid grid-cols-2 gap-5">
-                  <div className="space-y-2 col-span-2 sm:col-span-1">
-                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">Quy mô (Số giường)</Label>
-                    <Input
-                      type="number"
-                      value={form.bed_count}
-                      onChange={(e) => setForm({ ...form, bed_count: parseInt(e.target.value) || 0 })}
-                      className="text-sm h-11 rounded-2xl border-slate-200/60 shadow-sm"
-                    />
-                  </div>
-                  <div className="space-y-2 col-span-2 sm:col-span-1">
-                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">Số lượng nhân sự</Label>
-                    <Input
-                      type="number"
-                      value={form.staff_count}
-                      onChange={(e) => setForm({ ...form, staff_count: parseInt(e.target.value) || 0 })}
-                      className="text-sm h-11 rounded-2xl border-slate-200/60 shadow-sm"
-                    />
-                  </div>
-                  <div className="space-y-2 col-span-2">
-                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Chuyên môn tập trung
-                    </Label>
-                    <Input
-                      value={form.main_service}
-                      onChange={(e) => setForm({ ...form, main_service: e.target.value })}
-                      placeholder="VD: Nám, mụn, trẻ hóa..."
-                      className="text-sm h-11 rounded-2xl border-slate-200/60 shadow-sm"
-                    />
-                  </div>
-                  <div className="space-y-2 col-span-2">
-                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">Thiết bị công nghệ</Label>
-                    <Input
-                      value={form.tech_equipment}
-                      onChange={(e) => setForm({ ...form, tech_equipment: e.target.value })}
-                      placeholder="VD: Laser, HIFU, Phi kim..."
-                      className="text-sm h-11 rounded-2xl border-slate-200/60 shadow-sm"
-                    />
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="dm" className="space-y-6 mt-0">
-                <div className="grid grid-cols-2 gap-5">
-                  <div className="space-y-2 col-span-2 sm:col-span-1">
-                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">Tên người quyết định</Label>
-                    <Input
-                      value={form.decision_maker}
-                      onChange={(e) => setForm({ ...form, decision_maker: e.target.value })}
-                      placeholder="Họ tên Chủ Spa"
-                      className="text-sm h-11 rounded-2xl border-slate-200/60 shadow-sm"
-                    />
-                  </div>
-                  <div className="space-y-2 col-span-2 sm:col-span-1">
-                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">Vai trò</Label>
-                    <Select value={form.decision_role} onValueChange={(v) => setForm({ ...form, decision_role: v })}>
-                      <SelectTrigger className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm font-medium">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
-                        <SelectItem value="OWNER" className="text-sm font-medium">Chủ sở hữu</SelectItem>
-                        <SelectItem value="MANAGER" className="text-sm font-medium">Quản lý điều hành</SelectItem>
-                        <SelectItem value="DOCTOR" className="text-sm font-medium">Bác sĩ chuyên trách</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2 col-span-2">
-                    <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                      <Mail className="w-3.5 h-3.5 text-blue-400" /> Email liên hệ
-                    </Label>
-                    <Input
-                      value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      placeholder="example@gmail.com"
-                      className="text-sm h-11 rounded-2xl border-slate-200/60 shadow-sm"
-                    />
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="care" className="space-y-6 mt-0">
-                <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm space-y-6">
-                  <div className="grid grid-cols-2 gap-5">
-                    <div className="space-y-2 col-span-2 sm:col-span-1">
-                      <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">Kênh tiếp cận</Label>
-                      <Select value={form.customer_channel} onValueChange={(v: any) => setForm({ ...form, customer_channel: v })}>
-                        <SelectTrigger className="text-sm h-11 rounded-2xl bg-white border-slate-200/60 font-medium">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
-                          {CUSTOMER_CHANNEL_OPTIONS.map(o => (
-                            <SelectItem key={o.value} value={o.value} className="text-sm font-medium">{o.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2 col-span-2 sm:col-span-1">
-                      <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">Khoảng cách công ty</Label>
-                      <Select value={form.customer_distance_type} onValueChange={(v: any) => setForm({ ...form, customer_distance_type: v })}>
-                        <SelectTrigger className="text-sm h-11 rounded-2xl bg-white border-slate-200/60 font-medium">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
-                          {CUSTOMER_DISTANCE_OPTIONS.map(o => (
-                            <SelectItem key={o.value} value={o.value} className="text-sm font-medium">{o.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2 col-span-2 sm:col-span-1">
-                      <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">Mô hình chăm sóc</Label>
-                      <Select value={form.care_model} onValueChange={(v: any) => setForm({ ...form, care_model: v })}>
-                        <SelectTrigger className="text-sm h-11 rounded-2xl bg-white border-slate-200/60 font-bold text-primary">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
-                          {CARE_MODEL_OPTIONS.map(o => (
-                            <SelectItem key={o.value} value={o.value} className="text-sm font-bold">{o.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2 col-span-2 sm:col-span-1">
-                      <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                        <UserCheck className="w-3.5 h-3.5 text-emerald-600" /> Sale phụ trách
-                      </Label>
-                      <Select value={form.owner_sale_id} onValueChange={(v) => setForm({ ...form, owner_sale_id: v })}>
-                        <SelectTrigger className="text-sm h-11 rounded-2xl bg-white border-slate-200/60 font-medium">
-                          <SelectValue placeholder="Chọn nhân sự Sale" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
-                          <SelectItem value="none" className="text-sm italic text-slate-400">— Chưa phân công —</SelectItem>
-                          {salesUsers.map(u => (
-                            <SelectItem key={u.id} value={u.id} className="text-sm font-medium">👤 {u.full_name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2 col-span-2 sm:col-span-1">
-                      <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                        <Headset className="w-3.5 h-3.5 text-amber-600" /> Tele phụ trách
-                      </Label>
-                      <Select value={form.owner_tele_id} onValueChange={(v) => setForm({ ...form, owner_tele_id: v })}>
-                        <SelectTrigger className="text-sm h-11 rounded-2xl bg-white border-slate-200/60 font-medium">
-                          <SelectValue placeholder={teleLeads.length > 0 ? "Chọn Trưởng Tele phụ trách..." : "Chưa có tài khoản Trưởng Tele"} />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
-                          <SelectItem value="none" className="text-sm italic text-slate-400">— Chưa phân công —</SelectItem>
-                          {teleLeads.map(u => (
-                            <SelectItem key={u.id} value={u.id} className="text-sm font-medium">🎧 {u.full_name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2 col-span-2 sm:col-span-1">
-                      <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                        <Sparkles className="w-3.5 h-3.5 text-indigo-500" /> Trạng thái khách
-                      </Label>
-                      <Select value={form.lifecycle_stage} onValueChange={(v) => setForm({ ...form, lifecycle_stage: v })}>
-                        <SelectTrigger className="text-sm h-11 rounded-2xl bg-white border-slate-200/60 font-bold">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
-                          {LIFECYCLE_STAGE_OPTIONS.map(o => (
-                            <SelectItem key={o.value} value={o.value} className="text-sm font-bold">{o.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
+              )}
             </div>
-          </Tabs>
+          )}
+
+          {duplicateInfo && (
+            <div className="mb-6 bg-rose-50 border border-rose-200 rounded-2xl p-4 shadow-sm animate-in fade-in slide-in-from-top-4">
+              <div className="flex items-start gap-3">
+                <BadgeAlert className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="text-sm font-bold text-rose-800">Số điện thoại này đã tồn tại!</h4>
+                  <p className="text-xs text-rose-600 mt-1">
+                    Hệ thống chặn việc tạo trùng lặp. Dưới đây là thông tin khách hàng đang sở hữu số điện thoại này:
+                  </p>
+                  <div className="mt-3 bg-white p-3 rounded-xl border border-rose-100 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase">Khách hàng:</span>
+                      <span className="text-xs font-bold text-slate-800">{duplicateInfo.facility_name || duplicateInfo.name}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase">Phụ trách:</span>
+                      <Badge variant="outline" className="text-[10px] font-bold border-indigo-200 text-indigo-700 bg-indigo-50">
+                        👤 {duplicateInfo.ownerName}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase">Trạng thái:</span>
+                      <Badge variant="secondary" className="text-[10px] uppercase">
+                        {duplicateInfo.lifecycle_stage}
+                      </Badge>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    className="w-full mt-4 h-9 text-xs font-bold border-rose-200 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
+                    onClick={() => handleOpenCustomer(duplicateInfo.id)}
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                    MỞ HỒ SƠ KHÁCH HÀNG NÀY
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-5">
+              
+              {/* SĐT - Bắt buộc đầu tiên */}
+              <div className="space-y-2 col-span-2">
+                <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                  <Phone className="w-3.5 h-3.5 text-indigo-500" /> Số điện thoại <span className="text-rose-500 text-sm">*</span>
+                  {isCheckingPhone && <Loader2 className="w-3 h-3 text-indigo-400 animate-spin ml-1" />}
+                </Label>
+                <Input
+                  value={form.phone}
+                  onChange={(e) => {
+                    setForm({ ...form, phone: e.target.value });
+                    if (duplicateInfo) setDuplicateInfo(null);
+                  }}
+                  onBlur={() => checkPhoneDuplicate(form.phone, false)}
+                  placeholder="Nhập SĐT..."
+                  className={`text-sm h-11 rounded-2xl bg-white shadow-sm font-mono transition-all placeholder:text-slate-300
+                    ${duplicateInfo ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200/60 focus:ring-primary/20 focus:border-primary'}`}
+                />
+              </div>
+
+              {/* Tên KH */}
+              <div className="space-y-2 col-span-2 sm:col-span-1">
+                <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                  <Building2 className="w-3.5 h-3.5 text-primary/70" /> Tên cơ sở (Spa/Clinic)
+                </Label>
+                <Input
+                  value={form.facility_name}
+                  onChange={(e) => setForm({ ...form, facility_name: e.target.value })}
+                  placeholder="VD: Desembre Spa..."
+                  className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300"
+                />
+              </div>
+              
+              <div className="space-y-2 col-span-2 sm:col-span-1">
+                <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                  <UserCircle className="w-3.5 h-3.5 text-primary/70" /> Người liên hệ
+                </Label>
+                <Input
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="VD: Chị Lan Anh"
+                  className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300"
+                />
+              </div>
+              
+              {/* Tỉnh thành phố */}
+              <div className="space-y-2 col-span-2 sm:col-span-1">
+                <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                  <Map className="w-3.5 h-3.5 text-primary/70" /> Tỉnh / Thành phố
+                </Label>
+                <Popover open={cityOpen} onOpenChange={(o) => { setCityOpen(o); if (!o) setCitySearch(""); }}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      role="combobox"
+                      aria-expanded={cityOpen}
+                      className="w-full text-sm h-11 rounded-2xl border border-slate-200/60 bg-white shadow-sm px-3 flex items-center justify-between gap-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    >
+                      <span className={form.city ? "text-slate-800 font-medium" : "text-slate-400"}>
+                        {form.city || "Chọn khu vực..."}
+                      </span>
+                      <ChevronsUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-0 rounded-2xl shadow-xl border border-slate-100" style={{ width: "var(--radix-popover-trigger-width)" }}>
+                    <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-slate-50/80">
+                      <Map className="w-3.5 h-3.5 text-primary/60 shrink-0" />
+                      <input
+                        autoFocus
+                        value={citySearch}
+                        onChange={(e) => setCitySearch(e.target.value)}
+                        placeholder="Gõ để tìm kiếm..."
+                        className="flex-1 text-sm bg-transparent outline-none placeholder:text-slate-300 text-slate-800"
+                      />
+                    </div>
+                    <div className="max-h-52 overflow-y-auto">
+                      {(() => {
+                        const q = stripAccents(citySearch);
+                        const matched = VIETNAM_PROVINCES.filter((p) => {
+                          if (!q) return true;
+                          const alias = findProvinceByName(citySearch);
+                          if (alias === p) return true;
+                          return stripAccents(p).includes(q);
+                        });
+                        if (matched.length === 0) return <div className="py-4 text-center text-xs text-slate-400">Không tìm thấy</div>;
+                        return matched.map((province) => (
+                          <button
+                            key={province}
+                            type="button"
+                            onClick={() => {
+                              setForm({ ...form, city: province });
+                              setCitySearch("");
+                              setCityOpen(false);
+                            }}
+                            className="w-full text-left flex items-center gap-2 px-3 py-2 text-sm hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                          >
+                            <Check className={`w-3.5 h-3.5 shrink-0 ${form.city === province ? "opacity-100 text-indigo-600" : "opacity-0"}`} />
+                            <span className={`font-medium ${form.city === province ? "text-indigo-700" : "text-slate-700"}`}>{province}</span>
+                          </button>
+                        ));
+                      })()}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Nguồn lead */}
+              <div className="space-y-2 col-span-2 sm:col-span-1">
+                <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                  <LinkIcon className="w-3.5 h-3.5 text-primary/70" /> Nguồn Lead
+                </Label>
+                <Select value={form.source} onValueChange={(v) => setForm({ ...form, source: v })}>
+                  <SelectTrigger className="text-sm h-11 rounded-2xl border-slate-200/60 bg-white shadow-sm font-medium">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-slate-100 shadow-xl">
+                    <SelectItem value="FACEBOOK">Facebook</SelectItem>
+                    <SelectItem value="ZALO">Zalo</SelectItem>
+                    <SelectItem value="TIKTOK">TikTok</SelectItem>
+                    <SelectItem value="HOTLINE">Hotline/Gọi</SelectItem>
+                    <SelectItem value="REFERRAL">Giới thiệu</SelectItem>
+                    <SelectItem value="WEBSITE">Website</SelectItem>
+                    <SelectItem value="OTHER">Khác</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Kênh liên hệ chính */}
+              <div className="col-span-2 bg-white rounded-2xl border border-indigo-100 p-4 shadow-sm relative overflow-hidden mt-2">
+                <div className="absolute top-0 left-0 w-1 h-full bg-indigo-400"></div>
+                <Label className="text-[11px] font-extrabold text-indigo-800 uppercase tracking-widest flex items-center gap-2 mb-3 ml-2">
+                  Kênh liên hệ chính 
+                  <Info className="w-3.5 h-3.5 text-indigo-400" />
+                </Label>
+                
+                <div className="flex flex-col sm:flex-row gap-3 ml-2">
+                  <Select value={form.primary_channel_type} onValueChange={(v) => setForm({ ...form, primary_channel_type: v, primary_channel_value: "" })}>
+                    <SelectTrigger className="w-full sm:w-[140px] text-sm h-11 rounded-xl bg-slate-50 border-slate-200 font-bold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="phone">📞 Gọi/SMS</SelectItem>
+                      <SelectItem value="zalo">💬 Zalo</SelectItem>
+                      <SelectItem value="facebook">📘 Facebook</SelectItem>
+                      <SelectItem value="email">📧 Email</SelectItem>
+                      <SelectItem value="tiktok">🎵 TikTok</SelectItem>
+                      <SelectItem value="website">🌐 Website</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {form.primary_channel_type === "phone" ? (
+                    <div className="flex-1 h-11 px-3 flex items-center bg-slate-50 rounded-xl border border-slate-200 border-dashed text-sm text-slate-500 font-medium">
+                      Tự động dùng SĐT ở trên
+                    </div>
+                  ) : (
+                    <Input
+                      value={form.primary_channel_value}
+                      onChange={(e) => setForm({ ...form, primary_channel_value: e.target.value })}
+                      placeholder={`Nhập ${form.primary_channel_type} (Link / ID)...`}
+                      className="flex-1 text-sm h-11 rounded-xl bg-white border-slate-200 shadow-sm"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Ghi chú */}
+              <div className="space-y-2 col-span-2 mt-2">
+                <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest px-1">
+                  Nhu cầu / Ghi chú nhanh
+                </Label>
+                <Textarea
+                  value={form.note}
+                  onChange={(e) => setForm({ ...form, note: e.target.value })}
+                  placeholder="Khách quan tâm đến sản phẩm gì? Tình trạng ra sao?"
+                  className="text-sm min-h-[80px] rounded-2xl border-slate-200/60 bg-white shadow-sm focus:ring-primary/20 focus:border-primary transition-all resize-none p-3"
+                />
+              </div>
+
+            </div>
+          </div>
         </div>
 
-        <DialogFooter className="px-8 py-8 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+        <DialogFooter className="px-8 py-5 bg-white border-t border-slate-100 flex items-center justify-end gap-3 rounded-b-[28px]">
           <Button 
             variant="ghost" 
             onClick={() => onOpenChange(false)} 
             disabled={saving} 
-            className="text-xs h-11 px-6 rounded-2xl font-bold text-slate-500"
+            className="text-xs h-10 px-6 rounded-xl font-bold text-slate-500"
           >
             Hủy bỏ
           </Button>
           <Button 
             onClick={handleSave} 
-            disabled={saving} 
-            className="text-xs h-11 px-8 rounded-2xl font-black bg-slate-900 hover:bg-primary text-white shadow-lg transition-all"
+            disabled={saving || duplicateInfo !== null} 
+            className="text-xs h-10 px-8 rounded-xl font-black bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition-all"
           >
             {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            HOÀN TẤT THÊM MỚI
+            TẠO KHÁCH NHANH
           </Button>
         </DialogFooter>
       </DialogContent>
