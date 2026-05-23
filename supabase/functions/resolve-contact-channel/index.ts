@@ -30,7 +30,7 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const { customerId, channelType, value, scope, remarketing_enabled, notes } = await req.json();
+    const { customerId, channelType, value, scope, remarketing_enabled, notes, is_primary } = await req.json();
 
     if (!customerId || !channelType || !value || !scope) {
       throw new Error('Missing required fields');
@@ -137,28 +137,35 @@ serve(async (req) => {
 
     // Insert or update DB (avoid upsert due to partial index ON CONFLICT errors)
     const payload = {
-         customer_id: customerId,
-         channel_type: channelType,
-         channel_value: value.trim(),
-         normalized_value: normalizedValue,
-         scope: scope,
-         visibility: visibility,
-         resolve_status: resolveStatus,
-         profile_type: profileType,
-         external_id: externalId,
-         owner_user_id: scope === 'private' ? user.id : null,
-         created_by: user.id,
-         updated_by: user.id,
-         remarketing_enabled: remarketing_enabled || false,
-         notes: notes || null
+          customer_id: customerId,
+          channel_type: channelType,
+          channel_value: value.trim(),
+          normalized_value: normalizedValue,
+          scope: scope,
+          visibility: visibility,
+          resolve_status: resolveStatus,
+          profile_type: profileType,
+          external_id: externalId,
+          owner_user_id: scope === 'private' ? user.id : null,
+          created_by: user.id,
+          updated_by: user.id,
+          remarketing_enabled: remarketing_enabled || false,
+          notes: notes || null,
+          is_primary: !!is_primary,
+          channel_purpose: 'sales', // default purpose, UI can override later
+          phone_verified: false,
+          preferred_call_time: null,
+          do_not_call: false,
+          last_contacted_at: null,
+          last_verified_at: null,
+          engagement_score: 0,
     };
 
     let query = supabase
       .from('customer_contact_channels')
-      .select('id')
+      .select('id, external_id, normalized_value')
       .eq('customer_id', customerId)
       .eq('channel_type', channelType)
-      .eq('normalized_value', normalizedValue)
       .eq('scope', scope);
       
     if (scope === 'private') {
@@ -167,10 +174,29 @@ serve(async (req) => {
       query = query.is('owner_user_id', null);
     }
 
-    const { data: existing, error: searchError } = await query.maybeSingle();
+    const { data: existingRows, error: searchError } = await query;
     if (searchError) throw searchError;
 
+    // Duplicate detection for Facebook using external_id when resolved
+    if (channelType === 'facebook') {
+      const duplicate = existingRows?.find(row =>
+        (externalId && row.external_id === externalId) ||
+        (!externalId && row.normalized_value === normalizedValue)
+      );
+      if (duplicate) {
+        throw new Error('Duplicate Facebook channel for this customer');
+      }
+    } else {
+      // Generic duplicate check on normalized_value
+      const duplicate = existingRows?.find(row => row.normalized_value === normalizedValue);
+      if (duplicate) {
+        throw new Error('Duplicate channel for this customer');
+      }
+    }
+
     let channelData;
+    const existing = existingRows && existingRows.length > 0 ? existingRows[0] : null;
+
     if (existing) {
        const { data, error } = await supabase.from('customer_contact_channels').update(payload).eq('id', existing.id).select().single();
        if (error) throw error;
@@ -179,6 +205,17 @@ serve(async (req) => {
        const { data, error } = await supabase.from('customer_contact_channels').insert(payload).select().single();
        if (error) throw error;
        channelData = data;
+    }
+
+    // If this channel is marked as primary, unset other primary channels for same customer, scope, and owner
+    if (payload.is_primary) {
+      await supabase
+        .from('customer_contact_channels')
+        .update({ is_primary: false })
+        .eq('customer_id', customerId)
+        .eq('scope', scope)
+        .eq('owner_user_id', payload.owner_user_id)
+        .neq('id', channelData.id);
     }
 
     // Log Activity

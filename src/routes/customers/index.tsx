@@ -31,7 +31,13 @@ import {
   Mail,
   Calendar,
   Star,
-  Download
+  Download,
+  Activity,
+  CheckCircle2,
+  Globe,
+  Video,
+  PhoneCall,
+  Facebook
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -77,7 +83,7 @@ function CustomersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [activeStage, setActiveStage] = useState<string>("all");
-  const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
+  const [smartFilter, setSmartFilter] = useState<"all" | "no_phone" | "no_social" | "verified_fb" | "unassigned">("all");
   
   const [cityFilter, setCityFilter] = useState<string>("all");
   const [cityOpen, setCityOpen] = useState(false);
@@ -132,6 +138,18 @@ function CustomersPage() {
   useEffect(() => {
     fetchCustomers();
   }, [user]);
+
+  useEffect(() => {
+    const handleOpenPreview = (e: CustomEvent) => {
+      const { customerId } = e.detail;
+      const customer = customers.find(c => c.id === customerId);
+      if (customer) {
+        setPreviewCustomer(customer);
+      }
+    };
+    window.addEventListener('open-customer-preview' as any, handleOpenPreview);
+    return () => window.removeEventListener('open-customer-preview' as any, handleOpenPreview);
+  }, [customers]);
 
   const handleExport = async (exportType: "active" | "deleted" = "active") => {
     try {
@@ -222,6 +240,25 @@ function CustomersPage() {
         lifecycle_stage: classifyCustomerLifecycle(c, c.orders || [])
       }));
 
+      // --- ADD INTELLIGENCE FETCH HERE ---
+      const cIds = processed.map(c => c.id);
+      if (cIds.length > 0) {
+        const { data: intelData, error: intelError } = await supabase.rpc('get_customer_list_intelligence', {
+           p_customer_ids: cIds
+        });
+        if (!intelError && intelData) {
+           const intelMap = new Map(intelData.map((i: any) => [i.customer_id, i] as [string, any]));
+           processed.forEach((c: any) => {
+              const intel = intelMap.get(c.id);
+              if (intel) {
+                 c.intelligence = intel;
+              }
+           });
+        } else if (intelError) {
+           console.error("fetch intelligence error:", intelError);
+        }
+      }
+
       setCustomers(processed);
 
       // Fetch user profiles to build staffMap
@@ -250,11 +287,17 @@ function CustomersPage() {
     return customers.filter(c => {
       const matchSearch = (c.name || c.facility_name || "").toLowerCase().includes(searchQuery.toLowerCase());
       const matchStage = activeStage === "all" || c.lifecycle_stage === activeStage;
-      const matchUnassigned = !showUnassignedOnly || (!c.owner_sale_id && !c.owner_tele_id);
+      
+      let matchSmart = true;
+      if (smartFilter === "unassigned") matchSmart = !c.owner_sale_id && !c.owner_tele_id;
+      if (smartFilter === "no_phone") matchSmart = !c.phone || c.phone.length < 9;
+      if (smartFilter === "no_social") matchSmart = !c.intelligence || !c.intelligence.channels_summary || c.intelligence.channels_summary.length === 0;
+      if (smartFilter === "verified_fb") matchSmart = c.intelligence?.channels_summary?.some((ch: any) => ch.type === 'facebook' && ch.is_verified);
+
       const matchCity = cityFilter === "all" || c.city === cityFilter;
-      return matchSearch && matchStage && matchUnassigned && matchCity;
+      return matchSearch && matchStage && matchSmart && matchCity;
     });
-  }, [customers, searchQuery, activeStage, showUnassignedOnly, cityFilter]);
+  }, [customers, searchQuery, activeStage, smartFilter, cityFilter]);
 
   // Executive Admin & SubAdmin Stats
   const adminStats = useMemo(() => {
@@ -358,10 +401,10 @@ function CustomersPage() {
                </Button>
              )}
              <Button 
-               className="rounded-xl bg-slate-900 hover:bg-black font-black text-xs h-10 px-6 shadow-lg shadow-slate-200 transition-all hover:scale-105"
+               className="rounded-xl bg-indigo-600 hover:bg-indigo-700 font-black text-xs h-10 px-6 shadow-lg shadow-indigo-200 transition-all hover:scale-105 text-white"
                onClick={() => setIsAddDialogOpen(true)}
              >
-                <Plus className="w-4 h-4 mr-2" /> Thêm khách hàng
+                <Zap className="w-4 h-4 mr-1.5 fill-white/20" /> Thêm khách nhanh
              </Button>
           </div>
         </div>
@@ -385,19 +428,19 @@ function CustomersPage() {
              </div>
 
              <button 
-                onClick={() => setShowUnassignedOnly(!showUnassignedOnly)}
-                className={`p-6 rounded-[32px] text-left border flex flex-col justify-between h-36 transition-all duration-300 ${showUnassignedOnly ? 'bg-indigo-600 border-transparent text-white shadow-xl scale-105 shadow-indigo-100' : 'bg-white border-slate-100 shadow-sm hover:border-slate-200'}`}
+                onClick={() => setSmartFilter(smartFilter === "unassigned" ? "all" : "unassigned")}
+                className={`p-6 rounded-[32px] text-left border flex flex-col justify-between h-36 transition-all duration-300 ${smartFilter === "unassigned" ? 'bg-indigo-600 border-transparent text-white shadow-xl scale-105 shadow-indigo-100' : 'bg-white border-slate-100 shadow-sm hover:border-slate-200'}`}
              >
                 <div className="flex items-center justify-between w-full">
-                   <span className={`text-[10px] font-black uppercase tracking-widest ${showUnassignedOnly ? 'text-white/80' : 'text-slate-400'}`}>Lead chưa phân công</span>
-                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center border ${showUnassignedOnly ? 'bg-white/20 border-white/10 text-white' : 'bg-rose-50 border-rose-100 text-rose-500'}`}>
+                   <span className={`text-[10px] font-black uppercase tracking-widest ${smartFilter === "unassigned" ? 'text-white/80' : 'text-slate-400'}`}>Lead chưa phân công</span>
+                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center border ${smartFilter === "unassigned" ? 'bg-white/20 border-white/10 text-white' : 'bg-rose-50 border-rose-100 text-rose-500'}`}>
                       <AlertCircle className="w-4 h-4" />
                    </div>
                 </div>
                 <div>
-                   <h3 className={`text-2xl font-black leading-none ${showUnassignedOnly ? 'text-white' : 'text-slate-900'}`}>{adminStats.unassignedLeads}</h3>
-                   <p className={`text-[9px] font-bold mt-1 uppercase ${showUnassignedOnly ? 'text-white/60' : 'text-slate-400'}`}>
-                      {showUnassignedOnly ? 'Đang lọc xem Lead chưa chia 🎯' : 'Click để lọc nhanh chia lead'}
+                   <h3 className={`text-2xl font-black leading-none ${smartFilter === "unassigned" ? 'text-white' : 'text-slate-900'}`}>{adminStats.unassignedLeads}</h3>
+                   <p className={`text-[9px] font-bold mt-1 uppercase ${smartFilter === "unassigned" ? 'text-white/60' : 'text-slate-400'}`}>
+                      {smartFilter === "unassigned" ? 'Đang lọc xem Lead chưa chia 🎯' : 'Click để lọc nhanh chia lead'}
                    </p>
                 </div>
              </button>
@@ -546,7 +589,9 @@ function CustomersPage() {
                </PopoverContent>
              </Popover>
            </div>
-           
+        </div>
+
+        <div className="flex flex-col gap-2">
            <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 w-full no-scrollbar">
               <Button 
                 variant={activeStage === 'all' ? 'default' : 'ghost'} 
@@ -571,6 +616,51 @@ function CustomersPage() {
                 </Button>
               ))}
            </div>
+
+           {viewMode === 'list' && (
+              <div className="flex items-center gap-2 overflow-x-auto pt-2 w-full no-scrollbar border-t border-slate-100 mt-2">
+                 <Button 
+                   variant={smartFilter === 'all' ? 'default' : 'outline'} 
+                   size="sm" 
+                   className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'all' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}
+                   onClick={() => setSmartFilter('all')}
+                 >
+                    Không lọc
+                 </Button>
+                 <Button 
+                   variant={smartFilter === 'no_phone' ? 'default' : 'outline'} 
+                   size="sm" 
+                   className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'no_phone' ? 'bg-red-50 text-red-700 border-red-200' : 'text-slate-500 hover:bg-slate-50'}`}
+                   onClick={() => setSmartFilter('no_phone')}
+                 >
+                    🔴 Thiếu SĐT
+                 </Button>
+                 <Button 
+                   variant={smartFilter === 'no_social' ? 'default' : 'outline'} 
+                   size="sm" 
+                   className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'no_social' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'text-slate-500 hover:bg-slate-50'}`}
+                   onClick={() => setSmartFilter('no_social')}
+                 >
+                    🟡 Thiếu Social
+                 </Button>
+                 <Button 
+                   variant={smartFilter === 'verified_fb' ? 'default' : 'outline'} 
+                   size="sm" 
+                   className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'verified_fb' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-slate-500 hover:bg-slate-50'}`}
+                   onClick={() => setSmartFilter('verified_fb')}
+                 >
+                    📘 Đã xác minh FB
+                 </Button>
+                 <Button 
+                   variant={smartFilter === 'unassigned' ? 'default' : 'outline'} 
+                   size="sm" 
+                   className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'unassigned' ? 'bg-slate-800 text-white border-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}
+                   onClick={() => setSmartFilter('unassigned')}
+                 >
+                    👤 Chưa phân bổ
+                 </Button>
+              </div>
+           )}
         </div>
 
         {viewMode === 'kanban' ? (
@@ -641,73 +731,28 @@ function CustomersPage() {
              )})}
           </div>
         ) : (
-          /* MODERN LIST VIEW */
-          <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white">
-             <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                   <table className="w-full text-sm">
-                      <thead>
-                         <tr className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                            <th className="px-8 py-5 text-left">Khách hàng / Spa</th>
-                            <th className="px-8 py-5 text-center">Giai đoạn</th>
-                            <th className="px-8 py-5 text-center">Người phụ trách</th>
-                            <th className="px-8 py-5 text-right">Tổng đơn</th>
-                            <th className="px-8 py-5 text-right">Hành động</th>
-                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50">
-                         {filteredCustomers.map(customer => (
-                            <tr key={customer.id} className="hover:bg-slate-50/50 transition-all group">
-                               <td className="px-8 py-5">
-                                  <div 
-                                     onClick={() => setPreviewCustomer(customer)} 
-                                     className="flex items-center gap-4 cursor-pointer"
-                                  >
-                                     <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-200 group-hover:scale-110 transition-transform">
-                                        {(customer.contact_name || customer.name)?.slice(0,1) || "C"}
-                                     </div>
-                                     <div>
-                                        <p className="text-sm font-black text-slate-900">{customer.business_name || customer.facility_name || "Khách lẻ"}</p>
-                                        <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
-                                           <Users className="w-3 h-3" /> {customer.contact_name || customer.name} • {customer.phone}
-                                        </p>
-                                     </div>
-                                  </div>
-                               </td>
-                               <td className="px-8 py-5 text-center">
-                                  <Badge variant="outline" className={`rounded-lg font-black text-[9px] uppercase border-none ${getPipelineStageColor(customer.lifecycle_stage)} bg-opacity-10 text-opacity-100`}>
-                                     {getPipelineStageLabel(customer.lifecycle_stage)}
-                                  </Badge>
-                               </td>
-                               <td className="px-8 py-5 text-center font-bold text-slate-500 text-xs">
-                                  <div className="space-y-1">
-                                     <div>Sale: {getStaffDisplayName(customer.owner_sale_id, staffMap)}</div>
-                                     <div>Tele: {getStaffDisplayName(customer.owner_tele_id, staffMap)}</div>
-                                  </div>
-                               </td>
-                               <td className="px-8 py-5 text-right font-black text-slate-900">
-                                  {new Intl.NumberFormat('vi-VN').format(customer.orders?.reduce((sum: number, o: any) => sum + (o.total || 0), 0) || 0)}đ
-                               </td>
-                               <td className="px-8 py-5 text-right">
-                                  <div className="flex items-center justify-end gap-2">
-                                     <Button 
-                                      variant="ghost" 
-                                      size="icon" 
-                                      className="rounded-xl text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50"
-                                      onClick={() => setLogTarget(customer)}
-                                     >
-                                        <MessageSquare className="w-4 h-4" />
-                                     </Button>
-                                     <Button variant="ghost" size="icon" className="rounded-xl text-slate-300 hover:text-slate-900"><MoreVertical className="w-5 h-5" /></Button>
-                                  </div>
-                               </td>
-                            </tr>
-                         ))}
-                      </tbody>
-                   </table>
+          /* CUSTOMER INTELLIGENCE CENTER (L1) */
+          <div className="flex flex-col gap-3">
+             {filteredCustomers.length === 0 ? (
+                <div className="text-center py-20 bg-white rounded-[32px] border border-slate-100 shadow-sm">
+                   <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <Search className="w-8 h-8 text-slate-300" />
+                   </div>
+                   <h3 className="text-sm font-black text-slate-900">Không tìm thấy dữ liệu</h3>
+                   <p className="text-xs text-slate-500 mt-1">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
                 </div>
-             </CardContent>
-          </Card>
+             ) : (
+                filteredCustomers.map(customer => (
+                   <CustomerIntelligenceRow 
+                      key={customer.id} 
+                      customer={customer} 
+                      staffMap={staffMap}
+                      onPreview={() => setPreviewCustomer(customer)}
+                      onQuickLog={() => setLogTarget(customer)}
+                   />
+                ))
+             )}
+          </div>
         )}
       </main>
 
@@ -797,7 +842,9 @@ function CustomerCard({ customer, stage, isAdmin, isManager, onQuickLog, draggab
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{customer.city || "Toàn quốc"}</p>
              </div>
              {isQuotedOverdue ? (
-                <AlertCircle className="w-4 h-4 text-red-500 animate-pulse shrink-0" title={`Đã báo giá quá ${leadOverdueDays} ngày, cần chăm sóc!`} />
+                <div title={`Đã báo giá quá ${leadOverdueDays} ngày, cần chăm sóc!`}>
+                   <AlertCircle className="w-4 h-4 text-red-500 animate-pulse shrink-0" />
+                </div>
              ) : (
                 <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-200 group-hover:text-slate-400 shrink-0">
                    <MoreVertical className="w-4 h-4" />
@@ -847,5 +894,130 @@ function CustomerCard({ customer, stage, isAdmin, isManager, onQuickLog, draggab
           </div>
        </CardContent>
     </Card>
+  );
+}
+
+function CustomerIntelligenceRow({ customer, staffMap, onPreview, onQuickLog }: any) {
+  const intel = customer.intelligence || {};
+  const hasPhone = customer.phone && customer.phone.length >= 9;
+  const hasSocial = intel.channels_summary && intel.channels_summary.length > 0;
+  
+  let healthStatus = 'critical';
+  if (hasPhone && hasSocial) healthStatus = 'healthy';
+  else if (hasPhone && !hasSocial) healthStatus = 'partial';
+
+  const getHealthColor = () => {
+    if (healthStatus === 'healthy') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+    if (healthStatus === 'partial') return 'bg-amber-100 text-amber-700 border-amber-200';
+    return 'bg-rose-100 text-rose-700 border-rose-200';
+  };
+
+  const getChannelIcon = (type: string) => {
+    switch (type) {
+       case 'facebook': return <Facebook className="w-3.5 h-3.5" />;
+       case 'zalo': return <MessageSquare className="w-3.5 h-3.5" />;
+       case 'email': return <Mail className="w-3.5 h-3.5" />;
+       case 'tiktok': return <Video className="w-3.5 h-3.5" />;
+       case 'website': return <Globe className="w-3.5 h-3.5" />;
+       default: return <Globe className="w-3.5 h-3.5" />;
+    }
+  };
+
+  const renderChannelAction = (ch: any) => {
+     let href = "#";
+     if (ch.type === 'facebook') href = ch.value.includes('http') ? ch.value : `https://facebook.com/${ch.value}`;
+     else if (ch.type === 'zalo') href = `https://zalo.me/${ch.value}`;
+     else if (ch.type === 'website') href = ch.value.includes('http') ? ch.value : `https://${ch.value}`;
+     else if (ch.type === 'email') href = `mailto:${ch.value}`;
+     
+     return (
+        <a 
+           key={`${ch.type}-${ch.value}`} 
+           href={href} 
+           target="_blank" 
+           rel="noreferrer"
+           className="relative inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-50 border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50 transition-all group"
+           title={ch.value}
+           onClick={(e) => e.stopPropagation()}
+        >
+           {getChannelIcon(ch.type)}
+           {ch.is_primary && <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-400 border-2 border-white rounded-full flex items-center justify-center text-white"><Star className="w-2 h-2 fill-white" /></div>}
+           {ch.is_verified && <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-blue-500 border-2 border-white rounded-full flex items-center justify-center text-white"><CheckCircle2 className="w-2 h-2" /></div>}
+        </a>
+     );
+  };
+
+  const saleName = getStaffDisplayName(customer.owner_sale_id, staffMap);
+  const teleName = getStaffDisplayName(customer.owner_tele_id, staffMap);
+
+  return (
+    <div className="group bg-white border border-slate-100 rounded-[24px] p-4 flex flex-col md:flex-row gap-6 items-start md:items-center shadow-sm hover:shadow-md transition-all cursor-pointer" onClick={onPreview}>
+       {/* Col 1: Info & Health */}
+       <div className="w-full md:w-3/12 flex items-start gap-4">
+          <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-lg font-black text-slate-400 uppercase shrink-0">
+             {(customer.contact_name || customer.name || customer.business_name || customer.facility_name || "C").slice(0, 1)}
+          </div>
+          <div>
+             <h4 className="text-sm font-black text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">{customer.business_name || customer.facility_name || "Khách lẻ"}</h4>
+             <p className="text-xs font-bold text-slate-500 mt-0.5 flex items-center gap-1">
+                {customer.contact_name || customer.name} • {customer.phone ? customer.phone.slice(-4).padStart(customer.phone.length, '*') : 'Chưa có SĐT'}
+             </p>
+             <Badge className={`mt-2 text-[8px] px-1.5 py-0 h-4 uppercase font-black border ${getHealthColor()}`}>
+                {healthStatus === 'healthy' ? 'Healthy' : healthStatus === 'partial' ? 'Partial' : 'Critical'}
+             </Badge>
+          </div>
+       </div>
+
+       {/* Col 2: Omnichannel */}
+       <div className="w-full md:w-2/12 flex flex-wrap gap-2">
+          {intel.channels_summary?.length > 0 ? (
+             intel.channels_summary.map((ch: any) => renderChannelAction(ch))
+          ) : (
+             <span className="text-xs text-slate-400 italic">Chưa có kênh phụ</span>
+          )}
+       </div>
+
+       {/* Col 3: Priority & Stage */}
+       <div className="w-full md:w-2/12">
+          <div className="flex items-center gap-2 mb-1">
+             <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div 
+                   className={`h-full rounded-full ${intel.priority_score >= 80 ? 'bg-red-500' : intel.priority_score >= 50 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                   style={{ width: `${Math.min(intel.priority_score || 0, 100)}%` }}
+                />
+             </div>
+             <span className="text-[10px] font-black text-slate-600">{intel.priority_score || 0}</span>
+          </div>
+          <Badge variant="outline" className={`rounded-lg font-black text-[9px] uppercase border-none ${getPipelineStageColor(customer.lifecycle_stage)} bg-opacity-10 text-opacity-100 w-fit`}>
+             {getPipelineStageLabel(customer.lifecycle_stage)}
+          </Badge>
+       </div>
+
+       {/* Col 4: Last Activity */}
+       <div className="w-full md:w-3/12">
+          {intel.latest_activity ? (
+             <>
+                <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">{intel.latest_activity}</p>
+                <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase flex items-center gap-1">
+                   <Clock className="w-3 h-3" /> {formatDistanceToNow(new Date(intel.activity_at), { addSuffix: true, locale: vi })}
+                </p>
+             </>
+          ) : (
+             <span className="text-xs text-slate-400 italic">Chưa có tương tác</span>
+          )}
+       </div>
+
+       {/* Col 5: Quick Actions */}
+       <div className="w-full md:w-2/12 flex items-center justify-end gap-2">
+          {hasPhone && (
+             <a href={`tel:${customer.phone}`} onClick={e => e.stopPropagation()} className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 transition-colors">
+                <PhoneCall className="w-4 h-4" />
+             </a>
+          )}
+          <button onClick={(e) => { e.stopPropagation(); onQuickLog(); }} className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors">
+             <FileText className="w-4 h-4" />
+          </button>
+       </div>
+    </div>
   );
 }

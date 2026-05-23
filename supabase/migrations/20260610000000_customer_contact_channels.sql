@@ -49,6 +49,15 @@ CREATE TABLE IF NOT EXISTS public.customer_contact_channels (
     channel_value text NOT NULL,
     normalized_value text,
     external_id text,
+    is_primary boolean DEFAULT false,
+    channel_purpose text DEFAULT 'sales',
+    phone_verified boolean DEFAULT false,
+    preferred_call_time text,
+    do_not_call boolean DEFAULT false,
+    last_contacted_at timestamptz,
+    last_verified_at timestamptz,
+    engagement_score integer DEFAULT 0,
+    username text,
     username text,
     profile_type text DEFAULT 'unknown',
     scope text NOT NULL DEFAULT 'private',
@@ -83,6 +92,11 @@ ALTER TABLE public.customer_contact_channels ADD CONSTRAINT check_resolve_status
 
 ALTER TABLE public.customer_contact_channels ADD CONSTRAINT check_consent_status 
     CHECK (consent_status IN ('unknown','consented','not_consented'));
+
+-- 5b. Channel Purpose Check Constraint
+ALTER TABLE public.customer_contact_channels ADD CONSTRAINT check_channel_purpose
+    CHECK (channel_purpose IN ('sales','support','remarketing','invoice','personal','other'));
+
 
 -- 4. Indexes & Unique Constraint
 CREATE INDEX IF NOT EXISTS idx_customer_contact_channels_customer_id ON public.customer_contact_channels(customer_id);
