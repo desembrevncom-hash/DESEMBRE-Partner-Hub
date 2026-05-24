@@ -5,6 +5,8 @@ import { CustomerKnowledgeUpsell } from "./CustomerKnowledgeUpsell";
 import { ProductKnowledgeBook } from "./ProductKnowledgeBook";
 import { CustomerAISummary } from "./CustomerAISummary";
 import { CustomerContactChannels } from "./CustomerContactChannels";
+import { CustomerTimelineFeed } from "./timeline/CustomerTimelineFeed";
+import { CustomerAiSuggestions } from "./ai/CustomerAiSuggestions";
 import { AISuggestionCard } from "../ai/AISuggestionCard";
 import { generateSuggestions } from "@/lib/aiSuggestionEngine";
 import {
@@ -97,6 +99,7 @@ import {
   getRecommendedRoutingByDistance 
 } from "@/lib/customerRouting";
 import { isFeatureEnabledForUser } from "@/lib/pilotMode";
+import { CommunicationLaunchers } from "./CommunicationLaunchers";
 
 interface CustomerPreviewDrawerProps {
   customer: any;
@@ -187,6 +190,9 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   const [events, setEvents] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
+  const [userCommAccounts, setUserCommAccounts] = useState<any[]>([]);
+  const [customerChannels, setCustomerChannels] = useState<any[]>([]);
+  const [interactionSummary, setInteractionSummary] = useState<any>(null);
 
   // Task Actions
   const [taskAction, setTaskAction] = useState<{ task: any; action: string } | null>(null);
@@ -211,6 +217,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   const [followupForm, setFollowupForm] = useState({
     title: "",
     starts_at: "",
+    event_type: "meeting",
     location: "Online / Tại Spa khách hàng",
     description: ""
   });
@@ -303,6 +310,32 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       }
     };
 
+    const fetchCommData = async () => {
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user) {
+          const { data: accounts } = await supabase
+            .from("user_communication_accounts")
+            .select("*")
+            .eq("user_id", userData.user.id);
+          if (accounts) setUserCommAccounts(accounts);
+        }
+
+        const { data: channels } = await supabase
+          .from("customer_contact_channels")
+          .select("*")
+          .eq("customer_id", customerProp.id);
+        if (channels) setCustomerChannels(channels);
+
+        const { data: summary } = await supabase.rpc("get_customer_interaction_summary", {
+          p_customer_id: customerProp.id
+        });
+        if (summary) setInteractionSummary(summary);
+      } catch (err) {
+        console.error("Error fetching comm data:", err);
+      }
+    };
+
     const fetchTasks = async () => {
       try {
         const { data, error } = await supabase
@@ -380,12 +413,15 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       fetchOrders(),
       fetchEvents(),
       fetchTasks(),
-      fetchAppointments(),
-      fetchOrderItems(),
-      fetchCompanyLocation()
-    ]);
+      fetchCommData()
+    ]).finally(() => {
+      fetchAppointments();
+      fetchOrderItems();
+      fetchCompanyLocation();
+    });
     
     setLoading(false);
+    window.dispatchEvent(new Event('customer_timeline_refresh'));
   };
 
   const handleAddNote = async () => {
@@ -503,9 +539,12 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           title: followupForm.title,
           starts_at: followupForm.starts_at,
           ends_at: new Date(new Date(followupForm.starts_at).getTime() + 60 * 60 * 1000).toISOString(),
-          location: followupForm.location,
-          description: followupForm.description,
-          assigned_sale_id: customer.owner_sale_id || user?.id
+          description: `Địa điểm: ${followupForm.location}\n${followupForm.description}`,
+          assigned_sale_id: customer.owner_sale_id || user?.id,
+          owner_user_id: user?.id,
+          created_by: user?.id,
+          visibility: "private",
+          event_type: followupForm.event_type
         }]);
 
       if (error) throw error;
@@ -521,11 +560,26 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           content: `Đã lên lịch hẹn: "${followupForm.title}" - Thời gian: ${new Date(followupForm.starts_at).toLocaleString('vi-VN')} - Địa điểm: ${followupForm.location || "Chưa rõ"}`
         }]);
 
+      const assignedUser = customer.owner_sale_id || user?.id;
+      if (assignedUser && assignedUser !== user?.id) {
+        await supabase.rpc('create_notification_safe', {
+          p_recipient_user_id: assignedUser,
+          p_notification_type: 'event_upcoming',
+          p_title: 'Lịch hẹn mới',
+          p_message: `Bạn được phân công lịch hẹn: ${followupForm.title}`,
+          p_customer_id: customer.id,
+          p_actor_user_id: user?.id,
+          p_deep_link: `/customers?id=${customer.id}`
+        });
+      }
+
       toast.success("Đã lên lịch hẹn thành công!");
+      window.dispatchEvent(new Event('customer_timeline_refresh'));
 
       setFollowupForm({
         title: "",
         starts_at: "",
+        event_type: "meeting",
         location: "Online / Tại Spa khách hàng",
         description: ""
       });
@@ -1397,6 +1451,9 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
               <CustomerContactChannels customerId={customer.id} />
             </section>
 
+            {/* AI SUGGESTIONS SECTION */}
+            <CustomerAiSuggestions customerId={customer.id} />
+
             {/* QUICK ACTIONS BLOCK */}
             <section className="space-y-4">
               <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
@@ -1447,42 +1504,42 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                   <Package className="w-4 h-4 text-emerald-500" />
                   Tạo đơn hàng
                 </button>
-                {customer.phone ? (
-                  <>
-                    <a
-                      href={`tel:${customer.phone}`}
-                      className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[11px] font-bold transition-all"
-                    >
-                      <PhoneCall className="w-4 h-4 text-emerald-500" />
-                      Gọi điện
-                    </a>
-                    <a
-                      href={`https://zalo.me/${customer.phone}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[11px] font-bold transition-all"
-                    >
-                      <MessageCircle className="w-4 h-4 text-sky-500" />
-                      Gửi Zalo
-                    </a>
-                    <button
-                      onClick={handleCopyMessage}
-                      className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[11px] font-bold transition-all"
-                    >
-                      <Copy className="w-4 h-4 text-slate-500" />
-                      Copy tin nhắn
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    disabled
-                    className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-slate-100 bg-slate-50/50 text-slate-300 text-[11px] font-bold cursor-not-allowed"
-                  >
-                    <PhoneOff className="w-4 h-4 text-slate-200" />
-                    Không có SĐT
-                  </button>
-                )}
               </div>
+
+              <CommunicationLaunchers 
+                customerId={customer.id}
+                customerName={customer.name || customer.full_name}
+                customerPhone={customer.phone}
+                customerEmail={customer.email}
+                customerCity={customer.city || customer.province}
+                userAccounts={userCommAccounts}
+                customerChannels={customerChannels}
+              />
+
+              {interactionSummary && interactionSummary.total_interactions > 0 && (
+                <div className="mt-2 bg-slate-50 border border-slate-100 rounded-xl p-3 flex flex-col gap-1.5">
+                  <div className="text-[10px] font-bold text-slate-500 uppercase flex items-center justify-between">
+                    <span>Thống kê Liên lạc</span>
+                    <span className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">{interactionSummary.total_interactions} lần</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
+                    <div>
+                      <span className="text-slate-400">Gần nhất: </span> 
+                      <span className="font-medium">{new Date(interactionSummary.last_interaction_at).toLocaleDateString('vi-VN')}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Kênh ưu thích: </span>
+                      <span className="font-medium capitalize">{interactionSummary.most_used_platform || '-'}</span>
+                    </div>
+                  </div>
+                  {interactionSummary.last_template_used && (
+                    <div className="text-[11px] text-slate-600 mt-0.5 line-clamp-1">
+                      <span className="text-slate-400">Mẫu vừa dùng: </span>
+                      <span className="font-medium italic">{interactionSummary.last_template_used}</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Action forms */}
               {quickAction === "note" && (
@@ -1625,6 +1682,23 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                       />
                     </div>
                     <div className="space-y-1">
+                      <Label className="text-[10px] font-bold text-slate-500 uppercase">Loại sự kiện</Label>
+                      <Select 
+                        value={followupForm.event_type} 
+                        onValueChange={(v) => setFollowupForm({ ...followupForm, event_type: v })}
+                      >
+                        <SelectTrigger className="h-8 text-[11px] bg-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="meeting">Lịch hẹn (Meeting)</SelectItem>
+                          <SelectItem value="follow_up">Follow-up</SelectItem>
+                          <SelectItem value="check_in">Đặt check-in</SelectItem>
+                          <SelectItem value="customer_visit">Thăm khách</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1 col-span-2">
                       <Label className="text-[10px] font-bold text-slate-500 uppercase">Địa điểm</Label>
                       <Input 
                         placeholder="Online / Spa khách..."
@@ -1679,11 +1753,23 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
               </section>
             )}
 
-            {/* TIMELINE ACTIVITIES */}
+            {/* NEW TIMELINE P2 */}
             <section className="space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <div className="flex items-center gap-2 text-slate-900 font-bold text-sm uppercase tracking-wider">
+                  <Activity className="w-4 h-4 text-indigo-500" /> Timeline Tương tác (Mới)
+                </div>
+              </div>
+              <div className="bg-slate-50/50 p-4 rounded-3xl border border-slate-100/60">
+                <CustomerTimelineFeed customerId={customer.id} />
+              </div>
+            </section>
+
+            {/* TIMELINE ACTIVITIES (OLD) */}
+            <section className="space-y-4 opacity-50 grayscale hover:grayscale-0 hover:opacity-100 transition-all">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                  <Activity className="w-4 h-4 text-primary" /> Lịch sử chăm sóc (Timeline)
+                  <History className="w-4 h-4 text-slate-400" /> Lịch sử chăm sóc (Cũ)
                 </div>
               </div>
 

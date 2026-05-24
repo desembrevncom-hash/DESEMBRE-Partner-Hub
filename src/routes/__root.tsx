@@ -16,7 +16,8 @@ import {
   Zap,
   ShieldCheck,
   ChevronDown,
-  UserCircle
+  UserCircle,
+  FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { 
@@ -32,7 +33,7 @@ export const Route = createRootRoute({
 });
 
 function RootLayout() {
-  const { user, signOut, isAdmin, isTeleLead } = useAuth();
+  const { user, signOut, isAdmin, isSubAdmin, isTeleLead } = useAuth();
   const [branding, setBranding] = useState({ primary: "", accent: "", logoLight: "", logoDark: "" });
 
   useEffect(() => {
@@ -116,6 +117,9 @@ function RootLayout() {
                 {(isAdmin || isTeleLead) && (
                    <NavButton to="/marketing" icon={Sparkles} label="Marketing" highlight />
                 )}
+                {(isAdmin || isSubAdmin) && (
+                   <NavButton to="/admin/hub" icon={Settings} label="Admin Hub" />
+                )}
              </div>
           </div>
 
@@ -145,6 +149,18 @@ function RootLayout() {
                       <Link to="/profile" className="flex items-center gap-3">
                          <UserCircle className="w-4 h-4 text-slate-400" />
                          <span className="text-xs font-bold text-slate-700">Hồ sơ cá nhân</span>
+                      </Link>
+                   </DropdownMenuItem>
+                   <DropdownMenuItem asChild className="rounded-xl focus:bg-slate-50 p-3 cursor-pointer">
+                      <Link to="/settings/communication" className="flex items-center gap-3">
+                         <Settings className="w-4 h-4 text-slate-400" />
+                         <span className="text-xs font-bold text-slate-700">Tài khoản liên hệ</span>
+                      </Link>
+                   </DropdownMenuItem>
+                   <DropdownMenuItem asChild className="rounded-xl focus:bg-slate-50 p-3 cursor-pointer">
+                      <Link to="/settings/message-templates" className="flex items-center gap-3">
+                         <FileText className="w-4 h-4 text-slate-400" />
+                         <span className="text-xs font-bold text-slate-700">Mẫu tin nhắn</span>
                       </Link>
                    </DropdownMenuItem>
                    <DropdownMenuItem onClick={() => signOut()} className="rounded-xl focus:bg-rose-50 p-3 cursor-pointer group">

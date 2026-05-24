@@ -114,9 +114,31 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
+      if (form.scope === "private") {
+        const { data: admins } = await supabase
+          .from("profiles")
+          .select("id")
+          .in("role", ["admin", "sub_admin"]);
+        
+        if (admins) {
+          for (const admin of admins) {
+            await supabase.rpc('create_notification_safe', {
+              p_recipient_user_id: admin.id,
+              p_notification_type: 'channel_approval_required',
+              p_title: 'Cần duyệt kênh liên hệ',
+              p_message: `Nhân viên vừa thêm kênh cá nhân: ${form.value}`,
+              p_customer_id: customerId,
+              p_actor_user_id: user?.id,
+              p_deep_link: `/customers?id=${customerId}`
+            });
+          }
+        }
+      }
+
       toast.success("Thêm kênh liên hệ thành công!");
       setForm((prev) => ({ ...prev, value: "", notes: "", isPrimary: false }));
       fetchChannels();
+      window.dispatchEvent(new Event('customer_timeline_refresh'));
     } catch (err: any) {
       toast.error(err.message || "Lỗi khi thêm kênh liên hệ");
     } finally {
@@ -169,6 +191,47 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
       toast.error("Lỗi: " + err.message);
     } finally {
       setTogglingPrimary(null);
+    }
+  };
+
+  const handlePromoteChannel = async (channel: any) => {
+    const setPrimary = window.confirm("Bạn có muốn đặt kênh này làm KÊNH CHÍNH chính thức luôn không?\n\n- Bấm OK: Duyệt + Đặt làm kênh chính\n- Bấm Cancel: Chỉ duyệt thành chính thức");
+
+    try {
+      if (setPrimary) {
+        // Unset all other official primaries
+        await supabase
+          .from("customer_contact_channels")
+          .update({ is_primary: false })
+          .eq("customer_id", customerId)
+          .eq("scope", "official");
+      }
+
+      const { error } = await supabase
+        .from("customer_contact_channels")
+        .update({
+          scope: "official",
+          visibility: "official",
+          owner_user_id: null,
+          updated_by: user?.id,
+          is_primary: setPrimary ? true : channel.is_primary
+        })
+        .eq("id", channel.id);
+      
+      if (error) throw error;
+
+      await supabase.from("customer_activities").insert({
+         customer_id: customerId,
+         created_by: user?.id,
+         activity_type: "system_update",
+         content: `Đã duyệt kênh liên hệ ${channel.channel_type} (${channel.channel_value}) thành chính thức`,
+         title: "Duyệt kênh liên hệ thành chính thức"
+      });
+
+      toast.success("Đã duyệt thành kênh chính thức");
+      fetchChannels();
+    } catch (err: any) {
+      toast.error("Lỗi duyệt kênh: " + err.message);
     }
   };
 
@@ -331,9 +394,29 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
               size="icon"
               className="h-7 w-7 text-slate-300 hover:text-primary"
               onClick={() => copyToClipboard(c.normalized_value || c.channel_value)}
+              title="Copy"
             >
               <Copy className="w-3.5 h-3.5" />
             </Button>
+
+            {/* Promote to Official */}
+            {!isOfficial && (isAdmin || isSubAdmin) && (
+               <TooltipProvider>
+                 <Tooltip>
+                   <TooltipTrigger asChild>
+                     <Button
+                       variant="ghost"
+                       size="icon"
+                       className="h-7 w-7 text-indigo-300 hover:text-indigo-600 hover:bg-indigo-50"
+                       onClick={() => handlePromoteChannel(c)}
+                     >
+                       <Globe className="w-3.5 h-3.5" />
+                     </Button>
+                   </TooltipTrigger>
+                   <TooltipContent>Chuyển thành chính thức</TooltipContent>
+                 </Tooltip>
+               </TooltipProvider>
+            )}
 
             {/* External link */}
             {(c.channel_type === "facebook" ||

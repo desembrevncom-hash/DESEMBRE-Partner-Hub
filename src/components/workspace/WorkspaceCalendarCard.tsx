@@ -36,7 +36,8 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ ev
   const [title, setTitle] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [time, setTime] = useState("09:00");
-  const [type, setType] = useState("call");
+  const [type, setType] = useState("meeting");
+  const [visibility, setVisibility] = useState("private");
 
   useEffect(() => {
     async function fetchCustomers() {
@@ -119,24 +120,31 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ ev
     const dueAt = new Date(selectedDay);
     dueAt.setHours(hours, minutes, 0, 0);
 
-    const { error } = await supabase.from("customer_tasks").insert({
+    // Insert to calendar_events
+    const { error: calError } = await supabase.from("calendar_events").insert({
       title,
       customer_id: customerId,
-      assigned_to: user?.id,
-      due_at: dueAt.toISOString(),
-      task_type: type,
+      owner_user_id: user?.id,
+      created_by: user?.id,
+      assigned_sale_id: user?.id,
+      starts_at: dueAt.toISOString(),
+      event_type: type,
+      visibility: visibility,
       status: "pending"
     });
 
-    if (error) {
-      toast.error("Lỗi khi tạo task: " + error.message);
-    } else {
-      toast.success("Đã tạo lịch hẹn thành công");
-      setIsDialogOpen(false);
-      setTitle("");
-      setCustomerId("");
-      if (onRefresh) onRefresh();
+    if (calError) {
+      toast.error("Lỗi khi tạo lịch: " + calError.message);
+      setLoading(false);
+      return;
     }
+
+    toast.success("Đã tạo lịch hẹn thành công");
+    setIsDialogOpen(false);
+    setTitle("");
+    setCustomerId("");
+    if (onRefresh) onRefresh();
+
     setLoading(false);
   };
 
@@ -196,7 +204,7 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ ev
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden flex flex-col h-full min-h-[500px]">
+    <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
       <div className="bg-slate-900 p-4 text-white flex items-center justify-between">
         <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
           <CalendarIcon className="w-4 h-4 text-primary" /> Lịch làm việc
@@ -336,10 +344,25 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ ev
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl">
-                    <SelectItem value="call">Cuộc gọi</SelectItem>
-                    <SelectItem value="visit">Thăm khách</SelectItem>
-                    <SelectItem value="quotation">Báo giá</SelectItem>
+                    <SelectItem value="meeting">Lịch hẹn</SelectItem>
+                    <SelectItem value="customer_visit">Thăm khách</SelectItem>
                     <SelectItem value="follow_up">Chăm sóc</SelectItem>
+                    <SelectItem value="check_in">Check-in</SelectItem>
+                    <SelectItem value="internal">Nội bộ</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2 col-span-2">
+                <Label className="text-[11px] font-bold uppercase text-slate-400">Quyền xem (Visibility)</Label>
+                <Select value={visibility} onValueChange={setVisibility}>
+                  <SelectTrigger className="rounded-xl border-slate-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl">
+                    <SelectItem value="private">Chỉ mình tôi (Private)</SelectItem>
+                    {(isAdmin || isSubAdmin) && (
+                      <SelectItem value="company">Toàn công ty (Company)</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

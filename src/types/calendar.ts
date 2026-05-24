@@ -7,7 +7,11 @@ export type PersonalEventType =
   | "demo" 
   | "delivery" 
   | "payment" 
-  | "note";
+  | "note"
+  | "meeting"
+  | "internal"
+  | "reminder"
+  | "customer_visit";
 
 export type CompanyEventType = 
   | "workshop"
@@ -24,6 +28,11 @@ export interface PersonalEvent {
   order_id?: string | null;
   assigned_sale_id?: string | null;
   created_by?: string | null;
+  owner_user_id?: string | null;
+  assigned_user_ids?: string[] | null;
+  visibility?: 'private' | 'team' | 'company';
+  color?: string | null;
+  is_all_day?: boolean;
   
   title: string;
   description?: string | null;
