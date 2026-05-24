@@ -10,7 +10,7 @@ interface WorkspaceShellProps {
 
 export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ title, icon, loading, children }) => {
   return (
-    <div className="bg-white rounded-[32px] border border-slate-200/60 shadow-xl shadow-slate-200/40 p-6 mb-8 overflow-hidden relative">
+    <div className="bg-white rounded-[32px] border border-slate-200/60 shadow-xl shadow-slate-200/40 p-6 mb-8 relative">
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">

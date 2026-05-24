@@ -114,9 +114,31 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
+      if (form.scope === "private") {
+        const { data: admins } = await supabase
+          .from("profiles")
+          .select("id")
+          .in("role", ["admin", "sub_admin"]);
+        
+        if (admins) {
+          for (const admin of admins) {
+            await supabase.rpc('create_notification_safe', {
+              p_recipient_user_id: admin.id,
+              p_notification_type: 'channel_approval_required',
+              p_title: 'Cần duyệt kênh liên hệ',
+              p_message: `Nhân viên vừa thêm kênh cá nhân: ${form.value}`,
+              p_customer_id: customerId,
+              p_actor_user_id: user?.id,
+              p_deep_link: `/customers?id=${customerId}`
+            });
+          }
+        }
+      }
+
       toast.success("Thêm kênh liên hệ thành công!");
       setForm((prev) => ({ ...prev, value: "", notes: "", isPrimary: false }));
       fetchChannels();
+      window.dispatchEvent(new Event('customer_timeline_refresh'));
     } catch (err: any) {
       toast.error(err.message || "Lỗi khi thêm kênh liên hệ");
     } finally {

@@ -15,9 +15,7 @@ import {
   Plus,
   AlertTriangle,
   MapPin,
-  ShieldAlert,
-  Settings2,
-  ActivitySquare
+  Settings2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
@@ -74,6 +72,11 @@ export const ManagerWorkspace: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-100">
         <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Liên kết nhanh quản trị</h3>
         <div className="flex items-center gap-2 flex-wrap">
+          <Link to="/admin/hub">
+            <Button size="sm" className="bg-slate-900 text-white hover:bg-black text-[11px] font-black uppercase h-9 px-5 rounded-xl flex items-center gap-2 shadow-lg shadow-slate-200">
+              <Settings2 className="w-4 h-4" /> ADMIN CONTROL HUB
+            </Button>
+          </Link>
           <Link to="/reports/routing">
             <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5 text-emerald-600" /> PHÂN TUYẾN
@@ -87,56 +90,6 @@ export const ManagerWorkspace: React.FC = () => {
           <Link to="/admin/users">
             <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg">
               👥 Nhân sự & Phân quyền
-            </Button>
-          </Link>
-          <Link to="/admin/ai-settings">
-            <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg">
-              ⚙️ Cấu hình AI
-            </Button>
-          </Link>
-          <Link to="/admin/rag-audit">
-            <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg">
-              🧪 RAG Audit
-            </Button>
-          </Link>
-          <Link to="/admin/ai-debug">
-            <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg flex items-center gap-1.5">
-              🐛 AI Debug
-            </Button>
-          </Link>
-          <Link to="/admin/security-audit">
-            <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg flex items-center gap-1.5">
-              🔒 Security Audit
-            </Button>
-          </Link>
-          <Link to="/admin/settings">
-            <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg">
-              ⚙️ Cấu hình Hệ thống
-            </Button>
-          </Link>
-          <Link to="/admin/automation">
-            <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg flex items-center gap-1.5">
-              <ShieldAlert className="w-3.5 h-3.5 text-indigo-600" /> Automation
-            </Button>
-          </Link>
-          <Link to="/admin/uat">
-            <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg">
-              ✅ UAT Checklist
-            </Button>
-          </Link>
-          <Link to="/admin/pilot">
-            <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg flex items-center gap-1.5">
-              <Settings2 className="w-3.5 h-3.5 text-indigo-600" /> Pilot Mode
-            </Button>
-          </Link>
-          <Link to="/admin/product-import">
-            <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg flex items-center gap-1.5">
-              📥 Import Tri thức
-            </Button>
-          </Link>
-          <Link to="/admin/crm-health">
-            <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg flex items-center gap-1.5">
-              <ActivitySquare className="w-3.5 h-3.5 text-rose-500" /> CRM Health
             </Button>
           </Link>
         </div>

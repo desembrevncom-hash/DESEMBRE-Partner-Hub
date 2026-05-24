@@ -26,6 +26,9 @@ type AuthCtx = {
   canViewReports: boolean;
   canCreateSubAdmin: boolean;
   mustChangePassword?: boolean;
+  pilotModules: any[];
+  isPilotUser: boolean;
+  hasPilotAccess: (moduleKey: string) => boolean;
   signIn: (email: string, password?: string) => Promise<{ error?: string }>;
   signUp: (email: string, password: string, displayName?: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
@@ -41,6 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [pilotModules, setPilotModules] = useState<any[]>([]);
+  const [isPilotUser, setIsPilotUser] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const checkProfilePasswordFlag = async (uid: string) => {
@@ -69,6 +74,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setRoles(dbRoles);
     await checkProfilePasswordFlag(uid);
+    
+    // Load Pilot Data
+    const [pilotMods, pilotUser] = await Promise.all([
+      supabase.from("pilot_modules").select("*"),
+      supabase.from("pilot_users").select("user_id").eq("user_id", uid).maybeSingle()
+    ]);
+    if (pilotMods.data) setPilotModules(pilotMods.data);
+    setIsPilotUser(!!pilotUser.data);
   };
 
   useEffect(() => {
@@ -158,6 +171,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return {};
   };
 
+  const hasPilotAccess = (moduleKey: string) => {
+    const mod = pilotModules.find(m => m.module_key === moduleKey);
+    if (!mod || mod.rollout_state === 'off') return false;
+    if (mod.rollout_state === 'on') return true;
+    
+    const isAdmin = roles.includes("admin");
+    const isSubAdmin = roles.includes("sub_admin");
+    if (isAdmin || isSubAdmin) return true;
+    
+    if (mod.rollout_state === 'admin_only') return false;
+    if (mod.rollout_state === 'pilot_only') return isPilotUser;
+    
+    return false;
+  };
+
   const contextValue = useMemo(() => {
     const isAdmin = roles.includes("admin");
     const isSubAdmin = roles.includes("sub_admin");
@@ -191,6 +219,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       canViewReports: isManager,
       canCreateSubAdmin: isAdmin,
       mustChangePassword,
+      pilotModules,
+      isPilotUser,
+      hasPilotAccess,
       signIn,
       signUp,
       signOut,
@@ -198,7 +229,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshRoles: () => loadRoles(user?.id),
       updateProfile,
     };
-  }, [user, session, roles, loading, mustChangePassword]);
+  }, [user, session, roles, loading, mustChangePassword, pilotModules, isPilotUser]);
 
   return (
     <Ctx.Provider value={contextValue}>

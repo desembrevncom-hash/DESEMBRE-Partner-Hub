@@ -3,8 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { getReclaimDeadlineLabel } from "@/lib/customerReclaimRules";
 import { WorkspaceShell } from "./WorkspaceShell";
+import { WorkspaceCalendarCard } from "./WorkspaceCalendarCard";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
+import { useWorkspaceDashboard } from "@/hooks/useWorkspaceDashboard";
+import { WorkspaceKpiCards } from "./WorkspaceKpiCards";
+import { WorkspacePriorityList } from "./WorkspacePriorityList";
+import { WorkspaceTimeline } from "./WorkspaceTimeline";
+import { WorkspaceSmartAlerts } from "./WorkspaceSmartAlerts";
 
 import { 
   Phone, 
@@ -52,6 +58,8 @@ import { getTaskTypeLabel, getTaskStatusLabel } from "@/lib/tasks";
 export const SaleWorkspace: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { data: dashData, loading: dashLoading } = useWorkspaceDashboard();
+  
   const [data, setData] = useState<any>({
     allTasks: [],
     todayTasks: [],
@@ -72,7 +80,16 @@ export const SaleWorkspace: React.FC = () => {
 
   // Drawer Preview
   const [previewCustomerId, setPreviewCustomerId] = useState<string | null>(null);
-  const [previewCustomerAction, setPreviewCustomerAction] = useState<"note" | "task" | "followup" | null>(null);
+  const [previewCustomerAction, setPreviewCustomerAction] = useState<"note" | "task" | "followup" | "call" | null>(null);
+
+  const handleOpenPreviewDrawer = (customerId: string, action?: "note" | "task" | "followup" | "call") => {
+    setPreviewCustomerId(customerId);
+    if (action) {
+      setPreviewCustomerAction(action);
+    } else {
+      setPreviewCustomerAction(null);
+    }
+  };
 
   // Active Queue Dialog
   const [activeQueue, setActiveQueue] = useState<{ title: string; items: any[]; type: 'task' | 'customer' | 'order' } | null>(null);
@@ -206,245 +223,48 @@ export const SaleWorkspace: React.FC = () => {
           className="bg-white border-slate-200 hover:bg-slate-50 rounded-xl font-bold px-4"
           onClick={() => setIsAddCustomerOpen(true)}
         >
-          <Plus className="w-4 h-4 mr-2 text-primary" /> Thêm khách hàng
+          <Plus className="w-4 h-4 mr-2 text-primary" /> Thêm khách nhanh
         </Button>
       </div>
 
-      {/* ACTONABLE QUEUE CARDS */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-        
-        {/* Card 1: Lead cần gọi */}
-        <div className="bg-white rounded-2xl border border-blue-100 p-4 flex flex-col justify-between shadow-2xs relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-115 transition-transform">
-            <Phone className="w-20 h-20 text-blue-600" />
-          </div>
-          <div className="space-y-1">
-            <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Lead cần gọi</span>
-            <div className="text-3xl font-black text-slate-900">{leadTasks.length}</div>
-          </div>
-          <Button 
-            size="sm" 
-            variant="ghost" 
-            className="w-full text-blue-600 hover:text-blue-700 hover:bg-blue-50/50 mt-4 text-xs font-bold"
-            onClick={() => setActiveQueue({ title: "Lead/Task cần gọi", items: leadTasks, type: 'task' })}
-          >
-            Xem
-          </Button>
+      <WorkspaceKpiCards counters={dashData?.counters} loading={dashLoading} />
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        {/* CỘT TRÁI (2 phần) - Ưu tiên hôm nay & Lịch */}
+        <div className="xl:col-span-2 space-y-8">
+          <WorkspacePriorityList 
+            priorities={dashData?.today_priorities || []}
+            teamRisks={dashData?.team_risks}
+            loading={dashLoading}
+            onOpenCustomer={handleOpenPreviewDrawer}
+          />
+
+          <WorkspaceCalendarCard 
+            events={[
+              ...data.allTasks.map((t: any) => ({ ...t, _ui_type: 'task' })),
+              ...data.allAppointments.map((a: any) => ({ ...a, _ui_type: 'personal' })),
+              ...data.companyEvents.map((c: any) => ({ ...c, _ui_type: 'company' }))
+            ]} 
+            onRefresh={handleRefresh} 
+          />
         </div>
 
-        {/* Card 2: Follow-up hôm nay */}
-        <div className="bg-white rounded-2xl border border-amber-100 p-4 flex flex-col justify-between shadow-2xs relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-115 transition-transform">
-            <Clock className="w-20 h-20 text-amber-500" />
+        {/* CỘT PHẢI (1 phần) - Smart Alerts & Timeline */}
+        <div className="space-y-8">
+          <div className="h-[400px]">
+            <WorkspaceTimeline 
+              events={dashData?.upcoming_timeline || []} 
+              loading={dashLoading} 
+              onOpenCustomer={handleOpenPreviewDrawer}
+            />
           </div>
-          <div className="space-y-1">
-            <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Follow-up hôm nay</span>
-            <div className="text-3xl font-black text-slate-900">{followUpToday.length}</div>
+          <div className="h-[350px]">
+            <WorkspaceSmartAlerts 
+              alerts={dashData?.smart_alerts} 
+              loading={dashLoading} 
+            />
           </div>
-          <Button 
-            size="sm" 
-            variant="ghost" 
-            className="w-full text-amber-600 hover:text-amber-700 hover:bg-amber-50/50 mt-4 text-xs font-bold"
-            onClick={() => setActiveQueue({ title: "Khách hàng cần Follow-up hôm nay", items: followUpToday, type: 'customer' })}
-          >
-            Xem
-          </Button>
         </div>
-
-        {/* Card 3: Khách cần check-in */}
-        <div className="bg-white rounded-2xl border border-emerald-100 p-4 flex flex-col justify-between shadow-2xs relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-115 transition-transform">
-            <UserCheck className="w-20 h-20 text-emerald-600" />
-          </div>
-          <div className="space-y-1">
-            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Cần check-in</span>
-            <div className="text-3xl font-black text-slate-900">{checkinTasks.length}</div>
-          </div>
-          <Button 
-            size="sm" 
-            variant="ghost" 
-            className="w-full text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50/50 mt-4 text-xs font-bold"
-            onClick={() => setActiveQueue({ title: "Khách hàng cần check-in", items: checkinTasks, type: 'task' })}
-          >
-            Xem
-          </Button>
-        </div>
-
-        {/* Card 4: Báo giá chưa chốt */}
-        <div className="bg-white rounded-2xl border border-violet-100 p-4 flex flex-col justify-between shadow-2xs relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-115 transition-transform">
-            <FileText className="w-20 h-20 text-violet-600" />
-          </div>
-          <div className="space-y-1">
-            <span className="text-[10px] font-black text-violet-600 uppercase tracking-widest">Báo giá chưa chốt</span>
-            <div className="text-3xl font-black text-slate-900">{quotationTasks.length}</div>
-          </div>
-          <Button 
-            size="sm" 
-            variant="ghost" 
-            className="w-full text-violet-600 hover:text-violet-700 hover:bg-violet-50/50 mt-4 text-xs font-bold"
-            onClick={() => setActiveQueue({ title: "Lịch sử báo giá chưa chốt", items: quotationTasks, type: 'task' })}
-          >
-            Xem
-          </Button>
-        </div>
-
-        {/* Card 5: Đơn nháp/Chờ xử lý */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-4 flex flex-col justify-between shadow-2xs relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-115 transition-transform">
-            <Package className="w-20 h-20 text-slate-600" />
-          </div>
-          <div className="space-y-1">
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Đơn nháp / Chờ duyệt</span>
-            <div className="text-3xl font-black text-slate-900">{pendingOrders.length}</div>
-          </div>
-          <Button 
-            size="sm" 
-            variant="ghost" 
-            className="w-full text-slate-600 hover:text-slate-700 hover:bg-slate-50 mt-4 text-xs font-bold"
-            onClick={() => setActiveQueue({ title: "Đơn hàng nháp & Chờ xử lý", items: pendingOrders, type: 'order' })}
-          >
-            Xem
-          </Button>
-        </div>
-
-        {/* Card 6: Khách sắp bị thu hồi */}
-        <div className="bg-gradient-to-br from-red-50 to-amber-50 rounded-2xl border border-red-200 p-4 flex flex-col justify-between shadow-2xs relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-115 transition-transform">
-            <AlertCircle className="w-20 h-20 text-red-600" />
-          </div>
-          <div className="space-y-1">
-            <span className="text-[10px] font-black text-red-600 uppercase tracking-widest">Sắp thu hồi</span>
-            <div className="text-3xl font-black text-red-900">{atRiskCustomers.length}</div>
-          </div>
-          <Button 
-            size="sm" 
-            variant="ghost" 
-            className="w-full text-red-600 hover:text-red-700 hover:bg-red-100 mt-4 text-xs font-bold"
-            onClick={() => setActiveQueue({ title: "Khách sắp bị thu hồi", items: atRiskCustomers, type: 'customer' })}
-          >
-            Xem
-          </Button>
-        </div>
-
-      </div>
-
-      {/* PRIORITY TASKS SECTION */}
-      <div className="bg-white rounded-3xl border border-slate-200/60 p-6 shadow-xs mb-8">
-        <div className="flex items-center gap-2 mb-6">
-          <Zap className="w-5 h-5 text-amber-500" />
-          <h3 className="text-sm font-black uppercase tracking-wider text-slate-950">Việc ưu tiên hôm nay</h3>
-        </div>
-
-        {priorityTasks.length > 0 ? (
-          <div className="space-y-3">
-            {priorityTasks.map((t: any) => {
-              const isOverdue = new Date(t.due_at).getTime() < new Date().getTime();
-              const isUrgent = t.priority === 'urgent' || isOverdue;
-              
-              return (
-                <div key={t.id} className={`p-4 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${isUrgent ? "border-red-200 bg-red-50/40 hover:shadow-2xs" : "border-slate-150 bg-white hover:shadow-2xs"}`}>
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-bold text-slate-900 leading-snug">{t.title}</span>
-                      <Badge className={`text-[9px] uppercase font-black tracking-wider ${
-                        t.priority === 'urgent' ? 'bg-red-650 text-white' :
-                        t.priority === 'high' ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-600 border border-slate-200'
-                      }`}>
-                        {t.priority || "NORMAL"}
-                      </Badge>
-                      <Badge variant="outline" className={`text-[9px] font-bold px-1.5 py-0 border uppercase tracking-wider ${
-                        t.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-slate-100 text-slate-600 border-slate-200'
-                      }`}>
-                        {getTaskStatusLabel(t.status)}
-                      </Badge>
-                      {isOverdue && <Badge className="bg-red-50 text-red-750 border border-red-200 text-[9px] font-black uppercase">Quá hạn</Badge>}
-                    </div>
-
-                    <div className="flex flex-wrap gap-4 text-[10px] text-slate-450 font-bold">
-                      {t.customer && (
-                        <span className="flex items-center gap-1">
-                          <User className="w-3.5 h-3.5 text-slate-400" />
-                          {t.customer.name} ({t.customer.facility_name || "Spa tự do"}) - 📞 {t.customer.phone || "Chưa cập nhật"}
-                        </span>
-                      )}
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        Hạn chót: {format(new Date(t.due_at), "dd/MM HH:mm", { locale: vi })}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* QUICK ACTIONS ROW */}
-                  <div className="flex items-center gap-2.5 shrink-0">
-                    {t.customer_id && (
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        onClick={() => setPreviewCustomerId(t.customer_id)}
-                        className="h-8 text-[11px] font-black text-primary hover:bg-slate-100 px-2"
-                      >
-                        Mở khách
-                      </Button>
-                    )}
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      onClick={() => setTaskAction({ task: t, action: "completed" })}
-                      className="h-8 text-[11px] font-black text-emerald-600 hover:bg-emerald-50 px-2"
-                    >
-                      <Check className="w-3.5 h-3.5 mr-1" /> Hoàn thành
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      onClick={() => setTaskAction({ task: t, action: "call_back_later" })}
-                      className="h-8 text-[11px] font-black text-amber-600 hover:bg-amber-50 px-2"
-                    >
-                      <CalendarClock className="w-3.5 h-3.5 mr-1" /> Hẹn gọi lại
-                    </Button>
-
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="icon" variant="ghost" className="w-8 h-8 rounded-lg hover:bg-slate-105 border border-slate-200">
-                          <MoreHorizontal className="w-4 h-4 text-slate-500" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuItem onClick={() => setTaskAction({ task: t, action: "start" })}>
-                          <Play className="w-3.5 h-3.5 mr-2 text-blue-500" /> Bắt đầu xử lý
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setTaskAction({ task: t, action: "completed" })}>
-                          <Check className="w-3.5 h-3.5 mr-2 text-emerald-500" /> Hoàn thành
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setTaskAction({ task: t, action: "no_answer" })}>
-                          <PhoneOff className="w-3.5 h-3.5 mr-2 text-red-500" /> Không nghe máy
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setTaskAction({ task: t, action: "wrong_number" })}>
-                          <UserX className="w-3.5 h-3.5 mr-2 text-slate-500" /> Sai số
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setTaskAction({ task: t, action: "interested" })}>
-                          <Heart className="w-3.5 h-3.5 mr-2 text-pink-500" /> Khách quan tâm
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setTaskAction({ task: t, action: "call_back_later" })}>
-                          <CalendarClock className="w-3.5 h-3.5 mr-2 text-amber-500" /> Hẹn gọi lại
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setTaskAction({ task: t, action: "transfer_to_sale" })}>
-                          <ArrowRightLeft className="w-3.5 h-3.5 mr-2 text-indigo-500" /> Cần chuyển Sale
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="py-12 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-            <Check className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-            <p className="text-xs text-slate-500 font-bold">Chưa có việc cần làm</p>
-          </div>
-        )}
       </div>
 
       {/* QUEUE DETAILS DIALOG */}

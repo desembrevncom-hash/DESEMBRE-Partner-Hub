@@ -22,6 +22,8 @@ import { Route as ReportsIndexRouteImport } from './routes/reports/index'
 import { Route as OrdersIndexRouteImport } from './routes/orders/index'
 import { Route as MarketingIndexRouteImport } from './routes/marketing/index'
 import { Route as CustomersIndexRouteImport } from './routes/customers/index'
+import { Route as SettingsMessageTemplatesRouteImport } from './routes/settings/message-templates'
+import { Route as SettingsCommunicationRouteImport } from './routes/settings/communication'
 import { Route as ReportsRoutingRouteImport } from './routes/reports/routing'
 import { Route as ReportsCrmRouteImport } from './routes/reports/crm'
 import { Route as ReportsAutomationRouteImport } from './routes/reports/automation'
@@ -45,7 +47,10 @@ import { Route as AdminProductKnowledgeRouteImport } from './routes/admin/produc
 import { Route as AdminProductImportRouteImport } from './routes/admin/product-import'
 import { Route as AdminPilotRouteImport } from './routes/admin/pilot'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
+import { Route as AdminHubRouteImport } from './routes/admin/hub'
 import { Route as AdminCrmHealthRouteImport } from './routes/admin/crm-health'
+import { Route as AdminAutomationRulesRouteImport } from './routes/admin/automation-rules'
+import { Route as AdminAutomationGovernanceRouteImport } from './routes/admin/automation-governance'
 import { Route as AdminAutomationRouteImport } from './routes/admin/automation'
 import { Route as AdminAiSettingsRouteImport } from './routes/admin/ai-settings'
 import { Route as AdminAiDebugRouteImport } from './routes/admin/ai-debug'
@@ -114,6 +119,17 @@ const CustomersIndexRoute = CustomersIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => CustomersRoute,
+} as any)
+const SettingsMessageTemplatesRoute =
+  SettingsMessageTemplatesRouteImport.update({
+    id: '/settings/message-templates',
+    path: '/settings/message-templates',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const SettingsCommunicationRoute = SettingsCommunicationRouteImport.update({
+  id: '/settings/communication',
+  path: '/settings/communication',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ReportsRoutingRoute = ReportsRoutingRouteImport.update({
   id: '/reports/routing',
@@ -230,11 +246,27 @@ const AdminInventoryRoute = AdminInventoryRouteImport.update({
   path: '/admin/inventory',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminHubRoute = AdminHubRouteImport.update({
+  id: '/admin/hub',
+  path: '/admin/hub',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminCrmHealthRoute = AdminCrmHealthRouteImport.update({
   id: '/admin/crm-health',
   path: '/admin/crm-health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAutomationRulesRoute = AdminAutomationRulesRouteImport.update({
+  id: '/admin/automation-rules',
+  path: '/admin/automation-rules',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAutomationGovernanceRoute =
+  AdminAutomationGovernanceRouteImport.update({
+    id: '/admin/automation-governance',
+    path: '/admin/automation-governance',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdminAutomationRoute = AdminAutomationRouteImport.update({
   id: '/admin/automation',
   path: '/admin/automation',
@@ -264,7 +296,10 @@ export interface FileRoutesByFullPath {
   '/admin/ai-debug': typeof AdminAiDebugRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
   '/admin/automation': typeof AdminAutomationRoute
+  '/admin/automation-governance': typeof AdminAutomationGovernanceRoute
+  '/admin/automation-rules': typeof AdminAutomationRulesRoute
   '/admin/crm-health': typeof AdminCrmHealthRoute
+  '/admin/hub': typeof AdminHubRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/pilot': typeof AdminPilotRoute
   '/admin/product-import': typeof AdminProductImportRoute
@@ -288,6 +323,8 @@ export interface FileRoutesByFullPath {
   '/reports/automation': typeof ReportsAutomationRoute
   '/reports/crm': typeof ReportsCrmRoute
   '/reports/routing': typeof ReportsRoutingRoute
+  '/settings/communication': typeof SettingsCommunicationRoute
+  '/settings/message-templates': typeof SettingsMessageTemplatesRoute
   '/customers/': typeof CustomersIndexRoute
   '/marketing/': typeof MarketingIndexRoute
   '/orders/': typeof OrdersIndexRoute
@@ -305,7 +342,10 @@ export interface FileRoutesByTo {
   '/admin/ai-debug': typeof AdminAiDebugRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
   '/admin/automation': typeof AdminAutomationRoute
+  '/admin/automation-governance': typeof AdminAutomationGovernanceRoute
+  '/admin/automation-rules': typeof AdminAutomationRulesRoute
   '/admin/crm-health': typeof AdminCrmHealthRoute
+  '/admin/hub': typeof AdminHubRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/pilot': typeof AdminPilotRoute
   '/admin/product-import': typeof AdminProductImportRoute
@@ -329,6 +369,8 @@ export interface FileRoutesByTo {
   '/reports/automation': typeof ReportsAutomationRoute
   '/reports/crm': typeof ReportsCrmRoute
   '/reports/routing': typeof ReportsRoutingRoute
+  '/settings/communication': typeof SettingsCommunicationRoute
+  '/settings/message-templates': typeof SettingsMessageTemplatesRoute
   '/customers': typeof CustomersIndexRoute
   '/marketing': typeof MarketingIndexRoute
   '/orders': typeof OrdersIndexRoute
@@ -348,7 +390,10 @@ export interface FileRoutesById {
   '/admin/ai-debug': typeof AdminAiDebugRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
   '/admin/automation': typeof AdminAutomationRoute
+  '/admin/automation-governance': typeof AdminAutomationGovernanceRoute
+  '/admin/automation-rules': typeof AdminAutomationRulesRoute
   '/admin/crm-health': typeof AdminCrmHealthRoute
+  '/admin/hub': typeof AdminHubRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/pilot': typeof AdminPilotRoute
   '/admin/product-import': typeof AdminProductImportRoute
@@ -372,6 +417,8 @@ export interface FileRoutesById {
   '/reports/automation': typeof ReportsAutomationRoute
   '/reports/crm': typeof ReportsCrmRoute
   '/reports/routing': typeof ReportsRoutingRoute
+  '/settings/communication': typeof SettingsCommunicationRoute
+  '/settings/message-templates': typeof SettingsMessageTemplatesRoute
   '/customers/': typeof CustomersIndexRoute
   '/marketing/': typeof MarketingIndexRoute
   '/orders/': typeof OrdersIndexRoute
@@ -392,7 +439,10 @@ export interface FileRouteTypes {
     | '/admin/ai-debug'
     | '/admin/ai-settings'
     | '/admin/automation'
+    | '/admin/automation-governance'
+    | '/admin/automation-rules'
     | '/admin/crm-health'
+    | '/admin/hub'
     | '/admin/inventory'
     | '/admin/pilot'
     | '/admin/product-import'
@@ -416,6 +466,8 @@ export interface FileRouteTypes {
     | '/reports/automation'
     | '/reports/crm'
     | '/reports/routing'
+    | '/settings/communication'
+    | '/settings/message-templates'
     | '/customers/'
     | '/marketing/'
     | '/orders/'
@@ -433,7 +485,10 @@ export interface FileRouteTypes {
     | '/admin/ai-debug'
     | '/admin/ai-settings'
     | '/admin/automation'
+    | '/admin/automation-governance'
+    | '/admin/automation-rules'
     | '/admin/crm-health'
+    | '/admin/hub'
     | '/admin/inventory'
     | '/admin/pilot'
     | '/admin/product-import'
@@ -457,6 +512,8 @@ export interface FileRouteTypes {
     | '/reports/automation'
     | '/reports/crm'
     | '/reports/routing'
+    | '/settings/communication'
+    | '/settings/message-templates'
     | '/customers'
     | '/marketing'
     | '/orders'
@@ -475,7 +532,10 @@ export interface FileRouteTypes {
     | '/admin/ai-debug'
     | '/admin/ai-settings'
     | '/admin/automation'
+    | '/admin/automation-governance'
+    | '/admin/automation-rules'
     | '/admin/crm-health'
+    | '/admin/hub'
     | '/admin/inventory'
     | '/admin/pilot'
     | '/admin/product-import'
@@ -499,6 +559,8 @@ export interface FileRouteTypes {
     | '/reports/automation'
     | '/reports/crm'
     | '/reports/routing'
+    | '/settings/communication'
+    | '/settings/message-templates'
     | '/customers/'
     | '/marketing/'
     | '/orders/'
@@ -518,7 +580,10 @@ export interface RootRouteChildren {
   AdminAiDebugRoute: typeof AdminAiDebugRoute
   AdminAiSettingsRoute: typeof AdminAiSettingsRoute
   AdminAutomationRoute: typeof AdminAutomationRoute
+  AdminAutomationGovernanceRoute: typeof AdminAutomationGovernanceRoute
+  AdminAutomationRulesRoute: typeof AdminAutomationRulesRoute
   AdminCrmHealthRoute: typeof AdminCrmHealthRoute
+  AdminHubRoute: typeof AdminHubRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminPilotRoute: typeof AdminPilotRoute
   AdminProductImportRoute: typeof AdminProductImportRoute
@@ -540,6 +605,8 @@ export interface RootRouteChildren {
   ReportsAutomationRoute: typeof ReportsAutomationRoute
   ReportsCrmRoute: typeof ReportsCrmRoute
   ReportsRoutingRoute: typeof ReportsRoutingRoute
+  SettingsCommunicationRoute: typeof SettingsCommunicationRoute
+  SettingsMessageTemplatesRoute: typeof SettingsMessageTemplatesRoute
   MarketingIndexRoute: typeof MarketingIndexRoute
   OrdersIndexRoute: typeof OrdersIndexRoute
   ReportsIndexRoute: typeof ReportsIndexRoute
@@ -637,6 +704,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/customers/'
       preLoaderRoute: typeof CustomersIndexRouteImport
       parentRoute: typeof CustomersRoute
+    }
+    '/settings/message-templates': {
+      id: '/settings/message-templates'
+      path: '/settings/message-templates'
+      fullPath: '/settings/message-templates'
+      preLoaderRoute: typeof SettingsMessageTemplatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/communication': {
+      id: '/settings/communication'
+      path: '/settings/communication'
+      fullPath: '/settings/communication'
+      preLoaderRoute: typeof SettingsCommunicationRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/reports/routing': {
       id: '/reports/routing'
@@ -799,11 +880,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminInventoryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/hub': {
+      id: '/admin/hub'
+      path: '/admin/hub'
+      fullPath: '/admin/hub'
+      preLoaderRoute: typeof AdminHubRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/crm-health': {
       id: '/admin/crm-health'
       path: '/admin/crm-health'
       fullPath: '/admin/crm-health'
       preLoaderRoute: typeof AdminCrmHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/automation-rules': {
+      id: '/admin/automation-rules'
+      path: '/admin/automation-rules'
+      fullPath: '/admin/automation-rules'
+      preLoaderRoute: typeof AdminAutomationRulesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/automation-governance': {
+      id: '/admin/automation-governance'
+      path: '/admin/automation-governance'
+      fullPath: '/admin/automation-governance'
+      preLoaderRoute: typeof AdminAutomationGovernanceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/automation': {
@@ -859,7 +961,10 @@ const rootRouteChildren: RootRouteChildren = {
   AdminAiDebugRoute: AdminAiDebugRoute,
   AdminAiSettingsRoute: AdminAiSettingsRoute,
   AdminAutomationRoute: AdminAutomationRoute,
+  AdminAutomationGovernanceRoute: AdminAutomationGovernanceRoute,
+  AdminAutomationRulesRoute: AdminAutomationRulesRoute,
   AdminCrmHealthRoute: AdminCrmHealthRoute,
+  AdminHubRoute: AdminHubRoute,
   AdminInventoryRoute: AdminInventoryRoute,
   AdminPilotRoute: AdminPilotRoute,
   AdminProductImportRoute: AdminProductImportRoute,
@@ -881,6 +986,8 @@ const rootRouteChildren: RootRouteChildren = {
   ReportsAutomationRoute: ReportsAutomationRoute,
   ReportsCrmRoute: ReportsCrmRoute,
   ReportsRoutingRoute: ReportsRoutingRoute,
+  SettingsCommunicationRoute: SettingsCommunicationRoute,
+  SettingsMessageTemplatesRoute: SettingsMessageTemplatesRoute,
   MarketingIndexRoute: MarketingIndexRoute,
   OrdersIndexRoute: OrdersIndexRoute,
   ReportsIndexRoute: ReportsIndexRoute,

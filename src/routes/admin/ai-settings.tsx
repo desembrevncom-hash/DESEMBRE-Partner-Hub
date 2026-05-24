@@ -4,11 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import ProviderConfigCard from "@/components/ai/ProviderConfigCard";
 import ModulesControlCard from "@/components/ai/ModulesControlCard";
+import AiGovernanceCard from "@/components/ai/AiGovernanceCard";
 import BehaviorLimitsCard from "@/components/ai/BehaviorLimitsCard";
 import TestConnectionButton from "@/components/ai/TestConnectionButton";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { toast } from "sonner";
-import { Lock } from "lucide-react";
+import { Lock, BrainCircuit } from "lucide-react";
 
 export const AiSettingsPage: React.FC = () => {
   const { isAdminOrSubAdmin, loading: authLoading } = useAuth();
@@ -63,6 +64,13 @@ export const AiSettingsPage: React.FC = () => {
       p_openai_api_key: settings.openai_api_key,
       p_gemini_api_key: settings.gemini_api_key,
       p_anthropic_api_key: settings.anthropic_api_key,
+      p_ai_enabled: settings.ai_enabled,
+      p_ai_customer_suggestions_enabled: settings.ai_customer_suggestions_enabled,
+      p_ai_sales_assistant_enabled: settings.ai_sales_assistant_enabled,
+      p_ai_rag_enabled: settings.ai_rag_enabled,
+      p_ai_rewrite_enabled: settings.ai_rewrite_enabled,
+      p_ai_daily_limit: settings.ai_daily_limit,
+      p_ai_cache_minutes: settings.ai_cache_minutes,
     });
     if (error) {
       console.error(error);
@@ -96,12 +104,13 @@ export const AiSettingsPage: React.FC = () => {
   }
 
   return (
-    <WorkspaceShell title="AI Settings & Provider Control Center" loading={loading}>
+    <WorkspaceShell title="AI Settings & Provider Control Center" icon={<BrainCircuit className="w-6 h-6" />} loading={loading}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold">Cấu hình AI</h2>
           <TestConnectionButton settings={settings} onSuccess={handleRefresh} />
         </div>
+        <AiGovernanceCard settings={settings} onChange={handleChange} />
         <ProviderConfigCard settings={settings} onChange={handleChange} />
         <ModulesControlCard settings={settings} onChange={handleChange} />
         <BehaviorLimitsCard settings={settings} onChange={handleChange} />
