@@ -83,7 +83,7 @@ export function InlineCustomerActions({ customer, onOpenDrawer, onRefresh, onAss
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => onOpenDrawer(customer.id)}>
-                <Eye className="mr-2 h-4 w-4 text-slate-500" /> Mở hồ sơ đầy đủ
+                <Eye className="mr-2 h-4 w-4 text-slate-500" /> Mở hồ sơ nhanh
               </DropdownMenuItem>
             </>
           )}
