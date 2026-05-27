@@ -121,9 +121,6 @@ function RootLayout() {
                 {(isAdmin || isTeleLead) && (
                    <NavButton to="/marketing" icon={Sparkles} label="Marketing" highlight />
                 )}
-                {(isAdmin || isSubAdmin) && (
-                   <NavButton to="/admin/hub" icon={Settings} label="Admin Hub" />
-                )}
              </div>
           </div>
 
