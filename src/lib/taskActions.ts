@@ -131,7 +131,7 @@ export const handleInterestedTaskAction = async (
   }
 };
 
-export const handleRescheduleTaskAction = async (task: any, userId?: string, nextCallDate: string) => {
+export const handleRescheduleTaskAction = async (task: any, userId: string | undefined, nextCallDate: string) => {
   const { error } = await supabase
     .from("customer_tasks")
     .update({ 

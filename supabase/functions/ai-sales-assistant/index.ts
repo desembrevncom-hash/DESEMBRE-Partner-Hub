@@ -510,7 +510,13 @@ Deno.serve(async (req) => {
       const { data: isAdmin, error: roleError } = await adminClient.rpc("is_admin_or_sub_admin", {
         user_id: user.id
       });
-      if (roleError || !isAdmin) {
+      
+      const isProductCopilotAllowedForSale = 
+        auditMode === "product_tutor" && 
+        aiSettings.product_copilot_enabled && 
+        aiSettings.product_copilot_sale_enabled;
+
+      if ((roleError || !isAdmin) && !isProductCopilotAllowedForSale) {
         return json({ error: "Access denied. Only Admin or Sub Admin can perform RAG audits." }, 403);
       }
 

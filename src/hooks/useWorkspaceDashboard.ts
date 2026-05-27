@@ -4,7 +4,7 @@ import { WorkspaceExecutionData } from "@/types/workspace";
 import { useAuth } from "@/hooks/useAuth";
 
 const CACHE_KEY = "workspace_execution_data";
-const CACHE_TTL_MS = 60 * 1000; // 60 seconds
+const CACHE_TTL_MS = 0; // Disable cache to always show fresh metrics
 
 interface CacheItem {
   timestamp: number;

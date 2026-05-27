@@ -25,7 +25,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { SALES_PIPELINE_STAGES } from "@/lib/salesPipeline";
+import { SALES_PIPELINE_STAGES, mapLegacyStageToNew } from "@/lib/salesPipeline";
 import { format, startOfMonth, endOfMonth, subMonths, eachDayOfInterval, isSameDay } from "date-fns";
 import { vi } from "date-fns/locale";
 
@@ -86,7 +86,7 @@ function AdminAnalyticsPage() {
       // Process Funnel Data
       const funnel = SALES_PIPELINE_STAGES.map(stage => ({
         name: stage.label,
-        count: customers?.filter(c => c.lifecycle_stage === stage.id).length || 0
+        count: customers?.filter(c => mapLegacyStageToNew(c.lifecycle_stage) === stage.value).length || 0
       }));
       setFunnelData(funnel);
 
@@ -102,8 +102,11 @@ function AdminAnalyticsPage() {
       const totalRev = orders?.reduce((sum, o) => sum + (o.total || 0), 0) || 0;
       setStats({
         totalRevenue: totalRev,
-        activeLeads: customers?.filter(c => c.lifecycle_stage === 'new_lead' || c.lifecycle_stage === 'assigned').length || 0,
-        conversionRate: customers?.length ? Math.round((customers.filter(c => c.lifecycle_stage === 'ordered' || c.lifecycle_stage === 'active_customer').length / customers.length) * 100) : 0,
+        activeLeads: customers?.filter(c => {
+          const mapped = mapLegacyStageToNew(c.lifecycle_stage);
+          return mapped === 'lead_new' || mapped === 'lead_received';
+        }).length || 0,
+        conversionRate: customers?.length ? Math.round((customers.filter(c => mapLegacyStageToNew(c.lifecycle_stage) === 'purchased').length / customers.length) * 100) : 0,
         avgOrderValue: orders?.length ? Math.round(totalRev / orders.length) : 0
       });
 

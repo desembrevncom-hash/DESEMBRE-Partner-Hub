@@ -366,7 +366,7 @@ export const SaleWorkspace: React.FC = () => {
           }
         }}
 
-        initialQuickAction={previewCustomerAction}
+        initialQuickAction={previewCustomerAction as any}
       />
 
       <AddCustomerDialog 

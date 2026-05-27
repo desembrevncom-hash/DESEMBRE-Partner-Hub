@@ -420,7 +420,7 @@ function UpsellPanel({ items, customerPhone, customerName, orderId, orderStatus 
       categoryId: string;
       cycleDays: number;
       variantType: 'retail' | 'salon';
-      variant: { size: string; price: number } | null;
+      variant: { size: string; price: number };
       alertDays: number;
     }> = [];
 

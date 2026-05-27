@@ -8,6 +8,9 @@ import { CustomerContactChannels } from "./CustomerContactChannels";
 import { CustomerTimelineFeed } from "./timeline/CustomerTimelineFeed";
 import { CustomerAiSuggestions } from "./ai/CustomerAiSuggestions";
 import { AISuggestionCard } from "../ai/AISuggestionCard";
+import { CustomerMiniKpi } from "./CustomerMiniKpi";
+import { CustomerRiskSummary } from "./CustomerRiskSummary";
+import { CustomerAutomationStatus } from "./CustomerAutomationStatus";
 import { generateSuggestions } from "@/lib/aiSuggestionEngine";
 import {
   Sheet,
@@ -61,6 +64,7 @@ import {
   getCustomerDistanceLabel, 
   getCareModelLabel
 } from "@/lib/customerOwnership";
+import { getSuggestedNextAction } from "@/lib/operationalRules";
 import { buildStaffMap, getStaffDisplayName, StaffMap } from "@/lib/staffDisplay";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -98,8 +102,14 @@ import {
   getDistanceTypeFromMeters, 
   getRecommendedRoutingByDistance 
 } from "@/lib/customerRouting";
-import { isFeatureEnabledForUser } from "@/lib/pilotMode";
+import { 
+  isFeatureEnabledForUser 
+} from "@/lib/pilotMode";
 import { CommunicationLaunchers } from "./CommunicationLaunchers";
+import { FocusInteractionPanel } from "./FocusInteractionPanel";
+import { useCopilotContext } from "../chat/ProductCopilotContext";
+
+const drawerCache: Record<string, { data: any, timestamp: number }> = {};
 
 interface CustomerPreviewDrawerProps {
   customer: any;
@@ -107,6 +117,7 @@ interface CustomerPreviewDrawerProps {
   onOpenChange: (open: boolean) => void;
   initialQuickAction?: "note" | "task" | "followup" | null;
   staffMap?: StaffMap;
+  onNextCustomer?: () => void;
 }
 
 export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
@@ -114,10 +125,12 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   open,
   onOpenChange,
   initialQuickAction,
-  staffMap
+  staffMap,
+  onNextCustomer
 }) => {
   const { user, isAdmin, isSubAdmin } = useAuth();
   const navigate = useNavigate();
+  const { setCustomerContext } = useCopilotContext();
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [pinning, setPinning] = useState(false);
@@ -234,9 +247,23 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       setCheckinNote("");
       setShowCheckinDialog(false);
       fetchCustomerDetails();
+
+      // Set copilot context
+      setCustomerContext({
+        currentCustomerId: customerProp.id,
+        customerName: customerProp.contact_name || customerProp.name || customerProp.full_name || "Khách hàng",
+        city: customerProp.city || customerProp.province,
+        stage: customerProp.lifecycle_stage || customerProp.status,
+      });
     } else {
       setActiveCustomer(null);
+      setCustomerContext(null);
     }
+    
+    // Clear on unmount
+    return () => {
+      setCustomerContext(null);
+    };
   }, [open, customerProp?.id, initialQuickAction]);
 
   // Generate AI Suggestions using Rule Engine
@@ -253,6 +280,25 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
 
   const fetchCustomerDetails = async () => {
     if (!customerProp?.id) return;
+    
+    // Check Cache (valid for 60s)
+    const cacheKey = customerProp.id;
+    if (drawerCache[cacheKey] && Date.now() - drawerCache[cacheKey].timestamp < 60000) {
+      const cached = drawerCache[cacheKey].data;
+      setActiveCustomer(cached.activeCustomer);
+      setActivities(cached.activities);
+      setOrders(cached.orders);
+      setEvents(cached.events);
+      setTasks(cached.tasks);
+      setAppointments(cached.appointments);
+      setUserCommAccounts(cached.userCommAccounts);
+      setCustomerChannels(cached.customerChannels);
+      setInteractionSummary(cached.interactionSummary);
+      setOrderItems(cached.orderItems);
+      setCompanyLocation(cached.companyLocation);
+      return;
+    }
+
     setLoading(true);
     
     // Check if we need to load base profile details
@@ -263,7 +309,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
         .eq("id", customerProp.id)
         .single();
       if (!error && data) {
-        setActiveCustomer(data);
+        setActiveCustomer({ ...customerProp, ...data });
       }
     } catch (err) {
       console.error("Error loading customer base profile:", err);
@@ -372,7 +418,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           .eq("customer_id", customerProp.id);
         
         if (customerOrders && customerOrders.length > 0) {
-          const orderIds = customerOrders.map(o => o.id);
+          const orderIds = customerOrders.map((o: any) => o.id);
           const { data: itemsData, error } = await supabase
             .from("order_items")
             .select("*, order:orders(created_at, status)")
@@ -421,6 +467,25 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     });
     
     setLoading(false);
+    
+    // Store in cache
+    drawerCache[customerProp.id] = {
+      timestamp: Date.now(),
+      data: {
+        activeCustomer: customer,
+        activities,
+        orders,
+        events,
+        tasks,
+        appointments,
+        userCommAccounts,
+        customerChannels,
+        interactionSummary,
+        orderItems,
+        companyLocation
+      }
+    };
+    
     window.dispatchEvent(new Event('customer_timeline_refresh'));
   };
 
@@ -1122,6 +1187,8 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     !customer.care_model
   );
 
+  const suggestedAction = getSuggestedNextAction(customer);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-xl w-full p-0 flex flex-col h-full border-l border-slate-200 shadow-2xl">
@@ -1160,9 +1227,16 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
             </div>
 
             {/* CUSTOMER NAME AND FACILITY */}
-            <div className="space-y-1">
-              <h2 className="text-xl font-black tracking-tight leading-snug">
-                {customer.contact_name || customer.name || "Khách hàng mới"}
+            <div className="space-y-1 min-w-0">
+              <h2 className="text-xl font-black tracking-tight leading-snug flex items-center gap-2">
+                <span className="truncate" title={customer.contact_name || customer.name || "Khách hàng mới"}>
+                  {customer.contact_name || customer.name || "Khách hàng mới"}
+                </span>
+                {suggestedAction && (
+                  <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30 uppercase tracking-widest whitespace-nowrap shrink-0">
+                    {suggestedAction}
+                  </span>
+                )}
               </h2>
               <p className="text-white/80 text-sm flex items-center gap-1.5 font-bold">
                 <Building2 className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -1211,6 +1285,14 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
         <ScrollArea className="flex-1">
           <div className="p-6 space-y-8 pb-12">
             
+            {/* FOCUS INTERACTION PANEL */}
+            <FocusInteractionPanel 
+              customer={customer} 
+              onNextCustomer={onNextCustomer} 
+              onQuickLog={() => setQuickAction('note')}
+              onFollowUp={() => setQuickAction('followup')}
+            />
+
             {/* CARE MODEL WARNING */}
             {warning && (
               <div className="flex items-start gap-2.5 bg-rose-50 border border-rose-100 p-3.5 rounded-xl text-rose-800 text-[11px] font-medium leading-relaxed shadow-3xs">
@@ -1221,35 +1303,13 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
               </div>
             )}
 
-            {/* PERFORMANCE SUMMARY */}
+            {/* SECTION B — INTELLIGENCE ZONE */}
             <section className="space-y-4">
-              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                <Trophy className="w-4 h-4 text-primary" /> Hiệu quả & Tóm tắt
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2 grid grid-cols-2 gap-3 p-4 rounded-2xl bg-primary/5 border border-primary/10">
-                  <div className="space-y-1">
-                    <div className="text-[10px] font-bold text-primary/60 uppercase">Tổng doanh số</div>
-                    <div className="text-lg font-black text-primary">{formatCurrency(customer.total_order_amount || 0)}</div>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-[10px] font-bold text-primary/60 uppercase">Số đơn hàng</div>
-                    <div className="text-lg font-black text-primary">{customer.total_orders_count || 0} đơn</div>
-                  </div>
-                </div>
-                
-                <div className="p-3 space-y-1 bg-slate-50 rounded-xl border border-slate-100">
-                  <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                    <History className="w-3 h-3 text-slate-400" /> Tương tác cuối
-                  </div>
-                  <div className="text-[11px] font-medium text-slate-700">{formatDate(customer.last_contacted_at)}</div>
-                </div>
-                <div className="p-3 space-y-1 bg-slate-50 rounded-xl border border-slate-100">
-                  <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-red-400" /> Hẹn cuộc gọi tiếp
-                  </div>
-                  <div className="text-[11px] font-bold text-red-650">{formatDate(customer.next_follow_up_at)}</div>
-                </div>
+              <CustomerRiskSummary customer={customer} />
+              
+              <div className="grid grid-cols-1 gap-3">
+                 <CustomerMiniKpi customer={customer} interactions={activities} tasks={tasks} orders={orders} />
+                 <CustomerAutomationStatus customerId={customer.id} />
               </div>
             </section>
 
@@ -1454,55 +1514,22 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
             {/* AI SUGGESTIONS SECTION */}
             <CustomerAiSuggestions customerId={customer.id} />
 
-            {/* QUICK ACTIONS BLOCK */}
+            {/* QUICK ACTIONS & COMMUNICATION */}
             <section className="space-y-4">
               <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                <Sparkles className="w-4 h-4 text-primary" /> Hành động nhanh
+                <Sparkles className="w-4 h-4 text-primary" /> Hành động & Giao tiếp
               </div>
-              
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  onClick={() => setQuickAction(quickAction === "note" ? null : "note")}
-                  className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border text-[11px] font-bold transition-all ${
-                    quickAction === "note" 
-                      ? "bg-primary border-primary text-white" 
-                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  <Plus className="w-4 h-4" />
-                  Ghi chú nhanh
-                </button>
-                <button
-                  onClick={() => setQuickAction(quickAction === "task" ? null : "task")}
-                  className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border text-[11px] font-bold transition-all ${
-                    quickAction === "task" 
-                      ? "bg-primary border-primary text-white" 
-                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  <CheckSquare className="w-4 h-4" />
-                  Tạo task mới
-                </button>
-                <button
-                  onClick={() => setQuickAction(quickAction === "followup" ? null : "followup")}
-                  className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border text-[11px] font-bold transition-all ${
-                    quickAction === "followup" 
-                      ? "bg-primary border-primary text-white" 
-                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  <CalendarCheck className="w-4 h-4" />
-                  Đặt lịch hẹn
-                </button>
+
+              <div className="flex flex-col gap-2">
                 <button
                   onClick={() => {
                     onOpenChange(false);
                     navigate({ to: "/orders/new", search: { customerId: customer.id } });
                   }}
-                  className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[11px] font-bold transition-all"
+                  className="w-full flex items-center justify-center gap-1.5 p-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-[11px] font-bold transition-all"
                 >
-                  <Package className="w-4 h-4 text-emerald-500" />
-                  Tạo đơn hàng
+                  <Package className="w-4 h-4" />
+                  Tạo đơn hàng mới
                 </button>
               </div>
 
@@ -1514,32 +1541,10 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 customerCity={customer.city || customer.province}
                 userAccounts={userCommAccounts}
                 customerChannels={customerChannels}
+                interactionSummary={interactionSummary}
+                quickAction={quickAction}
+                setQuickAction={(val: any) => setQuickAction(val)}
               />
-
-              {interactionSummary && interactionSummary.total_interactions > 0 && (
-                <div className="mt-2 bg-slate-50 border border-slate-100 rounded-xl p-3 flex flex-col gap-1.5">
-                  <div className="text-[10px] font-bold text-slate-500 uppercase flex items-center justify-between">
-                    <span>Thống kê Liên lạc</span>
-                    <span className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">{interactionSummary.total_interactions} lần</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
-                    <div>
-                      <span className="text-slate-400">Gần nhất: </span> 
-                      <span className="font-medium">{new Date(interactionSummary.last_interaction_at).toLocaleDateString('vi-VN')}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400">Kênh ưu thích: </span>
-                      <span className="font-medium capitalize">{interactionSummary.most_used_platform || '-'}</span>
-                    </div>
-                  </div>
-                  {interactionSummary.last_template_used && (
-                    <div className="text-[11px] text-slate-600 mt-0.5 line-clamp-1">
-                      <span className="text-slate-400">Mẫu vừa dùng: </span>
-                      <span className="font-medium italic">{interactionSummary.last_template_used}</span>
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Action forms */}
               {quickAction === "note" && (
@@ -1765,83 +1770,6 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
               </div>
             </section>
 
-            {/* TIMELINE ACTIVITIES (OLD) */}
-            <section className="space-y-4 opacity-50 grayscale hover:grayscale-0 hover:opacity-100 transition-all">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                  <History className="w-4 h-4 text-slate-400" /> Lịch sử chăm sóc (Cũ)
-                </div>
-              </div>
-
-              {/* TIMELINE FILTERS */}
-              <div className="flex flex-wrap gap-1.5 pb-1">
-                {[
-                  { label: "Tất cả", value: "all" },
-                  { label: "Cuộc gọi", value: "call" },
-                  { label: "Gặp trực tiếp", value: "direct_visit" },
-                  { label: "Zalo", value: "zalo_message" },
-                  { label: "Báo giá", value: "quote_sent" },
-                  { label: "Đơn hàng", value: "order_created" },
-                  { label: "Sự kiện", value: "event" },
-                  { label: "Ghi chú", value: "note" }
-                ].map((f) => (
-                  <button
-                    key={f.value}
-                    onClick={() => setTimelineFilter(f.value)}
-                    className={`px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all border ${
-                      timelineFilter === f.value
-                        ? "bg-slate-900 border-slate-900 text-white shadow-sm"
-                        : "bg-white border-slate-200 text-slate-550 hover:bg-slate-50 hover:text-slate-700"
-                    }`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-slate-300" />
-                </div>
-              ) : mergedTimeline.length > 0 ? (
-                <div className="space-y-6 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
-                  {Object.keys(groupedTimeline).map((dayKey) => (
-                    <div key={dayKey} className="space-y-3">
-                      <div className="relative pl-7">
-                        <div className="absolute left-1.5 top-1.5 w-3.5 h-3.5 rounded-full bg-slate-200 border-2 border-white" />
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-[#f8fafc] pr-2">{dayKey}</span>
-                      </div>
-                      
-                      {groupedTimeline[dayKey].map((item) => (
-                        <div key={item.id} className="relative pl-7 group">
-                          <div className="absolute left-1 top-2.5 w-4 h-4 rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-3xs group-hover:border-primary transition-colors">
-                            {getActivityIcon(item.type)}
-                          </div>
-                          
-                          <div className="bg-white p-3 rounded-xl border border-slate-150 shadow-3xs hover:shadow-2xs transition-all space-y-1.5">
-                            <div className="flex items-start justify-between gap-3">
-                              <span className="text-[11px] font-black text-slate-800 leading-snug">{item.title}</span>
-                              <span className="text-[9px] text-slate-400 shrink-0 mt-0.5">{formatDate(item.created_at)}</span>
-                            </div>
-                            {item.content && <p className="text-[11px] text-slate-505 leading-relaxed font-medium">{item.content}</p>}
-                            <div className="flex items-center gap-1.5 pt-0.5">
-                              <Badge variant="outline" className="text-[8px] px-2 py-0 h-4 bg-slate-50 border-slate-200 text-slate-500 font-bold uppercase">
-                                {item.type}
-                              </Badge>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                  <Info className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Chưa có lịch sử chăm sóc</p>
-                </div>
-              )}
-            </section>
 
             {/* PRODUCT KNOWLEDGE BOOK */}
             {isFeatureEnabledForUser("product_knowledge_qa", user?.id) && (

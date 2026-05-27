@@ -15,7 +15,10 @@ import {
   Plus,
   AlertTriangle,
   MapPin,
-  Settings2
+  Settings2,
+  Activity,
+  Target,
+  UsersRound
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
@@ -23,7 +26,7 @@ import { WorkspaceCalendarCard } from "./WorkspaceCalendarCard";
 import { RoutingAlertsWidget } from "@/components/customers/RoutingAlertsWidget";
 
 export const ManagerWorkspace: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isAdminOrSubAdmin } = useAuth();
   const [data, setData] = useState<any>({
     customers: [],
     tasks: [],
@@ -72,24 +75,33 @@ export const ManagerWorkspace: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-100">
         <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Liên kết nhanh quản trị</h3>
         <div className="flex items-center gap-2 flex-wrap">
+          {isAdminOrSubAdmin && (
+            <>
+              <Link to="/admin/crm-ops">
+                <Button size="sm" variant="outline" className="border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-800 text-[10px] font-black uppercase h-9 px-3 rounded-xl flex items-center gap-1.5 shadow-sm">
+                  <Activity className="w-3.5 h-3.5" /> CRM OPS CENTER
+                </Button>
+              </Link>
+              <Link to="/reports/routing">
+                <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-9 px-3 rounded-xl flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-600" /> PHÂN TUYẾN
+                </Button>
+              </Link>
+              <Link to="/admin/reclamation">
+                <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-9 px-3 rounded-xl flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5 text-rose-600" /> THU HỒI
+                </Button>
+              </Link>
+              <Link to="/admin/users">
+                <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-9 px-3 rounded-xl flex items-center gap-1.5">
+                  <UsersRound className="w-3.5 h-3.5 text-blue-600" /> NHÂN SỰ
+                </Button>
+              </Link>
+            </>
+          )}
           <Link to="/admin/hub">
-            <Button size="sm" className="bg-slate-900 text-white hover:bg-black text-[11px] font-black uppercase h-9 px-5 rounded-xl flex items-center gap-2 shadow-lg shadow-slate-200">
+            <Button size="sm" className="bg-slate-900 text-white hover:bg-black text-[11px] font-black uppercase h-9 px-5 rounded-xl flex items-center gap-2 shadow-lg shadow-slate-200 ml-2">
               <Settings2 className="w-4 h-4" /> ADMIN CONTROL HUB
-            </Button>
-          </Link>
-          <Link to="/reports/routing">
-            <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-emerald-600" /> PHÂN TUYẾN
-            </Button>
-          </Link>
-          <Link to="/admin/reclamation">
-            <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg">
-              🎯 Quản lý Thu hồi
-            </Button>
-          </Link>
-          <Link to="/admin/users">
-            <Button size="sm" variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-8 px-3 rounded-lg">
-              👥 Nhân sự & Phân quyền
             </Button>
           </Link>
         </div>

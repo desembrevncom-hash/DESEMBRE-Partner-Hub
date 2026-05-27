@@ -52,6 +52,7 @@ export interface PersonalEvent {
 
   // Enrichment fields for UI
   customer_name?: string;
+  _is_db_task?: boolean;
 }
 
 // Chiến dịch / Sự kiện Công ty (Admin tạo)
@@ -80,6 +81,7 @@ export interface CompanyEvent {
   google_sync_status?: "not_synced" | "synced" | "failed" | "cancelled" | null;
   google_synced_at?: string | null;
   google_sync_error?: string | null;
+  customer_id?: string | null;
   
   // Tracking khi hủy sự kiện
   cancelled_at?: string | null;
@@ -111,6 +113,7 @@ export interface EventRegistration {
   customer_name?: string | null;
   customer_phone?: string | null;
   customer_business_name?: string | null;
+  attendee_email?: string | null;
   
   status: RegistrationStatus;
   note?: string | null;

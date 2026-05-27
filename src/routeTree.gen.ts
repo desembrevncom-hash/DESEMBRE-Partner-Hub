@@ -43,11 +43,16 @@ import { Route as AdminSecurityAuditRouteImport } from './routes/admin/security-
 import { Route as AdminReclamationRouteImport } from './routes/admin/reclamation'
 import { Route as AdminRagAuditRouteImport } from './routes/admin/rag-audit'
 import { Route as AdminProductsRouteImport } from './routes/admin/products'
+import { Route as AdminProductionHealthRouteImport } from './routes/admin/production-health'
 import { Route as AdminProductKnowledgeRouteImport } from './routes/admin/product-knowledge'
 import { Route as AdminProductImportRouteImport } from './routes/admin/product-import'
+import { Route as AdminProductCopilotRouteImport } from './routes/admin/product-copilot'
+import { Route as AdminPilotObservationRouteImport } from './routes/admin/pilot-observation'
 import { Route as AdminPilotRouteImport } from './routes/admin/pilot'
+import { Route as AdminLeadPerformanceRouteImport } from './routes/admin/lead-performance'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
 import { Route as AdminHubRouteImport } from './routes/admin/hub'
+import { Route as AdminCrmOpsRouteImport } from './routes/admin/crm-ops'
 import { Route as AdminCrmHealthRouteImport } from './routes/admin/crm-health'
 import { Route as AdminAutomationRulesRouteImport } from './routes/admin/automation-rules'
 import { Route as AdminAutomationGovernanceRouteImport } from './routes/admin/automation-governance'
@@ -226,6 +231,11 @@ const AdminProductsRoute = AdminProductsRouteImport.update({
   path: '/admin/products',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminProductionHealthRoute = AdminProductionHealthRouteImport.update({
+  id: '/admin/production-health',
+  path: '/admin/production-health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminProductKnowledgeRoute = AdminProductKnowledgeRouteImport.update({
   id: '/admin/product-knowledge',
   path: '/admin/product-knowledge',
@@ -236,9 +246,24 @@ const AdminProductImportRoute = AdminProductImportRouteImport.update({
   path: '/admin/product-import',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminProductCopilotRoute = AdminProductCopilotRouteImport.update({
+  id: '/admin/product-copilot',
+  path: '/admin/product-copilot',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminPilotObservationRoute = AdminPilotObservationRouteImport.update({
+  id: '/admin/pilot-observation',
+  path: '/admin/pilot-observation',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminPilotRoute = AdminPilotRouteImport.update({
   id: '/admin/pilot',
   path: '/admin/pilot',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminLeadPerformanceRoute = AdminLeadPerformanceRouteImport.update({
+  id: '/admin/lead-performance',
+  path: '/admin/lead-performance',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminInventoryRoute = AdminInventoryRouteImport.update({
@@ -249,6 +274,11 @@ const AdminInventoryRoute = AdminInventoryRouteImport.update({
 const AdminHubRoute = AdminHubRouteImport.update({
   id: '/admin/hub',
   path: '/admin/hub',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminCrmOpsRoute = AdminCrmOpsRouteImport.update({
+  id: '/admin/crm-ops',
+  path: '/admin/crm-ops',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminCrmHealthRoute = AdminCrmHealthRouteImport.update({
@@ -299,11 +329,16 @@ export interface FileRoutesByFullPath {
   '/admin/automation-governance': typeof AdminAutomationGovernanceRoute
   '/admin/automation-rules': typeof AdminAutomationRulesRoute
   '/admin/crm-health': typeof AdminCrmHealthRoute
+  '/admin/crm-ops': typeof AdminCrmOpsRoute
   '/admin/hub': typeof AdminHubRoute
   '/admin/inventory': typeof AdminInventoryRoute
+  '/admin/lead-performance': typeof AdminLeadPerformanceRoute
   '/admin/pilot': typeof AdminPilotRoute
+  '/admin/pilot-observation': typeof AdminPilotObservationRoute
+  '/admin/product-copilot': typeof AdminProductCopilotRoute
   '/admin/product-import': typeof AdminProductImportRoute
   '/admin/product-knowledge': typeof AdminProductKnowledgeRoute
+  '/admin/production-health': typeof AdminProductionHealthRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/rag-audit': typeof AdminRagAuditRoute
   '/admin/reclamation': typeof AdminReclamationRoute
@@ -345,11 +380,16 @@ export interface FileRoutesByTo {
   '/admin/automation-governance': typeof AdminAutomationGovernanceRoute
   '/admin/automation-rules': typeof AdminAutomationRulesRoute
   '/admin/crm-health': typeof AdminCrmHealthRoute
+  '/admin/crm-ops': typeof AdminCrmOpsRoute
   '/admin/hub': typeof AdminHubRoute
   '/admin/inventory': typeof AdminInventoryRoute
+  '/admin/lead-performance': typeof AdminLeadPerformanceRoute
   '/admin/pilot': typeof AdminPilotRoute
+  '/admin/pilot-observation': typeof AdminPilotObservationRoute
+  '/admin/product-copilot': typeof AdminProductCopilotRoute
   '/admin/product-import': typeof AdminProductImportRoute
   '/admin/product-knowledge': typeof AdminProductKnowledgeRoute
+  '/admin/production-health': typeof AdminProductionHealthRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/rag-audit': typeof AdminRagAuditRoute
   '/admin/reclamation': typeof AdminReclamationRoute
@@ -393,11 +433,16 @@ export interface FileRoutesById {
   '/admin/automation-governance': typeof AdminAutomationGovernanceRoute
   '/admin/automation-rules': typeof AdminAutomationRulesRoute
   '/admin/crm-health': typeof AdminCrmHealthRoute
+  '/admin/crm-ops': typeof AdminCrmOpsRoute
   '/admin/hub': typeof AdminHubRoute
   '/admin/inventory': typeof AdminInventoryRoute
+  '/admin/lead-performance': typeof AdminLeadPerformanceRoute
   '/admin/pilot': typeof AdminPilotRoute
+  '/admin/pilot-observation': typeof AdminPilotObservationRoute
+  '/admin/product-copilot': typeof AdminProductCopilotRoute
   '/admin/product-import': typeof AdminProductImportRoute
   '/admin/product-knowledge': typeof AdminProductKnowledgeRoute
+  '/admin/production-health': typeof AdminProductionHealthRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/rag-audit': typeof AdminRagAuditRoute
   '/admin/reclamation': typeof AdminReclamationRoute
@@ -442,11 +487,16 @@ export interface FileRouteTypes {
     | '/admin/automation-governance'
     | '/admin/automation-rules'
     | '/admin/crm-health'
+    | '/admin/crm-ops'
     | '/admin/hub'
     | '/admin/inventory'
+    | '/admin/lead-performance'
     | '/admin/pilot'
+    | '/admin/pilot-observation'
+    | '/admin/product-copilot'
     | '/admin/product-import'
     | '/admin/product-knowledge'
+    | '/admin/production-health'
     | '/admin/products'
     | '/admin/rag-audit'
     | '/admin/reclamation'
@@ -488,11 +538,16 @@ export interface FileRouteTypes {
     | '/admin/automation-governance'
     | '/admin/automation-rules'
     | '/admin/crm-health'
+    | '/admin/crm-ops'
     | '/admin/hub'
     | '/admin/inventory'
+    | '/admin/lead-performance'
     | '/admin/pilot'
+    | '/admin/pilot-observation'
+    | '/admin/product-copilot'
     | '/admin/product-import'
     | '/admin/product-knowledge'
+    | '/admin/production-health'
     | '/admin/products'
     | '/admin/rag-audit'
     | '/admin/reclamation'
@@ -535,11 +590,16 @@ export interface FileRouteTypes {
     | '/admin/automation-governance'
     | '/admin/automation-rules'
     | '/admin/crm-health'
+    | '/admin/crm-ops'
     | '/admin/hub'
     | '/admin/inventory'
+    | '/admin/lead-performance'
     | '/admin/pilot'
+    | '/admin/pilot-observation'
+    | '/admin/product-copilot'
     | '/admin/product-import'
     | '/admin/product-knowledge'
+    | '/admin/production-health'
     | '/admin/products'
     | '/admin/rag-audit'
     | '/admin/reclamation'
@@ -583,11 +643,16 @@ export interface RootRouteChildren {
   AdminAutomationGovernanceRoute: typeof AdminAutomationGovernanceRoute
   AdminAutomationRulesRoute: typeof AdminAutomationRulesRoute
   AdminCrmHealthRoute: typeof AdminCrmHealthRoute
+  AdminCrmOpsRoute: typeof AdminCrmOpsRoute
   AdminHubRoute: typeof AdminHubRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
+  AdminLeadPerformanceRoute: typeof AdminLeadPerformanceRoute
   AdminPilotRoute: typeof AdminPilotRoute
+  AdminPilotObservationRoute: typeof AdminPilotObservationRoute
+  AdminProductCopilotRoute: typeof AdminProductCopilotRoute
   AdminProductImportRoute: typeof AdminProductImportRoute
   AdminProductKnowledgeRoute: typeof AdminProductKnowledgeRoute
+  AdminProductionHealthRoute: typeof AdminProductionHealthRoute
   AdminProductsRoute: typeof AdminProductsRoute
   AdminRagAuditRoute: typeof AdminRagAuditRoute
   AdminReclamationRoute: typeof AdminReclamationRoute
@@ -852,6 +917,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminProductsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/production-health': {
+      id: '/admin/production-health'
+      path: '/admin/production-health'
+      fullPath: '/admin/production-health'
+      preLoaderRoute: typeof AdminProductionHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/product-knowledge': {
       id: '/admin/product-knowledge'
       path: '/admin/product-knowledge'
@@ -866,11 +938,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminProductImportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/product-copilot': {
+      id: '/admin/product-copilot'
+      path: '/admin/product-copilot'
+      fullPath: '/admin/product-copilot'
+      preLoaderRoute: typeof AdminProductCopilotRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/pilot-observation': {
+      id: '/admin/pilot-observation'
+      path: '/admin/pilot-observation'
+      fullPath: '/admin/pilot-observation'
+      preLoaderRoute: typeof AdminPilotObservationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/pilot': {
       id: '/admin/pilot'
       path: '/admin/pilot'
       fullPath: '/admin/pilot'
       preLoaderRoute: typeof AdminPilotRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/lead-performance': {
+      id: '/admin/lead-performance'
+      path: '/admin/lead-performance'
+      fullPath: '/admin/lead-performance'
+      preLoaderRoute: typeof AdminLeadPerformanceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/inventory': {
@@ -885,6 +978,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/hub'
       fullPath: '/admin/hub'
       preLoaderRoute: typeof AdminHubRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/crm-ops': {
+      id: '/admin/crm-ops'
+      path: '/admin/crm-ops'
+      fullPath: '/admin/crm-ops'
+      preLoaderRoute: typeof AdminCrmOpsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/crm-health': {
@@ -964,11 +1064,16 @@ const rootRouteChildren: RootRouteChildren = {
   AdminAutomationGovernanceRoute: AdminAutomationGovernanceRoute,
   AdminAutomationRulesRoute: AdminAutomationRulesRoute,
   AdminCrmHealthRoute: AdminCrmHealthRoute,
+  AdminCrmOpsRoute: AdminCrmOpsRoute,
   AdminHubRoute: AdminHubRoute,
   AdminInventoryRoute: AdminInventoryRoute,
+  AdminLeadPerformanceRoute: AdminLeadPerformanceRoute,
   AdminPilotRoute: AdminPilotRoute,
+  AdminPilotObservationRoute: AdminPilotObservationRoute,
+  AdminProductCopilotRoute: AdminProductCopilotRoute,
   AdminProductImportRoute: AdminProductImportRoute,
   AdminProductKnowledgeRoute: AdminProductKnowledgeRoute,
+  AdminProductionHealthRoute: AdminProductionHealthRoute,
   AdminProductsRoute: AdminProductsRoute,
   AdminRagAuditRoute: AdminRagAuditRoute,
   AdminReclamationRoute: AdminReclamationRoute,

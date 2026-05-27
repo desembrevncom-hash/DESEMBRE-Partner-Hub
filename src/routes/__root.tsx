@@ -1,4 +1,4 @@
-import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
+import { createRootRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,13 +20,13 @@ import {
   FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { NotificationBell } from "@/components/layout/NotificationBell";
+import { PilotFeedbackButton } from "@/components/layout/PilotFeedbackButton";
+import { AppErrorBoundary } from "@/components/system/AppErrorBoundary";
+import { CommandPalette } from "@/components/crm/CommandPalette";
+import { ProductCopilot } from "@/components/chat/ProductCopilot";
+import { ProductCopilotProvider } from "@/components/chat/ProductCopilotContext";
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -35,10 +35,13 @@ export const Route = createRootRoute({
 function RootLayout() {
   const { user, signOut, isAdmin, isSubAdmin, isTeleLead } = useAuth();
   const [branding, setBranding] = useState({ primary: "", accent: "", logoLight: "", logoDark: "" });
+  const routerState = useRouterState();
+  const currentPath = routerState.location.pathname;
+  const showCopilot = currentPath.startsWith('/customers') || currentPath.startsWith('/workspace');
 
   useEffect(() => {
     supabase.from('system_settings').select('primary_color, accent_color, logo_light_url, logo_dark_url').maybeSingle()
-      .then(({data}) => {
+      .then(({data}: {data: any}) => {
         if (data) {
           setBranding({ 
              primary: data.primary_color, 
@@ -52,15 +55,16 @@ function RootLayout() {
 
   if (!user) {
     return (
-      <>
+      <AppErrorBoundary>
         <Outlet />
         <Toaster position="top-right" richColors />
-      </>
+      </AppErrorBoundary>
     );
   }
 
   return (
     <SystemSettingsProvider>
+      <ProductCopilotProvider>
       <div className="min-h-screen bg-[#f8fafc] font-sans antialiased selection:bg-indigo-100 selection:text-indigo-900">
       <style>{`
         :root {
@@ -177,11 +181,17 @@ function RootLayout() {
 
       {/* PAGE CONTENT */}
       <main className="relative z-0">
-        <Outlet />
+        <AppErrorBoundary>
+          <Outlet />
+        </AppErrorBoundary>
       </main>
 
+      <PilotFeedbackButton />
       <Toaster position="top-right" richColors />
+      <CommandPalette />
+      {showCopilot && <ProductCopilot />}
     </div>
+    </ProductCopilotProvider>
     </SystemSettingsProvider>
   );
 }

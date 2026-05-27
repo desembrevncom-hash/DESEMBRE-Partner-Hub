@@ -23,9 +23,11 @@ CREATE TABLE IF NOT EXISTS public.ai_customer_suggestions (
 );
 
 -- 2. Check constraints
+ALTER TABLE public.ai_customer_suggestions DROP CONSTRAINT IF EXISTS check_suggestion_type;
 ALTER TABLE public.ai_customer_suggestions ADD CONSTRAINT check_suggestion_type 
     CHECK (suggestion_type IN ('next_best_action','recommended_channel','message_suggestion','risk_flags','summary', 'full'));
 
+ALTER TABLE public.ai_customer_suggestions DROP CONSTRAINT IF EXISTS check_suggestion_status;
 ALTER TABLE public.ai_customer_suggestions ADD CONSTRAINT check_suggestion_status 
     CHECK (status IN ('active','accepted','dismissed','expired'));
 

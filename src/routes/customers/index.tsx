@@ -1,6 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useEffect, useMemo } from "react";
-import { formatDistanceToNow, differenceInDays } from "date-fns";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import React, { useState, useEffect, useMemo } from "react";
+import { format, formatDistanceToNow, differenceInDays } from "date-fns";
 import { vi } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -17,28 +17,28 @@ import {
   LayoutDashboard,
   Phone,
   MessageSquare,
+  Facebook,
+  MapPin,
   FileText,
   BadgeCheck,
-  Package,
-  Heart,
-  Clock,
-  UserPlus,
+  PhoneCall,
+  Star,
+  Activity,
+  CheckSquare,
   ArrowRight,
   ShieldCheck,
-  AlertCircle,
   XCircle,
   BarChart3,
-  Mail,
   Calendar,
-  Star,
+  MoreHorizontal,
   Download,
-  Activity,
-  CheckCircle2,
-  Globe,
-  Video,
-  PhoneCall,
-  Facebook,
-  Lock
+  AlertCircle,
+  Mail,
+  Lock,
+  UserPlus,
+  AlertTriangle,
+  Clock,
+  Play
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,12 +46,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { SALES_PIPELINE_STAGES, getPipelineStageColor, getPipelineStageLabel } from "@/lib/salesPipeline";
+import { SALES_PIPELINE_STAGES, getPipelineStageColor, getPipelineStageLabel, mapLegacyStageToNew } from "@/lib/salesPipeline";
 import { classifyCustomerLifecycle } from "@/lib/customerOwnership";
+import { getCustomerVisualState } from "@/lib/customerVisualState";
+import { getCustomerConversationState } from "@/lib/customerConversationState";
+import { getPriorityScore, getStaleSignals, getSuggestedNextAction } from "@/lib/operationalRules";
 import { buildStaffMap, getStaffDisplayName, getStaffInitials, StaffMap } from "@/lib/staffDisplay";
-import { QuickLogDialog } from "@/components/customers/QuickLogDialog";
+import { QuickCallResultDialog } from "@/components/customers/QuickCallResultDialog";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
-import { NotificationBell } from "@/components/layout/NotificationBell";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
 import {
@@ -60,6 +62,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import {
   Popover,
   PopoverContent,
@@ -70,9 +73,19 @@ import {
   stripAccents,
   findProvinceByName,
 } from "@/lib/vietnamProvinces";
-import { Check, ChevronsUpDown, Map } from "lucide-react";
+import { Check, ChevronsUpDown, Map as MapIcon } from "lucide-react";
+import { trackKanbanDrag, trackSearch, trackFilterUsage, trackDrawerOpen } from "@/lib/uxTracking";
+import { useCRMShortcuts } from "@/lib/keyboardShortcuts";
+import { FocusQueueBar } from "@/components/customers/FocusQueueBar";
+import { InlineCustomerActions } from "@/components/customers/InlineCustomerActions";
 
 export const Route = createFileRoute("/customers/")({
+  validateSearch: (search: Record<string, unknown>) => {
+    return {
+      stage: search.stage as string | undefined,
+      risk: search.risk as string | undefined,
+    }
+  },
   component: CustomersPage,
 });
 
@@ -84,20 +97,70 @@ function CustomersPage() {
   const [staffMap, setStaffMap] = useState<StaffMap>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
-  const [activeStage, setActiveStage] = useState<string>("all");
-  const [smartFilter, setSmartFilter] = useState<"all" | "has_phone" | "has_facebook" | "has_zalo" | "has_email" | "has_tiktok" | "has_website" | "has_primary" | "no_primary" | "has_remarketing" | "no_social" | "unassigned">("all");
-  
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.id });
+
+  const activeStage = search.stage || "all";
+  const smartFilter = search.risk || "all";
   const [cityFilter, setCityFilter] = useState<string>("all");
+
+  const setActiveStage = (val: string) => navigate({ search: (prev: any) => ({ ...prev, stage: val === 'all' ? undefined : val }), replace: true });
+  const setSmartFilter = (val: string) => {
+    trackFilterUsage(val);
+    navigate({ search: (prev: any) => ({ ...prev, risk: val === 'all' ? undefined : val }), replace: true });
+  };
+  const [draggedCustomerId, setDraggedCustomerId] = useState<string | null>(null);
+  
+  // Bulk selection and dispatch state
+  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
+  const [isDispatchDialogOpen, setIsDispatchDialogOpen] = useState(false);
+  const [dispatchAction, setDispatchAction] = useState<'assign_sale'|'assign_tele'|'revoke'|'change_stage'>('assign_sale');
+  const [dispatchStaffId, setDispatchStaffId] = useState<string>('none');
+  const [dispatchReason, setDispatchReason] = useState("");
+  const [isDispatching, setIsDispatching] = useState(false);
+  
   const [cityOpen, setCityOpen] = useState(false);
   const [citySearch, setCitySearch] = useState("");
   
   // Quick Log State
   const [logTarget, setLogTarget] = useState<any | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [previewCustomer, setPreviewCustomer] = useState<any | null>(null);
+  const [previewCustomer, _setPreviewCustomer] = useState<any | null>(null);
+
+  const setPreviewCustomer = (customer: any | null) => {
+    _setPreviewCustomer(customer);
+    if (customer) {
+      trackDrawerOpen(customer.id);
+    }
+  };
+
+  const handleNextCustomer = () => {
+    if (!previewCustomer) return;
+    const idx = filteredCustomers.findIndex(c => c.id === previewCustomer.id);
+    if (idx !== -1 && idx < filteredCustomers.length - 1) {
+      setPreviewCustomer(filteredCustomers[idx + 1]);
+    }
+  };
+
+  const handlePrevCustomer = () => {
+    if (!previewCustomer) return;
+    const idx = filteredCustomers.findIndex(c => c.id === previewCustomer.id);
+    if (idx !== -1 && idx > 0) {
+      setPreviewCustomer(filteredCustomers[idx - 1]);
+    }
+  };
+
+  useCRMShortcuts({
+    onSearchFocus: () => document.getElementById('search-customers-input')?.focus(),
+    onNextCustomer: handleNextCustomer,
+    onPrevCustomer: handlePrevCustomer,
+    onClose: () => {
+      setPreviewCustomer(null);
+      setIsAddDialogOpen(false);
+    }
+  }, true);
 
   // Kanban Optimization States
-  const [draggedCustomerId, setDraggedCustomerId] = useState<string | null>(null);
   const [collapsedColumns, setCollapsedColumns] = useState<Record<string, boolean>>({});
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
@@ -114,6 +177,21 @@ function CustomersPage() {
     e.preventDefault();
     if (!draggedCustomerId) return;
     
+    const customer = customers.find(c => c.id === draggedCustomerId);
+    if (!customer) return;
+
+    if (newStage === 'lead_new') {
+      toast.error("Không thể kéo về Lead Mới. Vui lòng chọn khách hàng và dùng nút Thu hồi.");
+      setDraggedCustomerId(null);
+      return;
+    }
+
+    if (!customer.owner_sale_id && !customer.owner_tele_id) {
+      toast.error("Khách hàng chưa được phân công. Vui lòng dùng nút Chia Lead trước khi chuyển giai đoạn.");
+      setDraggedCustomerId(null);
+      return;
+    }
+    
     // Optimistic update
     setCustomers(prev => prev.map(c => 
       c.id === draggedCustomerId ? { ...c, lifecycle_stage: newStage } : c
@@ -126,9 +204,11 @@ function CustomersPage() {
         .eq('id', draggedCustomerId);
       if (error) throw error;
       toast.success("Đã cập nhật giai đoạn khách hàng");
+      trackKanbanDrag(newStage, true);
     } catch (error: any) {
       toast.error("Lỗi cập nhật: " + error.message);
       fetchCustomers(); // revert
+      trackKanbanDrag(newStage, false);
     }
     setDraggedCustomerId(null);
   };
@@ -186,7 +266,7 @@ function CustomersPage() {
       
       const csvRows = [
         headers.join(","),
-        ...data.map(c => [
+        ...data.map((c: any) => [
           c.id,
           `"${(c.facility_name || "").replace(/"/g, '""')}"`,
           `"${(c.name || "").replace(/"/g, '""')}"`,
@@ -222,28 +302,93 @@ function CustomersPage() {
     }
   };
 
+  const handleBulkDispatch = async () => {
+    if (dispatchAction === 'revoke' && !dispatchReason.trim()) {
+      toast.error("Vui lòng nhập lý do thu hồi.");
+      return;
+    }
+    if (dispatchAction !== 'revoke' && dispatchStaffId === 'none') {
+      toast.error("Vui lòng chọn nhân viên/giai đoạn.");
+      return;
+    }
+
+    setIsDispatching(true);
+    try {
+      if (dispatchAction === 'change_stage') {
+        const { error } = await supabase
+          .from('customers')
+          .update({ lifecycle_stage: dispatchStaffId })
+          .in('id', selectedCustomers);
+        if (error) throw error;
+        toast.success(`Đã chuyển giai đoạn cho ${selectedCustomers.length} khách hàng.`);
+      } else if (dispatchAction === 'revoke') {
+        const { error } = await supabase.rpc('revoke_customer_assignment', {
+           p_customer_ids: selectedCustomers,
+           p_reason: dispatchReason
+        });
+        if (error) throw error;
+        toast.success(`Đã thu hồi ${selectedCustomers.length} khách hàng.`);
+      } else {
+        const { error } = await supabase.rpc('bulk_assign_customers', {
+           p_customer_ids: selectedCustomers,
+           p_sale_id: dispatchAction === 'assign_sale' ? dispatchStaffId : null,
+           p_update_sale: dispatchAction === 'assign_sale',
+           p_tele_id: dispatchAction === 'assign_tele' ? dispatchStaffId : null,
+           p_update_tele: dispatchAction === 'assign_tele',
+           p_reason: dispatchReason || null
+        });
+        if (error) throw error;
+        toast.success(`Đã gán thành công ${selectedCustomers.length} khách hàng.`);
+      }
+
+      setIsDispatchDialogOpen(false);
+      setSelectedCustomers([]);
+      setDispatchReason("");
+      setDispatchStaffId("none");
+      fetchCustomers();
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Có lỗi xảy ra: " + err.message);
+    } finally {
+      setIsDispatching(false);
+    }
+  };
+
   const fetchCustomers = async () => {
     setLoading(true);
     try {
-      let query = supabase.from("customers").select("id, created_at, name, facility_name, phone, city, address, owner_sale_id, owner_tele_id, lifecycle_stage, ownership_status, customer_channel, customer_distance_type, next_follow_up_at, last_contacted_at, latitude, longitude, orders(id, total, status)").is("deleted_at", null);
+      let query = supabase.from("customers")
+        .select("id, created_at, name, facility_name, phone, city, address, owner_sale_id, owner_tele_id, lifecycle_stage, ownership_status, customer_channel, customer_distance_type, next_follow_up_at, last_contacted_at, latitude, longitude, orders(id, total, status)")
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
       
       // Role-based logic (Strict ownership)
       if (!isAdmin) {
-        if (isSale) query = query.eq("owner_sale_id", user?.id);
-        if (isTelesale || isTeleLead) query = query.eq("owner_tele_id", user?.id);
+        if (!user?.id) {
+           setCustomers([]);
+           setLoading(false);
+           return;
+        }
+        if (isSale && (isTelesale || isTeleLead)) {
+           query = query.or(`owner_sale_id.eq.${user.id},owner_tele_id.eq.${user.id}`);
+        } else if (isSale) {
+           query = query.eq("owner_sale_id", user.id);
+        } else if (isTelesale || isTeleLead) {
+           query = query.eq("owner_tele_id", user.id);
+        }
       }
 
       const { data, error } = await query;
       if (error) throw error;
 
       // Apply hierarchical lifecycle classification to ensure data integrity
-      const processed = (data || []).map(c => ({
+      const processed = (data || []).map((c: any) => ({
         ...c,
         lifecycle_stage: classifyCustomerLifecycle(c, c.orders || [])
       }));
 
       // --- ADD INTELLIGENCE FETCH HERE ---
-      const cIds = processed.map(c => c.id);
+      const cIds = processed.map((c: any) => c.id);
       if (cIds.length > 0) {
         const { data: intelData, error: intelError } = await supabase.rpc('get_customer_list_intelligence', {
            p_customer_ids: cIds
@@ -280,7 +425,7 @@ function CustomersPage() {
 
       // Fetch user profiles to build staffMap
       const userIds = new Set<string>();
-      processed.forEach(c => {
+      processed.forEach((c: any) => {
         if (c.owner_sale_id) userIds.add(c.owner_sale_id);
         if (c.owner_tele_id) userIds.add(c.owner_tele_id);
       });
@@ -301,27 +446,85 @@ function CustomersPage() {
     }
   };
   const filteredCustomers = useMemo(() => {
-    return customers.filter(c => {
-      const matchSearch = (c.name || c.facility_name || "").toLowerCase().includes(searchQuery.toLowerCase());
-      const matchStage = activeStage === "all" || c.lifecycle_stage === activeStage;
-      
-      let matchSmart = true;
-      if (smartFilter === "unassigned") matchSmart = !c.owner_sale_id && !c.owner_tele_id;
-      if (smartFilter === "has_phone") matchSmart = !!c.channel_summary?.has_phone;
-      if (smartFilter === "has_facebook") matchSmart = !!c.channel_summary?.has_facebook;
-      if (smartFilter === "has_zalo") matchSmart = !!c.channel_summary?.has_zalo;
-      if (smartFilter === "has_email") matchSmart = !!c.channel_summary?.has_email;
-      if (smartFilter === "has_tiktok") matchSmart = !!c.channel_summary?.has_tiktok;
-      if (smartFilter === "has_website") matchSmart = !!c.channel_summary?.has_website;
-      if (smartFilter === "has_primary") matchSmart = !!c.channel_summary?.has_primary;
-      if (smartFilter === "no_primary") matchSmart = c.channel_summary && !c.channel_summary.has_primary;
-      if (smartFilter === "has_remarketing") matchSmart = !!c.channel_summary?.has_remarketing;
-      if (smartFilter === "no_social") matchSmart = c.channel_summary && !c.channel_summary.has_facebook && !c.channel_summary.has_zalo && !c.channel_summary.has_tiktok;
+    let result = customers;
 
-      const matchCity = cityFilter === "all" || c.city === cityFilter;
-      return matchSearch && matchStage && matchSmart && matchCity;
-    });
-  }, [customers, searchQuery, activeStage, smartFilter, cityFilter]);
+    if (searchQuery) {
+      const q = stripAccents(searchQuery.toLowerCase());
+      result = result.filter(c => {
+        const nameMatch = stripAccents(c.contact_name?.toLowerCase() || "").includes(q) || 
+                          stripAccents(c.business_name?.toLowerCase() || "").includes(q) ||
+                          stripAccents(c.facility_name?.toLowerCase() || "").includes(q);
+        const phoneMatch = c.phone?.includes(q);
+        return nameMatch || phoneMatch;
+      });
+    }
+
+    if (activeStage !== 'all') {
+      result = result.filter(c => mapLegacyStageToNew(c.lifecycle_stage) === activeStage);
+    }
+
+    if (cityFilter !== 'all') {
+      result = result.filter(c => c.city === cityFilter);
+    }
+    
+    // SMART FILTERS LOGIC
+    if (smartFilter === 'unassigned') {
+      result = result.filter(c => !c.owner_sale_id && !c.owner_tele_id);
+    } else if (smartFilter === 'focus') {
+      result = result.filter(c => {
+         const conv = getCustomerConversationState(c);
+         return conv.temperature === 'HOT' || conv.temperature === 'WARM';
+      });
+    } else if (smartFilter === 'overdue') {
+      result = result.filter(c => {
+         const conv = getCustomerConversationState(c);
+         return conv.urgency === 'overdue';
+      });
+    } else if (smartFilter === 'today') {
+      result = result.filter(c => {
+         const conv = getCustomerConversationState(c);
+         return conv.urgency === 'today';
+      });
+    } else if (smartFilter === 'no_interaction') {
+      result = result.filter(c => {
+         const conv = getCustomerConversationState(c);
+         return !conv.lastInteractionTime;
+      });
+    } else if (smartFilter === 'hot') {
+      result = result.filter(c => getCustomerConversationState(c).temperature === 'HOT');
+    } else if (smartFilter === 'cold') {
+      result = result.filter(c => getCustomerConversationState(c).temperature === 'COLD');
+    } else if (smartFilter === 'vip') {
+      result = result.filter(c => {
+         const total = c.orders?.reduce((sum: number, o: any) => sum + (o.total || 0), 0) || 0;
+         return total >= 50000000;
+      });
+    } else if (smartFilter === 'no_social') {
+      result = result.filter(c => {
+         return !c.channel_summary?.has_facebook && !c.channel_summary?.has_zalo && !c.channel_summary?.has_tiktok;
+      });
+    } else if (smartFilter.startsWith('has_') || smartFilter === 'no_primary') {
+      result = result.filter(c => {
+         if (!c.channel_summary) return false;
+         if (smartFilter === 'has_phone') return !!c.phone;
+         if (smartFilter === 'has_facebook') return !!c.channel_summary.has_facebook;
+         if (smartFilter === 'has_zalo') return !!c.channel_summary.has_zalo;
+         if (smartFilter === 'has_email') return !!c.channel_summary.has_email;
+         if (smartFilter === 'has_tiktok') return !!c.channel_summary.has_tiktok;
+         if (smartFilter === 'has_website') return !!c.channel_summary.has_website;
+         if (smartFilter === 'has_primary') return !!c.channel_summary.primary_channel;
+         if (smartFilter === 'no_primary') return !c.channel_summary.primary_channel;
+         if (smartFilter === 'has_remarketing') return !!c.channel_summary.last_remarketing_at;
+         return true;
+      });
+    }
+
+    return result.sort((a, b) => getPriorityScore(b) - getPriorityScore(a));
+  }, [customers, searchQuery, activeStage, cityFilter, smartFilter]);
+  
+  useEffect(() => {
+    trackSearch(searchQuery, filteredCustomers.length);
+  }, [searchQuery, filteredCustomers.length]);
 
   // Executive Admin & SubAdmin Stats
   const adminStats = useMemo(() => {
@@ -373,7 +576,7 @@ function CustomersPage() {
                 <h1 className="text-xl font-black text-slate-900 tracking-tight">Quản trị Khách hàng</h1>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
                    {isAdmin ? <ShieldCheck className="w-3 h-3 text-indigo-500" /> : <Zap className="w-3 h-3 text-amber-500" />}
-                   {isAdmin ? "Admin Control Center" : "Personal Workspace"}
+                   {isAdmin ? "Danh sách đang xử lý" : "Personal Workspace"}
                 </p>
              </div>
           </div>
@@ -405,7 +608,6 @@ function CustomersPage() {
                   </Button>
                 </Link>
              </div>
-             <NotificationBell />
              {isManager ? (
                <DropdownMenu>
                  <DropdownMenuTrigger asChild>
@@ -440,12 +642,23 @@ function CustomersPage() {
                  <Download className="w-4 h-4 text-slate-500" /> Xuất Excel
                </Button>
              )}
-             <Button 
-               className="rounded-xl bg-indigo-600 hover:bg-indigo-700 font-black text-xs h-10 px-6 shadow-lg shadow-indigo-200 transition-all hover:scale-105 text-white"
-               onClick={() => setIsAddDialogOpen(true)}
-             >
-                <Zap className="w-4 h-4 mr-1.5 fill-white/20" /> Thêm khách nhanh
-             </Button>
+             {isAdmin ? (
+               /* Admin: Tạo Lead → vào Intake Queue ở CRM Ops */
+               <Button
+                 className="rounded-xl bg-indigo-600 hover:bg-indigo-700 font-black text-xs h-10 px-5 shadow-lg shadow-indigo-200 transition-all hover:scale-105 text-white flex items-center gap-1.5"
+                 onClick={() => setIsAddDialogOpen(true)}
+               >
+                 <Plus className="w-4 h-4" /> Tạo Lead mới
+               </Button>
+             ) : (
+               /* Sale: nút Thêm nhanh giữ nguyên */
+               <Button
+                 className="rounded-xl bg-indigo-600 hover:bg-indigo-700 font-black text-xs h-10 px-6 shadow-lg shadow-indigo-200 transition-all hover:scale-105 text-white"
+                 onClick={() => setIsAddDialogOpen(true)}
+               >
+                 <Zap className="w-4 h-4 mr-1.5 fill-white/20" /> Thêm khách nhanh
+               </Button>
+             )}
           </div>
         </div>
       </header>
@@ -526,257 +739,119 @@ function CustomersPage() {
           </div>
         )}
 
-        {/* CONTROLS (SEARCH & FILTER) */}
-        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-           <div className="relative w-full md:w-96 shrink-0">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        {/* COMPACT CONTROL BAR */}
+        <div className="bg-white border border-slate-200 rounded-xl p-1.5 flex flex-col lg:flex-row items-center gap-2 shadow-sm sticky top-0 z-20">
+           {/* Search */}
+           <div className="relative w-full lg:w-72 shrink-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
               <Input 
-                placeholder="Tìm tên Spa, tên chủ, số điện thoại..." 
-                className="pl-10 h-11 rounded-xl border-slate-100 bg-white shadow-sm focus:ring-2 focus:ring-slate-900 transition-all"
+                id="search-customers-input"
+                placeholder="Tìm tên, SĐT, ID... ('/')"
+                className="pl-9 h-8 bg-slate-50 border-none rounded-lg text-[11px] font-semibold text-slate-700 focus:ring-2 focus:ring-indigo-500/20 transition-all placeholder:font-medium placeholder:text-slate-400"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
            </div>
            
-           <div className="relative w-full md:w-64 shrink-0 z-50">
+           <div className="h-4 w-px bg-slate-200 hidden lg:block" />
+
+           {/* Province Filter */}
+           <div className="relative w-full lg:w-48 shrink-0">
              <Popover open={cityOpen} onOpenChange={(o) => { setCityOpen(o); if (!o) setCitySearch(""); }}>
                <PopoverTrigger asChild>
-                 <button
-                   type="button"
-                   role="combobox"
-                   aria-expanded={cityOpen}
-                   className="w-full text-sm h-11 rounded-xl border border-slate-100 bg-white shadow-sm px-3 flex items-center justify-between gap-2 hover:border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all"
-                 >
-                   <div className="flex items-center gap-2 overflow-hidden">
-                     <Map className="w-4 h-4 text-slate-400 shrink-0" />
-                     <span className={cityFilter !== "all" ? "text-slate-800 font-medium truncate" : "text-slate-400 truncate"}>
+                 <button type="button" role="combobox" aria-expanded={cityOpen} className="w-full text-[11px] h-8 rounded-lg bg-slate-50 px-2.5 flex items-center justify-between gap-2 hover:bg-slate-100 transition-colors focus:outline-none">
+                   <div className="flex items-center gap-1.5 overflow-hidden">
+                     <MapIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                     <span className={cityFilter !== "all" ? "text-slate-800 font-bold truncate" : "text-slate-500 font-medium truncate"}>
                        {cityFilter === "all" ? "Tất cả tỉnh/thành" : cityFilter}
                      </span>
                    </div>
-                   <ChevronsUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                   <ChevronsUpDown className="w-3 h-3 text-slate-400 shrink-0" />
                  </button>
                </PopoverTrigger>
-               <PopoverContent
-                 className="p-0 rounded-2xl shadow-xl border border-slate-100 overflow-hidden"
-                 style={{ width: "var(--radix-popover-trigger-width)", zIndex: 9999 }}
-                 align="start"
-                 sideOffset={4}
-               >
-                 <div className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-100 bg-slate-50/80">
-                   <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                   <input
-                     autoFocus
-                     value={citySearch}
-                     onChange={(e) => setCitySearch(e.target.value)}
-                     placeholder="Gõ tìm tỉnh/thành..."
-                     className="flex-1 text-sm bg-transparent outline-none placeholder:text-slate-300 text-slate-800"
-                   />
-                   {citySearch && (
-                     <button
-                       type="button"
-                       onClick={() => setCitySearch("")}
-                       className="text-slate-300 hover:text-slate-500 text-xs font-bold"
-                     >
-                       ✕
-                     </button>
-                   )}
+               <PopoverContent className="p-0 rounded-xl shadow-lg border border-slate-100 overflow-hidden w-56" align="start" sideOffset={4}>
+                 <div className="flex items-center gap-2 px-2 py-1.5 border-b border-slate-100 bg-slate-50">
+                   <Search className="w-3 h-3 text-slate-400 shrink-0" />
+                   <input autoFocus value={citySearch} onChange={(e) => setCitySearch(e.target.value)} placeholder="Tìm tỉnh/thành..." className="flex-1 text-[11px] bg-transparent outline-none placeholder:text-slate-400 text-slate-800" />
                  </div>
-                 <div className="max-h-52 overflow-y-auto">
-                   <button
-                     type="button"
-                     onClick={() => {
-                       setCityFilter("all");
-                       setCitySearch("");
-                       setCityOpen(false);
-                     }}
-                     className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-slate-50 transition-colors"
-                   >
-                     <Check
-                       className={`w-3.5 h-3.5 shrink-0 transition-opacity ${
-                         cityFilter === "all" ? "opacity-100 text-slate-900" : "opacity-0"
-                       }`}
-                     />
-                     <span className={`font-medium ${cityFilter === "all" ? "text-slate-900" : "text-slate-600"}`}>
-                       Tất cả tỉnh/thành
-                     </span>
+                 <div className="max-h-48 overflow-y-auto">
+                   <button type="button" onClick={() => { setCityFilter("all"); setCitySearch(""); setCityOpen(false); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 text-[11px] hover:bg-slate-50">
+                     <Check className={`w-3 h-3 shrink-0 ${cityFilter === "all" ? "text-slate-900" : "opacity-0"}`} />
+                     <span className={`font-medium ${cityFilter === "all" ? "text-slate-900" : "text-slate-500"}`}>Tất cả tỉnh/thành</span>
                    </button>
-                   {(() => {
-                     const q = stripAccents(citySearch);
-                     const matched = VIETNAM_PROVINCES.filter((p) => {
-                       if (!q) return true;
-                       const alias = findProvinceByName(citySearch);
-                       if (alias === p) return true;
-                       return stripAccents(p).includes(q);
-                     });
-                     if (matched.length === 0) {
-                       return (
-                         <div className="py-4 text-center text-xs text-slate-400 font-semibold">
-                           Không tìm thấy.
-                         </div>
-                       );
-                     }
-                     return matched.map((province) => (
-                       <button
-                         key={province}
-                         type="button"
-                         onClick={() => {
-                           setCityFilter(province);
-                           setCitySearch("");
-                           setCityOpen(false);
-                         }}
-                         className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-slate-50 transition-colors"
-                       >
-                         <Check
-                           className={`w-3.5 h-3.5 shrink-0 transition-opacity ${
-                             cityFilter === province ? "opacity-100 text-slate-900" : "opacity-0"
-                           }`}
-                         />
-                         <span className={`font-medium ${
-                           cityFilter === province ? "text-slate-900" : "text-slate-600"
-                         }`}>
-                           {province}
-                         </span>
-                       </button>
-                     ));
-                   })()}
+                   {/* Simplified Province List mapping... */}
                  </div>
                </PopoverContent>
              </Popover>
            </div>
-        </div>
 
-        <div className="flex flex-col gap-2">
-           <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 w-full no-scrollbar">
-              <Button 
-                variant={activeStage === 'all' ? 'default' : 'ghost'} 
-                size="sm" 
-                className={`rounded-xl text-[10px] font-black uppercase ${activeStage === 'all' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}
-                onClick={() => setActiveStage('all')}
-              >
-                 TẤT CẢ
-              </Button>
-              {SALES_PIPELINE_STAGES.map(stage => (
-                <Button 
-                  key={stage.value}
-                  variant={activeStage === stage.value ? 'default' : 'ghost'} 
-                  size="sm" 
-                  className={`rounded-xl text-[10px] font-black uppercase whitespace-nowrap ${activeStage === stage.value ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
-                  onClick={() => setActiveStage(stage.value)}
-                >
-                   {stage.label}
-                   <Badge className="ml-2 bg-slate-200 text-slate-600 border-none text-[8px] h-4">
-                      {customers.filter(c => c.lifecycle_stage === stage.value).length}
-                   </Badge>
-                </Button>
-              ))}
-           </div>
+           <div className="h-4 w-px bg-slate-200 hidden lg:block" />
 
-           <div className="flex items-center gap-2 overflow-x-auto pt-2 w-full no-scrollbar border-t border-slate-100 mt-2 pb-2">
-              <Button 
-                variant={smartFilter === 'all' ? 'default' : 'outline'} 
-                size="sm" 
-                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'all' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}
-                onClick={() => setSmartFilter('all')}
-              >
-                 Không lọc
+           {/* Quick Filters */}
+           <div className="flex items-center gap-1 overflow-x-auto w-full no-scrollbar">
+              <Button variant={smartFilter === 'all' ? 'default' : 'ghost'} size="sm" className={`rounded-lg text-[10px] h-8 font-black uppercase ${smartFilter === 'all' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50'}`} onClick={() => setSmartFilter('all')}>
+                 Tất cả
               </Button>
-              <Button 
-                variant={smartFilter === 'has_phone' ? 'default' : 'outline'} 
-                size="sm" 
-                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'has_phone' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-slate-500 hover:bg-slate-50'}`}
-                onClick={() => setSmartFilter('has_phone')}
-              >
-                 📞 Có SĐT
+              <Button variant={smartFilter === 'focus' ? 'default' : 'ghost'} size="sm" className={`rounded-lg text-[10px] h-8 font-black uppercase transition-colors ${smartFilter === 'focus' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:bg-indigo-50/50'}`} onClick={() => setSmartFilter('focus')}>
+                 🎯 Focus
               </Button>
-              <Button 
-                variant={smartFilter === 'has_facebook' ? 'default' : 'outline'} 
-                size="sm" 
-                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'has_facebook' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-slate-500 hover:bg-slate-50'}`}
-                onClick={() => setSmartFilter('has_facebook')}
-              >
-                 📘 Có FB
+              <Button variant={smartFilter === 'overdue' ? 'default' : 'ghost'} size="sm" className={`rounded-lg text-[10px] h-8 font-black uppercase ${smartFilter === 'overdue' ? 'bg-rose-100 text-rose-700' : 'text-slate-500 hover:bg-rose-50/50'}`} onClick={() => setSmartFilter('overdue')}>
+                 🔴 Quá hạn
               </Button>
-              <Button 
-                variant={smartFilter === 'has_zalo' ? 'default' : 'outline'} 
-                size="sm" 
-                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'has_zalo' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-slate-500 hover:bg-slate-50'}`}
-                onClick={() => setSmartFilter('has_zalo')}
-              >
-                 💬 Có Zalo
+              <Button variant={smartFilter === 'today' ? 'default' : 'ghost'} size="sm" className={`rounded-lg text-[10px] h-8 font-black uppercase ${smartFilter === 'today' ? 'bg-orange-100 text-orange-700' : 'text-slate-500 hover:bg-orange-50/50'}`} onClick={() => setSmartFilter('today')}>
+                 🟠 Hôm nay
               </Button>
-              <Button 
-                variant={smartFilter === 'has_email' ? 'default' : 'outline'} 
-                size="sm" 
-                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'has_email' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-slate-500 hover:bg-slate-50'}`}
-                onClick={() => setSmartFilter('has_email')}
-              >
-                 📧 Có Email
-              </Button>
-              <Button 
-                variant={smartFilter === 'has_tiktok' ? 'default' : 'outline'} 
-                size="sm" 
-                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'has_tiktok' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-slate-500 hover:bg-slate-50'}`}
-                onClick={() => setSmartFilter('has_tiktok')}
-              >
-                 🎵 Có TikTok
-              </Button>
-              <Button 
-                variant={smartFilter === 'has_website' ? 'default' : 'outline'} 
-                size="sm" 
-                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'has_website' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-slate-500 hover:bg-slate-50'}`}
-                onClick={() => setSmartFilter('has_website')}
-              >
-                 🌐 Có Website
-              </Button>
-              <Button 
-                variant={smartFilter === 'has_primary' ? 'default' : 'outline'} 
-                size="sm" 
-                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'has_primary' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'text-slate-500 hover:bg-slate-50'}`}
-                onClick={() => setSmartFilter('has_primary')}
-              >
-                 ⭐ Có Kênh Chính
-              </Button>
-              <Button 
-                variant={smartFilter === 'no_primary' ? 'default' : 'outline'} 
-                size="sm" 
-                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'no_primary' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'text-slate-500 hover:bg-slate-50'}`}
-                onClick={() => setSmartFilter('no_primary')}
-              >
-                 ❌ Chưa Có Kênh Chính
-              </Button>
-              <Button 
-                variant={smartFilter === 'has_remarketing' ? 'default' : 'outline'} 
-                size="sm" 
-                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'has_remarketing' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'text-slate-500 hover:bg-slate-50'}`}
-                onClick={() => setSmartFilter('has_remarketing')}
-              >
-                 🎯 Có Remarketing
-              </Button>
-              <Button 
-                variant={smartFilter === 'no_social' ? 'default' : 'outline'} 
-                size="sm" 
-                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'no_social' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'text-slate-500 hover:bg-slate-50'}`}
-                onClick={() => setSmartFilter('no_social')}
-              >
-                 🟡 Thiếu Social
-              </Button>
-              <Button 
-                variant={smartFilter === 'unassigned' ? 'default' : 'outline'} 
-                size="sm" 
-                className={`rounded-xl text-[10px] font-black uppercase border-slate-200 shadow-sm ${smartFilter === 'unassigned' ? 'bg-slate-800 text-white border-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}
-                onClick={() => setSmartFilter('unassigned')}
-              >
-                 👤 Chưa phân bổ
+              <Button variant={smartFilter === 'no_interaction' ? 'default' : 'ghost'} size="sm" className={`rounded-lg text-[10px] h-8 font-black uppercase ${smartFilter === 'no_interaction' ? 'bg-amber-100 text-amber-700' : 'text-slate-500 hover:bg-amber-50/50'}`} onClick={() => setSmartFilter('no_interaction')}>
+                 ⚠️ Chưa TT
               </Button>
            </div>
+           
+           {/* Advanced Filters */}
+           <Popover>
+             <PopoverTrigger asChild>
+               <Button variant="outline" size="sm" className="rounded-lg h-8 text-[10px] font-black uppercase border-slate-200 text-slate-600 shadow-sm shrink-0">
+                 Lọc nâng cao +
+               </Button>
+             </PopoverTrigger>
+             <PopoverContent className="w-56 p-2 rounded-xl shadow-xl border-slate-100" align="end">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1 mb-1">Signals</p>
+                  {[
+                    { id: 'hot', label: '🔥 HOT Leads' },
+                    { id: 'vip', label: '👑 Khách VIP' },
+                    { id: 'no_social', label: '🟡 Thiếu Social' },
+                  ].map(f => (
+                    <Button key={f.id} variant="ghost" size="sm" onClick={() => setSmartFilter(f.id)} className={`w-full justify-start text-[11px] font-semibold ${smartFilter === f.id ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600'}`}>
+                      {f.label}
+                    </Button>
+                  ))}
+                </div>
+             </PopoverContent>
+           </Popover>
         </div>
+
+        <FocusQueueBar customers={filteredCustomers} onStartQueue={(id) => setPreviewCustomer(customers.find(c => c.id === id) || null)} />
 
         {viewMode === 'kanban' ? (
           /* PERFECT KANBAN UX */
           <div className="flex gap-6 overflow-x-auto pb-10 min-h-[600px] no-scrollbar">
-             {SALES_PIPELINE_STAGES.map(stage => {
+             {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                   <div key={i} className="min-w-[280px] w-[280px] flex flex-col relative bg-slate-50/50 rounded-[24px] border border-slate-100/50 animate-pulse transition-opacity duration-300">
+                      <div className="sticky top-0 z-10 flex items-center justify-between p-3 border-b border-slate-100/50 bg-slate-50/30 rounded-t-[24px]">
+                         <div className="w-24 h-4 bg-slate-200 rounded"></div>
+                         <div className="w-6 h-6 bg-slate-200 rounded-full"></div>
+                      </div>
+                      <div className="flex flex-col gap-y-5 p-2 min-h-[500px]">
+                         <div className="w-full h-36 bg-white rounded-2xl border border-slate-100"></div>
+                         <div className="w-full h-24 bg-white rounded-2xl border border-slate-100"></div>
+                         <div className="w-full h-40 bg-white rounded-2xl border border-slate-100"></div>
+                      </div>
+                   </div>
+                ))
+             ) : SALES_PIPELINE_STAGES.map(stage => {
                 const isCollapsed = collapsedColumns[stage.value];
-                const stageCustomers = filteredCustomers.filter(c => c.lifecycle_stage === stage.value);
+                const stageCustomers = filteredCustomers.filter(c => mapLegacyStageToNew(c.lifecycle_stage) === stage.value);
                 
                 if (isCollapsed) {
                    return (
@@ -794,44 +869,86 @@ function CustomersPage() {
                 return (
                 <div 
                    key={stage.value} 
-                   className="min-w-[320px] w-[320px] space-y-4"
+                   className={`min-w-[280px] w-[280px] flex flex-col relative bg-slate-50/40 rounded-2xl border-x border-b border-t-2 ${draggedCustomerId ? 'border-dashed border-indigo-300 bg-indigo-50/20' : 'border-x-slate-100/60 border-b-slate-100/60'} ${getPipelineStageColor(stage.value).replace('bg-', 'border-t-')}`}
                    onDragOver={handleDragOver}
                    onDrop={(e) => handleDrop(e, stage.value)}
                 >
-                   <div className="flex items-center justify-between px-2">
-                      <div className="flex items-center gap-2 cursor-pointer" onClick={() => toggleColumn(stage.value)}>
-                         <div className={`w-2 h-6 rounded-full ${getPipelineStageColor(stage.value)}`} />
-                         <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest hover:text-indigo-600 transition-colors">{stage.label}</h3>
+                   {/* Column Header */}
+                   <div className={`flex items-center justify-between p-2 border-b border-slate-100/80 bg-slate-50/95 rounded-t-xl shadow-sm z-10 relative`}>
+                      <div className="flex items-center gap-1.5 cursor-pointer" onClick={() => toggleColumn(stage.value)}>
+                         <h3 className="text-[11px] font-black text-slate-700 uppercase tracking-widest hover:text-indigo-600 transition-colors">{stage.label}</h3>
+                         {stageCustomers.length > 20 && <span title="Tồn đọng lớn" className="text-[10px]">⚠️</span>}
                       </div>
-                      <div className="flex items-center gap-2">
-                         <Badge variant="outline" className="text-[10px] font-bold border-slate-200 text-slate-400 bg-white">
+                      <div className="flex items-center gap-1">
+                         <Badge variant="secondary" className={`text-[9px] font-bold px-1.5 py-0 rounded-md bg-white border border-slate-200 text-slate-500`}>
                             {stageCustomers.length}
                          </Badge>
-                         <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:bg-slate-200/50" onClick={() => toggleColumn(stage.value)}>
-                            <ChevronRight className="w-4 h-4 transition-transform hover:-translate-x-1" />
+                         {isManager && stage.value === 'lead_new' && stageCustomers.length > 0 && (
+                            <Button 
+                               variant="outline" 
+                               size="sm" 
+                               className="h-5 px-1.5 text-[9px] font-bold text-indigo-600 border-indigo-200 hover:bg-indigo-50 ml-1 bg-white"
+                               onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedCustomers(stageCustomers.map(c => c.id));
+                                  setDispatchAction('assign_sale');
+                                  setIsDispatchDialogOpen(true);
+                               }}
+                               title="Chia tất cả Lead trong cột này"
+                            >
+                               Chia Lead
+                            </Button>
+                         )}
+                         <Button variant="ghost" size="icon" className="h-5 w-5 text-slate-400 hover:bg-slate-200/50" onClick={() => toggleColumn(stage.value)}>
+                            <ChevronRight className="w-3.5 h-3.5 transition-transform hover:-translate-x-0.5" />
                          </Button>
                       </div>
                    </div>
 
-                   <div className={`space-y-4 bg-slate-50/50 p-3 rounded-[24px] border border-slate-100 min-h-[500px] transition-colors ${draggedCustomerId ? 'border-dashed border-indigo-300 bg-indigo-50/30' : ''}`}>
+                   {/* Column Content */}
+                   <div className="flex flex-col gap-y-3 p-2 min-h-[500px]">
                       {stageCustomers.map(customer => (
-                         <CustomerCard 
-                            key={customer.id} 
-                            customer={customer} 
-                            stage={stage.value} 
-                            isAdmin={isAdmin} 
-                            isManager={isManager}
-                            onQuickLog={() => setLogTarget(customer)}
-                            onPreview={() => setPreviewCustomer(customer)}
-                            draggable={true}
-                            onDragStart={(e: React.DragEvent) => handleDragStart(e, customer.id)}
-                            staffMap={staffMap}
-                         />
+                         isManager ? (
+                            <ManagerCustomerCard
+                               key={customer.id} 
+                               customer={customer} 
+                               stage={stage.value} 
+                               onPreview={() => setPreviewCustomer(customer)}
+                               draggable={false}
+                               onDragStart={(e: React.DragEvent) => e.preventDefault()}
+                               staffMap={staffMap}
+                               isSelected={selectedCustomers.includes(customer.id)}
+                               onToggleSelect={(checked: boolean) => {
+                                 setSelectedCustomers(prev => 
+                                   checked 
+                                     ? [...prev, customer.id]
+                                     : prev.filter(id => id !== customer.id)
+                                 );
+                               }}
+                               onQuickDispatch={(action: string) => {
+                                 setSelectedCustomers([customer.id]);
+                                 setDispatchAction(action as any);
+                                 setIsDispatchDialogOpen(true);
+                               }}
+                               isSaving={logTarget?.id === customer.id}
+                            />
+                         ) : (
+                            <SalesCustomerCard
+                               key={customer.id} 
+                               customer={customer} 
+                               stage={stage.value} 
+                               onQuickLog={() => setLogTarget(customer)}
+                               onPreview={() => setPreviewCustomer(customer)}
+                               draggable={true}
+                               onDragStart={(e: React.DragEvent) => handleDragStart(e, customer.id)}
+                               isSaving={logTarget?.id === customer.id}
+                            />
+                         )
                       ))}
                       {stageCustomers.length === 0 && (
-                         <div className="h-40 flex flex-col items-center justify-center text-slate-200 border-2 border-dashed border-slate-200 rounded-[20px]">
-                            <Layers className="w-8 h-8 mb-2" />
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Kéo thả vào đây</p>
+                         <div className="h-32 flex flex-col items-center justify-center text-slate-400 bg-white/50 border border-dashed border-slate-200 rounded-[20px] m-1 group">
+                            <p className="text-xs font-medium text-slate-400 mb-1">Chưa có khách ở stage này</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Kéo khách vào đây</p>
                          </div>
                       )}
                    </div>
@@ -841,13 +958,17 @@ function CustomersPage() {
         ) : (
           /* CUSTOMER INTELLIGENCE CENTER (L1) */
           <div className="flex flex-col gap-3">
-             {filteredCustomers.length === 0 ? (
-                <div className="text-center py-20 bg-white rounded-[32px] border border-slate-100 shadow-sm">
+             {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                   <div key={i} className="w-full h-24 bg-white rounded-[24px] border border-slate-100 animate-pulse"></div>
+                ))
+             ) : filteredCustomers.length === 0 ? (
+                <div className="text-center py-24 bg-white rounded-[32px] border border-dashed border-slate-200">
                    <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <Search className="w-8 h-8 text-slate-300" />
+                      <Search className="w-6 h-6 text-slate-300" />
                    </div>
-                   <h3 className="text-sm font-black text-slate-900">Không tìm thấy dữ liệu</h3>
-                   <p className="text-xs text-slate-500 mt-1">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
+                   <h3 className="text-sm font-black text-slate-700">Không tìm thấy khách phù hợp</h3>
+                   <p className="text-xs text-slate-400 mt-1">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
                 </div>
              ) : (
                 filteredCustomers.map(customer => (
@@ -857,6 +978,20 @@ function CustomersPage() {
                       staffMap={staffMap}
                       onPreview={() => setPreviewCustomer(customer)}
                       onQuickLog={() => setLogTarget(customer)}
+                      isManager={isManager}
+                      isSelected={selectedCustomers.includes(customer.id)}
+                      onToggleSelect={(checked: boolean) => {
+                        setSelectedCustomers(prev => 
+                          checked 
+                            ? [...prev, customer.id]
+                            : prev.filter(id => id !== customer.id)
+                        );
+                      }}
+                      onQuickDispatch={(action: string) => {
+                        setSelectedCustomers([customer.id]);
+                        setDispatchAction(action as any);
+                        setIsDispatchDialogOpen(true);
+                      }}
                    />
                 ))
              )}
@@ -864,17 +999,32 @@ function CustomersPage() {
         )}
       </main>
 
-      <QuickLogDialog 
+      <QuickCallResultDialog 
         isOpen={!!logTarget} 
-        customer={logTarget} 
-        onClose={() => setLogTarget(null)} 
+        onOpenChange={(open) => !open && setLogTarget(null)} 
+        customerId={logTarget?.id || null} 
         onSuccess={fetchCustomers}
+        onOptimisticUpdate={(updates) => {
+          setCustomers(prev => prev.map(c => 
+            c.id === logTarget?.id ? { ...c, ...updates } : c
+          ));
+        }}
+        onOptimisticRevert={fetchCustomers}
       />
 
-      <AddCustomerDialog 
-        open={isAddDialogOpen} 
-        onOpenChange={setIsAddDialogOpen} 
-        onSuccess={fetchCustomers}
+      <AddCustomerDialog
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+        onSuccess={() => {
+          if (isAdmin) {
+            // Admin: sau khi tạo lead → đi thẳng đến CRM Ops Center (Intake Queue)
+            setIsAddDialogOpen(false);
+            navigate({ to: '/admin/crm-ops' });
+          } else {
+            // Sale: refresh bình thường
+            fetchCustomers();
+          }
+        }}
       />
 
       <CustomerPreviewDrawer
@@ -882,281 +1032,553 @@ function CustomersPage() {
         open={!!previewCustomer}
         onOpenChange={(open) => !open && setPreviewCustomer(null)}
         staffMap={staffMap}
+        onNextCustomer={handleNextCustomer}
       />
+      {/* BULK ACTION FLOATING BAR */}
+      {isManager && selectedCustomers.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-white p-2 rounded-2xl shadow-2xl border border-slate-200 flex items-center gap-2 animate-in slide-in-from-bottom-5">
+           <div className="px-3 py-1 bg-indigo-50 text-indigo-700 font-black text-xs rounded-xl flex items-center gap-2 border border-indigo-100">
+             <CheckSquare className="w-4 h-4" /> Đã chọn {selectedCustomers.length}
+           </div>
+           
+           <Button variant="ghost" size="sm" className="h-8 text-xs font-bold hover:bg-slate-100" onClick={() => setSelectedCustomers([])}>Hủy chọn</Button>
+           
+           <div className="w-px h-6 bg-slate-200 mx-1" />
+           
+           <Button size="sm" className="h-8 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm" onClick={() => { setDispatchAction('assign_sale'); setIsDispatchDialogOpen(true); }}>
+              <UserPlus className="w-3.5 h-3.5 mr-1" /> Gán Sale
+           </Button>
+           <Button size="sm" className="h-8 text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white shadow-sm" onClick={() => { setDispatchAction('assign_tele'); setIsDispatchDialogOpen(true); }}>
+              <PhoneCall className="w-3.5 h-3.5 mr-1" /> Gán Tele
+           </Button>
+           <Button size="sm" variant="destructive" className="h-8 text-xs font-bold" onClick={() => { setDispatchAction('revoke'); setIsDispatchDialogOpen(true); }}>
+              <XCircle className="w-3.5 h-3.5 mr-1" /> Thu hồi
+           </Button>
+        </div>
+      )}
+
+      <Dialog open={isDispatchDialogOpen} onOpenChange={setIsDispatchDialogOpen}>
+        <DialogContent className="sm:max-w-md rounded-[24px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black text-slate-900">
+               {dispatchAction === 'assign_sale' && 'Phân công Sale phụ trách'}
+               {dispatchAction === 'assign_tele' && 'Phân công Tele hỗ trợ'}
+               {dispatchAction === 'change_stage' && 'Chuyển giai đoạn chăm sóc'}
+               {dispatchAction === 'revoke' && 'Thu hồi Khách hàng'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+             <div className="bg-slate-50 p-3 rounded-xl text-sm font-medium text-slate-600 flex items-center gap-2 border border-slate-100">
+                <CheckSquare className="w-4 h-4 text-indigo-500" />
+                Đang xử lý <strong>{selectedCustomers.length}</strong> khách hàng
+             </div>
+
+             {dispatchAction !== 'revoke' && (
+                <div className="space-y-2">
+                   <label className="text-xs font-bold text-slate-700 uppercase">
+                     {dispatchAction === 'change_stage' ? 'Chọn giai đoạn mới' : 'Chọn nhân viên'}
+                   </label>
+                   <select 
+                     className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                     value={dispatchStaffId}
+                     onChange={(e) => setDispatchStaffId(e.target.value)}
+                   >
+                      {dispatchAction === 'change_stage' ? (
+                         <>
+                            <option value="none">-- Chọn giai đoạn --</option>
+                            {SALES_PIPELINE_STAGES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                         </>
+                      ) : (
+                         <>
+                            <option value="none">-- Chọn nhân viên --</option>
+                            {Object.entries(staffMap).map(([id, staff]: [string, any]) => (
+                               <option key={id} value={id}>{staff.display_name} ({staff.email})</option>
+                            ))}
+                         </>
+                      )}
+                    </select>
+                 </div>
+              )}
+
+             <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 uppercase">
+                  Lý do {dispatchAction === 'revoke' ? 'thu hồi' : 'điều phối'} {dispatchAction === 'revoke' ? <span className="text-red-500">*</span> : '(không bắt buộc)'}
+                </label>
+                <textarea 
+                  className="w-full p-3 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none min-h-[80px]"
+                  placeholder="Nhập lý do thực hiện thao tác này..."
+                  value={dispatchReason}
+                  onChange={(e) => setDispatchReason(e.target.value)}
+                />
+             </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsDispatchDialogOpen(false)}>Hủy</Button>
+            <Button 
+               disabled={isDispatching || (dispatchAction === 'revoke' && !dispatchReason.trim()) || (dispatchAction !== 'revoke' && dispatchStaffId === 'none')} 
+               onClick={handleBulkDispatch}
+               className={dispatchAction === 'revoke' ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}
+            >
+               {isDispatching ? 'Đang xử lý...' : 'Xác nhận'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function CustomerCard({ customer, stage, isAdmin, isManager, onQuickLog, draggable, onDragStart, onPreview, staffMap }: any) {
-  // Logic hành động nhanh tùy theo giai đoạn và vai trò người dùng
-  const getAction = () => {
-    // Nếu là Admin hoặc Phó Admin (Manager), họ không gọi điện/nhắc chốt/log ship, mà chỉ có 2 tác vụ: "CHIA LEAD" ở cột new_lead và "CHI TIẾT" ở các cột còn lại
-    if (isManager) {
-      if (stage === 'new_lead') {
-        return { label: 'CHIA LEAD', icon: UserPlus, color: 'bg-indigo-600' };
-      }
-      return { label: 'CHI TIẾT', icon: ArrowRight, color: 'bg-slate-900' };
-    }
+// --- SHARED COMPONENTS ---
+function CustomerCardActivityInfo({ customer, isManager }: { customer: any, isManager?: boolean }) {
+  const state = getCustomerConversationState(customer);
+  const suggestedAction = getSuggestedNextAction(customer);
+  
+  let managerAction = '';
+  let managerActionColor = 'text-indigo-600 bg-indigo-50/80 border-indigo-100/50';
+  let ManagerIcon = Play;
 
-    switch (stage) {
-      case 'new_lead': return { label: 'CHIA LEAD', icon: UserPlus, color: 'bg-indigo-600' };
-      case 'assigned': return { label: 'GỌI ĐIỆN', icon: Phone, color: 'bg-amber-500' };
-      case 'quoted': return { label: 'NHẮC CHỐT', icon: BadgeCheck, color: 'bg-emerald-600' };
-      case 'ordered': return { label: 'LOG SHIP', icon: Package, color: 'bg-indigo-600' };
-      default: return { label: 'CHI TIẾT', icon: ArrowRight, color: 'bg-slate-900' };
+  if (isManager) {
+    if (!customer.owner_sale_id) {
+      managerAction = 'Cần phân bổ Lead';
+      managerActionColor = 'text-amber-600 bg-amber-50/80 border-amber-100/50';
+      ManagerIcon = AlertCircle;
+    } else if (customer.ownership_status === 'pending_revoke') {
+      managerAction = 'Cần duyệt thu hồi';
+      managerActionColor = 'text-purple-600 bg-purple-50/80 border-purple-100/50';
+      ManagerIcon = AlertCircle;
+    } else if (state.urgency === 'overdue') {
+      managerAction = 'Cần đôn đốc Sale';
+      managerActionColor = 'text-rose-600 bg-rose-50/80 border-rose-100/50';
+      ManagerIcon = AlertCircle;
+    } else if (suggestedAction) {
+      managerAction = 'Quản lý & Theo dõi';
+      managerActionColor = 'text-slate-600 bg-slate-100/80 border-slate-200/50';
+      ManagerIcon = CheckSquare;
     }
+  }
+
+  const getMemoryIcon = (summary: string) => {
+     if (!summary) return '⚡';
+     const lower = summary.toLowerCase();
+     if (lower.includes('zalo') || lower.includes('nhắn') || lower.includes('sms')) return '💬';
+     if (lower.includes('gọi') || lower.includes('phone') || lower.includes('không nghe máy')) return '📞';
+     if (lower.includes('báo giá') || lower.includes('quote') || lower.includes('form')) return '📄';
+     if (lower.includes('hẹn') || lower.includes('lịch') || lower.includes('meeting')) return '📅';
+     if (lower.includes('facebook') || lower.includes('fb')) return '📘';
+     if (lower.includes('email') || lower.includes('mail')) return '📧';
+     return '⚡';
   };
 
-  const { leadOverdueDays } = useSystemSettings();
-  const action = getAction();
+  return (
+    <div className="flex flex-col gap-1 text-[10px] text-slate-500 font-medium pt-1">
+       {state.lastInteractionTime ? (
+         <div className="flex items-start gap-1.5 bg-slate-50/80 rounded-lg p-1.5 border border-slate-100/60 transition-colors hover:bg-slate-50">
+            <span className="shrink-0 mt-0.5">{getMemoryIcon(state.lastInteractionSummary || '')}</span>
+            <div className="flex flex-col">
+              <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Tương tác cuối</span>
+              <span className="text-[10px] text-slate-700 font-medium line-clamp-1 leading-tight">
+                 <span className="font-bold">{state.lastInteractionSummary || 'Có tương tác'}</span> · {formatDistanceToNow(new Date(state.lastInteractionTime), { addSuffix: true, locale: vi })}
+              </span>
+            </div>
+         </div>
+       ) : (
+         <div className="flex items-center gap-1.5 bg-amber-50/50 rounded-lg p-1.5 border border-amber-100/50 text-amber-600 font-bold">
+            <span className="text-[10px]">⚠️ Chưa có tương tác</span>
+         </div>
+       )}
+
+       {state.nextFollowUpTime && (
+         <div className={`flex items-start gap-1.5 rounded-lg p-1.5 border transition-colors ${state.urgency === 'overdue' ? 'bg-rose-50/80 border-rose-100 hover:bg-rose-50' : 'bg-orange-50/80 border-orange-100 hover:bg-orange-50'}`}>
+            <span className="shrink-0 mt-0.5">{state.urgency === 'overdue' ? '🔴' : '📅'}</span>
+            <div className="flex flex-col">
+              <span className={`text-[8px] font-bold uppercase tracking-wider ${state.urgency === 'overdue' ? 'text-rose-400' : 'text-orange-400'}`}>Next Action</span>
+              <span className={`text-[10px] font-bold leading-tight ${state.urgency === 'overdue' ? 'text-rose-600' : 'text-orange-600'}`}>
+                {state.urgency === 'overdue' ? 'Quá hạn' : 'Hẹn lại'} · {format(new Date(state.nextFollowUpTime), "HH:mm dd/MM")}
+              </span>
+            </div>
+         </div>
+       )}
+       {!state.nextFollowUpTime && state.temperature === 'COLD' && (
+         <div className="flex items-center gap-1.5">
+            <span className="text-[9px] text-slate-400 font-bold">⚫ {'>'} 14 ngày chưa tương tác</span>
+         </div>
+       )}
+       {suggestedAction && !isManager && (
+         <div className="flex items-center gap-1.5 mt-1">
+            <span className="text-[9px] text-indigo-500 font-bold flex items-center gap-1">
+               <span className="animate-pulse">💡</span> Gợi ý: {suggestedAction}
+            </span>
+         </div>
+       )}
+       {isManager && managerAction && (
+         <div className="flex items-center gap-1.5 mt-0.5">
+            <span className={`text-[10px] font-black flex items-center gap-1 px-1.5 py-0.5 rounded border ${managerActionColor}`}>
+               <ManagerIcon className={`w-2.5 h-2.5 ${managerActionColor.split(' ')[0]}`} />
+               {managerAction}
+            </span>
+         </div>
+       )}
+    </div>
+  );
+}
+
+// --- SALES CUSTOMER CARD (Optimized for quick actions) ---
+const SalesCustomerCard = React.memo(function SalesCustomerCard({ customer, stage, onQuickLog, draggable, onDragStart, onPreview, isSaving }: any) {
   const totalValue = customer.orders?.reduce((sum: number, o: any) => sum + (o.total || 0), 0) || 0;
+  const isVip = totalValue >= 50000000;
+  const isAtRisk = customer.ownership_status === 'at_risk';
+  const hasSocial = customer.channel_summary?.has_facebook || customer.channel_summary?.has_zalo || customer.channel_summary?.has_tiktok;
   
-  const getTierBadge = () => {
-    if (totalValue >= 100000000) {
-      return <Badge className="bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 text-white shadow-sm border-none text-[8px] px-1.5 py-0 h-4 font-black">💎 DIAMOND</Badge>;
-    }
-    if (totalValue >= 50000000) {
-      return <Badge className="bg-gradient-to-r from-amber-400 to-amber-600 text-white shadow-sm border-none text-[8px] px-1.5 py-0 h-4 font-black">🥇 GOLD</Badge>;
-    }
-    if (totalValue > 0) {
-      return <Badge className="bg-gradient-to-r from-slate-400 to-slate-600 text-white shadow-sm border-none text-[8px] px-1.5 py-0 h-4 font-black">🥈 SILVER</Badge>;
-    }
-    return null;
-  };
-
-  // Cảnh báo khách hàng báo giá quá X ngày (Đỏ)
-  const isQuotedOverdue = stage === 'quoted' && differenceInDays(new Date(), new Date(customer.updated_at || customer.created_at)) >= leadOverdueDays;
-
-  const saleName = getStaffDisplayName(customer.owner_sale_id, staffMap);
-  const teleName = getStaffDisplayName(customer.owner_tele_id, staffMap);
-  const saleInitials = getStaffInitials(customer.owner_sale_id, staffMap);
-  const teleInitials = getStaffInitials(customer.owner_tele_id, staffMap);
+  const visualState = getCustomerVisualState(customer);
+  const convState = getCustomerConversationState(customer);
   
-  const channelIntel = customer.channel_summary || {};
-  const getChannelIcons = () => {
-     const icons = [];
-     if (channelIntel.has_facebook) icons.push(<Facebook key="fb" className="w-3 h-3 text-blue-600" />);
-     if (channelIntel.has_zalo) icons.push(<MessageSquare key="zl" className="w-3 h-3 text-blue-500" />);
-     if (channelIntel.has_email) icons.push(<Mail key="em" className="w-3 h-3 text-slate-500" />);
-     if (channelIntel.has_tiktok) icons.push(<Video key="tt" className="w-3 h-3 text-slate-900" />);
-     if (channelIntel.has_website) icons.push(<Globe key="wb" className="w-3 h-3 text-emerald-500" />);
-     return icons;
-  };
+  const hasZalo = !!customer.channel_summary?.has_zalo;
+  const primaryPhone = customer.phone || '';
 
   return (
     <Card 
       draggable={draggable}
       onDragStart={onDragStart}
       onClick={() => onPreview && onPreview(customer)}
-      className={`rounded-[24px] shadow-sm hover:shadow-xl transition-all duration-300 bg-white overflow-hidden group border cursor-grab active:cursor-grabbing relative ${isQuotedOverdue ? 'border-red-400 shadow-red-100 ring-1 ring-red-400/50' : 'border-transparent hover:border-slate-200'}`}
+      className={`rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 bg-white overflow-hidden group border cursor-grab active:cursor-grabbing hover:-translate-y-0.5 relative ${visualState.borderColor} ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}
     >
-       <CardContent className="p-5 space-y-4">
+       <CardContent className="p-3 space-y-2">
+          {/* Header */}
           <div className="flex justify-between items-start">
-             <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                   <h4 className="text-sm font-black text-slate-900 leading-tight group-hover:text-indigo-600 transition-colors">{customer.business_name || customer.facility_name || customer.contact_name || customer.name}</h4>
-                   {getTierBadge()}
-                   {stage === 'new_lead' && <Badge className="bg-red-100 text-red-700 hover:bg-red-200 text-[8px] px-1.5 py-0 border-none h-4">HOT</Badge>}
+             <div className="space-y-0.5 max-w-[85%]">
+                <h4 className="text-[13px] font-bold text-slate-800 tracking-tight leading-tight group-hover:text-indigo-600 transition-colors line-clamp-1">{customer.business_name || customer.facility_name || customer.contact_name || customer.name}</h4>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                   <p className="text-[10px] text-slate-500 font-medium">{customer.city || "Toàn quốc"}</p>
+                   
+                   {/* Temperature & Signals */}
+                   <div className="flex items-center gap-1 border-l border-slate-200 pl-1.5">
+                     {convState.temperature === 'HOT' && <Badge variant="secondary" className="bg-rose-50 text-rose-600 hover:bg-rose-100 border-none px-1.5 py-0 text-[8px] h-4 uppercase font-bold">🔥 Hot</Badge>}
+                     {convState.temperature === 'WARM' && <Badge variant="secondary" className="bg-orange-50 text-orange-600 hover:bg-orange-100 border-none px-1.5 py-0 text-[8px] h-4 uppercase font-bold">⭐ Warm</Badge>}
+                     {isVip && <Badge variant="secondary" className="bg-amber-50 text-amber-600 hover:bg-amber-100 border-none px-1.5 py-0 text-[8px] h-4 uppercase font-bold">👑 VIP</Badge>}
+                   </div>
                 </div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{customer.city || "Toàn quốc"}</p>
              </div>
-             {isQuotedOverdue ? (
-                <div title={`Đã báo giá quá ${leadOverdueDays} ngày, cần chăm sóc!`}>
-                   <AlertCircle className="w-4 h-4 text-red-500 animate-pulse shrink-0" />
-                </div>
-             ) : (
-                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-200 group-hover:text-slate-400 shrink-0">
-                   <MoreVertical className="w-4 h-4" />
-                 </Button>
-             )}
+             <div className="shrink-0 z-10" onClick={(e) => e.stopPropagation()}>
+                <InlineCustomerActions 
+                  customer={customer} 
+                  onOpenDrawer={(id) => onPreview && onPreview(customer)} 
+                  onRefresh={() => {}} 
+                />
+             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-             <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
-                <div className="flex -space-x-2">
-                   {customer.owner_sale_id && <div className="w-5 h-5 rounded-full bg-indigo-100 border border-white flex items-center justify-center text-[8px] text-indigo-600 font-bold" title={`Sale: ${saleName}`}>{saleInitials}</div>}
-                   {customer.owner_tele_id && <div className="w-5 h-5 rounded-full bg-teal-100 border border-white flex items-center justify-center text-[8px] text-teal-600 font-bold" title={`Tele: ${teleName}`}>{teleInitials}</div>}
-                   {!customer.owner_sale_id && !customer.owner_tele_id && <div className="w-5 h-5 rounded-full bg-slate-100 border border-white" />}
-                </div>
-                <span>• {customer.phone ? customer.phone.slice(-4).padStart(customer.phone.length, '*') : 'Chưa có SĐT'}</span>
-                <div className="flex items-center gap-1 ml-auto">
-                    {getChannelIcons()}
-                 </div>
+          {/* Contact Info (No owner initials) */}
+          <div className="flex items-center gap-2">
+             <span className="text-[11px] font-bold text-slate-600">{primaryPhone ? primaryPhone.slice(-4).padStart(primaryPhone.length, '*') : 'Chưa có SĐT'}</span>
+             <div className="flex gap-1 ml-auto">
+                {hasZalo && <div title="Có Zalo"><MessageSquare className="w-3.5 h-3.5 text-blue-500" /></div>}
+                {!hasSocial && <div title="Thiếu kênh MXH"><AlertCircle className="w-3.5 h-3.5 text-amber-500" /></div>}
+             </div>
+          </div>
+
+          {customer.notes && (
+             <div className="bg-amber-50/50 rounded-lg p-2 border border-amber-100/50">
+                <p className="text-[10px] text-amber-900 font-medium line-clamp-2 leading-relaxed whitespace-pre-wrap">
+                   <span className="font-bold mr-1 text-amber-700">📝 Ghi chú:</span>
+                   {customer.notes}
+                </p>
+             </div>
+          )}
+
+          <CustomerCardActivityInfo customer={customer} />
+
+          {/* Action Row - Primary Action + Quick Shortcuts + Action Icons */}
+          <div className="flex items-center gap-1 pt-2 border-t border-slate-50">
+             <Button 
+               className="rounded-xl h-8 text-[10px] font-black bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm px-3"
+               onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${primaryPhone}`; }}
+             >
+               <Phone className="w-3.5 h-3.5 mr-1.5" /> Gọi điện
+             </Button>
+
+             <div className="flex items-center gap-0.5 ml-1">
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          className={`h-8 w-8 rounded-lg transition-colors ${hasZalo ? 'text-blue-500 hover:text-blue-600 hover:bg-blue-50' : 'text-slate-300 hover:text-blue-500 hover:bg-slate-50'}`}
+                          onClick={(e) => { e.stopPropagation(); window.open(`https://zalo.me/${primaryPhone}`, '_blank'); }}
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent><p className="text-[10px]">Nhắn Zalo</p></TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          className={`h-8 w-8 rounded-lg transition-colors ${customer.channel_summary?.has_facebook ? 'text-blue-600 hover:text-blue-700 hover:bg-blue-50' : 'text-slate-300 hover:text-blue-600 hover:bg-slate-50'}`}
+                          onClick={(e) => { e.stopPropagation(); window.open(`https://facebook.com/search/top/?q=${encodeURIComponent(customer.phone || customer.name)}`, '_blank'); }}
+                        >
+                          <Facebook className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent><p className="text-[10px]">Tìm Facebook</p></TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          className={`h-8 w-8 rounded-lg transition-colors ${customer.city && customer.city !== 'Toàn quốc' ? 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50' : 'text-slate-300 hover:text-emerald-500 hover:bg-slate-50'}`}
+                          onClick={(e) => { e.stopPropagation(); window.open(`https://maps.google.com/?q=${encodeURIComponent(customer.city || customer.name)}`, '_blank'); }}
+                        >
+                          <MapPin className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent><p className="text-[10px]">Xem Bản đồ</p></TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
              </div>
              
-             <div className="flex justify-between items-center text-[9px] font-bold bg-slate-50 p-2 rounded-xl">
-                <span className="text-slate-400 flex items-center gap-1">
-                   <Clock className="w-3 h-3" /> 
-                   {customer.updated_at || customer.created_at ? formatDistanceToNow(new Date(customer.updated_at || customer.created_at), { addSuffix: true, locale: vi }) : 'Mới đây'}
-                </span>
-                {totalValue > 0 && <span className="text-emerald-600 font-black tracking-widest">{new Intl.NumberFormat('vi-VN').format(totalValue)}đ</span>}
+             <div className="flex items-center gap-1 ml-auto">
+               <TooltipProvider delayDuration={200}>
+                 <Tooltip>
+                   <TooltipTrigger asChild>
+                     <Button 
+                       variant="ghost" 
+                       size="icon"
+                       onClick={(e) => { e.stopPropagation(); onQuickLog(); }}
+                       className={`h-8 w-8 rounded-lg ${convState.urgency === 'overdue' ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'}`}
+                     >
+                       <CheckSquare className="w-4 h-4" />
+                     </Button>
+                   </TooltipTrigger>
+                   <TooltipContent><p className="text-[10px]">Đã gọi (Quick log)</p></TooltipContent>
+                 </Tooltip>
+               </TooltipProvider>
              </div>
-          </div>
-
-          <div className="pt-1 flex gap-2">
-             <Button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onPreview && onPreview(customer);
-                }}
-                className={`flex-1 rounded-xl h-8 text-[9px] font-black tracking-widest text-white shadow-sm transition-all hover:scale-105 ${action.color}`}
-             >
-                <action.icon className="w-3 h-3 mr-1.5" /> {action.label}
-             </Button>
-             <Button 
-                variant="outline" 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onQuickLog();
-                }}
-                className="w-8 h-8 rounded-xl border-slate-100 p-0 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-100 transition-all"
-             >
-                <MessageSquare className="w-3.5 h-3.5" />
-             </Button>
           </div>
        </CardContent>
     </Card>
   );
-}
+});
 
-function CustomerIntelligenceRow({ customer, staffMap, onPreview, onQuickLog }: any) {
-  const salesIntel = customer.sales_intelligence || {};
+const ManagerCustomerCard = React.memo(function ManagerCustomerCard({ customer, stage, onPreview, staffMap, isSelected, onToggleSelect, onQuickDispatch, draggable, onDragStart, isSaving }: any) {
+  const totalValue = customer.orders?.reduce((sum: number, o: any) => sum + (o.total || 0), 0) || 0;
+  const isVip = totalValue >= 50000000;
+  const isAtRisk = customer.ownership_status === 'at_risk';
+  const hasSocial = customer.channel_summary?.has_facebook || customer.channel_summary?.has_zalo || customer.channel_summary?.has_tiktok;
+  
+  const visualState = getCustomerVisualState(customer);
+  const convState = getCustomerConversationState(customer);
+  
+  const saleName = getStaffDisplayName(customer.owner_sale_id, staffMap);
+  const teleName = getStaffDisplayName(customer.owner_tele_id, staffMap);
+  const saleInitials = getStaffInitials(customer.owner_sale_id, staffMap);
+  const teleInitials = getStaffInitials(customer.owner_tele_id, staffMap);
+
+  return (
+    <Card 
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onClick={() => onPreview && onPreview(customer)}
+      className={`rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 bg-white overflow-hidden group border cursor-grab active:cursor-grabbing hover:-translate-y-0.5 relative ${visualState.borderColor} ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}
+    >
+       <CardContent className="p-3 space-y-2">
+          {/* Header */}
+          <div className="flex justify-between items-start">
+             <div className="flex items-start gap-2 max-w-[85%]">
+                <div onClick={e => e.stopPropagation()} className="cursor-pointer z-10 shrink-0 mt-0.5">
+                   <CheckSquare 
+                      className={`w-4 h-4 transition-colors ${isSelected ? 'text-indigo-600 fill-indigo-50' : 'text-slate-300 hover:text-indigo-400'}`} 
+                      onClick={() => onToggleSelect(!isSelected)} 
+                   />
+                </div>
+                <div className="space-y-0.5">
+                   <h4 className="text-[13px] font-bold tracking-tight text-slate-800 leading-tight group-hover:text-indigo-600 transition-colors line-clamp-1">{customer.business_name || customer.facility_name || customer.contact_name || customer.name}</h4>
+                   <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-[10px] text-slate-500 font-medium">{customer.city || "Toàn quốc"}</p>
+                      
+                      {/* Dispatch Signals (Max 2 badges) */}
+                      <div className="flex items-center gap-1 border-l border-slate-200 pl-1.5">
+                        {!customer.owner_sale_id && !customer.owner_tele_id && <Badge variant="secondary" className="bg-rose-50 text-rose-600 hover:bg-rose-100 border-none px-1.5 py-0 text-[8px] h-4 uppercase font-bold">⭕ Unassigned</Badge>}
+                        {!hasSocial && (customer.owner_sale_id || customer.owner_tele_id) && <Badge variant="secondary" className="bg-amber-50 text-amber-600 hover:bg-amber-100 border-none px-1.5 py-0 text-[8px] h-4 uppercase font-bold">No Social</Badge>}
+                        {customer.ownership_status === 'pending_revoke' && <Badge variant="secondary" className="bg-purple-50 text-purple-600 hover:bg-purple-100 border-none px-1.5 py-0 text-[8px] h-4 uppercase font-bold">Revoke</Badge>}
+                      </div>
+                   </div>
+                </div>
+             </div>
+             <div className="flex flex-col items-end gap-2 shrink-0 z-10" onClick={e => e.stopPropagation()}>
+                <InlineCustomerActions 
+                  customer={customer} 
+                  onOpenDrawer={(id) => onPreview && onPreview(customer)} 
+                  onRefresh={() => {}} 
+                  onAssignSale={() => onQuickDispatch('assign_sale')}
+                  onAssignTele={() => onQuickDispatch('assign_tele')}
+                />
+             </div>
+          </div>
+          
+          {customer.notes && (
+             <div className="bg-amber-50/50 rounded-lg p-2 border border-amber-100/50 mt-1">
+                <p className="text-[10px] text-amber-900 font-medium line-clamp-2 leading-relaxed whitespace-pre-wrap">
+                   <span className="font-bold mr-1 text-amber-700">📝 Ghi chú:</span>
+                   {customer.notes}
+                </p>
+             </div>
+          )}
+
+          {/* Staff Info (Owner Block) -> Changed to Chips */}
+          <div className="flex items-center gap-1.5 border-t border-slate-50 pt-2.5">
+             {customer.owner_sale_id ? (
+               <div className="flex items-center gap-1 bg-indigo-50/50 rounded-full pr-2 pl-0.5 py-0.5 border border-indigo-100/50" title={`Sale: ${saleName}`}>
+                 <div className="w-4 h-4 rounded-full bg-indigo-100 flex items-center justify-center text-[8px] font-bold text-indigo-600">{saleInitials}</div>
+                 <span className="text-[9px] font-semibold text-slate-600 truncate max-w-[60px]">{saleName.split(' ')[0]}</span>
+               </div>
+             ) : (
+               <div className="flex items-center gap-1 bg-slate-50 rounded-full px-2 py-0.5 border border-slate-100">
+                 <span className="text-[9px] font-medium text-slate-400">Chưa có Sale</span>
+               </div>
+             )}
+             
+             {customer.owner_tele_id ? (
+               <div className="flex items-center gap-1 bg-teal-50/50 rounded-full pr-2 pl-0.5 py-0.5 border border-teal-100/50" title={`Tele: ${teleName}`}>
+                 <div className="w-4 h-4 rounded-full bg-teal-100 flex items-center justify-center text-[8px] font-bold text-teal-600">{teleInitials}</div>
+                 <span className="text-[9px] font-semibold text-slate-600 truncate max-w-[60px]">{teleName.split(' ')[0]}</span>
+               </div>
+             ) : (
+               <div className="flex items-center gap-1 bg-slate-50 rounded-full px-2 py-0.5 border border-slate-100">
+                 <span className="text-[9px] font-medium text-slate-400">Chưa có Tele</span>
+               </div>
+             )}
+          </div>
+
+          <CustomerCardActivityInfo customer={customer} isManager={true} />
+
+          {/* Action Row for Manager */}
+          {(!customer.owner_sale_id || stage === 'lead_new') && (
+             <div className="flex items-center gap-2 pt-2 border-t border-slate-50 mt-1">
+                <Button 
+                   className="rounded-xl h-8 w-full text-[11px] font-black bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+                   onClick={(e) => { 
+                      e.stopPropagation(); 
+                      onQuickDispatch('assign_sale'); 
+                   }}
+                >
+                   Chia Lead Nhanh
+                </Button>
+             </div>
+          )}
+       </CardContent>
+    </Card>
+  );
+});
+
+function CustomerIntelligenceRow({ customer, staffMap, onPreview, onQuickLog, isSelected, onToggleSelect, isManager, onQuickDispatch }: any) {
   const channelIntel = customer.channel_summary || {};
+  const totalValue = customer.orders?.reduce((sum: number, o: any) => sum + (o.total || 0), 0) || 0;
+  const isVip = totalValue >= 50000000;
+  const isAtRisk = customer.ownership_status === 'at_risk';
+  const hasSocial = channelIntel.has_facebook || channelIntel.has_zalo || channelIntel.has_tiktok;
   
-  const score = channelIntel.channel_health_score || 0;
-  let healthStatus = 'weak';
-  if (score >= 80) healthStatus = 'healthy';
-  else if (score >= 40) healthStatus = 'partial';
-  
-  const dupRisk = channelIntel.duplicate_risk;
-  const hasRisk = dupRisk && (dupRisk.has_value_duplicates || dupRisk.has_external_id_duplicates || dupRisk.has_primary_duplicates);
-
-  const getHealthColor = () => {
-    if (healthStatus === 'healthy') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-    if (healthStatus === 'partial') return 'bg-amber-100 text-amber-700 border-amber-200';
-    return 'bg-rose-100 text-rose-700 border-rose-200';
-  };
-
-  const getChannelIcon = (type: string) => {
-    switch (type) {
-       case 'facebook': return <Facebook className="w-3.5 h-3.5" />;
-       case 'zalo': return <MessageSquare className="w-3.5 h-3.5" />;
-       case 'email': return <Mail className="w-3.5 h-3.5" />;
-       case 'tiktok': return <Video className="w-3.5 h-3.5" />;
-       case 'website': return <Globe className="w-3.5 h-3.5" />;
-       default: return <Globe className="w-3.5 h-3.5" />;
-    }
-  };
-
-  const renderChannelAction = (ch: any) => {
-     let href = "#";
-     if (ch.type === 'facebook') href = ch.value.includes('http') ? ch.value : `https://facebook.com/${ch.value}`;
-     else if (ch.type === 'zalo') href = `https://zalo.me/${ch.value}`;
-     else if (ch.type === 'website') href = ch.value.includes('http') ? ch.value : `https://${ch.value}`;
-     else if (ch.type === 'email') href = `mailto:${ch.value}`;
-     
-     return (
-        <a 
-           key={`${ch.type}-${ch.value}`} 
-           href={href} 
-           target="_blank" 
-           rel="noreferrer"
-           className="relative inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-50 border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50 transition-all group"
-           title={ch.value}
-           onClick={(e) => e.stopPropagation()}
-        >
-           {getChannelIcon(ch.type)}
-           {ch.is_primary && <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-400 border-2 border-white rounded-full flex items-center justify-center text-white"><Star className="w-2 h-2 fill-white" /></div>}
-           {ch.is_verified && <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-blue-500 border-2 border-white rounded-full flex items-center justify-center text-white"><CheckCircle2 className="w-2 h-2" /></div>}
-        </a>
-     );
-  };
+  const visualState = getCustomerVisualState(customer);
 
   const saleName = getStaffDisplayName(customer.owner_sale_id, staffMap);
   const teleName = getStaffDisplayName(customer.owner_tele_id, staffMap);
+  const saleInitials = getStaffInitials(customer.owner_sale_id, staffMap);
+  const teleInitials = getStaffInitials(customer.owner_tele_id, staffMap);
+  
+  const hasZalo = !!customer.channel_summary?.has_zalo;
+  const primaryPhone = customer.phone || '';
 
   return (
-    <div className="group bg-white border border-slate-100 rounded-[24px] p-4 flex flex-col md:flex-row gap-6 items-start md:items-center shadow-sm hover:shadow-md transition-all cursor-pointer" onClick={onPreview}>
+    <div className={`group bg-white border-2 rounded-[24px] p-4 flex flex-col md:flex-row gap-6 items-start md:items-center shadow-sm hover:shadow-md transition-all cursor-pointer ${visualState.borderColor} ${visualState.animation || ''}`} onClick={onPreview}>
        {/* Col 1: Info & Health */}
-       <div className="w-full md:w-3/12 flex items-start gap-4">
-          <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-lg font-black text-slate-400 uppercase shrink-0">
-             {(customer.contact_name || customer.name || customer.business_name || customer.facility_name || "C").slice(0, 1)}
-          </div>
-          <div>
-             <h4 className="text-sm font-black text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">{customer.business_name || customer.facility_name || "Khách lẻ"}</h4>
-             <p className="text-xs font-bold text-slate-500 mt-0.5 flex items-center gap-1">
-                {customer.contact_name || customer.name} • {customer.phone ? customer.phone.slice(-4).padStart(customer.phone.length, '*') : 'Chưa có SĐT'}
-             </p>
-             <div className="flex items-center">
-               <Badge className={`mt-2 text-[8px] px-1.5 py-0 h-4 uppercase font-black border ${getHealthColor()}`}>
-                  {healthStatus === 'healthy' ? 'Healthy' : healthStatus === 'partial' ? 'Partial' : 'Weak'} ({score})
-               </Badge>
-               {hasRisk && (
-                  <TooltipProvider>
-                     <Tooltip>
-                        <TooltipTrigger asChild>
-                           <AlertCircle className="w-4 h-4 text-rose-500 animate-pulse ml-2 mt-2" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                           Phát hiện trùng lặp kênh liên hệ. Cần kiểm tra!
-                        </TooltipContent>
-                     </Tooltip>
-                  </TooltipProvider>
-               )}
-             </div>
-          </div>
-       </div>
-
-       {/* Col 2: Omnichannel */}
-       <div className="w-full md:w-2/12 flex flex-wrap gap-2">
-          {channelIntel.channels_summary?.length > 0 ? (
-             channelIntel.channels_summary.map((ch: any) => renderChannelAction(ch))
-          ) : (
-             <span className="text-xs text-slate-400 italic">Chưa có kênh liên hệ</span>
-          )}
-       </div>
-
-       {/* Col 3: Priority & Stage */}
-       <div className="w-full md:w-2/12">
-          <div className="flex items-center gap-2 mb-1">
-             <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                <div 
-                   className={`h-full rounded-full ${salesIntel.priority_score >= 80 ? 'bg-red-500' : salesIntel.priority_score >= 50 ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                   style={{ width: `${Math.min(salesIntel.priority_score || 0, 100)}%` }}
+       <div className="w-full md:w-4/12 flex items-start gap-4">
+          {isManager && onToggleSelect && (
+             <div onClick={e => e.stopPropagation()} className="cursor-pointer pt-3 shrink-0">
+                <CheckSquare 
+                   className={`w-4 h-4 transition-colors ${isSelected ? 'text-indigo-600 fill-indigo-50' : 'text-slate-300 hover:text-indigo-400'}`} 
+                   onClick={() => onToggleSelect(!isSelected)} 
                 />
              </div>
-             <span className="text-[10px] font-black text-slate-600" title="Priority Score">{salesIntel.priority_score || 0}</span>
+          )}
+          <div className="flex -space-x-2 shrink-0 pt-2">
+             {customer.owner_sale_id && <div className="w-8 h-8 rounded-full bg-indigo-100 border-2 border-white flex items-center justify-center text-[10px] text-indigo-600 font-bold shadow-sm" title={`Sale: ${saleName}`}>{saleInitials}</div>}
+             {customer.owner_tele_id && <div className="w-8 h-8 rounded-full bg-teal-100 border-2 border-white flex items-center justify-center text-[10px] text-teal-600 font-bold shadow-sm" title={`Tele: ${teleName}`}>{teleInitials}</div>}
+             {!customer.owner_sale_id && !customer.owner_tele_id && <div className="w-8 h-8 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[10px] text-slate-400 font-bold" title="Chưa phân công">?</div>}
           </div>
-          <Badge variant="outline" className={`rounded-lg font-black text-[9px] uppercase border-none ${getPipelineStageColor(customer.lifecycle_stage)} bg-opacity-10 text-opacity-100 w-fit`}>
+          <div>
+             <h4 className="text-sm font-black text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">{customer.business_name || customer.facility_name || customer.contact_name || customer.name}</h4>
+             <p className="text-xs font-bold text-slate-500 mt-0.5 flex items-center gap-1">
+                {customer.city || "Toàn quốc"} • {primaryPhone ? primaryPhone.slice(-4).padStart(primaryPhone.length, '*') : 'Chưa có SĐT'}
+             </p>
+             <div className="flex items-center gap-2 mt-2">
+                <Badge className={`${visualState.bgColor} ${visualState.textColor} text-[8px] px-2 py-0 h-5 uppercase font-black`}>
+                   {visualState.badgeText}
+                </Badge>
+                {isVip && <Badge className="bg-gradient-to-r from-amber-400 to-amber-600 text-white shadow-sm border-none text-[8px] px-2 py-0 h-5 font-black">VIP</Badge>}
+             </div>
+          </div>
+       </div>
+
+       {/* Col 2: Activity Intel */}
+       <div className="w-full md:w-3/12 flex flex-col gap-1.5 border-l border-slate-100 pl-6">
+          <div className="flex justify-between items-center text-xs">
+             <span className="font-medium text-slate-400">Tương tác cuối:</span>
+             <span className="font-bold text-slate-700">{customer.last_activity_at ? formatDistanceToNow(new Date(customer.last_activity_at), { addSuffix: true, locale: vi }) : 'Chưa có'}</span>
+          </div>
+          <div className="flex justify-between items-center text-xs">
+             <span className="font-medium text-slate-400">Next Follow-up:</span>
+             <span className={`font-bold ${getCustomerConversationState(customer).urgency === 'overdue' ? 'text-orange-600' : 'text-slate-700'}`}>
+               {customer.next_follow_up_at ? format(new Date(customer.next_follow_up_at), "HH:mm dd/MM") : 'Chưa hẹn'}
+             </span>
+          </div>
+       </div>
+
+       {/* Col 3: Stage & Value */}
+       <div className="w-full md:w-2/12 border-l border-slate-100 pl-6">
+          <Badge variant="outline" className={`rounded-lg font-black text-[10px] uppercase border-none ${getPipelineStageColor(customer.lifecycle_stage)} bg-opacity-10 text-opacity-100`}>
              {getPipelineStageLabel(customer.lifecycle_stage)}
           </Badge>
+          {totalValue > 0 && <div className="mt-2 text-xs font-black text-emerald-600">{new Intl.NumberFormat('vi-VN').format(totalValue)}đ</div>}
        </div>
 
-       {/* Col 4: Last Activity */}
-       <div className="w-full md:w-3/12">
-          {salesIntel.latest_activity ? (
-             <>
-                <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">{salesIntel.latest_activity}</p>
-                <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase flex items-center gap-1">
-                   <Clock className="w-3 h-3" /> {formatDistanceToNow(new Date(salesIntel.activity_at), { addSuffix: true, locale: vi })}
-                </p>
-             </>
-          ) : (
-             <span className="text-xs text-slate-400 italic">Chưa có tương tác</span>
+       {/* Col 4: Quick Actions */}
+       <div className="w-full md:w-3/12 flex items-center justify-end gap-2 pl-6 md:border-l border-slate-100">
+          {hasZalo && (
+             <Button 
+               size="icon"
+               className="rounded-xl bg-blue-500 hover:bg-blue-600 text-white shadow-sm"
+               onClick={(e) => { e.stopPropagation(); window.open(`https://zalo.me/${primaryPhone}`, '_blank'); }}
+               title="Mở Zalo"
+             >
+               <MessageSquare className="w-4 h-4" />
+             </Button>
           )}
-       </div>
-
-       {/* Col 5: Quick Actions */}
-       <div className="w-full md:w-2/12 flex items-center justify-end gap-2">
-          {customer.phone && (
-             <a href={`tel:${customer.phone}`} onClick={e => e.stopPropagation()} className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 transition-colors">
-                <PhoneCall className="w-4 h-4" />
-             </a>
-          )}
-          <button onClick={(e) => { e.stopPropagation(); onQuickLog(); }} className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors">
-             <FileText className="w-4 h-4" />
-          </button>
+          <Button 
+            size="icon"
+            className={`rounded-xl shadow-sm ${!hasZalo ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
+            onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${primaryPhone}`; }}
+            title="Gọi điện"
+          >
+            <Phone className="w-4 h-4" />
+          </Button>
+          <Button 
+            variant="outline" 
+            className={`rounded-xl font-black border-slate-200 shadow-sm ${getCustomerConversationState(customer).urgency === 'overdue' ? 'text-orange-600 border-orange-200 hover:bg-orange-50' : 'text-slate-600 hover:bg-slate-50'}`}
+            onClick={(e) => { e.stopPropagation(); onQuickLog(); }}
+          >
+            <Check className="w-4 h-4 mr-2" /> Đã gọi
+          </Button>
        </div>
     </div>
   );
 }
+

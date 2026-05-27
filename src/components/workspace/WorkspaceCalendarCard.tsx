@@ -61,7 +61,7 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ ev
           .select("customer_id")
           .eq("assigned_to", user.id);
         
-        const customerIds = Array.from(new Set((tasksData || []).map(t => t.customer_id).filter(Boolean)));
+        const customerIds = Array.from(new Set((tasksData || []).map((t: any) => t.customer_id).filter(Boolean)));
         if (customerIds.length > 0) {
           const { data: custData } = await query.in("id", customerIds).limit(100);
           fetchedCustomers = custData || [];

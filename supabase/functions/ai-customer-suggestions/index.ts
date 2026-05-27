@@ -64,7 +64,12 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const { customerId, includeMessageSuggestion } = await req.json();
+    const reqData = await req.json();
+    if (reqData.test === true) {
+      return new Response(JSON.stringify({ status: "pass", message: "Ping successful" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const { customerId, includeMessageSuggestion } = reqData;
     if (!customerId) {
       return new Response(JSON.stringify({ error: 'Missing customerId' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
@@ -135,7 +140,7 @@ ${JSON.stringify(customerContext)}
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': \`Bearer \${openaiKey}\`,
+        'Authorization': `Bearer ${openaiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({

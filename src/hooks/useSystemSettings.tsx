@@ -9,6 +9,7 @@ type SystemSettings = {
   supportPhone: string;
   supportEmail: string;
   leadOverdueDays: number;
+  pilotModeEnabled: boolean;
 };
 
 const defaultSettings: SystemSettings = {
@@ -18,6 +19,7 @@ const defaultSettings: SystemSettings = {
   supportPhone: "1900 6868",
   supportEmail: "support@desembre.vn",
   leadOverdueDays: 3,
+  pilotModeEnabled: true,
 };
 
 const SettingsContext = createContext<SystemSettings>(defaultSettings);
@@ -27,7 +29,7 @@ export function SystemSettingsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     supabase.from('system_settings').select('*').maybeSingle()
-      .then(({ data }) => {
+      .then(({ data }: { data: any }) => {
         if (data) {
           const vat = (data.vat_rate || 10) / 100;
           const discount = (data.default_discount || 35) / 100;
@@ -38,6 +40,7 @@ export function SystemSettingsProvider({ children }: { children: ReactNode }) {
             supportPhone: data.support_phone || defaultSettings.supportPhone,
             supportEmail: data.support_email || defaultSettings.supportEmail,
             leadOverdueDays: data.lead_overdue_days ?? defaultSettings.leadOverdueDays,
+            pilotModeEnabled: data.pilot_mode_enabled ?? defaultSettings.pilotModeEnabled,
           });
           setPricingSettings(vat, discount);
         }

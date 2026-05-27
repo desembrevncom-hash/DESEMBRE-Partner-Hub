@@ -99,17 +99,20 @@ DROP POLICY IF EXISTS "Admins can view all notifications" ON public.notification
 
 -- Khôi phục và thắt chặt policies
 -- SELECT
+DROP POLICY IF EXISTS "Admin/SubAdmin can select all notifications" ON public.notifications;
 CREATE POLICY "Admin/SubAdmin can select all notifications" 
 ON public.notifications FOR SELECT 
 TO authenticated 
 USING (public.is_admin_or_sub_admin(auth.uid()));
 
+DROP POLICY IF EXISTS "Users can select own notifications" ON public.notifications;
 CREATE POLICY "Users can select own notifications" 
 ON public.notifications FOR SELECT 
 TO authenticated 
 USING (recipient_user_id = auth.uid());
 
 -- UPDATE (Chỉ cho phép update status, read_at, dismissed_at)
+DROP POLICY IF EXISTS "Users can update own notification status" ON public.notifications;
 CREATE POLICY "Users can update own notification status" 
 ON public.notifications FOR UPDATE 
 TO authenticated 
@@ -117,12 +120,14 @@ USING (recipient_user_id = auth.uid())
 WITH CHECK (recipient_user_id = auth.uid());
 
 -- Admin DELETE
+DROP POLICY IF EXISTS "Admins can delete notifications" ON public.notifications;
 CREATE POLICY "Admins can delete notifications" 
 ON public.notifications FOR DELETE 
 TO authenticated 
 USING (public.is_admin_or_sub_admin(auth.uid()));
 
 -- Insert bị cấm qua API thông thường (Chỉ cho service role hoặc SECURITY DEFINER rpc)
+DROP POLICY IF EXISTS "No direct insert for normal users" ON public.notifications;
 CREATE POLICY "No direct insert for normal users" 
 ON public.notifications FOR INSERT 
 TO authenticated 

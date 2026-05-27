@@ -310,25 +310,25 @@ function AutomationGovernancePage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Card className="border-slate-200 shadow-sm">
                   <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-1">
-                    <span className="text-3xl font-black text-slate-800">{data.today_stats.automation_runs_today}</span>
+                    <span className="text-3xl font-black text-slate-800">{data.stats_today?.automation_runs || 0}</span>
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Runs Today</span>
                   </CardContent>
                 </Card>
                 <Card className="border-slate-200 shadow-sm">
                   <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-1">
-                    <span className="text-3xl font-black text-indigo-600">{data.today_stats.tasks_created_today}</span>
+                    <span className="text-3xl font-black text-indigo-600">{data.stats_today?.tasks_created || 0}</span>
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tasks Created</span>
                   </CardContent>
                 </Card>
                 <Card className="border-slate-200 shadow-sm">
                   <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-1">
-                    <span className="text-3xl font-black text-rose-600">{data.today_stats.notifications_created_today}</span>
+                    <span className="text-3xl font-black text-rose-600">{data.stats_today?.notifications_created || 0}</span>
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Notifs Created</span>
                   </CardContent>
                 </Card>
                 <Card className="border-rose-200 shadow-sm bg-rose-50/50">
                   <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-1">
-                    <span className="text-3xl font-black text-rose-700">{data.today_stats.failed_runs_today}</span>
+                    <span className="text-3xl font-black text-rose-700">{data.stats_today?.failed_runs || 0}</span>
                     <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Failed Runs</span>
                   </CardContent>
                 </Card>
@@ -370,17 +370,17 @@ function AutomationGovernancePage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  {data.locks.length === 0 ? (
+                  {Object.keys(data.active_locks || {}).length === 0 ? (
                     <div className="p-8 text-center text-slate-400 text-xs">Không có tiến trình nào đang bị khóa.</div>
                   ) : (
                     <div className="divide-y divide-slate-100">
-                      {data.locks.map((lock: any) => (
-                        <div key={lock.id} className="p-4 flex items-center justify-between">
+                      {Object.entries(data.active_locks).map(([key, lock]: [string, any]) => (
+                        <div key={key} className="p-4 flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-bold text-slate-800 font-mono">{lock.lock_key}</p>
+                            <p className="text-sm font-bold text-slate-800 font-mono">{key}</p>
                             <p className="text-xs text-slate-500 mt-1">Expires: {new Date(lock.expires_at).toLocaleString('vi-VN')}</p>
                           </div>
-                          <Button size="sm" variant="outline" onClick={() => releaseLock(lock.lock_key)} className="text-rose-600 border-rose-200 hover:bg-rose-50">
+                          <Button size="sm" variant="outline" onClick={() => releaseLock(key)} className="text-rose-600 border-rose-200 hover:bg-rose-50">
                             <Trash2 className="w-4 h-4 mr-1" /> Gỡ khóa
                           </Button>
                         </div>
@@ -397,11 +397,11 @@ function AutomationGovernancePage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  {data.recent_runs.length === 0 ? (
+                  {!data.recent_logs || data.recent_logs.length === 0 ? (
                     <div className="p-8 text-center text-slate-400 text-xs">Chưa có dữ liệu chạy.</div>
                   ) : (
                     <div className="divide-y divide-slate-100">
-                      {data.recent_runs.map((run: any) => (
+                      {data.recent_logs.map((run: any) => (
                         <div key={run.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center justify-between">
                            <div>
                              <p className="text-sm font-bold text-slate-800 flex items-center gap-2">

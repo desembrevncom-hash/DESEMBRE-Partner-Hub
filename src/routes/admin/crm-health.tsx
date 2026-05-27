@@ -133,6 +133,18 @@ function buildInitialModules(): HealthModule[] {
         { id: "notif_no_recipient", label: "Thông báo không có người nhận", description: "recipient_user_id IS NULL", status: "loading", count: null, sql: "SELECT count(*) FROM notifications WHERE recipient_user_id IS NULL" },
       ],
     },
+    {
+      id: "system",
+      name: "System Health (Production)",
+      icon: <ActivitySquare className="w-4 h-4" />,
+      color: "text-indigo-600",
+      expanded: true,
+      loading: false,
+      checks: [
+        { id: "app_error_logs", label: "App Error Logs mới (24h)", description: "Errors sinh ra trong 24h qua", status: "loading", count: null, sql: "SELECT count(*) FROM app_error_logs WHERE created_at > now() - interval '24 hours'" },
+        { id: "retry_queue_failed", label: "Retry Queue Failed", description: "Các job failed trong retry_queue", status: "loading", count: null, sql: "SELECT count(*) FROM retry_queue WHERE status = 'failed'" },
+      ],
+    },
   ];
 }
 
@@ -295,6 +307,25 @@ function CRMHealthPage() {
                 .select("id", { count: "exact", head: true })
                 .is("recipient_user_id", null);
               if (!error) count = c ?? 0;
+            }
+          } else if (moduleId === "system") {
+            if (check.id === "app_error_logs") {
+              try {
+                const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+                const { count: c, error } = await supabase
+                  .from("app_error_logs")
+                  .select("id", { count: "exact", head: true })
+                  .gt("created_at", oneDayAgo);
+                if (!error) count = c ?? 0;
+              } catch { count = null; }
+            } else if (check.id === "retry_queue_failed") {
+              try {
+                const { count: c, error } = await supabase
+                  .from("retry_queue")
+                  .select("id", { count: "exact", head: true })
+                  .eq("status", "failed");
+                if (!error) count = c ?? 0;
+              } catch { count = null; }
             }
           }
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 import { WorkspaceShell } from "./WorkspaceShell";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";

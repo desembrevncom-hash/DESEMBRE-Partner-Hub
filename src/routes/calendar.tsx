@@ -165,7 +165,7 @@ function CalendarPage() {
           .select("customer_id")
           .eq("assigned_to", user?.id);
         
-        const customerIds = Array.from(new Set((tasksData || []).map(t => t.customer_id).filter(Boolean)));
+        const customerIds = Array.from(new Set((tasksData || []).map((t: any) => t.customer_id).filter(Boolean)));
         if (customerIds.length > 0) {
           const { data: custVal } = await query.in("id", customerIds);
           custData = custVal || [];
@@ -552,7 +552,7 @@ function CalendarPage() {
             }).then();
           } catch (_) {}
         } else {
-          const isDbTask = events.find(e => e.id === editEventId)?._is_db_task;
+          const isDbTask = (events.find(e => e.id === editEventId) as any)?._is_db_task;
           if (isDbTask) {
             let taskType = "call";
             if (personalType === "check_in") taskType = "visit";
@@ -633,6 +633,8 @@ function CalendarPage() {
             customer_id: customerId || null,
             assigned_sale_id: targetSaleId,
             created_by: user?.id || null,
+            owner_user_id: targetSaleId || user?.id || null,
+            visibility: 'private',
             remind_before_minutes: Number(remindMinutes) || 30,
             status: "pending",
           };
@@ -684,7 +686,7 @@ function CalendarPage() {
         setSaving(false);
       }
     } else {
-      const isDbTask = events.find(e => e.id === id)?._is_db_task;
+      const isDbTask = (events.find(e => e.id === id) as any)?._is_db_task;
       const targetTable = isDbTask ? "customer_tasks" : "calendar_events";
       
       if (!window.confirm(isDbTask ? "Bạn có chắc chắn muốn xóa công việc này?" : "Bạn có chắc chắn muốn xóa lịch trình cá nhân này?")) return;
@@ -929,7 +931,7 @@ function CalendarPage() {
         startsAt: computedTargetStart,
         endsAt: computedTargetEnd,
         location: eventLocation || meetingUrl || null,
-        description: formatGCalDescription(reg.customer_name, reg.customer_phone, description)
+        description: formatGCalDescription(reg.customer_name || "", reg.customer_phone, description)
       });
 
       if (reg.id && calUrl) {
@@ -1616,7 +1618,7 @@ function CalendarPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {upcomingEvents.map(ev => {
-                const isCompany = ev._ui_type === 'company';
+                const isCompany = (ev as any)._ui_type === 'company';
                 const typeMeta = isCompany 
                   ? getCompanyEventTypeLabel(ev.event_type as CompanyEventType)
                   : getPersonalEventTypeLabel(ev.event_type as PersonalEventType);
@@ -2652,7 +2654,7 @@ function CalendarPage() {
                                             startsAt: `${targetDatePart}T${targetStartTimePart}`,
                                             endsAt: `${targetDatePart}T${targetEndTimePart}`,
                                             location: eventLocation || meetingUrl || null,
-                                            description: formatGCalDescription(reg.customer_name, reg.customer_phone, description)
+                                            description: formatGCalDescription(reg.customer_name || "", reg.customer_phone, description)
                                           });
                                         })()}
                                         target="_blank"

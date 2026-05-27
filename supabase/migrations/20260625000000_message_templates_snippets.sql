@@ -15,6 +15,28 @@ CREATE TABLE IF NOT EXISTS public.message_templates (
     updated_at timestamptz DEFAULT now()
 );
 
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='message_templates' AND column_name='title') THEN
+    ALTER TABLE public.message_templates ADD COLUMN title text NOT NULL DEFAULT '';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='message_templates' AND column_name='platform') THEN
+    ALTER TABLE public.message_templates ADD COLUMN platform text NOT NULL DEFAULT 'all';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='message_templates' AND column_name='category') THEN
+    ALTER TABLE public.message_templates ADD COLUMN category text;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='message_templates' AND column_name='content') THEN
+    ALTER TABLE public.message_templates ADD COLUMN content text NOT NULL DEFAULT '';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='message_templates' AND column_name='is_active') THEN
+    ALTER TABLE public.message_templates ADD COLUMN is_active boolean DEFAULT true;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='message_templates' AND column_name='is_shared') THEN
+    ALTER TABLE public.message_templates ADD COLUMN is_shared boolean DEFAULT false;
+  END IF;
+END $$;
+
 -- RLS
 ALTER TABLE public.message_templates ENABLE ROW LEVEL SECURITY;
 
@@ -62,22 +84,22 @@ USING (
 );
 
 -- Seed templates (Admin created)
-DO $$
-DECLARE
-  v_admin_id uuid;
-BEGIN
-  SELECT id INTO v_admin_id FROM auth.users LIMIT 1;
-  IF v_admin_id IS NOT NULL THEN
-    INSERT INTO public.message_templates (title, platform, category, content, is_shared, created_by)
-    VALUES 
-    ('Follow-up sau tư vấn', 'all', 'Chăm sóc', 'Chào {{customer_name}}, mình là {{sale_name}} từ {{spa_name}}. Hôm trước tư vấn bạn thấy sao rồi ạ?', true, v_admin_id),
-    ('Gửi báo giá', 'all', 'Bán hàng', 'Dạ gửi {{customer_name}} báo giá chi tiết dịch vụ tại {{spa_name}} ạ.', true, v_admin_id),
-    ('Nhắc lịch hẹn', 'all', 'Chăm sóc', 'Dạ {{customer_name}} nhớ lịch hẹn tại {{spa_name}} vào ngày mai nhé ạ.', true, v_admin_id),
-    ('Chăm sóc sau mua', 'all', 'Chăm sóc', 'Chào {{customer_name}}, bạn dùng sản phẩm thấy thế nào rồi ạ?', true, v_admin_id),
-    ('Xin thông tin Zalo/Facebook', 'phone', 'Liên lạc', 'Dạ {{customer_name}} có dùng Zalo số này không để em gửi thông tin ạ?', true, v_admin_id)
-    ON CONFLICT DO NOTHING;
-  END IF;
-END $$;
+-- DO $$
+-- DECLARE
+--   v_admin_id uuid;
+-- BEGIN
+--   SELECT id INTO v_admin_id FROM auth.users LIMIT 1;
+--   IF v_admin_id IS NOT NULL THEN
+--     INSERT INTO public.message_templates (title, platform, category, content, is_shared, created_by)
+--     VALUES 
+--     ('Follow-up sau tư vấn', 'all', 'Chăm sóc', 'Chào {{customer_name}}, mình là {{sale_name}} từ {{spa_name}}. Hôm trước tư vấn bạn thấy sao rồi ạ?', true, v_admin_id),
+--     ('Gửi báo giá', 'all', 'Bán hàng', 'Dạ gửi {{customer_name}} báo giá chi tiết dịch vụ tại {{spa_name}} ạ.', true, v_admin_id),
+--     ('Nhắc lịch hẹn', 'all', 'Chăm sóc', 'Dạ {{customer_name}} nhớ lịch hẹn tại {{spa_name}} vào ngày mai nhé ạ.', true, v_admin_id),
+--     ('Chăm sóc sau mua', 'all', 'Chăm sóc', 'Chào {{customer_name}}, bạn dùng sản phẩm thấy thế nào rồi ạ?', true, v_admin_id),
+--     ('Xin thông tin Zalo/Facebook', 'phone', 'Liên lạc', 'Dạ {{customer_name}} có dùng Zalo số này không để em gửi thông tin ạ?', true, v_admin_id)
+--     ON CONFLICT DO NOTHING;
+--   END IF;
+-- END $$;
 
 
 -- Harden log_communication_interaction

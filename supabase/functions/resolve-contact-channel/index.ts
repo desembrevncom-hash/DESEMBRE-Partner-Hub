@@ -30,7 +30,12 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const { customerId, channelType, value, scope, remarketing_enabled, notes, is_primary } = await req.json();
+    const reqData = await req.json();
+    if (reqData.test === true) {
+      return new Response(JSON.stringify({ status: "pass", message: "Ping successful" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const { customerId, channelType, value, scope, remarketing_enabled, notes, is_primary } = reqData;
 
     if (!customerId || !channelType || !value || !scope) {
       throw new Error('Missing required fields');

@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import type { CalendarEvent } from "@/types/calendar";
+import type { PersonalEvent } from "@/types/calendar";
 
 /**
  * Hook truy vấn và cảnh báo các sự kiện lịch trình sắp diễn ra trong vòng 30 phút tới.
  * Tự động hiển thị Toast thông báo một lần duy nhất khi nạp danh sách thành công.
  */
 export function useUpcomingReminders(userId: string | undefined, isAdmin: boolean) {
-  const [upcomingEvents, setUpcomingEvents] = useState<CalendarEvent[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<PersonalEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const notifiedRef = useRef(false);
 
@@ -32,7 +32,7 @@ export function useUpcomingReminders(userId: string | undefined, isAdmin: boolea
 
       if (error) throw error;
 
-      const events = (data || []) as CalendarEvent[];
+      const events = (data || []) as PersonalEvent[];
       setUpcomingEvents(events);
 
       // Kích hoạt thông báo Toast nhắc việc 1 lần duy nhất khi vào trang

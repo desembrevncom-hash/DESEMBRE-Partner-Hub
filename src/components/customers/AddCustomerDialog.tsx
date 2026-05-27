@@ -350,6 +350,18 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
         return;
       }
 
+      // 3b. Log lead_created activity (fire-and-forget — never blocks main flow)
+      supabase.from('customer_activities').insert({
+        customer_id: newCustomer.id,
+        type: 'lead_created',
+        activity_type: 'lead_created',
+        title: 'Lead được tạo',
+        content: `Lead tạo bởi ${user?.email || 'hệ thống'} (${isSale ? 'Sale' : isTeleLead ? 'Tele' : 'Admin/Ops'}). Nguồn: ${form.source}. ${!newCustomer.owner_sale_id && !newCustomer.owner_tele_id ? 'Chưa phân tuyến — đang chờ trong Incoming Queue.' : 'Đã gán cho nhân viên.'}`,
+        created_by: user?.id,
+      }).then(({ error: actErr }: { error: any }) => {
+        if (actErr) console.warn('[AddCustomerDialog] lead_created activity insert failed:', actErr.message);
+      });
+
       // Trigger automation manually since we removed standard form owner inputs 
       // but we still have default assigns for Sale/Tele
       if (newCustomer.owner_sale_id) {
@@ -357,7 +369,7 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
            newCustomer.id, 
            newCustomer.facility_name || newCustomer.name, 
            newCustomer.owner_sale_id, 
-           user?.display_name || user?.email || "Hệ thống",
+           user?.email || "Hệ thống",
            user?.id || ""
          );
       } else if (newCustomer.owner_tele_id) {
@@ -365,7 +377,7 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
            newCustomer.id, 
            newCustomer.facility_name || newCustomer.name, 
            newCustomer.owner_tele_id, 
-           user?.display_name || user?.email || "Hệ thống",
+           user?.email || "Hệ thống",
            user?.id || ""
          );
       }
