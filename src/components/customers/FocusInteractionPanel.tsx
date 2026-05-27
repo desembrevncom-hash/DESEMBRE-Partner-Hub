@@ -22,7 +22,7 @@ export function FocusInteractionPanel({ customer, onNextCustomer, onQuickLog, on
         </div>
         <div>
           <p className="text-[10px] uppercase tracking-widest font-black text-indigo-100 opacity-80">Focus Action</p>
-          <p className="text-base font-black truncate max-w-[200px] leading-tight mt-0.5">{customer.contact_name || customer.name || 'Khách hàng'}</p>
+          <p className="text-sm font-black truncate max-w-[200px] leading-tight mt-0.5">{customer.contact_name || customer.name || 'Khách hàng'}</p>
         </div>
       </div>
       
