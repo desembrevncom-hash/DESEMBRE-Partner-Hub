@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PhoneCall, MessageCircle, Facebook, Mail, Music2, ChevronDown, Plus, Check, Sparkles } from 'lucide-react';
+import { PhoneCall, MessageCircle, Facebook, Mail, Music2, ChevronDown, Plus, Check, Sparkles, CalendarCheck } from 'lucide-react';
 import { CommunicationPlatform, launchAndTrack } from '@/lib/launchers';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,10 +23,10 @@ interface Channel {
 
 interface Template {
   id: string;
-  title: string;
-  platform: string;
-  category: string;
-  content: string;
+  name: string;
+  channel: string;
+  purpose: string;
+  body_template: string;
 }
 
 interface Props {
@@ -37,6 +37,10 @@ interface Props {
   customerCity?: string;
   userAccounts: Account[];
   customerChannels: Channel[];
+  interactionSummary?: any;
+  quickAction?: string | null;
+  setQuickAction?: (action: string | null) => void;
+  overdueFollowup?: boolean;
 }
 
 export const CommunicationLaunchers: React.FC<Props> = ({ 
@@ -46,7 +50,11 @@ export const CommunicationLaunchers: React.FC<Props> = ({
   customerEmail,
   customerCity,
   userAccounts, 
-  customerChannels 
+  customerChannels,
+  interactionSummary,
+  quickAction,
+  setQuickAction,
+  overdueFollowup
 }) => {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [context, setContext] = useState<TemplateContext>({});
@@ -106,7 +114,7 @@ export const CommunicationLaunchers: React.FC<Props> = ({
     const t = templates.find(x => x.id === e.target.value);
     if (t) {
       setSelectedTemplate(t);
-      setRenderedContent(renderTemplate(t.content, context));
+      setRenderedContent(renderTemplate(t.body_template, context));
     } else {
       setSelectedTemplate(null);
       setRenderedContent('');
@@ -130,7 +138,7 @@ export const CommunicationLaunchers: React.FC<Props> = ({
       selectedAccount, 
       identifierObj.value, 
       selectedTemplate?.id, 
-      selectedTemplate?.title,
+      selectedTemplate?.name,
       identifierObj.id,
       resultStatus,
       renderedContent,
@@ -144,33 +152,97 @@ export const CommunicationLaunchers: React.FC<Props> = ({
     setDialogOpen(false);
   };
 
-  const platforms: { id: CommunicationPlatform, icon: React.ElementType, label: string, color: string }[] = [
-    { id: 'phone', icon: PhoneCall, label: 'Call', color: 'text-emerald-500' },
-    { id: 'zalo', icon: MessageCircle, label: 'Zalo', color: 'text-sky-500' },
-    { id: 'facebook', icon: Facebook, label: 'Facebook', color: 'text-blue-600' },
-    { id: 'email', icon: Mail, label: 'Email', color: 'text-amber-500' },
-    { id: 'tiktok', icon: Music2, label: 'TikTok', color: 'text-slate-900' }
+  const platforms: { id: CommunicationPlatform, icon: React.ElementType, label: string, color: string, activeColor: string }[] = [
+    { id: 'phone', icon: PhoneCall, label: 'Call', color: 'text-slate-400', activeColor: 'text-emerald-500' },
+    { id: 'zalo', icon: MessageCircle, label: 'Zalo', color: 'text-slate-400', activeColor: 'text-sky-500' },
+    { id: 'facebook', icon: Facebook, label: 'Facebook', color: 'text-slate-400', activeColor: 'text-blue-600' },
+    { id: 'email', icon: Mail, label: 'Email', color: 'text-slate-400', activeColor: 'text-amber-500' },
+    { id: 'tiktok', icon: Music2, label: 'TikTok', color: 'text-slate-400', activeColor: 'text-slate-900' }
   ];
 
   return (
     <>
-      <div className="grid grid-cols-5 gap-2 mt-2">
+    <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+      {/* HEADER: Summary */}
+      {interactionSummary && (
+        <div className="bg-slate-50 border-b border-slate-100 p-3 flex flex-col gap-1.5">
+          <div className="flex justify-between items-center text-xs font-bold text-slate-700">
+            <span>Trung tâm giao tiếp</span>
+            <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-[10px]">
+              {interactionSummary.total_interactions} tương tác
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500 mt-1">
+            <div>
+              Gần nhất: <span className="font-medium text-slate-700">{interactionSummary.last_interaction_at ? new Date(interactionSummary.last_interaction_at).toLocaleDateString('vi-VN') : '-'}</span>
+            </div>
+            <div>
+              Kênh chính: <span className="font-medium text-slate-700 capitalize">{interactionSummary.most_used_platform || '-'}</span>
+            </div>
+          </div>
+          {interactionSummary.last_template_used && (
+            <div className="text-[10px] text-slate-500 truncate mt-0.5">
+              Mẫu vừa dùng: <span className="font-medium text-slate-700 italic">{interactionSummary.last_template_used}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* BODY: Channels */}
+      <div className={`p-3 grid grid-cols-5 gap-2 ${overdueFollowup ? 'bg-amber-50/50' : ''}`}>
         {platforms.map(p => {
           const hasIdentifier = !!getCustomerIdentifierObj(p.id).value;
           const disabled = !hasCommOS || !hasIdentifier;
+          const isWarning = overdueFollowup && hasIdentifier;
+          
           return (
             <button
               key={p.id}
               onClick={() => handleOpenDialog(p.id)}
               disabled={disabled}
-              className={`flex items-center justify-center gap-1.5 p-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-[11px] font-bold transition-all ${disabled ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
+              className={`flex flex-col items-center justify-center gap-1.5 p-2 rounded-lg border transition-all 
+                ${disabled ? 'opacity-40 bg-slate-50 border-slate-100 cursor-not-allowed' : 
+                  isWarning ? 'bg-amber-100 border-amber-200 hover:bg-amber-200 text-amber-900 shadow-sm' : 
+                  'bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-700 shadow-sm'}
+              `}
             >
-              <p.icon className={`w-3.5 h-3.5 ${p.color}`} />
-              {p.label} <ChevronDown className="w-3 h-3 text-slate-400" />
+              <p.icon className={`w-4 h-4 ${disabled ? p.color : (isWarning ? 'text-amber-600' : p.activeColor)}`} />
+              <span className="text-[9px] font-bold uppercase tracking-wider">{p.label}</span>
             </button>
           )
         })}
       </div>
+
+      {/* FOOTER: Quick Actions */}
+      {setQuickAction && (
+        <div className="bg-slate-50 border-t border-slate-100 p-2 grid grid-cols-3 gap-2">
+          <button
+            onClick={() => setQuickAction(quickAction === "note" ? null : "note")}
+            className={`flex items-center justify-center gap-1.5 p-2 rounded-md text-[10px] font-bold transition-colors ${
+              quickAction === "note" ? "bg-primary text-white" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+            }`}
+          >
+            <Plus className="w-3 h-3" /> Ghi chú
+          </button>
+          <button
+            onClick={() => setQuickAction(quickAction === "task" ? null : "task")}
+            className={`flex items-center justify-center gap-1.5 p-2 rounded-md text-[10px] font-bold transition-colors ${
+              quickAction === "task" ? "bg-primary text-white" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+            }`}
+          >
+            <Check className="w-3 h-3" /> Việc cần làm
+          </button>
+          <button
+            onClick={() => setQuickAction(quickAction === "followup" ? null : "followup")}
+            className={`flex items-center justify-center gap-1.5 p-2 rounded-md text-[10px] font-bold transition-colors ${
+              quickAction === "followup" ? "bg-primary text-white" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+            }`}
+          >
+            <CalendarCheck className="w-3 h-3" /> Hẹn lịch
+          </button>
+        </div>
+      )}
+    </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[450px]">
@@ -205,8 +277,8 @@ export const CommunicationLaunchers: React.FC<Props> = ({
                 className="w-full text-sm border-slate-200 rounded-xl"
               >
                 <option value="">-- Tự nhập nội dung --</option>
-                {templates.filter(t => t.platform === selectedPlatform || t.platform === 'all').map(t => (
-                  <option key={t.id} value={t.id}>{t.category}: {t.title}</option>
+                {templates.filter(t => t.channel === selectedPlatform || t.channel === 'all').map(t => (
+                  <option key={t.id} value={t.id}>{t.purpose}: {t.name}</option>
                 ))}
               </select>
             </div>

@@ -15,7 +15,8 @@ import {
   BrainCircuit,
   DatabaseZap,
   ListTodo,
-  Wrench
+  Wrench,
+  BookOpen
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 
@@ -30,10 +31,10 @@ function AdminControlHub() {
 
   useEffect(() => {
     if (isAdmin || isSubAdmin) {
-      supabase.rpc("get_ai_settings_masked").then(({ data }) => {
+      supabase.rpc("get_ai_settings_masked").then(({ data }: any) => {
         if (data) setAiSettings(data);
       });
-      supabase.rpc("get_automation_governance_summary").then(({ data }) => {
+      supabase.rpc("get_automation_governance_summary").then(({ data }: any) => {
         if (data?.settings) setAutoSettings(data.settings);
       });
     }
@@ -63,6 +64,8 @@ function AdminControlHub() {
       description: "Quản lý cài đặt AI, Suggestion Toggles và RAG",
       links: [
         { label: "AI Settings (Toggles)", to: "/admin/ai-settings", icon: <Settings2 className="w-4 h-4" /> },
+        { label: "Product Knowledge (RAG Data)", to: "/admin/product-knowledge", icon: <BookOpen className="w-4 h-4" /> },
+        { label: "Product Copilot Control", to: "/admin/product-copilot", icon: <Bot className="w-4 h-4" /> },
         { label: "AI Usage / Cost", to: "/admin/ai-debug", icon: <BarChart className="w-4 h-4" /> },
         { label: "RAG Audit", to: "/admin/rag-audit", icon: <DatabaseZap className="w-4 h-4" /> },
       ]
@@ -83,17 +86,20 @@ function AdminControlHub() {
       icon: <ShieldCheck className="w-6 h-6 text-emerald-500" />,
       description: "Quản lý bảo mật, phân quyền và triển khai tính năng",
       links: [
+        { label: "Production Health", to: "/admin/production-health", icon: <ShieldAlert className="w-4 h-4" /> },
         { label: "Security Audit", to: "/admin/security-audit", icon: <Lock className="w-4 h-4" /> },
         { label: "Internal Pilot Mode", to: "/admin/pilot", icon: <Wrench className="w-4 h-4" /> },
         { label: "UAT Checklist", to: "/admin/uat", icon: <CheckSquare className="w-4 h-4" /> },
       ]
     },
     {
-      title: "CRM Health",
+      title: "CRM Health & Ops",
       icon: <HeartPulse className="w-6 h-6 text-rose-500" />,
-      description: "Đánh giá sức khỏe hệ thống, chất lượng dữ liệu CRM",
+      description: "Đánh giá sức khỏe hệ thống, chất lượng dữ liệu và điều phối luồng CRM",
       links: [
+        { label: "CRM Ops Center", to: "/admin/crm-ops", icon: <Activity className="w-4 h-4" /> },
         { label: "CRM Health Dashboard", to: "/admin/crm-health", icon: <HeartPulse className="w-4 h-4" /> },
+        { label: "Lead Performance", to: "/admin/lead-performance", icon: <BarChart className="w-4 h-4" /> },
         { label: "Data Quality", to: "/admin/crm-health", icon: <DatabaseZap className="w-4 h-4" /> },
         { label: "AI Readiness", to: "/admin/crm-health", icon: <Bot className="w-4 h-4" /> },
       ]
