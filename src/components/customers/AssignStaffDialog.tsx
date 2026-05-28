@@ -16,7 +16,7 @@ interface AssignStaffDialogProps {
 }
 
 export function AssignStaffDialog({ isOpen, onClose, customer, onSuccess }: AssignStaffDialogProps) {
-  const { user } = useAuth();
+  const { user, isAdmin, isSubAdmin, isTeleLead } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [staffList, setStaffList] = useState<any[]>([]);
@@ -203,9 +203,10 @@ export function AssignStaffDialog({ isOpen, onClose, customer, onSuccess }: Assi
                   <Users className="w-3.5 h-3.5" /> Direct Sale
                 </label>
                 <select 
-                  className="w-full bg-white border border-slate-200 rounded-xl h-12 px-4 text-sm font-bold shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  className="w-full bg-white border border-slate-200 rounded-xl h-12 px-4 text-sm font-bold shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-50 disabled:bg-slate-50"
                   value={saleId}
                   onChange={e => setSaleId(e.target.value)}
+                  disabled={!isAdmin && !isSubAdmin}
                 >
                   <option value="">-- Chưa gán --</option>
                   {salesStaff.map(s => (
@@ -219,9 +220,10 @@ export function AssignStaffDialog({ isOpen, onClose, customer, onSuccess }: Assi
                   <PhoneCall className="w-3.5 h-3.5" /> Telesale Hub
                 </label>
                 <select 
-                  className="w-full bg-white border border-slate-200 rounded-xl h-12 px-4 text-sm font-bold shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  className="w-full bg-white border border-slate-200 rounded-xl h-12 px-4 text-sm font-bold shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-50 disabled:bg-slate-50"
                   value={teleId}
                   onChange={e => setTeleId(e.target.value)}
+                  disabled={!isAdmin && !isSubAdmin && !isTeleLead}
                 >
                   <option value="">-- Chưa gán --</option>
                   {teleStaff.map(s => (

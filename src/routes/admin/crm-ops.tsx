@@ -428,13 +428,13 @@ function CRMOpsWorkspace() {
           </div>
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
             <div className="text-sm font-bold text-amber-500 mb-2 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4" /> Quá Hạn (SLA Overdue)
+              <AlertCircle className="w-4 h-4" /> Quá Hạn (SLA Overdue) <Badge variant="outline" className="text-[8px] h-4 px-1 py-0 ml-1">HARDCODED</Badge>
             </div>
             <div className="text-3xl font-black text-amber-600">{stats.overdue}</div>
           </div>
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
             <div className="text-sm font-bold text-rose-500 mb-2 flex items-center gap-2">
-              <AlertOctagon className="w-4 h-4" /> Bỏ Quên / Đóng Băng
+              <AlertOctagon className="w-4 h-4" /> Bỏ Quên / Đóng Băng <Badge variant="outline" className="text-[8px] h-4 px-1 py-0 ml-1">HARDCODED</Badge>
             </div>
             <div className="text-3xl font-black text-rose-600">{stats.dead}</div>
           </div>
@@ -483,7 +483,7 @@ function CRMOpsWorkspace() {
                   <tr>
                     <th className="px-4 py-3 font-bold">Nhân viên</th>
                     <th className="px-4 py-3 font-bold text-right">Đang giữ</th>
-                    <th className="px-4 py-3 font-bold text-right">Capacity %</th>
+                    <th className="px-4 py-3 font-bold text-right">Capacity % <Badge variant="outline" className="text-[8px] h-4 px-1 py-0 ml-1">HARDCODED</Badge></th>
                     <th className="px-4 py-3 font-bold text-right">HOT</th>
                     <th className="px-4 py-3 font-bold text-right">Quá hạn SLA</th>
                     <th className="px-4 py-3 font-bold text-center">Trạng thái</th>

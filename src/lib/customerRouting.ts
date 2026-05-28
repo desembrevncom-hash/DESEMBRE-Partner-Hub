@@ -6,22 +6,31 @@ export type DistanceType = 'near_company' | 'same_city' | 'far_city' | 'province
 export type CustomerChannel = 'direct_sales' | 'hybrid' | 'tele_sales';
 export type CareModel = 'sale_owned' | 'tele_qualified_then_sale' | 'tele_owned';
 
+export interface RoutingThresholds {
+  nearKm: number;
+  cityKm: number;
+  farKm: number;
+}
+
 /**
  * Lấy phân loại khoảng cách (DistanceType) từ khoảng cách bằng mét
  * Rule:
- * <= 10000m: near_company
- * <= 30000m: same_city
- * <= 80000m: far_city
- * > 80000m: province
+ * <= nearKm * 1000: near_company
+ * <= cityKm * 1000: same_city
+ * <= farKm * 1000: far_city
+ * > farKm * 1000: province
  */
-export function getDistanceTypeFromMeters(distanceMeters: number | null | undefined): DistanceType {
+export function getDistanceTypeFromMeters(
+  distanceMeters: number | null | undefined, 
+  thresholds: RoutingThresholds = { nearKm: 10, cityKm: 30, farKm: 80 }
+): DistanceType {
   if (distanceMeters === null || distanceMeters === undefined) {
     return 'unknown';
   }
   
-  if (distanceMeters <= 10000) return 'near_company';
-  if (distanceMeters <= 30000) return 'same_city';
-  if (distanceMeters <= 80000) return 'far_city';
+  if (distanceMeters <= thresholds.nearKm * 1000) return 'near_company';
+  if (distanceMeters <= thresholds.cityKm * 1000) return 'same_city';
+  if (distanceMeters <= thresholds.farKm * 1000) return 'far_city';
   return 'province';
 }
 
@@ -64,8 +73,11 @@ export function getRecommendedCareModel(distanceType: DistanceType): CareModel {
 /**
  * Hàm bao bọc (wrapper) trả về toàn bộ thông tin routing từ khoảng cách
  */
-export function getRecommendedRoutingByDistance(distanceMeters: number | null | undefined) {
-  const distanceType = getDistanceTypeFromMeters(distanceMeters);
+export function getRecommendedRoutingByDistance(
+  distanceMeters: number | null | undefined,
+  thresholds: RoutingThresholds = { nearKm: 10, cityKm: 30, farKm: 80 }
+) {
+  const distanceType = getDistanceTypeFromMeters(distanceMeters, thresholds);
   return {
     distanceType,
     customerChannel: getRecommendedCustomerChannel(distanceType),

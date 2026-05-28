@@ -44,6 +44,7 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
   const [channels, setChannels] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
   const [togglingPrimary, setTogglingPrimary] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
 
@@ -137,6 +138,7 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
 
       toast.success("Thêm kênh liên hệ thành công!");
       setForm((prev) => ({ ...prev, value: "", notes: "", isPrimary: false }));
+      setShowAddForm(false);
       fetchChannels();
       window.dispatchEvent(new Event('customer_timeline_refresh'));
     } catch (err: any) {
@@ -255,17 +257,9 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
           </Badge>
         );
       case "manual":
-        return (
-          <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-none text-[10px] px-2 py-0.5">
-            <AlertCircle className="w-3 h-3 mr-1" /> Thủ công
-          </Badge>
-        );
       default:
-        return (
-          <Badge className="bg-slate-100 text-slate-500 hover:bg-slate-200 border-none text-[10px] px-2 py-0.5">
-            <RefreshCw className="w-3 h-3 mr-1" /> Chờ xử lý
-          </Badge>
-        );
+        // Ẩn nhãn "Thủ công" và "Chờ xử lý" cho gọn UI
+        return null;
     }
   };
 
@@ -280,9 +274,10 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
     );
   };
 
-  const renderChannelCard = (c: any, isOfficial: boolean) => {
+  const renderChannelCard = (c: any) => {
     const icon = CHANNEL_TYPE_ICONS[c.channel_type] || "🔗";
     const isPrimary = !!c.is_primary;
+    const isOfficial = c.scope === "official";
     const canTogglePrimary =
       isOfficial
         ? isAdmin || isSubAdmin
@@ -291,132 +286,64 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
     return (
       <div
         key={c.id}
-        className={`relative p-3 rounded-2xl border shadow-sm transition-all overflow-hidden
-          ${isPrimary
-            ? "bg-white border-indigo-300 ring-2 ring-indigo-200 shadow-indigo-100"
-            : isOfficial
-              ? "bg-white border-indigo-100 hover:shadow"
-              : "bg-slate-50 border-slate-100 hover:bg-white hover:shadow-sm"
-          }`}
+        className={`relative p-3.5 rounded-2xl border shadow-sm transition-all overflow-hidden bg-white hover:shadow-md
+          ${isPrimary ? "border-indigo-300 ring-2 ring-indigo-200" : "border-slate-200"}`}
       >
-        {/* Left accent bar */}
-        <div
-          className={`absolute top-0 left-0 w-1 h-full rounded-l-2xl
-            ${isPrimary ? "bg-indigo-500" : isOfficial ? "bg-indigo-300" : "bg-slate-300"}`}
-        />
-
-        <div className="flex items-start justify-between gap-3 ml-2">
-          {/* Left: info */}
+        <div className="flex items-center justify-between gap-3">
+          {/* Left info */}
           <div className="min-w-0 flex-1">
-            {/* Top row: type + badges */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-base leading-none">{icon}</span>
-              <span className="text-xs font-bold text-slate-800 capitalize">{c.channel_type}</span>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xl leading-none">{icon}</span>
+              <div
+                className="text-lg font-black text-slate-800 truncate"
+                title={c.channel_value}
+              >
+                {c.normalized_value || c.channel_value}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
               {isPrimary && (
                 <Badge className="bg-indigo-600 text-white border-none text-[10px] px-2 py-0.5">
-                  <Star className="w-2.5 h-2.5 mr-1 fill-white" /> Chính
+                  <Star className="w-2.5 h-2.5 mr-1 fill-white" /> Kênh chính
                 </Badge>
               )}
-              {renderStatus(c.resolve_status)}
-              {c.channel_purpose && renderPurpose(c.channel_purpose)}
-              {c.remarketing_enabled && (
-                <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-none text-[10px] px-2 py-0.5">
-                  <Target className="w-3 h-3 mr-1" /> Remarketing
+              {!isOfficial && (
+                <Badge className="bg-slate-100 text-slate-600 border-none text-[10px] px-2 py-0.5">
+                  <Lock className="w-2.5 h-2.5 mr-1" /> Riêng tư
+                  {(isAdmin || isSubAdmin) && c.created_by && ` (${profiles[c.created_by] || "Ẩn danh"})`}
                 </Badge>
               )}
-            </div>
-
-            {/* Value */}
-            <div
-              className="text-sm font-medium text-slate-700 mt-1.5 truncate max-w-[220px]"
-              title={c.channel_value}
-            >
-              {c.normalized_value || c.channel_value}
-            </div>
-
-            {/* External ID (Facebook Page ID) */}
-            {c.external_id && (
-              <div className="text-[10px] text-slate-400 mt-0.5">
-                ID: <span className="font-mono">{c.external_id}</span>
-              </div>
-            )}
-
-            {/* Creator (admin view) */}
-            {(isAdmin || isSubAdmin) && c.created_by && (
-              <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-                {isOfficial ? (
-                  <Globe className="w-2.5 h-2.5" />
-                ) : (
-                  <Lock className="w-2.5 h-2.5" />
+              <span className="opacity-80 flex gap-1.5 items-center">
+                {renderStatus(c.resolve_status)}
+                {c.channel_purpose && renderPurpose(c.channel_purpose)}
+                {c.remarketing_enabled && (
+                  <Badge className="bg-amber-50 text-amber-600 border-none text-[10px] px-2 py-0.5">
+                    <Target className="w-2.5 h-2.5 mr-1" /> Remarketing
+                  </Badge>
                 )}
-                Bởi: <strong>{profiles[c.created_by] || "Unknown"}</strong>
-              </div>
-            )}
+              </span>
+            </div>
           </div>
 
-          {/* Right: actions */}
-          <div className="flex flex-col items-center gap-1 shrink-0">
-            {/* Set Primary */}
-            {canTogglePrimary && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={`h-7 w-7 transition-colors
-                        ${isPrimary
-                          ? "text-indigo-500 hover:text-slate-400"
-                          : "text-slate-300 hover:text-indigo-500"
-                        }`}
-                      disabled={togglingPrimary === c.id}
-                      onClick={() => handleSetPrimary(c)}
-                    >
-                      {togglingPrimary === c.id ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : isPrimary ? (
-                        <Star className="w-3.5 h-3.5 fill-current" />
-                      ) : (
-                        <StarOff className="w-3.5 h-3.5" />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {isPrimary ? "Bỏ kênh chính" : "Đặt làm kênh chính"}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-
+          {/* Right actions */}
+          <div className="flex flex-row items-center gap-1 shrink-0 bg-slate-50 p-1 rounded-xl">
             {/* Copy */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-slate-300 hover:text-primary"
-              onClick={() => copyToClipboard(c.normalized_value || c.channel_value)}
-              title="Copy"
-            >
-              <Copy className="w-3.5 h-3.5" />
-            </Button>
-
-            {/* Promote to Official */}
-            {!isOfficial && (isAdmin || isSubAdmin) && (
-               <TooltipProvider>
-                 <Tooltip>
-                   <TooltipTrigger asChild>
-                     <Button
-                       variant="ghost"
-                       size="icon"
-                       className="h-7 w-7 text-indigo-300 hover:text-indigo-600 hover:bg-indigo-50"
-                       onClick={() => handlePromoteChannel(c)}
-                     >
-                       <Globe className="w-3.5 h-3.5" />
-                     </Button>
-                   </TooltipTrigger>
-                   <TooltipContent>Chuyển thành chính thức</TooltipContent>
-                 </Tooltip>
-               </TooltipProvider>
-            )}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-slate-400 hover:text-slate-800 hover:bg-slate-200"
+                    onClick={() => copyToClipboard(c.normalized_value || c.channel_value)}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Copy</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
             {/* External link */}
             {(c.channel_type === "facebook" ||
@@ -427,7 +354,7 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 text-slate-300 hover:text-primary"
+                className="h-8 w-8 text-slate-400 hover:text-primary hover:bg-slate-200"
                 onClick={() =>
                   window.open(
                     (c.normalized_value || c.channel_value).startsWith("http")
@@ -437,8 +364,52 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
                   )
                 }
               >
-                <ExternalLink className="w-3.5 h-3.5" />
+                <ExternalLink className="w-4 h-4" />
               </Button>
+            )}
+
+            {/* Set Primary */}
+            {canTogglePrimary && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={`h-8 w-8 transition-colors hover:bg-slate-200
+                        ${isPrimary
+                          ? "text-indigo-500"
+                          : "text-slate-300 hover:text-indigo-500"
+                        }`}
+                      disabled={togglingPrimary === c.id}
+                      onClick={() => handleSetPrimary(c)}
+                    >
+                      {togglingPrimary === c.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : isPrimary ? (
+                        <Star className="w-4 h-4 fill-current" />
+                      ) : (
+                        <StarOff className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isPrimary ? "Bỏ kênh chính" : "Đặt làm kênh chính"}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+
+            {/* Promote to Official */}
+            {!isOfficial && (isAdmin || isSubAdmin) && (
+               <Button
+                 variant="outline"
+                 size="sm"
+                 className="h-8 px-2.5 ml-1 text-xs font-bold text-indigo-700 border-indigo-200 bg-indigo-50 hover:bg-indigo-100"
+                 onClick={() => handlePromoteChannel(c)}
+               >
+                 Duyệt kênh
+               </Button>
             )}
           </div>
         </div>
@@ -446,164 +417,164 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
     );
   };
 
-  const officialChannels = channels.filter((c) => c.scope === "official");
-  const privateChannels = channels.filter((c) => c.scope === "private");
+  const sortedChannels = [...channels].sort((a, b) => {
+    if (a.is_primary && !b.is_primary) return -1;
+    if (!a.is_primary && b.is_primary) return 1;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
 
   return (
-    <div className="space-y-6">
-      {/* ── Add channel form ── */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3">
-        <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-          <Plus className="w-4 h-4 text-primary" /> Thêm kênh liên hệ mới
-        </h4>
+    <div className="space-y-4">
+      {/* ── Header & Add Button ── */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-[13px] font-black text-slate-800 uppercase flex items-center gap-1.5">
+          <Phone className="w-4 h-4 text-primary" /> KÊNH LIÊN HỆ ({channels.length})
+        </h3>
+        <Button 
+          variant={showAddForm ? "outline" : "default"} 
+          size="sm" 
+          onClick={() => setShowAddForm(!showAddForm)}
+          className={`h-8 text-xs font-bold rounded-xl ${!showAddForm && "bg-slate-900 text-white hover:bg-primary"}`}
+        >
+          {showAddForm ? "Hủy" : "+ Thêm kênh"}
+        </Button>
+      </div>
 
-        <div className="grid grid-cols-12 gap-3 items-end">
-          {/* Channel type */}
-          <div className="col-span-12 sm:col-span-3 space-y-1.5">
-            <Label className="text-[10px] font-black text-slate-500 uppercase">Loại kênh</Label>
-            <Select
-              value={form.channelType}
-              onValueChange={(v) => setForm({ ...form, channelType: v })}
-            >
-              <SelectTrigger className="h-9 text-xs rounded-xl">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="zalo">💬 Zalo</SelectItem>
-                <SelectItem value="facebook">📘 Facebook</SelectItem>
-                <SelectItem value="email">📧 Email</SelectItem>
-                <SelectItem value="tiktok">🎵 TikTok</SelectItem>
-                <SelectItem value="instagram">📸 Instagram</SelectItem>
-                <SelectItem value="website">🌐 Website</SelectItem>
-                <SelectItem value="phone">📞 Điện thoại</SelectItem>
-                <SelectItem value="other">🔗 Khác</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      {/* ── Add channel form (Collapsible) ── */}
+      {showAddForm && (
+        <div className="bg-white p-4 rounded-2xl border border-indigo-100 shadow-sm space-y-3 animate-in slide-in-from-top-2 fade-in">
+          <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+            <Plus className="w-4 h-4 text-primary" /> Thêm kênh liên hệ mới
+          </h4>
 
-          {/* Value */}
-          <div className="col-span-12 sm:col-span-4 space-y-1.5">
-            <Label className="text-[10px] font-black text-slate-500 uppercase">
-              Giá trị (Link / SĐT / Email)
-            </Label>
-            <Input
-              value={form.value}
-              onChange={(e) => setForm({ ...form, value: e.target.value })}
-              placeholder="Nhập link hoặc số..."
-              className="h-9 text-xs rounded-xl"
-              onKeyDown={(e) => e.key === "Enter" && handleAddChannel()}
-            />
-          </div>
-
-          {/* Purpose */}
-          <div className="col-span-12 sm:col-span-3 space-y-1.5">
-            <Label className="text-[10px] font-black text-slate-500 uppercase">Mục đích</Label>
-            <Select
-              value={form.channelPurpose}
-              onValueChange={(v) => setForm({ ...form, channelPurpose: v })}
-            >
-              <SelectTrigger className="h-9 text-xs rounded-xl">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="sales">🛒 Sales</SelectItem>
-                <SelectItem value="support">🎧 Hỗ trợ</SelectItem>
-                <SelectItem value="remarketing">🎯 Remarketing</SelectItem>
-                <SelectItem value="invoice">🧾 Hóa đơn</SelectItem>
-                <SelectItem value="personal">👤 Cá nhân</SelectItem>
-                <SelectItem value="other">🔹 Khác</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Scope (admin only) */}
-          {(isAdmin || isSubAdmin) && (
+          <div className="grid grid-cols-12 gap-3 items-end">
+            {/* Channel type */}
             <div className="col-span-12 sm:col-span-3 space-y-1.5">
-              <Label className="text-[10px] font-black text-slate-500 uppercase">Phạm vi</Label>
+              <Label className="text-[10px] font-black text-slate-500 uppercase">Loại kênh</Label>
               <Select
-                value={form.scope}
-                onValueChange={(v) => setForm({ ...form, scope: v })}
+                value={form.channelType}
+                onValueChange={(v) => setForm({ ...form, channelType: v })}
               >
-                <SelectTrigger className="h-9 text-xs rounded-xl bg-slate-50">
+                <SelectTrigger className="h-9 text-xs rounded-xl">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="official" className="font-bold text-indigo-700">
-                    🌐 Official (Hệ thống)
-                  </SelectItem>
-                  <SelectItem value="private">🔒 Private (Riêng tư)</SelectItem>
+                  <SelectItem value="zalo">💬 Zalo</SelectItem>
+                  <SelectItem value="facebook">📘 Facebook</SelectItem>
+                  <SelectItem value="email">📧 Email</SelectItem>
+                  <SelectItem value="tiktok">🎵 TikTok</SelectItem>
+                  <SelectItem value="instagram">📸 Instagram</SelectItem>
+                  <SelectItem value="website">🌐 Website</SelectItem>
+                  <SelectItem value="phone">📞 Điện thoại</SelectItem>
+                  <SelectItem value="other">🔗 Khác</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          )}
 
-          {/* Set as primary toggle */}
-          <div className="col-span-12 sm:col-span-3 flex items-end gap-2">
-            <label className="flex items-center gap-2 cursor-pointer h-9 px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white transition-all w-full">
-              <input
-                type="checkbox"
-                checked={form.isPrimary}
-                onChange={(e) => setForm({ ...form, isPrimary: e.target.checked })}
-                className="accent-indigo-600 w-4 h-4"
+            {/* Value */}
+            <div className="col-span-12 sm:col-span-4 space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-500 uppercase">
+                Giá trị (Link / SĐT / Email)
+              </Label>
+              <Input
+                value={form.value}
+                onChange={(e) => setForm({ ...form, value: e.target.value })}
+                placeholder="Nhập link hoặc số..."
+                className="h-9 text-xs rounded-xl"
+                onKeyDown={(e) => e.key === "Enter" && handleAddChannel()}
               />
-              <span className="text-xs font-semibold text-slate-600 flex items-center gap-1">
-                <Star className="w-3.5 h-3.5 text-indigo-400" /> Kênh chính
-              </span>
-            </label>
-          </div>
+            </div>
 
-          {/* Add button */}
-          <div className="col-span-12 sm:col-span-3">
-            <Button
-              onClick={handleAddChannel}
-              disabled={adding || !form.value.trim()}
-              className="w-full h-9 rounded-xl text-xs font-bold bg-slate-900 hover:bg-primary text-white"
-            >
-              {adding ? (
-                <Loader2 className="w-3 h-3 animate-spin mr-1" />
-              ) : (
-                <Plus className="w-3 h-3 mr-1" />
-              )}
-              Thêm
-            </Button>
+            {/* Purpose */}
+            <div className="col-span-12 sm:col-span-3 space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-500 uppercase">Mục đích</Label>
+              <Select
+                value={form.channelPurpose}
+                onValueChange={(v) => setForm({ ...form, channelPurpose: v })}
+              >
+                <SelectTrigger className="h-9 text-xs rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sales">🛒 Sales</SelectItem>
+                  <SelectItem value="support">🎧 Hỗ trợ</SelectItem>
+                  <SelectItem value="remarketing">🎯 Remarketing</SelectItem>
+                  <SelectItem value="invoice">🧾 Hóa đơn</SelectItem>
+                  <SelectItem value="personal">👤 Cá nhân</SelectItem>
+                  <SelectItem value="other">🔹 Khác</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Scope (admin only) */}
+            {(isAdmin || isSubAdmin) && (
+              <div className="col-span-12 sm:col-span-3 space-y-1.5">
+                <Label className="text-[10px] font-black text-slate-500 uppercase">Phạm vi</Label>
+                <Select
+                  value={form.scope}
+                  onValueChange={(v) => setForm({ ...form, scope: v })}
+                >
+                  <SelectTrigger className="h-9 text-xs rounded-xl bg-slate-50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="official" className="font-bold text-indigo-700">
+                      🌐 Official (Hệ thống)
+                    </SelectItem>
+                    <SelectItem value="private">🔒 Private (Riêng tư)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Set as primary toggle */}
+            <div className="col-span-12 sm:col-span-3 flex items-end gap-2">
+              <label className="flex items-center gap-2 cursor-pointer h-9 px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white transition-all w-full">
+                <input
+                  type="checkbox"
+                  checked={form.isPrimary}
+                  onChange={(e) => setForm({ ...form, isPrimary: e.target.checked })}
+                  className="accent-indigo-600 w-4 h-4"
+                />
+                <span className="text-xs font-semibold text-slate-600 flex items-center gap-1">
+                  <Star className="w-3.5 h-3.5 text-indigo-400" /> Kênh chính
+                </span>
+              </label>
+            </div>
+
+            {/* Add button */}
+            <div className="col-span-12 sm:col-span-3">
+              <Button
+                onClick={handleAddChannel}
+                disabled={adding || !form.value.trim()}
+                className="w-full h-9 rounded-xl text-xs font-bold bg-slate-900 hover:bg-primary text-white"
+              >
+                {adding ? (
+                  <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                ) : (
+                  <Plus className="w-3 h-3 mr-1" />
+                )}
+                Thêm
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* ── Channel lists ── */}
+      {/* ── Channel lists (Merged 1 Column) ── */}
       {loading ? (
         <div className="flex justify-center p-8">
           <Loader2 className="w-6 h-6 animate-spin text-slate-300" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Official Channels */}
-          <div className="space-y-3">
-            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1 flex items-center gap-1.5">
-              <Globe className="w-3.5 h-3.5" /> Kênh chính thức ({officialChannels.length})
-            </h4>
-            {officialChannels.length === 0 ? (
-              <div className="text-xs text-slate-400 italic px-2 py-6 bg-slate-50 rounded-2xl border border-slate-100 border-dashed text-center">
-                Chưa có kênh chính thức
-              </div>
-            ) : (
-              officialChannels.map((c) => renderChannelCard(c, true))
-            )}
-          </div>
-
-          {/* Private Channels */}
-          <div className="space-y-3">
-            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1 flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5" /> Kênh riêng tư ({privateChannels.length})
-            </h4>
-            {privateChannels.length === 0 ? (
-              <div className="text-xs text-slate-400 italic px-2 py-6 bg-slate-50 rounded-2xl border border-slate-100 border-dashed text-center">
-                Chưa có kênh riêng tư
-              </div>
-            ) : (
-              privateChannels.map((c) => renderChannelCard(c, false))
-            )}
-          </div>
+        <div className="space-y-3">
+          {sortedChannels.length === 0 ? (
+            <div className="text-sm text-slate-400 italic px-4 py-8 bg-slate-50 rounded-2xl border border-slate-100 border-dashed text-center">
+              Chưa có kênh liên hệ nào.
+            </div>
+          ) : (
+            sortedChannels.map((c) => renderChannelCard(c))
+          )}
         </div>
       )}
     </div>

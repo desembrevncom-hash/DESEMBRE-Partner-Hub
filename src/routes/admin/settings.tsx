@@ -186,7 +186,10 @@ function SystemSettingsPage() {
     diamondDiscount: 65,
     refillCycleDays: 60,
     crossSellRules: DEFAULT_CROSS_SELL_RULES,
-    spaEquipmentScripts: DEFAULT_SPA_EQUIPMENT_SCRIPTS
+    spaEquipmentScripts: DEFAULT_SPA_EQUIPMENT_SCRIPTS,
+    routingNearKm: 10,
+    routingCityKm: 30,
+    routingFarKm: 80
   });
   const [loadingConfig, setLoadingConfig] = useState(true);
 
@@ -410,6 +413,9 @@ function SystemSettingsPage() {
           spaEquipmentScripts: (data.spa_equipment_scripts && typeof data.spa_equipment_scripts === 'object' && Object.keys(data.spa_equipment_scripts).length > 0)
             ? data.spa_equipment_scripts 
             : savedSpaScripts ? JSON.parse(savedSpaScripts) : DEFAULT_SPA_EQUIPMENT_SCRIPTS,
+          routingNearKm: data.routing_near_km ?? 10,
+          routingCityKm: data.routing_city_km ?? 30,
+          routingFarKm: data.routing_far_km ?? 80,
         });
 
         if (data.product_cycles && typeof data.product_cycles === 'object') {
@@ -501,7 +507,10 @@ function SystemSettingsPage() {
       refill_cycle_days: Number(config.refillCycleDays),
       product_cycles: productCycles,
       cross_sell_rules: config.crossSellRules,
-      spa_equipment_scripts: config.spaEquipmentScripts
+      spa_equipment_scripts: config.spaEquipmentScripts,
+      routing_near_km: Number(config.routingNearKm),
+      routing_city_km: Number(config.routingCityKm),
+      routing_far_km: Number(config.routingFarKm)
     };
 
     let error;
@@ -958,6 +967,64 @@ function SystemSettingsPage() {
                               </div>
                            </div>
                         )}
+                     </CardContent>
+                  </Card>
+
+                  <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white">
+                     <CardHeader className="p-8">
+                        <div className="flex items-center gap-3">
+                           <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
+                              <MapPin className="w-5 h-5" />
+                           </div>
+                           <div>
+                              <CardTitle className="text-lg font-black text-slate-900">Mốc khoảng cách Phân tuyến</CardTitle>
+                              <CardDescription>Cấu hình khoảng cách (km) để hệ thống tự động gợi ý mô hình phù hợp.</CardDescription>
+                           </div>
+                        </div>
+                     </CardHeader>
+                     
+                     <CardContent className="p-8 pt-0 space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                           <div className="space-y-2">
+                              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Khu vực Gần (Sale Trực tiếp)</Label>
+                              <div className="relative">
+                                 <Input 
+                                    value={config.routingNearKm || ""} 
+                                    onChange={e => setConfig({...config, routingNearKm: Number(e.target.value)})} 
+                                    className="h-12 rounded-xl font-bold pr-10" 
+                                    type="number"
+                                 />
+                                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">km</span>
+                              </div>
+                              <p className="text-[10px] text-slate-400 mt-1">Dưới mốc này: Direct Sale</p>
+                           </div>
+                           <div className="space-y-2">
+                              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nội thành (Cùng thành phố)</Label>
+                              <div className="relative">
+                                 <Input 
+                                    value={config.routingCityKm || ""} 
+                                    onChange={e => setConfig({...config, routingCityKm: Number(e.target.value)})} 
+                                    className="h-12 rounded-xl font-bold pr-10" 
+                                    type="number"
+                                 />
+                                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">km</span>
+                              </div>
+                              <p className="text-[10px] text-slate-400 mt-1">Từ Gần đến mốc này: Direct Sale</p>
+                           </div>
+                           <div className="space-y-2">
+                              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ngoại thành (Hybrid)</Label>
+                              <div className="relative">
+                                 <Input 
+                                    value={config.routingFarKm || ""} 
+                                    onChange={e => setConfig({...config, routingFarKm: Number(e.target.value)})} 
+                                    className="h-12 rounded-xl font-bold pr-10" 
+                                    type="number"
+                                 />
+                                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">km</span>
+                              </div>
+                              <p className="text-[10px] text-slate-400 mt-1">Lớn hơn mốc này: Tỉnh xa (Tele Owned)</p>
+                           </div>
+                        </div>
                      </CardContent>
                   </Card>
                </div>

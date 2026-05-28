@@ -12,6 +12,9 @@ import { CustomerMiniKpi } from "./CustomerMiniKpi";
 import { CustomerRiskSummary } from "./CustomerRiskSummary";
 import { CustomerAutomationStatus } from "./CustomerAutomationStatus";
 import { generateSuggestions } from "@/lib/aiSuggestionEngine";
+import { AdminCustomerInsights } from "./AdminCustomerInsights";
+import { SaleCustomerInsights } from "./SaleCustomerInsights";
+import { AssignStaffDialog } from "./AssignStaffDialog";
 import {
   Sheet,
   SheetContent,
@@ -108,6 +111,7 @@ import {
 import { CommunicationLaunchers } from "./CommunicationLaunchers";
 import { FocusInteractionPanel } from "./FocusInteractionPanel";
 import { useCopilotContext } from "../chat/ProductCopilotContext";
+import { useSystemSettings } from "@/hooks/useSystemSettings";
 
 const drawerCache: Record<string, { data: any, timestamp: number }> = {};
 
@@ -129,6 +133,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   onNextCustomer
 }) => {
   const { user, isAdmin, isSubAdmin } = useAuth();
+  const settings = useSystemSettings();
   const navigate = useNavigate();
   const { setCustomerContext } = useCopilotContext();
   const [loading, setLoading] = useState(false);
@@ -139,6 +144,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   const [checkinNote, setCheckinNote] = useState("");
   const [checkinSubmitting, setCheckinSubmitting] = useState(false);
   const [showCheckinDialog, setShowCheckinDialog] = useState(false);
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
   
   const [showEditLocationDialog, setShowEditLocationDialog] = useState(false);
   const [editLocationMethod, setEditLocationMethod] = useState<"gps" | "manual" | "url">("gps");
@@ -1016,6 +1022,46 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     }
   };
 
+  const handleRevoke = async () => {
+    const confirm = window.confirm("Bạn có chắc chắn muốn thu hồi khách hàng này?\nKhách hàng sẽ bị xóa Sale/Tele phụ trách và đưa về kho chung.");
+    if (!confirm) return;
+
+    const toastId = toast.loading("Đang thu hồi khách hàng...");
+    try {
+      const { error } = await supabase
+        .from("customers")
+        .update({
+          owner_sale_id: null,
+          owner_tele_id: null,
+          care_model: "sale_owned"
+        })
+        .eq("id", customer.id);
+
+      if (error) throw error;
+
+      await supabase.from("customer_activities").insert({
+        customer_id: customer.id,
+        activity_type: "handoff",
+        title: "Thu hồi khách hàng",
+        content: "Admin đã thu hồi khách hàng về kho chung (Chưa phân công).",
+        created_by: user?.id
+      });
+
+      toast.success("Đã thu hồi khách hàng thành công!", { id: toastId });
+      
+      // Update local context
+      if (typeof fetchCustomerDetails === "function") {
+        fetchCustomerDetails();
+        window.dispatchEvent(new Event('refresh_customers_list'));
+      } else {
+        // Fallback reload
+        window.location.reload();
+      }
+    } catch (err: any) {
+      toast.error("Lỗi khi thu hồi: " + err.message, { id: toastId });
+    }
+  };
+
   const getCareModelWarning = () => {
     if (!customer.care_model) return "Chưa xác lập mô hình hỗ trợ.";
     if ((customer.care_model === "sale_only" || customer.care_model === "direct_sale") && !customer.owner_sale_id) {
@@ -1282,16 +1328,39 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
         </div>
 
         {/* CONTENT AREA */}
-        <ScrollArea className="flex-1">
+        <div className="flex-1 overflow-y-auto">
           <div className="p-6 space-y-8 pb-12">
             
             {/* FOCUS INTERACTION PANEL */}
             <FocusInteractionPanel 
               customer={customer} 
               onNextCustomer={onNextCustomer} 
-              onQuickLog={() => setQuickAction('note')}
-              onFollowUp={() => setQuickAction('followup')}
             />
+
+            {/* QUICK ACTIONS */}
+            <div className="grid grid-cols-3 gap-2">
+              <Button 
+                onClick={() => setQuickAction(quickAction === 'note' ? null : 'note')} 
+                variant={quickAction === 'note' ? 'default' : 'outline'} 
+                className={`text-xs h-9 ${quickAction === 'note' ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'}`}
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" /> Ghi Chú
+              </Button>
+              <Button 
+                onClick={() => setQuickAction(quickAction === 'task' ? null : 'task')} 
+                variant={quickAction === 'task' ? 'default' : 'outline'} 
+                className={`text-xs h-9 ${quickAction === 'task' ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'}`}
+              >
+                <CheckSquare className="w-3.5 h-3.5 mr-1" /> Giao Task
+              </Button>
+              <Button 
+                onClick={() => setQuickAction(quickAction === 'followup' ? null : 'followup')} 
+                variant={quickAction === 'followup' ? 'default' : 'outline'} 
+                className={`text-xs h-9 ${quickAction === 'followup' ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'}`}
+              >
+                <Calendar className="w-3.5 h-3.5 mr-1" /> Hẹn Lịch
+              </Button>
+            </div>
 
             {/* CARE MODEL WARNING */}
             {warning && (
@@ -1305,248 +1374,27 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
 
             {/* SECTION B — INTELLIGENCE ZONE */}
             <section className="space-y-4">
-              <CustomerRiskSummary customer={customer} />
-              
-              <div className="grid grid-cols-1 gap-3">
-                 <CustomerMiniKpi customer={customer} interactions={activities} tasks={tasks} orders={orders} />
-                 <CustomerAutomationStatus customerId={customer.id} />
-              </div>
-            </section>
-
-            {/* GEOGRAPHIC LOCATION SECTION */}
-            <section className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                  <MapPin className="w-4 h-4 text-primary" /> Vị trí khách hàng
-                </div>
-                <button
-                  onClick={() => setShowEditLocationDialog(true)}
-                  className="flex items-center gap-1.5 text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors"
-                >
-                  <MapPin className="w-3 h-3" />
-                  Sửa vị trí
-                </button>
-              </div>
-
-              {hasValidCoordinates(customer) ? (
-                <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/80 space-y-3.5 shadow-3xs">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-[11px] font-black text-emerald-800 uppercase tracking-wider">Đã có tọa độ định vị</span>
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-500 bg-white border border-slate-150 px-2.5 py-0.5 rounded-full shadow-3xs">
-                      GPS: {Number(customer.latitude).toFixed(5)}, {Number(customer.longitude).toFixed(5)}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <a
-                      href={buildGoogleMapsSearchUrl(customer)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center justify-center gap-2 h-10 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-bold text-slate-700 shadow-3xs transition-all hover:scale-102"
-                    >
-                      <Crosshair className="w-3.5 h-3.5 text-slate-500" />
-                      Mở Google Maps
-                    </a>
-                    <a
-                      href={buildGoogleMapsDirectionsUrl(customer)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center justify-center gap-2 h-10 px-4 rounded-xl bg-slate-900 hover:bg-black text-[11px] font-black text-white shadow-md shadow-slate-100 transition-all hover:scale-102"
-                    >
-                      <Navigation className="w-3.5 h-3.5 text-white animate-pulse" />
-                      Chỉ đường đi
-                    </a>
-                  </div>
-
-                  <div className="pt-3.5 border-t border-emerald-100/80">
-                    <button
-                      onClick={handleGetGpsForCheckin}
-                      disabled={gpsLoading}
-                      className="w-full flex items-center justify-center gap-2 h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 text-[11px] font-black text-white shadow-lg shadow-emerald-100 transition-all hover:scale-102"
-                    >
-                      {gpsLoading ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Check className="w-3.5 h-3.5 text-white" />
-                      )}
-                      Check-in tại Spa
-                    </button>
-                  </div>
-
-                  {companyLocationLoading ? (
-                    <div className="pt-3.5 border-t border-emerald-100/80 flex items-center justify-center p-2">
-                      <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
-                    </div>
-                  ) : companyLocation ? (
-                    (() => {
-                      const distMeters = calculateDistanceMeters(
-                        Number(customer.latitude),
-                        Number(customer.longitude),
-                        Number(companyLocation.latitude),
-                        Number(companyLocation.longitude)
-                      );
-                      const distKm = (distMeters / 1000).toFixed(1);
-                      const routing = getRecommendedRoutingByDistance(distMeters);
-                      const isSame = routing.customerChannel === customer.customer_channel && 
-                                     routing.careModel === customer.care_model && 
-                                     routing.distanceType === customer.customer_distance_type;
-
-                      return (
-                        <div className="pt-3.5 border-t border-emerald-100/80 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[11px] font-bold text-slate-700">Cách {companyLocation.name}:</span>
-                            <span className="text-[11px] font-black text-emerald-600">{distKm} km</span>
-                          </div>
-                          
-                          <div className="bg-white rounded-lg p-2.5 border border-emerald-100 space-y-2 relative">
-                            {isSame ? (
-                              <Badge className="absolute -top-2 -right-2 text-[8px] bg-emerald-500 hover:bg-emerald-600 border-none">Phân tuyến hiện tại đã phù hợp</Badge>
-                            ) : (
-                              <Badge className="absolute -top-2 -right-2 text-[8px] bg-amber-500 hover:bg-amber-600 border-none animate-pulse">Có gợi ý mới</Badge>
-                            )}
-                            <div className="flex justify-between text-[10px]">
-                              <span className="text-slate-500 font-medium">Khoảng cách gợi ý:</span>
-                              <span className="font-bold text-slate-700">{getCustomerDistanceLabel(routing.distanceType)}</span>
-                            </div>
-                            <div className="flex justify-between text-[10px]">
-                              <span className="text-slate-500 font-medium">Gợi ý tuyến:</span>
-                              <span className="font-bold text-slate-700">{getCustomerChannelLabel(routing.customerChannel)}</span>
-                            </div>
-                            <div className="flex justify-between text-[10px]">
-                              <span className="text-slate-500 font-medium">Mô hình gợi ý:</span>
-                              <span className="font-bold text-slate-700">{getCareModelLabel(routing.careModel)}</span>
-                            </div>
-                          </div>
-
-                          {(isAdmin || isSubAdmin) && (
-                            <button
-                              onClick={() => handleApplyRouting(routing, distMeters)}
-                              className="w-full flex items-center justify-center gap-1.5 h-8 rounded-lg bg-blue-600 hover:bg-blue-700 text-[10px] font-bold text-white shadow-sm transition-all"
-                            >
-                              <CheckSquare className="w-3.5 h-3.5" />
-                              Áp dụng gợi ý phân tuyến
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })()
-                  ) : (
-                    <div className="pt-3.5 border-t border-emerald-100/80">
-                      <div className="text-[10px] text-amber-600 bg-amber-50 p-2 rounded flex items-start gap-1.5">
-                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                        Chưa cấu hình văn phòng mặc định.
-                      </div>
-                    </div>
-                  )}
-                </div>
+              {isAdmin || isSubAdmin ? (
+                <AdminCustomerInsights 
+                  customer={customer}
+                  onAssignSale={() => setShowAssignDialog(true)}
+                  onAssignTele={() => setShowAssignDialog(true)}
+                  onRevoke={handleRevoke}
+                  onAdminNote={() => setQuickAction('note')}
+                />
               ) : (
-                <div className="p-4 bg-slate-50/60 rounded-2xl border border-slate-150 space-y-3.5 shadow-3xs">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-slate-350" />
-                      <span className="text-[11px] font-black text-slate-550 uppercase tracking-wider">Chưa có tọa độ định vị</span>
-                    </div>
-                  </div>
-
-                  <div className="text-[11px] text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-100 flex items-start gap-1.5 font-medium">
-                    <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                    <div>
-                      Khách chưa có tọa độ chính xác, Google Maps sẽ tìm theo địa chỉ/tên cơ sở.<br/>
-                      <span className="font-bold text-amber-700">Chưa thể tính khoảng cách — cần ghim vị trí khách.</span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={handlePinCurrentLocation}
-                      disabled={pinning}
-                      className="flex items-center justify-center gap-2 h-10 px-4 rounded-xl bg-primary hover:bg-primary/95 disabled:bg-slate-200 text-[11px] font-black text-white shadow-lg shadow-primary/10 transition-all hover:scale-102"
-                    >
-                      {pinning ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <MapPin className="w-3.5 h-3.5 text-white" />
-                      )}
-                      Ghim vị trí hiện tại
-                    </button>
-                    <a
-                      href={buildGoogleMapsSearchUrl(customer)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center justify-center gap-2 h-10 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-bold text-slate-700 shadow-3xs transition-all hover:scale-102"
-                    >
-                      <Crosshair className="w-3.5 h-3.5 text-slate-500" />
-                      Tìm địa chỉ Spa
-                    </a>
-                  </div>
-
-                  <div className="pt-3.5 border-t border-slate-200">
-                    <button
-                      onClick={handleGetGpsForCheckin}
-                      disabled={gpsLoading}
-                      className="w-full flex items-center justify-center gap-2 h-10 px-4 rounded-xl border border-dashed border-slate-300 bg-white hover:bg-slate-50 text-[11px] font-bold text-slate-700 transition-all hover:scale-102"
-                    >
-                      {gpsLoading ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Check className="w-3.5 h-3.5 text-slate-500" />
-                      )}
-                      Check-in ngoại lệ (Chưa định vị Spa)
-                    </button>
-                  </div>
-                </div>
-              )}
-            </section>
-
-            {/* CONTACT CHANNELS & REMARKETING SECTION */}
-            <section className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                  <Target className="w-4 h-4 text-primary" /> Kênh liên hệ & Remarketing
-                </div>
-              </div>
-              <CustomerContactChannels customerId={customer.id} />
-            </section>
-
-            {/* AI SUGGESTIONS SECTION */}
-            <CustomerAiSuggestions customerId={customer.id} />
-
-            {/* QUICK ACTIONS & COMMUNICATION */}
-            <section className="space-y-4">
-              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                <Sparkles className="w-4 h-4 text-primary" /> Hành động & Giao tiếp
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <button
-                  onClick={() => {
+                <SaleCustomerInsights 
+                  customer={customer}
+                  interactionSummary={interactionSummary}
+                  onQuickAction={(val: any) => setQuickAction(val)}
+                  onCreateOrder={() => {
                     onOpenChange(false);
                     navigate({ to: "/orders/new", search: { customerId: customer.id } });
                   }}
-                  className="w-full flex items-center justify-center gap-1.5 p-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-[11px] font-bold transition-all"
-                >
-                  <Package className="w-4 h-4" />
-                  Tạo đơn hàng mới
-                </button>
-              </div>
+                />
+              )}
 
-              <CommunicationLaunchers 
-                customerId={customer.id}
-                customerName={customer.name || customer.full_name}
-                customerPhone={customer.phone}
-                customerEmail={customer.email}
-                customerCity={customer.city || customer.province}
-                userAccounts={userCommAccounts}
-                customerChannels={customerChannels}
-                interactionSummary={interactionSummary}
-                quickAction={quickAction}
-                setQuickAction={(val: any) => setQuickAction(val)}
-              />
-
-              {/* Action forms */}
+              {/* Action forms moved up for immediate visibility */}
               {quickAction === "note" && (
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-3 animate-in fade-in slide-in-from-top-2">
                   <div className="text-[11px] font-black text-slate-700 flex items-center gap-1.5">
@@ -1732,6 +1580,263 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                   </Button>
                 </div>
               )}
+
+              <div className="space-y-3">
+                <CustomerRiskSummary customer={customer} />
+                <CustomerMiniKpi customer={customer} interactions={activities} tasks={tasks} orders={orders} />
+              </div>
+            </section>
+
+            {/* SECONDARY SECTION */}
+            <details className="group border border-slate-200 rounded-xl bg-slate-50 overflow-hidden shadow-sm">
+              <summary className="p-3 text-xs font-bold text-slate-700 cursor-pointer hover:bg-slate-100 flex items-center justify-between outline-none">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-slate-500" /> Vị trí & Tự động hóa
+                </div>
+                <span className="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+              </summary>
+              <div className="p-4 bg-white space-y-6 border-t border-slate-200">
+                <CustomerAutomationStatus customerId={customer.id} />
+                
+                <section className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-slate-900 font-bold text-[11px] uppercase tracking-wider">
+                      Vị trí khách hàng
+                    </div>
+                <button
+                  onClick={() => setShowEditLocationDialog(true)}
+                  className="flex items-center gap-1.5 text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors"
+                >
+                  <MapPin className="w-3 h-3" />
+                  Sửa vị trí
+                </button>
+              </div>
+
+              {hasValidCoordinates(customer) ? (
+                <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/80 space-y-3.5 shadow-3xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[11px] font-black text-emerald-800 uppercase tracking-wider">Đã có tọa độ định vị</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-500 bg-white border border-slate-150 px-2.5 py-0.5 rounded-full shadow-3xs">
+                      GPS: {Number(customer.latitude).toFixed(5)}, {Number(customer.longitude).toFixed(5)}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <a
+                      href={buildGoogleMapsSearchUrl(customer)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-center gap-2 h-10 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-bold text-slate-700 shadow-3xs transition-all hover:scale-102"
+                    >
+                      <Crosshair className="w-3.5 h-3.5 text-slate-500" />
+                      Mở Google Maps
+                    </a>
+                    <a
+                      href={buildGoogleMapsDirectionsUrl(customer)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-center gap-2 h-10 px-4 rounded-xl bg-slate-900 hover:bg-black text-[11px] font-black text-white shadow-md shadow-slate-100 transition-all hover:scale-102"
+                    >
+                      <Navigation className="w-3.5 h-3.5 text-white animate-pulse" />
+                      Chỉ đường đi
+                    </a>
+                  </div>
+
+                  <div className="pt-3.5 border-t border-emerald-100/80">
+                    <button
+                      onClick={handleGetGpsForCheckin}
+                      disabled={gpsLoading}
+                      className="w-full flex items-center justify-center gap-2 h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 text-[11px] font-black text-white shadow-lg shadow-emerald-100 transition-all hover:scale-102"
+                    >
+                      {gpsLoading ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Check className="w-3.5 h-3.5 text-white" />
+                      )}
+                      Check-in tại Spa
+                    </button>
+                  </div>
+
+                  {companyLocationLoading ? (
+                    <div className="pt-3.5 border-t border-emerald-100/80 flex items-center justify-center p-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                    </div>
+                  ) : companyLocation ? (
+                    (() => {
+                      const distMeters = calculateDistanceMeters(
+                        Number(customer.latitude),
+                        Number(customer.longitude),
+                        Number(companyLocation.latitude),
+                        Number(companyLocation.longitude)
+                      );
+                      const distKm = (distMeters / 1000).toFixed(1);
+                      const suggested = getRecommendedRoutingByDistance(distMeters, {
+                        nearKm: settings.routingNearKm,
+                        cityKm: settings.routingCityKm,
+                        farKm: settings.routingFarKm
+                      });
+                      const isSame = suggested.customerChannel === customer.customer_channel && 
+                                     suggested.careModel === customer.care_model && 
+                                     suggested.distanceType === customer.customer_distance_type;
+
+                      return (
+                        <div className="pt-3.5 border-t border-emerald-100/80 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-slate-700">Cách {companyLocation.name}:</span>
+                            <span className="text-[11px] font-black text-emerald-600">{distKm} km</span>
+                          </div>
+                          
+                          <div className="bg-white rounded-lg p-2.5 border border-emerald-100 space-y-2 relative">
+                            {isSame ? (
+                              <Badge className="absolute -top-2 -right-2 text-[8px] bg-emerald-500 hover:bg-emerald-600 border-none">Phân tuyến hiện tại đã phù hợp</Badge>
+                            ) : (
+                              <Badge className="absolute -top-2 -right-2 text-[8px] bg-amber-500 hover:bg-amber-600 border-none animate-pulse">Có gợi ý mới</Badge>
+                            )}
+                            <div className="flex justify-between text-[10px]">
+                              <span className="text-slate-500 font-medium">Khoảng cách gợi ý:</span>
+                              <span className="font-bold text-slate-700">{getCustomerDistanceLabel(suggested.distanceType)}</span>
+                            </div>
+                            <div className="flex justify-between text-[10px]">
+                              <span className="text-slate-500 font-medium">Gợi ý tuyến:</span>
+                              <span className="font-bold text-slate-700">{getCustomerChannelLabel(suggested.customerChannel)}</span>
+                            </div>
+                            <div className="flex justify-between text-[10px]">
+                              <span className="text-slate-500 font-medium">Mô hình gợi ý:</span>
+                              <span className="font-bold text-slate-700">{getCareModelLabel(suggested.careModel)}</span>
+                            </div>
+                          </div>
+
+                          {(isAdmin || isSubAdmin) && (
+                            <button
+                              onClick={() => handleApplyRouting(suggested, distMeters)}
+                              className="w-full flex items-center justify-center gap-1.5 h-8 rounded-lg bg-blue-600 hover:bg-blue-700 text-[10px] font-bold text-white shadow-sm transition-all"
+                            >
+                              <CheckSquare className="w-3.5 h-3.5" />
+                              Áp dụng gợi ý phân tuyến
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <div className="pt-3.5 border-t border-emerald-100/80">
+                      <div className="text-[10px] text-amber-600 bg-amber-50 p-2 rounded flex items-start gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        Chưa cấu hình văn phòng mặc định.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-4 bg-slate-50/60 rounded-2xl border border-slate-150 space-y-3.5 shadow-3xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-slate-350" />
+                      <span className="text-[11px] font-black text-slate-550 uppercase tracking-wider">Chưa có tọa độ định vị</span>
+                    </div>
+                  </div>
+
+                  <div className="text-[11px] text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-100 flex items-start gap-1.5 font-medium">
+                    <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                    <div>
+                      Khách chưa có tọa độ chính xác, Google Maps sẽ tìm theo địa chỉ/tên cơ sở.<br/>
+                      <span className="font-bold text-amber-700">Chưa thể tính khoảng cách — cần ghim vị trí khách.</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={handlePinCurrentLocation}
+                      disabled={pinning}
+                      className="flex items-center justify-center gap-2 h-10 px-4 rounded-xl bg-primary hover:bg-primary/95 disabled:bg-slate-200 text-[11px] font-black text-white shadow-lg shadow-primary/10 transition-all hover:scale-102"
+                    >
+                      {pinning ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <MapPin className="w-3.5 h-3.5 text-white" />
+                      )}
+                      Ghim vị trí hiện tại
+                    </button>
+                    <a
+                      href={buildGoogleMapsSearchUrl(customer)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-center gap-2 h-10 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-bold text-slate-700 shadow-3xs transition-all hover:scale-102"
+                    >
+                      <Crosshair className="w-3.5 h-3.5 text-slate-500" />
+                      Tìm địa chỉ Spa
+                    </a>
+                  </div>
+
+                  <div className="pt-3.5 border-t border-slate-200">
+                    <button
+                      onClick={handleGetGpsForCheckin}
+                      disabled={gpsLoading}
+                      className="w-full flex items-center justify-center gap-2 h-10 px-4 rounded-xl border border-dashed border-slate-300 bg-white hover:bg-slate-50 text-[11px] font-bold text-slate-700 transition-all hover:scale-102"
+                    >
+                      {gpsLoading ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Check className="w-3.5 h-3.5 text-slate-500" />
+                      )}
+                      Check-in ngoại lệ (Chưa định vị Spa)
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
+          </div>
+        </details>
+
+        {/* CONTACT CHANNELS & REMARKETING SECTION */}
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                  <Target className="w-4 h-4 text-primary" /> Kênh liên hệ & Remarketing
+                </div>
+              </div>
+              <CustomerContactChannels customerId={customer.id} />
+            </section>
+
+            {/* AI SUGGESTIONS SECTION */}
+            <CustomerAiSuggestions customerId={customer.id} />
+
+            {/* QUICK ACTIONS & COMMUNICATION */}
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                <Sparkles className="w-4 h-4 text-primary" /> Hành động & Giao tiếp
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => {
+                    onOpenChange(false);
+                    navigate({ to: "/orders/new", search: { customerId: customer.id } });
+                  }}
+                  className="w-full flex items-center justify-center gap-1.5 p-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-[11px] font-bold transition-all"
+                >
+                  <Package className="w-4 h-4" />
+                  Tạo đơn hàng mới
+                </button>
+              </div>
+
+              <CommunicationLaunchers 
+                customerId={customer.id}
+                customerName={customer.name || customer.full_name}
+                customerPhone={customer.phone}
+                customerEmail={customer.email}
+                customerCity={customer.city || customer.province}
+                userAccounts={userCommAccounts}
+                customerChannels={customerChannels}
+                interactionSummary={interactionSummary}
+                quickAction={quickAction}
+                setQuickAction={(val: any) => setQuickAction(val)}
+              />
+
+              {/* Action forms moved to top intelligence zone */}
             </section>
 
             {/* INTEL & UPSELL SECTION */}
@@ -1759,16 +1864,17 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
             )}
 
             {/* NEW TIMELINE P2 */}
-            <section className="space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <div className="flex items-center gap-2 text-slate-900 font-bold text-sm uppercase tracking-wider">
-                  <Activity className="w-4 h-4 text-indigo-500" /> Timeline Tương tác (Mới)
+            <details className="group border border-slate-200 rounded-xl bg-slate-50 overflow-hidden shadow-sm">
+              <summary className="p-3 text-xs font-bold text-slate-700 cursor-pointer hover:bg-slate-100 flex items-center justify-between outline-none">
+                <div className="flex items-center gap-2 uppercase tracking-wider">
+                  <Activity className="w-4 h-4 text-indigo-500" /> Lịch sử tương tác
                 </div>
-              </div>
-              <div className="bg-slate-50/50 p-4 rounded-3xl border border-slate-100/60">
+                <span className="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+              </summary>
+              <div className="bg-white p-4 border-t border-slate-200">
                 <CustomerTimelineFeed customerId={customer.id} />
               </div>
-            </section>
+            </details>
 
 
             {/* PRODUCT KNOWLEDGE BOOK */}
@@ -1948,7 +2054,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
             </section>
 
           </div>
-        </ScrollArea>
+        </div>
 
         {/* FOOTER ACTIONS */}
         <div className="p-4 bg-slate-50 border-t border-slate-200 grid grid-cols-2 gap-3 shadow-md">
@@ -2241,6 +2347,19 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Assign Staff Dialog */}
+      {showAssignDialog && (
+        <AssignStaffDialog
+          isOpen={showAssignDialog}
+          onClose={() => setShowAssignDialog(false)}
+          customer={customer}
+          onSuccess={() => {
+            fetchCustomerDetails();
+            window.dispatchEvent(new Event('refresh_customers_list'));
+          }}
+        />
+      )}
     </Sheet>
   );
 };

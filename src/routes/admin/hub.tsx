@@ -59,6 +59,14 @@ function AdminControlHub() {
 
   const groups = [
     {
+      title: "System Configuration",
+      icon: <Settings2 className="w-6 h-6 text-blue-500" />,
+      description: "Cấu hình chung, thông tin pháp lý, mốc định vị và phân tuyến",
+      links: [
+        { label: "Global System Settings", to: "/admin/settings", icon: <Settings2 className="w-4 h-4" /> },
+      ]
+    },
+    {
       title: "AI Control",
       icon: <BrainCircuit className="w-6 h-6 text-indigo-500" />,
       description: "Quản lý cài đặt AI, Suggestion Toggles và RAG",
@@ -128,55 +136,74 @@ function AdminControlHub() {
                   </div>
                 </div>
               </CardHeader>
-              {group.title === "AI Control" && aiSettings && (
+              {group.title === "AI Control" && (
                 <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 grid grid-cols-2 gap-2 text-[11px] font-medium text-slate-600">
                   <div className="flex items-center justify-between bg-white px-2 py-1.5 rounded border border-slate-100">
                     <span>Global AI</span>
-                    <span className={aiSettings.ai_enabled ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>
-                      {aiSettings.ai_enabled ? "ON" : "OFF"}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] bg-slate-100 text-slate-500 px-1 py-0.5 rounded font-bold uppercase tracking-wider">Active</span>
+                      <span className={aiSettings?.ai_enabled ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>
+                        {aiSettings?.ai_enabled ? "ON" : "OFF"}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between bg-white px-2 py-1.5 rounded border border-slate-100">
                     <span>Suggestions</span>
-                    <span className={aiSettings.ai_customer_suggestions_enabled ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>
-                      {aiSettings.ai_customer_suggestions_enabled ? "ON" : "OFF"}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] bg-slate-100 text-slate-500 px-1 py-0.5 rounded font-bold uppercase tracking-wider">Active</span>
+                      <span className={aiSettings?.ai_customer_suggestions_enabled ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>
+                        {aiSettings?.ai_customer_suggestions_enabled ? "ON" : "OFF"}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between bg-white px-2 py-1.5 rounded border border-slate-100">
                     <span>Daily Limit</span>
-                    <span className="font-bold text-slate-900">{aiSettings.ai_daily_limit || 0}</span>
+                    <span className="font-bold text-slate-900">{aiSettings?.ai_daily_limit || 0}</span>
                   </div>
                   <div className="flex items-center justify-between bg-white px-2 py-1.5 rounded border border-slate-100">
                     <span>Cache</span>
-                    <span className="font-bold text-slate-900">{aiSettings.ai_cache_minutes || 0}m</span>
+                    <span className="font-bold text-slate-900">{aiSettings?.ai_cache_minutes || 0}m</span>
                   </div>
                 </div>
               )}
+
               {group.title === "Automation Control" && autoSettings && (
                 <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 grid grid-cols-2 gap-2 text-[11px] font-medium text-slate-600">
                   <div className="flex items-center justify-between bg-white px-2 py-1.5 rounded border border-slate-100">
                     <span>Pilot Mode</span>
-                    <span className={autoSettings.pilot_mode_enabled ? "text-indigo-600 font-bold" : "text-amber-600 font-bold"}>
-                      {autoSettings.pilot_mode_enabled ? "ON" : "OFF"}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] bg-slate-100 text-slate-500 px-1 py-0.5 rounded font-bold uppercase tracking-wider">Active</span>
+                      <span className={autoSettings.pilot_mode_enabled ? "text-indigo-600 font-bold" : "text-amber-600 font-bold"}>
+                        {autoSettings.pilot_mode_enabled ? "ON" : "OFF"}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between bg-white px-2 py-1.5 rounded border border-slate-100">
                     <span>Automation</span>
-                    <span className={autoSettings.automation_enabled ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>
-                      {autoSettings.automation_enabled ? "ON" : "OFF"}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] bg-rose-50 text-rose-500 px-1 py-0.5 rounded font-bold uppercase tracking-wider">Disabled for Pilot</span>
+                      <span className={autoSettings.automation_enabled ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>
+                        {autoSettings.automation_enabled ? "ON" : "OFF"}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between bg-white px-2 py-1.5 rounded border border-slate-100">
                     <span>Due Gen</span>
-                    <span className={autoSettings.due_generator_enabled ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>
-                      {autoSettings.due_generator_enabled ? "ON" : "OFF"}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] bg-rose-50 text-rose-500 px-1 py-0.5 rounded font-bold uppercase tracking-wider">Disabled for Pilot</span>
+                      <span className={autoSettings.due_generator_enabled ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>
+                        {autoSettings.due_generator_enabled ? "ON" : "OFF"}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between bg-white px-2 py-1.5 rounded border border-slate-100">
                     <span>Notifications</span>
-                    <span className={autoSettings.notification_enabled ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>
-                      {autoSettings.notification_enabled ? "ON" : "OFF"}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] bg-slate-100 text-slate-500 px-1 py-0.5 rounded font-bold uppercase tracking-wider">Active</span>
+                      <span className={autoSettings.notification_enabled ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>
+                        {autoSettings.notification_enabled ? "ON" : "OFF"}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}

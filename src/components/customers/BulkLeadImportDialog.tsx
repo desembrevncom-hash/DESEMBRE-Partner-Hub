@@ -69,6 +69,7 @@ export function BulkLeadImportDialog({ open, onOpenChange, onSuccess }: BulkLead
     if (open) {
       setStep(1);
       setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
       setParsedRows([]);
       setValidRows([]);
       setValidRowsOriginal([]);
@@ -124,6 +125,7 @@ export function BulkLeadImportDialog({ open, onOpenChange, onSuccess }: BulkLead
       } catch (err: any) {
         toast.error("Lỗi đọc file: " + err.message);
         setStep(1);
+        if (fileInputRef.current) fileInputRef.current.value = "";
       }
     };
     reader.readAsBinaryString(selectedFile);
@@ -479,7 +481,10 @@ export function BulkLeadImportDialog({ open, onOpenChange, onSuccess }: BulkLead
                   <h3 className="font-black text-slate-900 text-lg">Preview Dữ Liệu</h3>
                   <p className="text-sm font-medium text-slate-500">{file?.name}</p>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => setStep(1)}>
+                <Button variant="outline" size="sm" onClick={() => {
+                  setStep(1);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }}>
                   <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Chọn file khác
                 </Button>
               </div>

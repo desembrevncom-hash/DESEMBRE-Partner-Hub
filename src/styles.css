@@ -63,7 +63,7 @@
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0.75rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.129 0.042 264.695);
   --card: oklch(1 0 0);
@@ -134,9 +134,6 @@
 }
 
 @layer base {
-  * {
-    border-color: var(--color-border);
-  }
 
   html {
     scroll-behavior: smooth;
@@ -147,6 +144,39 @@
     color: var(--color-foreground);
     font-family: 'Plus Jakarta Sans', sans-serif;
     -webkit-font-smoothing: antialiased;
+  }
+
+  /* CUSTOM ELITE UTILITIES */
+  .glass {
+    background-color: color-mix(in oklch, var(--color-background) 70%, transparent);
+    backdrop-filter: blur(12px);
+    border: 1px solid color-mix(in oklch, var(--color-border) 20%, transparent);
+  }
+
+  .card-elite {
+    border-radius: var(--radius-3xl);
+    border: none;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.3s ease;
+  }
+  .card-elite:hover {
+    box-shadow: var(--shadow-xl);
+  }
+
+  /* Custom Scrollbar for Elite UI */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklch, var(--color-muted-foreground) 40%, transparent);
+    border-radius: 10px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklch, var(--color-muted-foreground) 60%, transparent);
   }
 }
 

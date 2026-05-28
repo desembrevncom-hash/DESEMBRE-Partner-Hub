@@ -1,13 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Shield, ShieldAlert, Activity, AlertTriangle, RefreshCw, Server, Search, CheckCircle2, Play, Terminal } from "lucide-react";
+import { Shield, ShieldAlert, Activity, AlertTriangle, RefreshCw, Server, Search, CheckCircle2, Play, Terminal, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { getFriendlyErrorMessage } from "@/lib/errorMessages";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/admin/production-health")({
   component: ProductionHealthPage,
@@ -19,6 +20,8 @@ function ProductionHealthPage() {
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<any>({ ai_enabled: true, automation_enabled: true, pilot_mode: true });
   const [testingEdge, setTestingEdge] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const { isAdmin, isSubAdmin } = useAuth();
 
   const fetchHealthData = async () => {
     setLoading(true);
@@ -64,6 +67,32 @@ function ProductionHealthPage() {
       }
     } finally {
       setTestingEdge(false);
+    }
+  };
+
+  const handleExportBackup = async () => {
+    setExporting(true);
+    toast.info("Đang tạo bản sao lưu, vui lòng đợi...");
+    try {
+      const { data, error } = await supabase.functions.invoke('backup-export', {
+        method: 'POST'
+      });
+      if (error) throw error;
+      
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `desembre_backup_${format(new Date(), "yyyy-MM-dd_HH-mm")}.json`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+      toast.success("Đã tải bản sao lưu thành công!");
+    } catch (e: any) {
+      toast.error("Lỗi sao lưu: " + getFriendlyErrorMessage(e));
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -124,6 +153,26 @@ function ProductionHealthPage() {
               </Button>
             </div>
           </div>
+
+          {(isAdmin || isSubAdmin) && (
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+              <h3 className="font-bold text-slate-900 flex items-center gap-2 mb-4">
+                <Download className="w-4 h-4 text-emerald-500" />
+                Sao lưu dữ liệu (Pre-Pilot)
+              </h3>
+              <div className="space-y-3">
+                <div className="bg-amber-50 p-3 rounded-lg border border-amber-100 flex gap-2 text-amber-800 text-xs font-medium">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>File backup chứa dữ liệu nhạy cảm, hãy lưu ở nơi an toàn.</span>
+                </div>
+                <p className="text-[10px] text-slate-500 font-medium">Bao gồm: customers, orders, activities, tasks, templates...</p>
+                <Button onClick={handleExportBackup} disabled={exporting} className="w-full bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-bold gap-2">
+                  {exporting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  Tải bản sao lưu
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* LOGS */}

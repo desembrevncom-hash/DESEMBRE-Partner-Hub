@@ -229,8 +229,18 @@ function CustomersPage() {
         setPreviewCustomer(customer);
       }
     };
+    
+    const handleRefresh = () => {
+      fetchCustomers();
+    };
+
     window.addEventListener('open-customer-preview' as any, handleOpenPreview);
-    return () => window.removeEventListener('open-customer-preview' as any, handleOpenPreview);
+    window.addEventListener('refresh_customers_list', handleRefresh);
+    
+    return () => {
+      window.removeEventListener('open-customer-preview' as any, handleOpenPreview);
+      window.removeEventListener('refresh_customers_list', handleRefresh);
+    };
   }, [customers]);
 
   const handleExport = async (exportType: "active" | "deleted" = "active") => {
@@ -667,7 +677,7 @@ function CustomersPage() {
         {/* EXECUTIVE CONTROL CENTER (ADMIN & SUB-ADMIN ONLY) */}
         {isManager && adminStats && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-             <div className="p-6 rounded-[32px] bg-white border border-slate-100 shadow-sm flex flex-col justify-between h-36">
+             <div className="p-6 rounded-3xl bg-white border border-slate-100 shadow-sm flex flex-col justify-between h-36">
                 <div className="flex items-center justify-between">
                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tổng khách hàng / Spa</span>
                    <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-500 border border-slate-100">
@@ -682,7 +692,7 @@ function CustomersPage() {
 
              <button 
                 onClick={() => setSmartFilter(smartFilter === "unassigned" ? "all" : "unassigned")}
-                className={`p-6 rounded-[32px] text-left border flex flex-col justify-between h-36 transition-all duration-300 ${smartFilter === "unassigned" ? 'bg-indigo-600 border-transparent text-white shadow-xl scale-105 shadow-indigo-100' : 'bg-white border-slate-100 shadow-sm hover:border-slate-200'}`}
+                className={`p-6 rounded-3xl text-left border flex flex-col justify-between h-36 transition-all duration-300 ${smartFilter === "unassigned" ? 'bg-indigo-600 border-transparent text-white shadow-xl scale-105 shadow-indigo-100' : 'bg-white border-slate-100 shadow-sm hover:border-slate-200'}`}
              >
                 <div className="flex items-center justify-between w-full">
                    <span className={`text-[10px] font-black uppercase tracking-widest ${smartFilter === "unassigned" ? 'text-white/80' : 'text-slate-400'}`}>Lead chưa phân công</span>
@@ -698,7 +708,7 @@ function CustomersPage() {
                 </div>
              </button>
 
-             <div className="p-6 rounded-[32px] bg-white border border-slate-100 shadow-sm flex flex-col justify-between h-36">
+             <div className="p-6 rounded-3xl bg-white border border-slate-100 shadow-sm flex flex-col justify-between h-36">
                 <div className="flex items-center justify-between">
                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Spa đạt hạng VIP (Gold+)</span>
                    <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500 border border-amber-100">
@@ -711,7 +721,7 @@ function CustomersPage() {
                 </div>
              </div>
 
-             <div className="p-6 rounded-[32px] bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-700 border-none shadow-xl shadow-indigo-100 text-white flex flex-col justify-between h-36">
+             <div className="p-6 rounded-3xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-700 border-none shadow-xl shadow-indigo-100 text-white flex flex-col justify-between h-36">
                 <div className="flex items-center justify-between">
                    <span className="text-[10px] font-black text-white/80 uppercase tracking-widest">Tổng doanh thu hệ thống</span>
                    <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-white border border-white/10">
@@ -727,7 +737,7 @@ function CustomersPage() {
         )}
         
         {isManager && adminStats && (
-          <div className="bg-white p-4 rounded-[24px] border border-slate-100 shadow-sm flex flex-wrap gap-4 items-center text-xs font-bold text-slate-600">
+          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-wrap gap-4 items-center text-xs font-bold text-slate-600">
              <span className="text-[10px] uppercase tracking-widest text-slate-400 bg-slate-50 px-2 py-1 rounded-md">Channel Intelligence</span>
              <div className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-blue-500" /> {adminStats.channels.hasPhone}</div>
              <div className="flex items-center gap-1.5"><Facebook className="w-3.5 h-3.5 text-blue-600" /> {adminStats.channels.hasFb}</div>
@@ -837,7 +847,7 @@ function CustomersPage() {
           <div className="flex gap-6 overflow-x-auto pb-10 min-h-[600px] no-scrollbar">
              {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                   <div key={i} className="min-w-[280px] w-[280px] flex flex-col relative bg-slate-50/50 rounded-[24px] border border-slate-100/50 animate-pulse transition-opacity duration-300">
+                   <div key={i} className="min-w-[280px] w-[280px] flex flex-col relative bg-slate-50/50 rounded-2xl border border-slate-100/50 animate-pulse transition-opacity duration-300">
                       <div className="sticky top-0 z-10 flex items-center justify-between p-3 border-b border-slate-100/50 bg-slate-50/30 rounded-t-[24px]">
                          <div className="w-24 h-4 bg-slate-200 rounded"></div>
                          <div className="w-6 h-6 bg-slate-200 rounded-full"></div>
@@ -960,10 +970,10 @@ function CustomersPage() {
           <div className="flex flex-col gap-3">
              {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                   <div key={i} className="w-full h-24 bg-white rounded-[24px] border border-slate-100 animate-pulse"></div>
+                   <div key={i} className="w-full h-24 bg-white rounded-2xl border border-slate-100 animate-pulse"></div>
                 ))
              ) : filteredCustomers.length === 0 ? (
-                <div className="text-center py-24 bg-white rounded-[32px] border border-dashed border-slate-200">
+                <div className="text-center py-24 bg-white rounded-3xl border border-dashed border-slate-200">
                    <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
                       <Search className="w-6 h-6 text-slate-300" />
                    </div>
@@ -1058,7 +1068,7 @@ function CustomersPage() {
       )}
 
       <Dialog open={isDispatchDialogOpen} onOpenChange={setIsDispatchDialogOpen}>
-        <DialogContent className="sm:max-w-md rounded-[24px]">
+        <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-black text-slate-900">
                {dispatchAction === 'assign_sale' && 'Phân công Sale phụ trách'}
@@ -1498,7 +1508,7 @@ function CustomerIntelligenceRow({ customer, staffMap, onPreview, onQuickLog, is
   const primaryPhone = customer.phone || '';
 
   return (
-    <div className={`group bg-white border-2 rounded-[24px] p-4 flex flex-col md:flex-row gap-6 items-start md:items-center shadow-sm hover:shadow-md transition-all cursor-pointer ${visualState.borderColor} ${visualState.animation || ''}`} onClick={onPreview}>
+    <div className={`group bg-white border-2 rounded-2xl p-4 flex flex-col md:flex-row gap-6 items-start md:items-center shadow-sm hover:shadow-md transition-all cursor-pointer ${visualState.borderColor} ${visualState.animation || ''}`} onClick={onPreview}>
        {/* Col 1: Info & Health */}
        <div className="w-full md:w-4/12 flex items-start gap-4">
           {isManager && onToggleSelect && (

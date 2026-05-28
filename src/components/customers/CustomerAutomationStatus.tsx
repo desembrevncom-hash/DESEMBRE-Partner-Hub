@@ -39,6 +39,10 @@ export const CustomerAutomationStatus: React.FC<CustomerAutomationStatusProps> =
     return () => { isMounted = false; };
   }, [customerId]);
 
+  if (!loading && activeAutomations.length === 0) {
+    return null;
+  }
+
   return (
     <div className="flex flex-col gap-2 p-4 bg-slate-50 dark:bg-slate-900 border rounded-lg shadow-sm">
       <h4 className="text-sm font-semibold flex items-center gap-2 mb-1">
@@ -50,7 +54,7 @@ export const CustomerAutomationStatus: React.FC<CustomerAutomationStatusProps> =
         <div className="flex items-center text-sm text-muted-foreground gap-2">
           <Loader2 className="w-4 h-4 animate-spin" /> Kiểm tra trạng thái...
         </div>
-      ) : activeAutomations.length > 0 ? (
+      ) : (
         <div className="space-y-2">
           {activeAutomations.map((auto) => (
             <div key={auto.id} className="flex flex-col gap-1 bg-background p-2 rounded border text-sm">
@@ -70,11 +74,6 @@ export const CustomerAutomationStatus: React.FC<CustomerAutomationStatusProps> =
               )}
             </div>
           ))}
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-background p-2 rounded border border-dashed">
-          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-          Không có automation nào đang kích hoạt.
         </div>
       )}
     </div>

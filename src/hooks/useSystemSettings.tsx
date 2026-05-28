@@ -10,6 +10,9 @@ type SystemSettings = {
   supportEmail: string;
   leadOverdueDays: number;
   pilotModeEnabled: boolean;
+  routingNearKm: number;
+  routingCityKm: number;
+  routingFarKm: number;
 };
 
 const defaultSettings: SystemSettings = {
@@ -20,6 +23,9 @@ const defaultSettings: SystemSettings = {
   supportEmail: "support@desembre.vn",
   leadOverdueDays: 3,
   pilotModeEnabled: true,
+  routingNearKm: 10,
+  routingCityKm: 30,
+  routingFarKm: 80,
 };
 
 const SettingsContext = createContext<SystemSettings>(defaultSettings);
@@ -41,6 +47,9 @@ export function SystemSettingsProvider({ children }: { children: ReactNode }) {
             supportEmail: data.support_email || defaultSettings.supportEmail,
             leadOverdueDays: data.lead_overdue_days ?? defaultSettings.leadOverdueDays,
             pilotModeEnabled: data.pilot_mode_enabled ?? defaultSettings.pilotModeEnabled,
+            routingNearKm: data.routing_near_km ?? defaultSettings.routingNearKm,
+            routingCityKm: data.routing_city_km ?? defaultSettings.routingCityKm,
+            routingFarKm: data.routing_far_km ?? defaultSettings.routingFarKm,
           });
           setPricingSettings(vat, discount);
         }

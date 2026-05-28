@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { 
   Activity, 
   MessageCircle, 
@@ -54,34 +54,20 @@ export const CustomerMiniKpi: React.FC<CustomerMiniKpiProps> = ({
     </div>
   );
 
+  const [isExpanded, setIsExpanded] = useState(false);
+
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div className="flex flex-col gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       <KpiItem 
         icon={Activity} 
         label="Tương tác" 
         value={totalInteractions} 
       />
       <KpiItem 
-        icon={MessageCircle} 
-        label="Kênh chính" 
-        value={mostUsedPlatform} 
-        valueClass="capitalize"
-      />
-      <KpiItem 
         icon={CheckSquare} 
         label="Công việc (Mở)" 
         value={openTasks} 
-      />
-      <KpiItem 
-        icon={AlertCircle} 
-        label="Quá hạn" 
-        value={overdueTasks}
-        valueClass={overdueTasks > 0 ? "text-destructive" : "text-emerald-500"} 
-      />
-      <KpiItem 
-        icon={Package} 
-        label="Đơn hàng" 
-        value={totalOrders} 
       />
       <KpiItem 
         icon={DollarSign} 
@@ -94,6 +80,36 @@ export const CustomerMiniKpi: React.FC<CustomerMiniKpiProps> = ({
         label="Báo giá gần nhất" 
         value={lastQuoteAt ? new Date(lastQuoteAt).toLocaleDateString("vi-VN") : "Chưa có"} 
       />
+      </div>
+      
+      {isExpanded && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-1">
+          <KpiItem 
+            icon={MessageCircle} 
+            label="Kênh chính" 
+            value={mostUsedPlatform} 
+            valueClass="capitalize"
+          />
+          <KpiItem 
+            icon={AlertCircle} 
+            label="Quá hạn" 
+            value={overdueTasks}
+            valueClass={overdueTasks > 0 ? "text-destructive" : "text-emerald-500"} 
+          />
+          <KpiItem 
+            icon={Package} 
+            label="Đơn hàng" 
+            value={totalOrders} 
+          />
+        </div>
+      )}
+      
+      <button 
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline self-center mt-1"
+      >
+        {isExpanded ? "Thu gọn" : "Xem thêm KPI phụ"}
+      </button>
     </div>
   );
 };

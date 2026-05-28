@@ -33,6 +33,7 @@ import {
   getCustomerDistanceLabel,
   getCareModelLabel
 } from "@/lib/customerOwnership";
+import { useSystemSettings } from "@/hooks/useSystemSettings";
 
 export const Route = createFileRoute("/reports/routing")({
   component: RoutingReportPage,
@@ -40,6 +41,7 @@ export const Route = createFileRoute("/reports/routing")({
 
 function RoutingReportPage() {
   const { user, isManager } = useAuth();
+  const settings = useSystemSettings();
   const [loading, setLoading] = useState(true);
   const [companyLocation, setCompanyLocation] = useState<any | null>(null);
   const [customers, setCustomers] = useState<any[]>([]);
@@ -143,7 +145,12 @@ function RoutingReportPage() {
           Number(companyLocation.longitude)
         );
         
-        routing = getRecommendedRoutingByDistance(distMeters);
+        const thresholds = {
+          nearKm: settings.routingNearKm,
+          cityKm: settings.routingCityKm,
+          farKm: settings.routingFarKm
+        };
+        routing = getRecommendedRoutingByDistance(distMeters, thresholds);
         
         isMatch = 
           routing.customerChannel === c.customer_channel && 
