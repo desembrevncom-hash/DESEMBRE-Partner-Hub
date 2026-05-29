@@ -33,7 +33,7 @@ export const Route = createRootRoute({
 });
 
 function RootLayout() {
-  const { user, signOut, isAdmin, isSubAdmin, isTeleLead } = useAuth();
+  const { user, signOut, isAdmin, isSubAdmin, isTeleLead, isSale } = useAuth();
   const [branding, setBranding] = useState({ primary: "", accent: "", logoLight: "", logoDark: "" });
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
@@ -118,7 +118,7 @@ function RootLayout() {
                 <NavButton to="/orders" icon={Package} label="Đơn hàng" />
                 <NavButton to="/admin/products" icon={Zap} label="Sản phẩm" />
                 <NavButton to="/calendar" icon={Calendar} label="Lịch hẹn" />
-                {(isAdmin || isTeleLead) && (
+                {(isAdmin || isTeleLead || isSale) && (
                    <NavButton to="/marketing" icon={Sparkles} label="Marketing" highlight />
                 )}
              </div>

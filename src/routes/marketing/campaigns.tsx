@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { canSendMarketingMessage, ComplianceCustomer, ComplianceTemplate } from "@/lib/messagingRules";
+import { resolveSenderForMessage } from "@/lib/senderResolver";
 
 export const Route = createFileRoute("/marketing/campaigns")({
   component: MarketingCampaignsPage,
@@ -45,9 +46,10 @@ interface Campaign {
   id: string;
   name: string;
   template_id?: string;
+  zns_template_id?: string;
   sender_account_id?: string;
   segment_id?: string;
-  status: 'draft' | 'scheduled' | 'processing' | 'completed' | 'cancelled';
+  status: 'draft' | 'pending_review' | 'approved' | 'queued' | 'sending' | 'paused' | 'completed' | 'partially_failed' | 'cancelled' | 'failed';
   target_criteria?: any;
   override_variables?: any;
   scheduled_at?: string | null;
@@ -59,8 +61,20 @@ interface Campaign {
   };
   created_at: string;
   message_templates?: { name: string; channel: string; purpose: string };
-  sender_accounts?: { name: string; sender_email: string };
+  zns_templates?: { template_name: string; category: string; purpose: string };
+  sender_accounts?: { id: string; name: string; sender_email: string; health_status?: string; daily_limit?: number; daily_usage?: number };
   customer_segments?: { name: string; total_count?: number };
+  approved_by?: string;
+  approved_at?: string;
+  started_at?: string;
+  completed_at?: string;
+  paused_at?: string;
+  cancelled_at?: string;
+  failure_reason?: string;
+  estimated_recipients?: number;
+  processed_recipients?: number;
+  successful_recipients?: number;
+  failed_recipients?: number;
 }
 
 interface MessageTemplateRef {
@@ -84,6 +98,10 @@ interface SenderAccountRef {
   name: string;
   sender_email: string;
   channel: string;
+  is_active?: boolean;
+  health_status?: string;
+  daily_usage?: number;
+  daily_limit?: number;
 }
 
 interface SegmentRef {
@@ -94,9 +112,13 @@ interface SegmentRef {
 }
 
 function MarketingCampaignsPage() {
-  const { user, isAdmin, isSale } = useAuth();
+  const { user, isAdmin, isSubAdmin, isAdminOrSubAdmin, isSale } = useAuth();
+  const canManageCampaign = (camp: Campaign | null) => camp ? (isAdminOrSubAdmin || (isSale && camp.created_by === user?.id)) : false;
+  // Đọc template_id từ URL params (khi click "Tạo Campaign" từ Template Library)
+  const searchParams = useSearch({ strict: false }) as any;
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [templates, setTemplates] = useState<MessageTemplateRef[]>([]);
+  const [znsTemplates, setZnsTemplates] = useState<any[]>([]);
   const [senders, setSenders] = useState<SenderAccountRef[]>([]);
   const [segments, setSegments] = useState<SegmentRef[]>([]);
   const [customers, setCustomers] = useState<ComplianceCustomer[]>([]);
@@ -111,12 +133,24 @@ function MarketingCampaignsPage() {
   const [saving, setSaving] = useState(false);
 
   // Payload Form
+  const [campaignType, setCampaignType] = useState<"zns" | "general">("zns");
   const [formName, setFormName] = useState("");
   const [formTemplateId, setFormTemplateId] = useState("");
+  const [formZnsTemplateId, setFormZnsTemplateId] = useState("");
   const [formSenderId, setFormSenderId] = useState("");
   const [formSegmentId, setFormSegmentId] = useState("");
   const [formScheduleType, setFormScheduleType] = useState<"now" | "later">("now");
   const [formScheduleTime, setFormScheduleTime] = useState("");
+
+  // Bổ sung State Kiểm soát gửi & Chi tiết chiến dịch
+  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+  const [approvalConfirmed, setApprovalConfirmed] = useState(false);
+  const [isSendingLoopActive, setIsSendingLoopActive] = useState(false);
+  const [consoleLogs, setConsoleLogs] = useState<string[]>([]);
+  const [snapshots, setSnapshots] = useState<any[]>([]);
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
 
   // Dữ liệu giả lập cao cấp khi chưa chạy DB Cloud
   const isMock = !!localStorage.getItem("mock_marketing_session");
@@ -172,9 +206,14 @@ function MarketingCampaignsPage() {
         { id: "tpl-1", name: "Mẫu thư mời chuẩn Hội thảo Nám", channel: "email_campaign", purpose: "marketing_campaign", body_template: "Kính gửi quý Đối tác,...", requires_opt_in: true, include_unsubscribe: true, max_send_frequency_days: 30, banner_image_url: "https://picsum.photos/600/200", cta_label: "Đăng ký Slot", cta_url: "https://desembrevn.com/register" },
         { id: "tpl-2", name: "Mẫu thông báo Chính sách Đại lý", channel: "email_campaign", purpose: "monthly_campaign", body_template: "Thông tin chiết khấu...", requires_opt_in: false }
       ]);
+      setZnsTemplates([
+        { id: "zns-tpl-1", zalo_template_id: "123456", template_name: "🔔 Xác nhận Đơn hàng Mỹ phẩm", category: "transactional", purpose: "order_status", required_params: ["customer_name", "order_id"], sample_payload: { customer_name: "Spa Lan Vy", order_id: "DH-1002" }, is_active: true, sender_account_id: "snd-zalo" },
+        { id: "zns-tpl-2", zalo_template_id: "789012", template_name: "💎 Thư mời Hội thảo Chuyển giao Phác đồ", category: "transactional", purpose: "event_invitation", required_params: ["customer_name", "event_name", "event_time"], sample_payload: { customer_name: "Spa Lan Vy", event_name: "Chuyển Giao Vy Tảo C", event_time: "09:00 - 30/05" }, is_active: true, sender_account_id: "snd-zalo" }
+      ]);
       setSenders([
-        { id: "snd-1", name: "Email Marketing Tổng", sender_email: "marketing@desembrevn.com", channel: "email" },
-        { id: "snd-2", name: "Email Chăm sóc Đại lý", sender_email: "partners@desembrevn.com", channel: "email" }
+        { id: "snd-1", name: "Email Marketing Tổng", sender_email: "marketing@desembrevn.com", channel: "email", is_active: true, health_status: "healthy", daily_usage: 120, daily_limit: 5000 },
+        { id: "snd-2", name: "Email Chăm sóc Đại lý", sender_email: "partners@desembrevn.com", channel: "email", is_active: true, health_status: "healthy", daily_usage: 45, daily_limit: 1000 },
+        { id: "snd-zalo", name: "Zalo OA DESEMBRE Official", sender_email: "oa@desembrevn.com", channel: "zalo_oa", is_active: true, health_status: "healthy", daily_usage: 150, daily_limit: 1000 }
       ]);
       setSegments([
         { id: "seg-1", name: "Khách VIP Hà Nội & Tỉnh phía Bắc", segment_type: "static" },
@@ -182,9 +221,9 @@ function MarketingCampaignsPage() {
         { id: "seg-3", name: "Leads từ Quảng cáo Facebook", segment_type: "dynamic" }
       ]);
       setCustomers([
-        { id: "cust-1", email: "spa1@gmail.com", marketing_opt_in: true },
-        { id: "cust-2", email: "spa2@gmail.com", marketing_opt_in: true },
-        { id: "cust-3", email: "spa3_optout@gmail.com", marketing_opt_in: false, marketing_opt_out_at: new Date().toISOString() }
+        { id: "cust-1", email: "spa1@gmail.com", phone: "0912345678", marketing_opt_in: true },
+        { id: "cust-2", email: "spa2@gmail.com", phone: "0987654321", marketing_opt_in: true },
+        { id: "cust-3", email: "spa3_optout@gmail.com", phone: "0900000000", marketing_opt_in: false, marketing_opt_out_at: new Date().toISOString() }
       ]);
       setLoading(false);
       return;
@@ -197,7 +236,8 @@ function MarketingCampaignsPage() {
         .select(`
           *,
           message_templates ( name, channel, purpose ),
-          sender_accounts ( name, sender_email ),
+          zns_templates ( template_name, category, purpose ),
+          sender_accounts ( name, sender_email, health_status, daily_limit, daily_usage ),
           customer_segments ( name )
         `)
         .order("created_at", { ascending: false });
@@ -205,9 +245,13 @@ function MarketingCampaignsPage() {
       if (cErr) throw cErr;
       setCampaigns(cData || []);
 
-      // 2. Tải danh sách mẫu
+      // 2. Tải danh sách mẫu Email/SMS
       const { data: tData } = await supabase.from("message_templates").select("*").eq("is_active", true);
       if (tData) setTemplates(tData);
+
+      // 2.5 Tải danh sách ZNS Templates
+      const { data: znsData } = await supabase.from("zns_templates").select("*").eq("is_active", true).eq("status", "approved");
+      if (znsData) setZnsTemplates(znsData);
 
       // 3. Tải senders
       const { data: sData } = await supabase.from("sender_accounts").select("*").eq("is_active", true);
@@ -240,11 +284,30 @@ function MarketingCampaignsPage() {
     loadAllData();
   }, [useLocalFallback]);
 
+  // Auto-open wizard nếu URL có template_id (từ Template Library)
+  useEffect(() => {
+    if (!searchParams?.template_id || loading || templates.length === 0) return;
+    const tpl = templates.find(t => t.id === searchParams.template_id);
+    if (!tpl) return;
+    // Pre-select template và mở wizard
+    setWizardStep(1);
+    setCampaignType("general");
+    setFormName(`Chiến dịch từ "${tpl.name}"`);
+    setFormTemplateId(tpl.id);
+    const firstEmailSender = senders.find(s => s.channel?.toLowerCase().includes('email'))?.id || senders[0]?.id || "";
+    setFormSenderId(firstEmailSender);
+    setFormSegmentId(segments[0]?.id || "");
+    setFormScheduleType("now");
+    setFormScheduleTime("");
+    setWizardOpen(true);
+  }, [searchParams?.template_id, loading, templates]);
+
   // Bộ lọc
   const filteredCampaigns = useMemo(() => {
     return campaigns.filter(c => {
       const matchQuery = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         c.message_templates?.name.toLowerCase().includes(searchQuery.toLowerCase());
+                         (c.message_templates?.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (c.zns_templates?.template_name || "").toLowerCase().includes(searchQuery.toLowerCase());
       const matchStatus = statusFilter === "all" || c.status === statusFilter;
       return matchQuery && matchStatus;
     });
@@ -254,8 +317,11 @@ function MarketingCampaignsPage() {
   const stats = useMemo(() => {
     const total = campaigns.length;
     const completed = campaigns.filter(c => c.status === 'completed').length;
-    const processing = campaigns.filter(c => c.status === 'processing').length;
-    const scheduled = campaigns.filter(c => c.status === 'scheduled').length;
+    const sending = campaigns.filter(c => c.status === 'sending').length;
+    const paused = campaigns.filter(c => c.status === 'paused').length;
+    const draft = campaigns.filter(c => c.status === 'draft').length;
+    const pendingReview = campaigns.filter(c => c.status === 'pending_review').length;
+    const approved = campaigns.filter(c => c.status === 'approved').length;
 
     let totalSentTargets = 0;
     let totalCappedTargets = 0;
@@ -266,15 +332,20 @@ function MarketingCampaignsPage() {
       }
     });
 
-    return { total, completed, processing, scheduled, totalSentTargets, totalCappedTargets };
+    return { total, completed, sending, paused, draft, pendingReview, approved, totalSentTargets, totalCappedTargets };
   }, [campaigns]);
 
   // Mở trình khởi tạo
   const handleOpenWizard = () => {
     setWizardStep(1);
+    setCampaignType("zns");
     setFormName("");
     setFormTemplateId(templates[0]?.id || "");
-    setFormSenderId(senders[0]?.id || "");
+    setFormZnsTemplateId(znsTemplates[0]?.id || "");
+    
+    // Default to ZNS sender if channel is zns
+    const firstZnsSender = senders.find(s => s.channel === "zalo_oa" || s.channel === "zalo")?.id || senders[0]?.id || "";
+    setFormSenderId(firstZnsSender);
     setFormSegmentId(segments[0]?.id || "");
     setFormScheduleType("now");
     setFormScheduleTime("");
@@ -283,17 +354,55 @@ function MarketingCampaignsPage() {
 
   // Tìm mẫu đang chọn để render Preview
   const selectedTemplate = useMemo(() => {
+    if (campaignType === "zns") {
+      const ztpl = znsTemplates.find(t => t.id === formZnsTemplateId);
+      if (!ztpl) return null;
+      return {
+        id: ztpl.id,
+        name: ztpl.template_name,
+        channel: "zns",
+        purpose: ztpl.purpose || "transactional",
+        body_template: `[XEM TRƯỚC TIN ZNS]\nMẫu: ${ztpl.template_name}\nZalo Template ID: ${ztpl.zalo_template_id}\n\nTham số yêu cầu: ${ztpl.required_params?.join(", ") || "Không có"}\n\nDữ liệu mẫu thử:\n${JSON.stringify(ztpl.sample_payload, null, 2)}`,
+        requires_opt_in: false,
+        max_send_frequency_days: 0
+      } as any;
+    }
     return templates.find(t => t.id === formTemplateId);
-  }, [templates, formTemplateId]);
+  }, [campaignType, templates, znsTemplates, formTemplateId, formZnsTemplateId]);
+
+  // Check if chosen sender is valid and healthy
+  const isSelectedSenderAllowed = useMemo(() => {
+    if (!formSenderId) return false;
+    const sender = senders.find(s => s.id === formSenderId);
+    if (!sender) return false;
+    
+    const resolution = resolveSenderForMessage({
+      channel: campaignType === "zns" ? "zalo_oa" : (selectedTemplate?.channel || 'email').toLowerCase().includes('email') ? 'email' : 'zalo_oa',
+      mode: 'campaign',
+      customer: { id: 'temp-check' },
+      businessSenders: [
+        {
+          id: sender.id,
+          name: sender.name,
+          channel: sender.channel,
+          is_active: sender.is_active ?? true,
+          health_status: sender.health_status ?? 'healthy',
+          daily_usage: sender.daily_usage ?? 0,
+          daily_limit: sender.daily_limit ?? 1000,
+        }
+      ]
+    });
+    return resolution.allowed;
+  }, [formSenderId, senders, selectedTemplate, campaignType]);
 
   // Ước tính tuân thủ cho tập đích
   const complianceEstimate = useMemo(() => {
-    if (!selectedTemplate) return { total: 0, valid: 0, capped: 0, optOut: 0 };
+    if (!selectedTemplate) return { total: 0, valid: 0, capped: 0, optOut: 0, missingPhone: 0 };
     
-    // Giả định nạp mảng khách hàng để chấm điểm
     let validCount = 0;
     let cappedCount = 0;
     let optOutCount = 0;
+    let missingPhoneCount = 0;
 
     const tplObj: ComplianceTemplate = {
       channel: selectedTemplate.channel,
@@ -303,31 +412,39 @@ function MarketingCampaignsPage() {
       max_send_frequency_days: selectedTemplate.max_send_frequency_days
     };
 
-    // Mô phỏng log gần đây
-    const mockRecentLogs = [
-      { channel: 'email_campaign', purpose: 'marketing_campaign', status: 'delivered', created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString() }
-    ];
-
     customers.forEach(c => {
-      const res = canSendMarketingMessage(c, tplObj, mockRecentLogs);
-      if (res.allowed) {
-        validCount++;
+      if (campaignType === "zns") {
+        if (!c.phone) {
+          missingPhoneCount++;
+        } else if (c.marketing_opt_out_at) {
+          optOutCount++;
+        } else {
+          validCount++;
+        }
       } else {
-        if (res.reason === 'frequency_capped') cappedCount++;
-        else optOutCount++;
+        const mockRecentLogs = [
+          { channel: 'email_campaign', purpose: 'marketing_campaign', status: 'delivered', created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString() }
+        ];
+        const res = canSendMarketingMessage(c, tplObj, mockRecentLogs);
+        if (res.allowed) {
+          validCount++;
+        } else {
+          if (res.reason === 'frequency_capped') cappedCount++;
+          else optOutCount++;
+        }
       }
     });
 
-    // Nếu tập khách quá ít, tạo giả định tỷ lệ đẹp cho UI B2B
-    const effTotal = customers.length > 5 ? customers.length : 120;
-    const effValid = customers.length > 5 ? validCount : 105;
-    const effCapped = customers.length > 5 ? cappedCount : 12;
-    const effOptOut = customers.length > 5 ? optOutCount : 3;
+    const effTotal = customers.length > 0 ? customers.length : 120;
+    const effValid = customers.length > 0 ? validCount : 105;
+    const effCapped = customers.length > 0 ? cappedCount : 12;
+    const effOptOut = customers.length > 0 ? optOutCount : 3;
+    const effMissingPhone = customers.length > 0 ? missingPhoneCount : 0;
 
-    return { total: effTotal, valid: effValid, capped: effCapped, optOut: effOptOut };
-  }, [selectedTemplate, customers]);
+    return { total: effTotal, valid: effValid, capped: effCapped, optOut: effOptOut, missingPhone: effMissingPhone };
+  }, [selectedTemplate, customers, campaignType]);
 
-  // Lưu và Phát hành
+  // Lưu và Phát hành dưới dạng Draft
   const handleDispatchCampaign = async () => {
     if (!formName.trim()) {
       toast.error("Vui lòng đặt tên cho Chiến dịch");
@@ -336,18 +453,20 @@ function MarketingCampaignsPage() {
 
     setSaving(true);
     const isScheduled = formScheduleType === "later" && formScheduleTime.trim();
-    const finalStatus = isScheduled ? "scheduled" : "processing";
 
-    const newCampPayload = {
+    const newCampPayload: any = {
       name: formName.trim(),
-      template_id: formTemplateId || null,
+      template_id: campaignType === "general" ? (formTemplateId || null) : null,
+      zns_template_id: campaignType === "zns" ? (formZnsTemplateId || null) : null,
       sender_account_id: formSenderId || null,
       segment_id: formSegmentId || null,
-      status: finalStatus,
+      status: "draft",
+      created_by: user?.id,
       scheduled_at: isScheduled ? new Date(formScheduleTime).toISOString() : null,
+      estimated_recipients: complianceEstimate.total,
       metrics: {
         total_targets: complianceEstimate.total,
-        sent: finalStatus === 'processing' ? complianceEstimate.valid : 0,
+        sent: 0,
         failed: 0,
         capped: complianceEstimate.capped
       }
@@ -360,24 +479,19 @@ function MarketingCampaignsPage() {
           id: `camp-${Date.now()}`,
           created_at: new Date().toISOString(),
           ...newCampPayload,
-          status: finalStatus as any,
-          message_templates: { name: selectedTemplate?.name || "Mẫu tùy chỉnh", channel: selectedTemplate?.channel || "email", purpose: selectedTemplate?.purpose || "marketing" },
-          sender_accounts: { name: senders.find(s => s.id === formSenderId)?.name || "Email Hệ thống", sender_email: "noreply@desembrevn.com" },
+          message_templates: campaignType === "general" ? { name: selectedTemplate?.name || "Mẫu tùy chỉnh", channel: selectedTemplate?.channel || "email", purpose: selectedTemplate?.purpose || "marketing" } : undefined,
+          zns_templates: campaignType === "zns" ? { template_name: selectedTemplate?.name || "Mẫu ZNS", category: "transactional", purpose: "order_confirmation" } : undefined,
+          sender_accounts: { name: senders.find(s => s.id === formSenderId)?.name || "OA Hệ thống", sender_email: "oa@desembrevn.com" },
           customer_segments: { name: segments.find(s => s.id === formSegmentId)?.name || "Tập khách hàng tùy chọn" }
         };
-
-        // Nếu gửi ngay, giả lập luồng tiến độ hoàn thành sau 2 giây
-        if (finalStatus === 'processing') {
-          createdObj.status = 'completed';
-        }
 
         localCamps.unshift(createdObj);
         localStorage.setItem("mock_campaigns", JSON.stringify(localCamps));
         setCampaigns(localCamps);
         setSaving(false);
         setWizardOpen(false);
-        toast.success(isScheduled ? "Đã lên lịch phát hành tự động" : "Đã kích hoạt Bộ điều khiển gửi thông điệp thành công!");
-      }, 1200);
+        toast.success("Đã tạo chiến dịch nháp thành công! Hãy gửi yêu cầu duyệt chiến dịch.");
+      }, 1000);
       return;
     }
 
@@ -390,13 +504,460 @@ function MarketingCampaignsPage() {
 
       if (error) throw error;
 
-      toast.success(isScheduled ? "Chiến dịch đã được đưa vào hàng đợi Cronjob" : "Bộ điều khiển Dispatch Engine đang đẩy thư đi...");
+      toast.success("Đã tạo chiến dịch nháp thành công! Vui lòng gửi yêu cầu duyệt chiến dịch.");
       setWizardOpen(false);
       loadAllData();
     } catch (err: any) {
-      toast.error("Lỗi phát hành: " + err.message);
+      toast.error("Lỗi khởi tạo: " + err.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const loadSnapshots = async (campaignId: string) => {
+    if (useLocalFallback) {
+      const mockSnaps = customers.map((c, index) => ({
+        id: `snap-${index}`,
+        campaign_id: campaignId,
+        customers: { name: `Đối tác Spa ${index + 1}`, phone: c.phone || "0912345678" },
+        customer_id: c.id,
+        status: index % 7 === 0 ? "blocked" : index % 13 === 0 ? "failed" : "queued",
+        failure_reason: index % 7 === 0 ? "Opt-out" : index % 13 === 0 ? "Chặn tần suất gửi" : null,
+        processed_at: null
+      }));
+      setSnapshots(mockSnaps);
+      return;
+    }
+
+    setSnapshotLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("campaign_recipient_snapshots")
+        .select(`
+          id, campaign_id, customer_id, status, failure_reason, processed_at,
+          customers:customer_id ( name, phone )
+        `)
+        .eq("campaign_id", campaignId)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      setSnapshots(data || []);
+    } catch (err: any) {
+      toast.error("Lỗi tải snapshot: " + err.message);
+    } finally {
+      setSnapshotLoading(false);
+    }
+  };
+
+  const handleApproveCampaign = async (campaign: Campaign) => {
+    if (useLocalFallback) {
+      toast.success("Phê duyệt và đóng băng danh sách người nhận thành công (Sandbox)");
+      let localCamps = JSON.parse(localStorage.getItem("mock_campaigns") || "[]");
+      const idx = localCamps.findIndex((c: any) => c.id === campaign.id);
+      if (idx !== -1) {
+        localCamps[idx].status = "approved";
+        localCamps[idx].approved_by = user?.email || "admin@desembrevn.com";
+        localCamps[idx].approved_at = new Date().toISOString();
+        localCamps[idx].estimated_recipients = 100; // Mock total targets
+        localStorage.setItem("mock_campaigns", JSON.stringify(localCamps));
+        setCampaigns(localCamps);
+        setSelectedCampaign(localCamps[idx]);
+      }
+      setApprovalDialogOpen(false);
+      return;
+    }
+
+    try {
+      let recipientIds: string[] = [];
+      if (campaign.segment_id) {
+        const { data: mapData } = await supabase
+          .from("customer_segments_map")
+          .select("customer_id")
+          .eq("segment_id", campaign.segment_id);
+        if (mapData) recipientIds = mapData.map(m => m.customer_id);
+      }
+      
+      if (recipientIds.length === 0) {
+        const queryFallback = supabase.from("customers").select("id").limit(100);
+        if (isSale && !isAdmin && !isSubAdmin) {
+          queryFallback.eq("owner_sale_id", user?.id);
+        }
+        const { data: fallbackCusts } = await queryFallback;
+        if (fallbackCusts) recipientIds = fallbackCusts.map(c => c.id);
+      }
+
+      if (recipientIds.length === 0) {
+        toast.error("Không tìm thấy khách hàng nào thuộc Phân khúc đã chọn.");
+        return;
+      }
+
+      const query = supabase
+        .from("customers")
+        .select("id, phone, marketing_opt_in, marketing_opt_out_at");
+
+      if (isSale && !isAdmin && !isSubAdmin) {
+        query.eq("owner_sale_id", user?.id);
+      }
+
+      const { data: fullCusts, error: custErr } = await query.in("id", recipientIds);
+
+      if (custErr || !fullCusts || fullCusts.length === 0) {
+        toast.error("Lỗi lấy thông tin chi tiết người nhận");
+        return;
+      }
+
+      const znsTplId = campaign.zns_template_id || "";
+      const senderId = campaign.sender_account_id || "";
+      
+      const snapshotInserts = fullCusts.map(c => {
+        const isBlocked = !c.phone || c.marketing_opt_out_at || (campaign.zns_template_id && c.marketing_opt_in === false);
+        let failureReason = null;
+        if (!c.phone) failureReason = "Thiếu số điện thoại";
+        else if (c.marketing_opt_out_at) failureReason = "Khách hàng đã Opt-out";
+
+        return {
+          campaign_id: campaign.id,
+          customer_id: c.id,
+          sender_account_id: senderId,
+          zns_template_id: znsTplId,
+          status: isBlocked ? "blocked" : "queued",
+          failure_reason: failureReason,
+          payload_preview: campaign.override_variables || {}
+        };
+      });
+
+      for (let i = 0; i < snapshotInserts.length; i += 100) {
+        const chunk = snapshotInserts.slice(i, i + 100);
+        const { error: insErr } = await supabase.from("campaign_recipient_snapshots").insert(chunk);
+        if (insErr) throw insErr;
+      }
+
+      const { error: updErr } = await supabase
+        .from("marketing_campaigns")
+        .update({
+          status: "approved",
+          approved_by: user?.id,
+          approved_at: new Date().toISOString(),
+          estimated_recipients: snapshotInserts.filter(s => s.status === "queued").length
+        })
+        .eq("id", campaign.id);
+
+      if (updErr) throw updErr;
+
+      toast.success("Phê duyệt và đóng băng danh sách người nhận thành công!");
+      setApprovalDialogOpen(false);
+      loadAllData();
+      
+      const { data: updatedCamp } = await supabase
+        .from("marketing_campaigns")
+        .select(`
+          *,
+          message_templates ( name, channel, purpose ),
+          zns_templates ( template_name, category, purpose ),
+          sender_accounts ( name, sender_email, health_status, daily_limit, daily_usage ),
+          customer_segments ( name )
+        `)
+        .eq("id", campaign.id)
+        .single();
+      if (updatedCamp) setSelectedCampaign(updatedCamp);
+    } catch (err: any) {
+      toast.error("Lỗi duyệt chiến dịch: " + err.message);
+    }
+  };
+
+  const startSendingCampaign = async (campaignId: string) => {
+    if (isSendingLoopActive) return;
+    
+    // Check snapshot check (mandatory snapshot check)
+    const total = selectedCampaign?.metrics?.total_targets || selectedCampaign?.estimated_recipients || 0;
+    if (total === 0) {
+      toast.error("Chiến dịch bắt buộc phải có danh sách người nhận (snapshot) đã đóng băng. Vui lòng duyệt chiến dịch trước khi gửi.");
+      return;
+    }
+    
+    (window as any).stopZnsCampaignSend = false;
+    setIsSendingLoopActive(true);
+    setConsoleLogs([`[${new Date().toLocaleTimeString()}] Bắt đầu gửi chiến dịch...`]);
+
+    if (useLocalFallback) {
+      let currentProcessed = 0;
+      const mockLoop = setInterval(() => {
+        if ((window as any).stopZnsCampaignSend) {
+          clearInterval(mockLoop);
+          setIsSendingLoopActive(false);
+          setConsoleLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Đã tạm dừng gửi.`]);
+          return;
+        }
+
+        currentProcessed += 10;
+        setConsoleLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Gửi thành công lô mock (10/10) - Tiến trình: ${currentProcessed}%`]);
+        
+        let localCamps = JSON.parse(localStorage.getItem("mock_campaigns") || "[]");
+        const idx = localCamps.findIndex((c: any) => c.id === campaignId);
+        if (idx !== -1) {
+          const camp = localCamps[idx];
+          camp.status = currentProcessed >= 100 ? "completed" : "sending";
+          camp.processed_recipients = currentProcessed;
+          camp.successful_recipients = currentProcessed;
+          camp.metrics = {
+            total_targets: 100,
+            sent: currentProcessed,
+            failed: 0,
+            capped: 0
+          };
+          localStorage.setItem("mock_campaigns", JSON.stringify(localCamps));
+          setCampaigns(localCamps);
+          setSelectedCampaign(camp);
+        }
+
+        if (currentProcessed >= 100) {
+          clearInterval(mockLoop);
+          setIsSendingLoopActive(false);
+          setConsoleLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Chiến dịch hoàn thành! 🎉`]);
+          toast.success("Chiến dịch hoàn thành gửi (Sandbox)");
+        }
+      }, 1500);
+      return;
+    }
+
+    try {
+      let finished = false;
+      let lastStatus = "sending";
+      
+      while (!finished && lastStatus === "sending") {
+        if ((window as any).stopZnsCampaignSend) {
+          setConsoleLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Phát hiện yêu cầu tạm dừng từ Admin.`]);
+          break;
+        }
+
+        setConsoleLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Đang gọi process-zns-campaign gửi lô 30 tin tiếp theo...`]);
+
+        const { data, error } = await supabase.functions.invoke("process-zns-campaign", {
+          body: { campaign_id: campaignId, batch_size: 30 }
+        });
+
+        if (error) {
+          setConsoleLogs(prev => [...prev, `[LỖI] Edge function error: ${error.message}`]);
+          toast.error("Lỗi gửi chiến dịch: " + error.message);
+          break;
+        }
+
+        if (data.success) {
+          setConsoleLogs(prev => [
+            ...prev, 
+            `[KẾT QUẢ LÔ] Đã xử lý: ${data.processed}, Thành công: ${data.successful}, Thất bại: ${data.failed}, Chặn: ${data.blocked}. Còn lại trong queue: ${data.remaining}`
+          ]);
+          
+          finished = data.finished;
+          lastStatus = data.campaign_status;
+
+          if (data.paused) {
+            setConsoleLogs(prev => [...prev, `[TẠM DỪNG] Tự động tạm dừng do lỗi sender: ${data.error}`]);
+            toast.warning("Chiến dịch tự động tạm dừng do vấn đề sender.");
+            break;
+          }
+
+          loadAllData();
+          loadSnapshots(campaignId);
+
+          // Cool-down pause 1.5s
+          await new Promise(r => setTimeout(r, 1500));
+        } else {
+          setConsoleLogs(prev => [...prev, `[LỖI APIS] ${data.error || "Gặp sự cố khi gửi"}`]);
+          toast.error(data.error || "Gặp sự cố khi gửi");
+          break;
+        }
+      }
+
+      setIsSendingLoopActive(false);
+      if (finished) {
+        setConsoleLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Chiến dịch gửi hoàn tất vĩnh viễn! 🎉`]);
+      }
+    } catch (err: any) {
+      setConsoleLogs(prev => [...prev, `[LỖI HỆ THỐNG] ${err.message}`]);
+      setIsSendingLoopActive(false);
+    }
+  };
+
+  const processSingleBatch = async (campaignId: string) => {
+    if (isSendingLoopActive) return;
+    
+    // Check snapshot check (mandatory snapshot check)
+    const total = selectedCampaign?.metrics?.total_targets || selectedCampaign?.estimated_recipients || 0;
+    if (total === 0) {
+      toast.error("Chiến dịch bắt buộc phải có danh sách người nhận (snapshot) đã đóng băng. Vui lòng duyệt chiến dịch trước khi gửi.");
+      return;
+    }
+    
+    setConsoleLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Thực hiện gửi thủ công 1 lô tiếp theo (Tối đa 30 tin)...`]);
+
+    if (useLocalFallback) {
+      let localCamps = JSON.parse(localStorage.getItem("mock_campaigns") || "[]");
+      const idx = localCamps.findIndex((c: any) => c.id === campaignId);
+      if (idx !== -1) {
+        const camp = localCamps[idx];
+        const currentProcessed = Math.min((camp.processed_recipients || 0) + 10, 100);
+        camp.status = currentProcessed >= 100 ? "completed" : "paused";
+        camp.processed_recipients = currentProcessed;
+        camp.successful_recipients = currentProcessed;
+        camp.metrics = {
+          total_targets: 100,
+          sent: currentProcessed,
+          failed: 0,
+          capped: 0
+        };
+        localStorage.setItem("mock_campaigns", JSON.stringify(localCamps));
+        setCampaigns(localCamps);
+        setSelectedCampaign(camp);
+        
+        setConsoleLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Gửi thành công lô thủ công mock (10/10) - Tiến trình: ${currentProcessed}%`]);
+        if (currentProcessed >= 100) {
+          toast.success("Chiến dịch hoàn thành gửi (Sandbox)");
+          setConsoleLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Chiến dịch hoàn thành! 🎉`]);
+        } else {
+          toast.success("Đã hoàn thành gửi 1 lô. Nhấn tiếp để gửi lô tiếp theo.");
+        }
+      }
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke("process-zns-campaign", {
+        body: { campaign_id: campaignId, batch_size: 30 }
+      });
+
+      if (error) {
+        setConsoleLogs(prev => [...prev, `[LỖI] Edge function error: ${error.message}`]);
+        toast.error("Lỗi gửi lô: " + error.message);
+        return;
+      }
+
+      if (data.success) {
+        setConsoleLogs(prev => [
+          ...prev, 
+          `[KẾT QUẢ LÔ THỦ CÔNG] Đã xử lý: ${data.processed}, Thành công: ${data.successful}, Thất bại: ${data.failed}, Chặn: ${data.blocked}. Còn lại trong queue: ${data.remaining}`
+        ]);
+        
+        if (data.paused) {
+          setConsoleLogs(prev => [...prev, `[TẠM DỪNG] Tự động tạm dừng do lỗi sender: ${data.error}`]);
+          toast.warning("Chiến dịch tự động tạm dừng do vấn đề sender.");
+        } else if (data.finished) {
+          setConsoleLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Chiến dịch gửi hoàn tất vĩnh viễn! 🎉`]);
+          toast.success("Chiến dịch gửi hoàn tất vĩnh viễn!");
+        } else {
+          toast.success(`Đã gửi thành công 1 lô (${data.processed} tin).`);
+        }
+
+        loadAllData();
+        loadSnapshots(campaignId);
+        
+        const { data: updatedCamp } = await supabase.from("marketing_campaigns").select("*, message_templates(*), zns_templates(*), sender_accounts(*), customer_segments(*)").eq("id", campaignId).single();
+        if (updatedCamp) setSelectedCampaign(updatedCamp);
+      } else {
+        setConsoleLogs(prev => [...prev, `[LỖI APIS] ${data.error || "Gặp sự cố khi gửi"}`]);
+        toast.error(data.error || "Gặp sự cố khi gửi");
+      }
+    } catch (err: any) {
+      setConsoleLogs(prev => [...prev, `[LỖI HỆ THỐNG] ${err.message}`]);
+    }
+  };
+
+  const handlePauseCampaign = async (campaignId: string) => {
+    (window as any).stopZnsCampaignSend = true;
+    setIsSendingLoopActive(false);
+
+    if (useLocalFallback) {
+      let localCamps = JSON.parse(localStorage.getItem("mock_campaigns") || "[]");
+      const idx = localCamps.findIndex((c: any) => c.id === campaignId);
+      if (idx !== -1) {
+        localCamps[idx].status = "paused";
+        localStorage.setItem("mock_campaigns", JSON.stringify(localCamps));
+        setCampaigns(localCamps);
+        setSelectedCampaign(localCamps[idx]);
+      }
+      toast.success("Đã tạm dừng chiến dịch (Sandbox)");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("marketing_campaigns")
+        .update({ status: "paused", paused_at: new Date().toISOString() })
+        .eq("id", campaignId);
+
+      if (error) throw error;
+      toast.success("Chiến dịch đã được tạm dừng.");
+      loadAllData();
+      
+      const { data } = await supabase.from("marketing_campaigns").select("*, message_templates(*), zns_templates(*), sender_accounts(*), customer_segments(*)").eq("id", campaignId).single();
+      if (data) setSelectedCampaign(data);
+    } catch (err: any) {
+      toast.error("Lỗi tạm dừng: " + err.message);
+    }
+  };
+
+  const handleCancelCampaign = async (campaignId: string) => {
+    (window as any).stopZnsCampaignSend = true;
+    setIsSendingLoopActive(false);
+
+    if (useLocalFallback) {
+      let localCamps = JSON.parse(localStorage.getItem("mock_campaigns") || "[]");
+      const idx = localCamps.findIndex((c: any) => c.id === campaignId);
+      if (idx !== -1) {
+        localCamps[idx].status = "cancelled";
+        localStorage.setItem("mock_campaigns", JSON.stringify(localCamps));
+        setCampaigns(localCamps);
+        setSelectedCampaign(localCamps[idx]);
+      }
+      toast.success("Đã hủy chiến dịch (Sandbox)");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("marketing_campaigns")
+        .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+        .eq("id", campaignId);
+
+      if (error) throw error;
+      toast.success("Chiến dịch đã bị hủy bỏ vĩnh viễn.");
+      loadAllData();
+
+      const { data } = await supabase.from("marketing_campaigns").select("*, message_templates(*), zns_templates(*), sender_accounts(*), customer_segments(*)").eq("id", campaignId).single();
+      if (data) setSelectedCampaign(data);
+    } catch (err: any) {
+      toast.error("Lỗi hủy chiến dịch: " + err.message);
+    }
+  };
+
+  const handleRequestReview = async (campaignId: string) => {
+    if (useLocalFallback) {
+      let localCamps = JSON.parse(localStorage.getItem("mock_campaigns") || "[]");
+      const idx = localCamps.findIndex((c: any) => c.id === campaignId);
+      if (idx !== -1) {
+        localCamps[idx].status = "pending_review";
+        localStorage.setItem("mock_campaigns", JSON.stringify(localCamps));
+        setCampaigns(localCamps);
+        setSelectedCampaign(localCamps[idx]);
+      }
+      toast.success("Đã gửi yêu cầu duyệt chiến dịch (Sandbox)");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("marketing_campaigns")
+        .update({ status: "pending_review" })
+        .eq("id", campaignId);
+
+      if (error) throw error;
+      toast.success("Đã gửi yêu cầu duyệt chiến dịch.");
+      loadAllData();
+
+      const { data } = await supabase.from("marketing_campaigns").select("*, message_templates(*), zns_templates(*), sender_accounts(*), customer_segments(*)").eq("id", campaignId).single();
+      if (data) setSelectedCampaign(data);
+    } catch (err: any) {
+      toast.error("Lỗi gửi yêu cầu duyệt: " + err.message);
     }
   };
 
@@ -431,12 +992,14 @@ function MarketingCampaignsPage() {
             >
               <RefreshCw className="w-4 h-4" />
             </Button>
-            <Button
-              onClick={handleOpenWizard}
-              className="h-10 px-5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold shadow-lg shadow-purple-900/20"
-            >
-              <Rocket className="w-4 h-4 mr-2" /> Khởi tạo Chiến dịch
-            </Button>
+            {isAdminOrSubAdmin && (
+              <Button
+                onClick={handleOpenWizard}
+                className="h-10 px-5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold shadow-lg shadow-purple-900/20"
+              >
+                <Rocket className="w-4 h-4 mr-2" /> Khởi tạo Chiến dịch
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -469,25 +1032,25 @@ function MarketingCampaignsPage() {
           </div>
 
           <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 relative overflow-hidden">
-            <span className="text-xs font-bold text-slate-400 block uppercase tracking-wider">Đang Xử lý / Hàng đợi</span>
+            <span className="text-xs font-bold text-slate-400 block uppercase tracking-wider">Đang gửi / Đã duyệt / Tạm dừng</span>
             <div className="flex items-baseline gap-2 mt-2">
-              <span className="text-3xl font-black tracking-tight text-amber-400">{stats.processing + stats.scheduled}</span>
+              <span className="text-3xl font-black tracking-tight text-amber-400">{stats.sending + stats.paused + stats.approved}</span>
               <span className="text-xs font-medium text-slate-500">luồng</span>
             </div>
             <div className="mt-3 flex items-center gap-3 text-[11px] text-amber-400/90 font-medium">
-              <span className="flex items-center gap-1"><Play className="w-3 h-3 animate-pulse" /> {stats.processing} Đang chạy</span>
-              <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {stats.scheduled} Hẹn giờ</span>
+              <span className="flex items-center gap-1"><Play className="w-3 h-3 animate-pulse" /> {stats.sending} Đang gửi</span>
+              <span className="flex items-center gap-1"><Pause className="w-3 h-3" /> {stats.paused} Tạm dừng</span>
             </div>
           </div>
 
           <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 relative overflow-hidden">
-            <span className="text-xs font-bold text-slate-400 block uppercase tracking-wider">Bị chặn Spam / Tần suất</span>
+            <span className="text-xs font-bold text-slate-400 block uppercase tracking-wider">Bản nháp / Chờ duyệt</span>
             <div className="flex items-baseline gap-2 mt-2">
-              <span className="text-3xl font-black tracking-tight text-rose-400">{stats.totalCappedTargets}</span>
-              <span className="text-xs font-medium text-slate-500">lượt chặn</span>
+              <span className="text-3xl font-black tracking-tight text-purple-400">{stats.draft + stats.pendingReview}</span>
+              <span className="text-xs font-medium text-slate-500">campaigns</span>
             </div>
-            <div className="mt-3 flex items-center gap-1 text-[11px] text-rose-400 font-medium">
-              <AlertTriangle className="w-3.5 h-3.5" /> Bảo vệ uy tín Tên miền
+            <div className="mt-3 flex items-center gap-1.5 text-[11px] text-purple-400 font-medium">
+              <FileText className="w-3.5 h-3.5" /> Chờ Admin duyệt: {stats.pendingReview}
             </div>
           </div>
         </div>
@@ -513,9 +1076,13 @@ function MarketingCampaignsPage() {
               </span>
               {[
                 { label: "Tất cả", value: "all" },
-                { label: "Đã hoàn thành", value: "completed" },
-                { label: "Đang chạy", value: "processing" },
-                { label: "Lên lịch", value: "scheduled" }
+                { label: "Nháp", value: "draft" },
+                { label: "Chờ duyệt", value: "pending_review" },
+                { label: "Đã duyệt", value: "approved" },
+                { label: "Đang gửi", value: "sending" },
+                { label: "Tạm dừng", value: "paused" },
+                { label: "Hoàn tất", value: "completed" },
+                { label: "Đã hủy", value: "cancelled" }
               ].map(tab => (
                 <button
                   key={tab.value}
@@ -547,29 +1114,62 @@ function MarketingCampaignsPage() {
               </div>
             ) : (
               filteredCampaigns.map((c) => {
-                const totalTargets = c.metrics?.total_targets || 0;
-                const sentCount = c.metrics?.sent || 0;
-                const cappedCount = c.metrics?.capped || 0;
+                const totalTargets = c.metrics?.total_targets || c.estimated_recipients || 0;
+                const sentCount = c.successful_recipients || c.metrics?.sent || 0;
+                const failedCount = c.failed_recipients || c.metrics?.failed || 0;
                 const progressPercent = totalTargets > 0 ? Math.min(Math.round((sentCount / totalTargets) * 100), 100) : 0;
 
+                const templateName = c.zns_template_id ? c.zns_templates?.template_name : c.message_templates?.name;
+                const channelLabel = c.zns_template_id ? "ZNS" : c.message_templates?.channel?.toUpperCase() || "EMAIL";
+
+                const getStatusBadgeClass = (status: string) => {
+                  switch (status) {
+                    case 'completed': return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+                    case 'sending': return 'bg-purple-500/10 text-purple-400 border border-purple-500/20 animate-pulse';
+                    case 'paused': return 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
+                    case 'pending_review': return 'bg-blue-500/10 text-blue-400 border border-blue-500/20';
+                    case 'approved': return 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20';
+                    case 'cancelled': return 'bg-rose-500/10 text-rose-400 border border-rose-500/20';
+                    case 'failed': return 'bg-rose-600/15 text-rose-500 border border-rose-600/25';
+                    default: return 'bg-slate-800 text-slate-400 border border-slate-700';
+                  }
+                };
+
+                const getStatusLabel = (status: string) => {
+                  switch (status) {
+                    case 'completed': return 'Hoàn tất';
+                    case 'sending': return 'Đang gửi';
+                    case 'paused': return 'Tạm dừng';
+                    case 'pending_review': return 'Chờ duyệt';
+                    case 'approved': return 'Đã duyệt';
+                    case 'cancelled': return 'Đã hủy';
+                    case 'failed': return 'Thất bại';
+                    case 'draft': return 'Bản nháp';
+                    default: return status;
+                  }
+                };
+
                 return (
-                  <div key={c.id} className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/80 hover:border-slate-700 transition-all space-y-4">
+                  <div
+                    key={c.id}
+                    onClick={() => {
+                      setSelectedCampaign(c);
+                      loadSnapshots(c.id);
+                      setDetailDialogOpen(true);
+                    }}
+                    className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/80 hover:border-slate-700 hover:bg-slate-900 transition-all space-y-4 cursor-pointer relative group"
+                  >
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${
-                            c.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                            c.status === 'processing' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20 animate-pulse' :
-                            c.status === 'scheduled' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                            'bg-slate-800 text-slate-400'
-                          }`}>
-                            {c.status === 'completed' ? 'Hoàn tất' : c.status === 'processing' ? 'Đang gửi' : c.status === 'scheduled' ? 'Đã lên lịch' : c.status}
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${getStatusBadgeClass(c.status)}`}>
+                            {getStatusLabel(c.status)}
                           </span>
                           <span className="text-[11px] text-slate-500 font-mono">
                             {new Date(c.created_at).toLocaleDateString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
                           </span>
                         </div>
-                        <h3 className="text-sm font-bold text-white tracking-wide">{c.name}</h3>
+                        <h3 className="text-sm font-bold text-white tracking-wide group-hover:text-purple-400 transition-colors">{c.name}</h3>
                       </div>
 
                       <div className="flex items-center gap-4 text-xs">
@@ -578,8 +1178,10 @@ function MarketingCampaignsPage() {
                           <span className="font-medium text-slate-300">{c.sender_accounts?.name || "Hệ thống CRM"}</span>
                         </div>
                         <div className="text-right hidden sm:block">
-                          <span className="text-[10px] text-slate-500 block uppercase">Khuôn mẫu gốc</span>
-                          <span className="font-medium text-purple-400">{c.message_templates?.name || "Tùy chỉnh"}</span>
+                          <span className="text-[10px] text-slate-500 block uppercase">Kênh / Khuôn mẫu</span>
+                          <span className="font-medium text-purple-400 font-mono">
+                            [{channelLabel}] {templateName || "Tùy chỉnh"}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -592,7 +1194,7 @@ function MarketingCampaignsPage() {
                         </span>
                         <div className="flex items-center gap-3">
                           <span className="text-emerald-400 font-medium">{sentCount} Đã gửi</span>
-                          {cappedCount > 0 && <span className="text-rose-400 font-medium">{cappedCount} Bị chặn</span>}
+                          {failedCount > 0 && <span className="text-rose-400 font-medium">{failedCount} Lỗi</span>}
                           <span className="text-slate-500 font-mono">{progressPercent}%</span>
                         </div>
                       </div>
@@ -601,15 +1203,15 @@ function MarketingCampaignsPage() {
                         <div
                           className={`h-full rounded-full transition-all duration-500 ${
                             c.status === 'completed' ? 'bg-gradient-to-r from-emerald-500 to-teal-400' :
-                            c.status === 'processing' ? 'bg-gradient-to-r from-purple-500 to-indigo-500' :
-                            'bg-amber-500'
+                            c.status === 'sending' ? 'bg-gradient-to-r from-purple-500 to-indigo-500' :
+                            c.status === 'paused' ? 'bg-amber-500' : 'bg-slate-800'
                           }`}
                           style={{ width: `${progressPercent}%` }}
                         />
                       </div>
                     </div>
 
-                    {c.scheduled_at && c.status === 'scheduled' && (
+                    {c.scheduled_at && c.status === 'draft' && (
                       <div className="p-2 rounded-lg bg-amber-500/5 border border-amber-500/10 text-[11px] text-amber-400 flex items-center gap-1.5">
                         <Clock className="w-3.5 h-3.5" /> Hẹn kích hoạt tự động vào: <strong className="font-mono">{new Date(c.scheduled_at).toLocaleString("vi-VN")}</strong>
                       </div>
@@ -661,20 +1263,79 @@ function MarketingCampaignsPage() {
                   <span className="text-[10px] text-slate-500 block">Sử dụng tên tường minh để tra cứu hiệu quả gửi về sau.</span>
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-slate-300">Khuôn mẫu Truyền thông (Template Gốc) *</Label>
-                  <select
-                    value={formTemplateId}
-                    onChange={e => setFormTemplateId(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-900 border border-slate-800 text-xs rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  >
-                    {templates.map(t => (
-                      <option key={t.id} value={t.id}>
-                        [{t.channel.toUpperCase()}] — {t.name}
-                      </option>
-                    ))}
-                  </select>
+                <div className="space-y-1.5 pb-1">
+                  <Label className="text-xs font-bold text-slate-300">Loại Chiến dịch Tiếp thị</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCampaignType("zns");
+                        setFormZnsTemplateId(znsTemplates[0]?.id || "");
+                        const firstZnsSender = senders.find(s => s.channel === "zalo_oa" || s.channel === "zalo")?.id || "";
+                        setFormSenderId(firstZnsSender);
+                      }}
+                      className={`h-10 rounded-xl text-xs font-bold transition-all border ${
+                        campaignType === "zns"
+                          ? "bg-purple-600/20 text-purple-300 border-purple-500/50"
+                          : "bg-slate-900 text-slate-400 border-transparent hover:text-white"
+                      }`}
+                    >
+                      💬 Tin nhắn Zalo ZNS
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCampaignType("general");
+                        setFormTemplateId(templates[0]?.id || "");
+                        const firstEmailSender = senders.find(s => s.channel === "email")?.id || "";
+                        setFormSenderId(firstEmailSender);
+                      }}
+                      className={`h-10 rounded-xl text-xs font-bold transition-all border ${
+                        campaignType === "general"
+                          ? "bg-purple-600/20 text-purple-300 border-purple-500/50"
+                          : "bg-slate-900 text-slate-400 border-transparent hover:text-white"
+                      }`}
+                    >
+                      ✉️ Email / SMS Marketing
+                    </button>
+                  </div>
                 </div>
+
+                {campaignType === "zns" ? (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-slate-300">Mẫu Tin ZNS Đã Đăng Ký (Approved ZNS Templates) *</Label>
+                    <select
+                      value={formZnsTemplateId}
+                      onChange={e => setFormZnsTemplateId(e.target.value)}
+                      className="w-full h-10 px-3 bg-slate-900 border border-slate-800 text-xs rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      {znsTemplates.length === 0 ? (
+                        <option value="">Không có mẫu ZNS nào đã duyệt</option>
+                      ) : (
+                        znsTemplates.map(t => (
+                          <option key={t.id} value={t.id}>
+                            [{t.category.toUpperCase()}] — {t.template_name} (OA: {senders.find(s => s.id === t.sender_account_id)?.name || "OA"})
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-slate-300">Khuôn mẫu Email/SMS gốc *</Label>
+                    <select
+                      value={formTemplateId}
+                      onChange={e => setFormTemplateId(e.target.value)}
+                      className="w-full h-10 px-3 bg-slate-900 border border-slate-800 text-xs rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      {templates.map(t => (
+                        <option key={t.id} value={t.id}>
+                          [{t.channel.toUpperCase()}] — {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 {selectedTemplate && (
                   <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800 space-y-2 text-xs">
@@ -683,7 +1344,7 @@ function MarketingCampaignsPage() {
                       <div>• Phân loại: <strong className="text-slate-300">{selectedTemplate.purpose}</strong></div>
                       <div>• Kênh: <strong className="text-slate-300">{selectedTemplate.channel}</strong></div>
                       <div>• Bắt buộc Opt-in: <strong className={selectedTemplate.requires_opt_in ? "text-amber-400" : "text-slate-500"}>{selectedTemplate.requires_opt_in ? "Có" : "Không"}</strong></div>
-                      <div>• Tần suất chống làm phiền: <strong className="text-purple-400">{selectedTemplate.max_send_frequency_days ? `${selectedTemplate.max_send_frequency_days} ngày` : "Không giới hạn"}</strong></div>
+                      <div>• Giới hạn chu kỳ: <strong className="text-purple-400">{selectedTemplate.max_send_frequency_days ? `${selectedTemplate.max_send_frequency_days} ngày` : "Không giới hạn"}</strong></div>
                     </div>
                   </div>
                 )}
@@ -696,25 +1357,80 @@ function MarketingCampaignsPage() {
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold text-slate-300">Tài khoản Nguồn Phát hành (Sender Account) *</Label>
                   <div className="grid grid-cols-1 gap-2.5">
-                    {senders.map(s => (
-                      <label
-                        key={s.id}
-                        onClick={() => setFormSenderId(s.id)}
-                        className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
-                          formSenderId === s.id
-                            ? "bg-purple-500/10 border-purple-500 text-white"
-                            : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200"
-                        }`}
-                      >
-                        <div>
-                          <span className="text-xs font-bold block text-slate-200">{s.name}</span>
-                          <span className="text-[10px] font-mono text-slate-500">{s.sender_email}</span>
-                        </div>
-                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-slate-800 text-slate-400">
-                          {s.channel}
-                        </span>
-                      </label>
-                    ))}
+                    {senders
+                      .filter(s => {
+                        if (campaignType === "zns") {
+                          return s.channel === "zalo_oa" || s.channel === "zalo";
+                        }
+                        return s.channel === "email" || s.channel === "sms";
+                      })
+                      .map(s => {
+                        const resolution = resolveSenderForMessage({
+                          channel: campaignType === "zns" ? "zalo_oa" : (selectedTemplate?.channel || 'email').toLowerCase().includes('email') ? 'email' : 'zalo_oa',
+                          mode: 'campaign',
+                        customer: { id: 'temp-check' },
+                        businessSenders: [
+                          {
+                            id: s.id,
+                            name: s.name,
+                            channel: s.channel,
+                            is_active: s.is_active ?? true,
+                            health_status: s.health_status ?? 'healthy',
+                            daily_usage: s.daily_usage ?? 0,
+                            daily_limit: s.daily_limit ?? 1000,
+                          }
+                        ]
+                      });
+
+                      const health = s.health_status ?? 'healthy';
+
+                      return (
+                        <label
+                          key={s.id}
+                          onClick={() => {
+                            if (resolution.allowed) {
+                              setFormSenderId(s.id);
+                            } else {
+                              toast.error(`Không thể chọn sender này: ${resolution.reason}`);
+                            }
+                          }}
+                          className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                            formSenderId === s.id
+                              ? "bg-purple-500/10 border-purple-500 text-white"
+                              : !resolution.allowed
+                              ? "bg-slate-950 border-rose-950/40 text-slate-500 opacity-60 cursor-not-allowed"
+                              : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200"
+                          }`}
+                        >
+                          <div>
+                            <span className="text-xs font-bold block text-slate-200">{s.name}</span>
+                            <span className="text-[10px] font-mono text-slate-500">{s.sender_email}</span>
+                            {!resolution.allowed && (
+                              <span className="text-[10px] text-rose-500 font-bold block mt-1">
+                                ⚠️ Chặn: {resolution.reason}
+                              </span>
+                            )}
+                            {resolution.allowed && resolution.warnings.length > 0 && (
+                              <span className="text-[10px] text-amber-500 font-bold block mt-1">
+                                ⚠️ Cảnh báo: {resolution.warnings[0]}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-slate-800 text-slate-400">
+                              {s.channel}
+                            </span>
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                              health === 'healthy' ? 'bg-emerald-500/20 text-emerald-400' :
+                              health === 'warning' ? 'bg-amber-500/20 text-amber-400' :
+                              'bg-rose-500/20 text-rose-400'
+                            }`}>
+                              {health.toUpperCase()}
+                            </span>
+                          </div>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -754,8 +1470,17 @@ function MarketingCampaignsPage() {
                       <span className="text-sm font-bold text-emerald-400">{complianceEstimate.valid}</span>
                     </div>
                     <div className="p-2 rounded-lg bg-slate-900/80">
-                      <span className="text-[10px] text-amber-500 block">Chặn tần suất</span>
-                      <span className="text-sm font-bold text-amber-400">{complianceEstimate.capped}</span>
+                      {campaignType === "zns" ? (
+                        <>
+                          <span className="text-[10px] text-amber-500 block">Thiếu SĐT</span>
+                          <span className="text-sm font-bold text-amber-400">{complianceEstimate.missingPhone}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-[10px] text-amber-500 block">Chặn tần suất</span>
+                          <span className="text-sm font-bold text-amber-400">{complianceEstimate.capped}</span>
+                        </>
+                      )}
                     </div>
                     <div className="p-2 rounded-lg bg-slate-900/80">
                       <span className="text-[10px] text-rose-500 block">Khách Opt-out</span>
@@ -776,8 +1501,8 @@ function MarketingCampaignsPage() {
                 {/* Xem trước thông điệp */}
                 <div className="border border-slate-800 rounded-xl overflow-hidden bg-white text-slate-900">
                   <div className="bg-slate-100 p-2 border-b border-slate-200 text-[10px] font-bold text-slate-500 flex items-center justify-between">
-                    <span>Live Email Content Preview</span>
-                    <span className="text-purple-600 font-mono">Chế độ Chiến dịch B2B</span>
+                    <span>{campaignType === "zns" ? "Live ZNS Content Preview" : "Live Email Content Preview"}</span>
+                    <span className="text-purple-600 font-mono">{campaignType === "zns" ? "Chế độ Tin ZNS B2B" : "Chế độ Chiến dịch B2B"}</span>
                   </div>
 
                   {selectedTemplate?.banner_image_url && (
@@ -788,7 +1513,7 @@ function MarketingCampaignsPage() {
 
                   <div className="p-3 space-y-2 text-xs">
                     <div className="font-bold text-purple-950 border-b pb-1">
-                      {selectedTemplate?.subject_template || "[DESEMBRE] Thông tin Chương trình Đào tạo Chuyên sâu"}
+                      {campaignType === "zns" ? `Mẫu ZNS: ${selectedTemplate?.name}` : (selectedTemplate?.subject_template || "[DESEMBRE] Thông tin Chương trình Đào tạo Chuyên sâu")}
                     </div>
 
                     <div className="text-slate-700 whitespace-pre-wrap font-sans leading-relaxed text-[11px]">
@@ -804,7 +1529,11 @@ function MarketingCampaignsPage() {
                     )}
 
                     <div className="pt-2 border-t mt-2 text-[9px] text-slate-400 italic">
-                      Hệ thống tự động chèn liên kết: <span className="underline text-purple-600 cursor-pointer">Hủy đăng ký nhận bản tin (Unsubscribe)</span> theo chuẩn CAN-SPAM.
+                      {campaignType === "zns" ? (
+                        <span>Hệ thống tự động gửi qua Zalo OA chính thức của doanh nghiệp sau khi được phê duyệt.</span>
+                      ) : (
+                        <span>Hệ thống tự động chèn liên kết: <span className="underline text-purple-600 cursor-pointer">Hủy đăng ký nhận bản tin (Unsubscribe)</span> theo chuẩn CAN-SPAM.</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -870,7 +1599,8 @@ function MarketingCampaignsPage() {
               {wizardStep < 4 ? (
                 <Button
                   onClick={() => setWizardStep(prev => prev + 1)}
-                  className="h-9 px-5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl"
+                  disabled={wizardStep === 2 && !isSelectedSenderAllowed}
+                  className="h-9 px-5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Tiếp tục
                 </Button>
@@ -881,11 +1611,328 @@ function MarketingCampaignsPage() {
                   className="h-9 px-6 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold rounded-xl shadow-md"
                 >
                   {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  {formScheduleType === "later" ? "Lên lịch Chiến dịch" : "🚀 Kích hoạt Dispatcher"}
+                  Lưu nháp Chiến dịch
                 </Button>
               )}
             </div>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL PHÊ DUYỆT CHIẾN DỊCH (APPROVAL GATE) */}
+      <Dialog open={approvalDialogOpen} onOpenChange={setApprovalDialogOpen}>
+        <DialogContent className="sm:max-w-[550px] bg-slate-950 text-slate-100 border-slate-800 p-0 overflow-hidden rounded-3xl shadow-2xl">
+          <div className="bg-slate-900 px-6 py-4 border-b border-slate-800">
+            <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 block">Compliance Check & Gate</span>
+            <DialogTitle className="text-base font-black text-white">Kiểm duyệt & Phê duyệt Chiến dịch</DialogTitle>
+          </div>
+
+          <div className="p-6 space-y-6">
+            <div className="space-y-1.5 text-xs">
+              <span className="text-slate-400 block font-bold">Chiến dịch kiểm duyệt:</span>
+              <strong className="text-white text-sm font-black">{selectedCampaign?.name}</strong>
+              <div className="grid grid-cols-2 gap-2 mt-3 p-3 bg-slate-900/50 rounded-xl border border-slate-800 text-[11px]">
+                <div>• Kênh: <strong className="text-purple-400">{selectedCampaign?.zns_template_id ? "Tin ZNS Zalo" : "Email/SMS"}</strong></div>
+                <div>• Tài khoản gửi: <strong className="text-slate-300">{selectedCampaign?.sender_accounts?.name}</strong></div>
+              </div>
+            </div>
+
+            {/* Dải báo cáo compliance trước phê duyệt */}
+            <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-900/30 space-y-3">
+              <span className="text-[10px] font-bold text-purple-400 block uppercase">
+                🛡️ Dự báo tuân thủ (Compliance Forecast)
+              </span>
+
+              <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                <div className="p-2 rounded-lg bg-slate-900/80">
+                  <span className="text-[10px] text-slate-500 block">Tổng tập</span>
+                  <span className="font-bold text-slate-200">{complianceEstimate.total}</span>
+                </div>
+                <div className="p-2 rounded-lg bg-slate-900/80">
+                  <span className="text-[10px] text-emerald-500 block">Hợp lệ</span>
+                  <span className="font-bold text-emerald-400">{complianceEstimate.valid}</span>
+                </div>
+                <div className="p-2 rounded-lg bg-slate-900/80">
+                  <span className="text-[10px] text-amber-500 block">Thiếu SĐT</span>
+                  <span className="font-bold text-amber-400">{complianceEstimate.missingPhone}</span>
+                </div>
+                <div className="p-2 rounded-lg bg-slate-900/80">
+                  <span className="text-[10px] text-rose-500 block">Opt-out</span>
+                  <span className="font-bold text-rose-400">{complianceEstimate.optOut}</span>
+                </div>
+              </div>
+
+              {selectedCampaign?.sender_accounts?.health_status && selectedCampaign.sender_accounts.health_status !== "healthy" && (
+                <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-400 flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span><strong>Cảnh báo:</strong> Tài khoản gửi có trạng thái sức khỏe không tốt ({selectedCampaign.sender_accounts.health_status})!</span>
+                </div>
+              )}
+            </div>
+
+            {isAdminOrSubAdmin ? (
+              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-900/40 border border-slate-800">
+                <input
+                  type="checkbox"
+                  id="chkConfirmApprove"
+                  checked={approvalConfirmed}
+                  onChange={e => setApprovalConfirmed(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 accent-purple-500 rounded cursor-pointer"
+                />
+                <label htmlFor="chkConfirmApprove" className="text-[11px] text-slate-300 leading-normal cursor-pointer select-none">
+                  Xác nhận phê duyệt chiến dịch này. Hệ thống sẽ tiến hành <strong>đóng băng (snapshot) danh sách người nhận</strong> tại thời điểm này để chuẩn bị gửi.
+                </label>
+              </div>
+            ) : (
+              <div className="p-3.5 text-center text-xs rounded-xl bg-rose-500/5 border border-rose-500/10 text-rose-400">
+                ⚠️ Tài khoản của bạn không có vai trò Admin/SubAdmin. Bạn không có quyền phê duyệt chiến dịch này.
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="bg-slate-900 px-6 py-4 border-t border-slate-800 flex items-center justify-end gap-2">
+            <Button variant="ghost" onClick={() => setApprovalDialogOpen(false)} className="h-9 text-slate-400 hover:text-slate-200">
+              Hủy bỏ
+            </Button>
+            {isAdminOrSubAdmin && (
+              <Button
+                onClick={() => selectedCampaign && handleApproveCampaign(selectedCampaign)}
+                disabled={!approvalConfirmed}
+                className="h-9 px-6 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Xác nhận Phê duyệt
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL CHI TIẾT CHIẾN DỊCH & BẢNG ĐIỀU KHIỂN GỬI (PROGRESS CONSOLE) */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="sm:max-w-[900px] bg-slate-950 text-slate-100 border-slate-800 p-0 overflow-hidden rounded-3xl shadow-2xl">
+          <div className="bg-slate-900 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 block">Campaign Control Panel</span>
+              <DialogTitle className="text-base font-black text-white">{selectedCampaign?.name}</DialogTitle>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => selectedCampaign && loadSnapshots(selectedCampaign.id)}
+              className="h-8 px-2.5 bg-slate-950 border-slate-800 text-[10px] font-bold text-slate-400 hover:text-white"
+            >
+              <RefreshCw className="w-3 h-3 mr-1" /> Làm mới
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-800 max-h-[75vh] overflow-hidden">
+            {/* CỘT TRÁI: ĐIỀU KHIỂN & TIẾN ĐỘ & CONSOLE */}
+            <div className="md:col-span-7 p-6 overflow-y-auto space-y-5 flex flex-col h-full">
+              {/* Thống kê tiến độ */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400 font-bold uppercase block tracking-wider">Tiến trình Gửi</span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wide border ${
+                    selectedCampaign?.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                    selectedCampaign?.status === 'sending' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20 animate-pulse' :
+                    selectedCampaign?.status === 'paused' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                    'bg-slate-800 text-slate-400 border-slate-700'
+                  }`}>
+                    {selectedCampaign?.status}
+                  </span>
+                </div>
+
+                {/* Progress bar */}
+                {(() => {
+                  const total = selectedCampaign?.metrics?.total_targets || selectedCampaign?.estimated_recipients || 0;
+                  const sent = selectedCampaign?.successful_recipients || selectedCampaign?.metrics?.sent || 0;
+                  const failed = selectedCampaign?.failed_recipients || selectedCampaign?.metrics?.failed || 0;
+                  const progress = total > 0 ? Math.min(Math.round((sent / total) * 100), 100) : 0;
+
+                  return (
+                    <div className="space-y-1.5">
+                      <div className="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                        <div
+                          className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full transition-all duration-300"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 text-center text-[10px]">
+                        <div className="p-1 rounded bg-slate-900">
+                          <span className="text-slate-500 block">Tổng số</span>
+                          <strong className="text-slate-200">{total}</strong>
+                        </div>
+                        <div className="p-1 rounded bg-slate-900">
+                          <span className="text-emerald-500 block">Đã gửi</span>
+                          <strong className="text-emerald-400">{sent}</strong>
+                        </div>
+                        <div className="p-1 rounded bg-slate-900">
+                          <span className="text-rose-500 block">Thất bại</span>
+                          <strong className="text-rose-400">{failed}</strong>
+                        </div>
+                        <div className="p-1 rounded bg-slate-900">
+                          <span className="text-slate-500 block">Tiến độ</span>
+                          <strong className="text-purple-400">{progress}%</strong>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Console log window */}
+              <div className="flex-1 flex flex-col min-h-[160px] bg-black rounded-xl border border-slate-800 p-3 font-mono text-[10px] text-slate-300 overflow-hidden relative">
+                <div className="absolute top-1 right-2 text-[9px] text-slate-600 select-none uppercase font-sans">Edge Function Terminal</div>
+                <div className="flex-1 overflow-y-auto space-y-1 select-text scrollbar-thin">
+                  {consoleLogs.length === 0 ? (
+                    <span className="text-slate-600 italic">Sẵn sàng kích hoạt operational batch sending... Click "Bắt đầu gửi" để khởi chạy lô đầu tiên.</span>
+                  ) : (
+                    consoleLogs.map((log, i) => (
+                      <div key={i} className={log.includes("[LỖI]") ? "text-rose-400" : log.includes("[TẠM DỪNG]") ? "text-amber-400" : log.includes("thành công") ? "text-emerald-400" : "text-slate-300"}>
+                        {log}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Nút Điều khiển / Hành động */}
+              <div className="pt-2 border-t border-slate-800/60 flex flex-wrap gap-2 justify-end">
+                {/* Hành động 1: Request Review (Chỉ Admin/SubAdmin hoặc người tạo có quyền) */}
+                {selectedCampaign?.status === "draft" && canManageCampaign(selectedCampaign) && (
+                  <Button
+                    onClick={() => handleRequestReview(selectedCampaign.id)}
+                    className="h-9 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs"
+                  >
+                    🚀 Gửi Yêu cầu Phê duyệt
+                  </Button>
+                )}
+
+                {/* Hành động 2: Phê duyệt (Cho Admin hoặc người tạo tự phê duyệt chiến dịch của mình) */}
+                {selectedCampaign?.status === "pending_review" && canManageCampaign(selectedCampaign) && (
+                  <Button
+                    onClick={() => {
+                      setApprovalConfirmed(false);
+                      setApprovalDialogOpen(true);
+                    }}
+                    className="h-9 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-xs"
+                  >
+                    🛡️ Phê duyệt Chiến dịch
+                  </Button>
+                )}
+
+                {/* Hành động 3: Bắt đầu Gửi / Tiếp tục gửi & Gửi thủ công (Cho Admin hoặc người tạo) */}
+                {["approved", "paused"].includes(selectedCampaign?.status || "") && canManageCampaign(selectedCampaign) && (
+                  <>
+                    <Button
+                      onClick={() => selectedCampaign && startSendingCampaign(selectedCampaign.id)}
+                      disabled={isSendingLoopActive}
+                      className="h-9 px-5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs"
+                    >
+                      <Play className="w-3.5 h-3.5 mr-1" /> {selectedCampaign?.status === "paused" ? "Gửi tự động (Loop)" : "Bắt đầu Gửi tự động"}
+                    </Button>
+                    
+                    <Button
+                      onClick={() => selectedCampaign && processSingleBatch(selectedCampaign.id)}
+                      disabled={isSendingLoopActive}
+                      className="h-9 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 mr-1" /> Gửi 1 lô thủ công
+                    </Button>
+                  </>
+                )}
+
+                {/* Hành động 4: Tạm dừng gửi */}
+                {selectedCampaign?.status === "sending" && canManageCampaign(selectedCampaign) && (
+                  <Button
+                    onClick={() => handlePauseCampaign(selectedCampaign.id)}
+                    className="h-9 px-5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black text-xs"
+                  >
+                    <Pause className="w-3.5 h-3.5 mr-1" /> Tạm dừng gửi
+                  </Button>
+                )}
+
+                {/* Hành động 5: Hủy chiến dịch (Vĩnh viễn) */}
+                {!["completed", "cancelled", "failed", "draft"].includes(selectedCampaign?.status || "") && canManageCampaign(selectedCampaign) && (
+                  <Button
+                    variant="outline"
+                    onClick={() => handleCancelCampaign(selectedCampaign.id)}
+                    className="h-9 px-4 rounded-xl bg-transparent border-slate-800 text-rose-500 hover:bg-rose-950/20 hover:text-rose-400 text-xs"
+                  >
+                    Hủy bỏ vĩnh viễn
+                  </Button>
+                )}
+
+                <Button
+                  variant="outline"
+                  onClick={() => setDetailDialogOpen(false)}
+                  className="h-9 px-4 rounded-xl bg-slate-900 border-slate-800 text-slate-400 hover:text-white text-xs"
+                >
+                  Đóng
+                </Button>
+              </div>
+            </div>
+
+            {/* CỘT PHẢI: RECIPIENT SNAPSHOTS TABLE */}
+            <div className="md:col-span-5 p-5 overflow-hidden flex flex-col h-[55vh] md:h-full max-h-[70vh]">
+              <span className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider mb-2">Danh sách người nhận (Snapshot)</span>
+              
+              {snapshotLoading ? (
+                <div className="flex-1 flex flex-col items-center justify-center space-y-2 text-slate-500">
+                  <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
+                  <span className="text-[10px]">Đang nạp snapshot...</span>
+                </div>
+              ) : snapshots.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center p-6 border border-dashed border-slate-800/80 rounded-2xl bg-slate-900/10 text-slate-600 text-center">
+                  <Users className="w-6 h-6 mb-1.5" />
+                  <span className="text-xs font-bold block">Chưa đóng băng danh sách</span>
+                  <span className="text-[10px] mt-0.5 leading-relaxed">Danh sách sẽ được đóng băng snapshot cố định ngay khi chiến dịch được Admin phê duyệt.</span>
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto space-y-2.5 scrollbar-thin select-none pr-1">
+                  {snapshots.map(snap => {
+                    const name = snap.customers?.name || "Khách hàng ẩn danh";
+                    const phone = snap.customers?.phone || "Không có SĐT";
+                    
+                    const getSnapStatusClass = (status: string) => {
+                      switch (status) {
+                        case 'sent': return 'bg-emerald-500/20 text-emerald-400';
+                        case 'failed': return 'bg-rose-500/20 text-rose-400';
+                        case 'blocked': return 'bg-amber-500/20 text-amber-400';
+                        default: return 'bg-slate-900 text-slate-500';
+                      }
+                    };
+
+                    const getSnapStatusLabel = (status: string) => {
+                      switch (status) {
+                        case 'sent': return 'Đã gửi';
+                        case 'failed': return 'Lỗi';
+                        case 'blocked': return 'Chặn';
+                        case 'queued': return 'Chờ';
+                        default: return status;
+                      }
+                    };
+
+                    return (
+                      <div key={snap.id} className="p-3 rounded-xl bg-slate-900/50 border border-slate-900/80 flex items-center justify-between gap-2 text-xs">
+                        <div className="space-y-0.5">
+                          <strong className="text-slate-200 block text-[11px] truncate max-w-[150px]">{name}</strong>
+                          <span className="text-[10px] font-mono text-slate-500">{phone}</span>
+                          {snap.failure_reason && (
+                            <span className="text-[9px] text-rose-400 block font-sans truncate max-w-[160px]">
+                              ⚠️ {snap.failure_reason}
+                            </span>
+                          )}
+                        </div>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${getSnapStatusClass(snap.status)}`}>
+                          {getSnapStatusLabel(snap.status)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

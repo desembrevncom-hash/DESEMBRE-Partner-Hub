@@ -81,7 +81,8 @@ interface SenderAccount {
 function AdminTemplatesPage() {
   const { user, isManager, isSale, isSalesMember } = useAuth();
   const navigate = useNavigate();
-  const canEdit = isManager; // chỉ admin/sub_admin được sửa/xóa/tạo
+  const canEdit = isManager || isSale; // cho phép cả manager và sale tạo/quản lý template
+  const canModifyTemplate = (tpl: any) => isManager || (isSale && tpl.created_by === user?.id);
 
   // Dữ liệu DB
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
@@ -295,7 +296,11 @@ function AdminTemplatesPage() {
       } else {
         const { error } = await supabase
           .from("message_templates")
-          .insert([payload]);
+          .insert([{
+            ...payload,
+            created_by: user?.id,
+            platform: "email"
+          }]);
         if (error) throw error;
         toast.success("Đã tạo mới mẫu tin nhắn thành công");
       }
@@ -448,7 +453,7 @@ function AdminTemplatesPage() {
           </div>
           
           <div className="flex items-center gap-2 flex-wrap justify-end">
-            {canEdit && (
+            {isManager && (
               <Button asChild variant="outline" className="border-purple-200 hover:bg-purple-50 hover:text-purple-700 font-bold h-10 px-3 rounded-xl bg-purple-50/20 text-purple-700 hidden sm:inline-flex">
                 <Link to="/admin/sender-accounts">⚙️ Quản lý tài khoản gửi</Link>
               </Button>
@@ -568,7 +573,7 @@ function AdminTemplatesPage() {
 
                       <div className="flex items-center gap-2 flex-wrap">
                         {/* Badge trạng thái */}
-                        {canEdit && (
+                        {canModifyTemplate(tpl) && (
                           <button
                             type="button"
                             onClick={() => handleToggleActive(tpl)}
@@ -583,7 +588,7 @@ function AdminTemplatesPage() {
                             {isActive ? 'Đang kích hoạt' : 'Đang tắt'}
                           </button>
                         )}
-                        {!canEdit && (
+                        {!canModifyTemplate(tpl) && (
                           <span className={`h-8 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 ${
                             isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'
                           }`}>
@@ -631,8 +636,8 @@ function AdminTemplatesPage() {
                           <Rocket className="w-3.5 h-3.5" /> Tạo Campaign
                         </button>
 
-                        {/* Nút Sửa (chỉ manager) */}
-                        {canEdit && (
+                        {/* Nút Sửa (chỉ admin hoặc chính người tạo) */}
+                        {canModifyTemplate(tpl) && (
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(tpl)}
@@ -643,8 +648,8 @@ function AdminTemplatesPage() {
                           </button>
                         )}
 
-                        {/* Nút Xóa (chỉ manager, không phải mẫu gốc) */}
-                        {canEdit && !isDefault && (
+                        {/* Nút Xóa (chỉ admin hoặc chính người tạo, không phải mẫu gốc) */}
+                        {canModifyTemplate(tpl) && !isDefault && (
                           <button
                             type="button"
                             onClick={() => handleDeleteTemplate(tpl)}
