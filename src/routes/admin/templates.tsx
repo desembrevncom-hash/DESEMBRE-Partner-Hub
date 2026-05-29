@@ -15,7 +15,12 @@ import {
   Eye, 
   Sparkles,
   HelpCircle,
-  Clock
+  Clock,
+  ChevronRight,
+  FlaskConical,
+  Rocket,
+  Mail,
+  Building2
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -73,25 +78,24 @@ interface SenderAccount {
   is_active: boolean;
 }
 
-interface TestLog {
-  id: string;
-  test_email: string;
-  status: string;
-  error_message: string | null;
-  created_at: string;
-  template_name?: string;
-  account_name?: string;
-}
-
 function AdminTemplatesPage() {
-  const { user, isManager } = useAuth();
+  const { user, isManager, isSale, isSalesMember } = useAuth();
   const navigate = useNavigate();
+  const canEdit = isManager; // chỉ admin/sub_admin được sửa/xóa/tạo
 
   // Dữ liệu DB
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [senderAccounts, setSenderAccounts] = useState<SenderAccount[]>([]);
-  const [testLogs, setTestLogs] = useState<TestLog[]>([]);
+  const [personalSenders, setPersonalSenders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Test Send Modal
+  const [testModalOpen, setTestModalOpen] = useState(false);
+  const [testTemplate, setTestTemplate] = useState<MessageTemplate | null>(null);
+  const [testSenderType, setTestSenderType] = useState<"business" | "personal">("business");
+  const [testSenderId, setTestSenderId] = useState("");
+  const [testRecipientEmail, setTestRecipientEmail] = useState("");
+  const [testSending, setTestSending] = useState(false);
 
   // Trạng thái modal form
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -116,18 +120,12 @@ function AdminTemplatesPage() {
   const [formAttachmentInput, setFormAttachmentInput] = useState("");
   const [formAttachmentUrls, setFormAttachmentUrls] = useState<string[]>([]);
 
-
-  // Trạng thái Form Gửi Test
-  const [testTemplateId, setTestTemplateId] = useState("");
-  const [selectedSenderId, setSelectedSenderId] = useState("");
-  const [testEmailInput, setTestEmailInput] = useState("");
-  const [testing, setTesting] = useState(false);
-
   // Trạng thái Preview nhanh
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState<MessageTemplate | null>(null);
 
   const loadData = async () => {
+    if (!user) return;
     setLoading(true);
     try {
       // 1. Tải danh sách templates
@@ -135,52 +133,27 @@ function AdminTemplatesPage() {
         .from("message_templates")
         .select("*")
         .order("created_at", { ascending: false });
-
       if (errTpl) throw errTpl;
       setTemplates(tpls || []);
 
-      // 2. Tải danh sách tài khoản nguồn gửi từ bảng sender_accounts
-      const { data: accs, error: errAcc } = await supabase
+      // 2. Tải Business Sender Accounts (Resend)
+      const { data: accs } = await supabase
         .from("sender_accounts")
         .select("*")
         .eq("is_active", true)
         .order("is_default", { ascending: false });
-
-      if (errAcc) throw errAcc;
       setSenderAccounts(accs || []);
 
-      // 3. Tải lịch sử test gần đây
-      const { data: logs, error: errLog } = await supabase
-        .from("template_test_logs")
-        .select(`
-          id, test_email, status, error_message, created_at,
-          message_templates ( name ),
-          sender_accounts ( name, sender_email )
-        `)
-        .order("created_at", { ascending: false })
-        .limit(10);
-
-      if (!errLog && logs) {
-        setTestLogs(logs.map((l: any) => {
-          const acc = l.sender_accounts;
-          return {
-            id: l.id,
-            test_email: l.test_email,
-            status: l.status,
-            error_message: l.error_message,
-            created_at: l.created_at,
-            template_name: l.message_templates?.name,
-            account_name: acc ? `${acc.name} — ${acc.sender_email}` : "Hệ thống mặc định",
-          };
-        }));
-      }
-
-      // Khởi tạo giá trị mặc định cho dropdown test nếu có
-      if (tpls && tpls.length > 0) setTestTemplateId(tpls[0].id);
-      if (accs && accs.length > 0) {
-        const defaultAcc = accs.find(a => a.is_default) || accs[0];
-        setSelectedSenderId(defaultAcc.id);
-      }
+      // 3. Tải Personal Email Sender của user hiện tại
+      const { data: personalAccs } = await supabase
+        .from("user_communication_accounts")
+        .select("id, account_name, account_identifier, platform, provider_secret, is_active")
+        .eq("user_id", user.id)
+        .eq("platform", "email")
+        .eq("is_active", true);
+      setPersonalSenders(
+        (personalAccs || []).filter((a: any) => !!a.provider_secret)
+      );
 
     } catch (err: any) {
       toast.error("Lỗi nạp dữ liệu: " + err.message);
@@ -191,13 +164,9 @@ function AdminTemplatesPage() {
 
   useEffect(() => {
     if (!user) return;
-    if (!isManager) {
-      toast.error("Chỉ Admin / Phó Admin mới có quyền quản lý mẫu tin nhắn");
-      navigate({ to: "/" });
-      return;
-    }
+    // Tất cả role đều xem được; canEdit kiểm soát quyền sửa/xóa
     loadData();
-  }, [user, isManager]);
+  }, [user]);
 
   // Bật / tắt Template
   const handleToggleActive = async (tpl: MessageTemplate) => {
@@ -361,60 +330,6 @@ function AdminTemplatesPage() {
     }
   };
 
-  // Thực thi Gửi Lời Mời Kiểm Thử qua Edge Function
-  const handleSendTestInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!testTemplateId || !selectedSenderId || !testEmailInput.trim()) {
-      toast.error("Vui lòng chọn đủ Mẫu tin nhắn, Lịch nguồn gửi và nhập Email test");
-      return;
-    }
-
-    setTesting(true);
-    const tid = toast.loading("Đang biên dịch mẫu và phát hành thiệp mời kiểm thử qua Google Calendar...");
-    
-    try {
-      const payload = {
-        templateId: testTemplateId,
-        senderAccountId: selectedSenderId,
-        testEmail: testEmailInput.trim()
-      };
-
-      const { data, error } = await supabase.functions.invoke("send-template-test-invite", {
-        body: payload
-      });
-
-      if (error) {
-        let msg = error.message;
-        if ((error as any).context && typeof (error as any).context.json === 'function') {
-          try {
-            const errorBody = await (error as any).context.json();
-            if (errorBody && errorBody.error) {
-              msg = errorBody.error;
-            }
-          } catch (_) {}
-        }
-        throw new Error(msg);
-      }
-
-      if (data?.error) {
-        throw new Error(data.error);
-      }
-
-      if (data?.has_attendees) {
-        toast.success("Đã gửi thư mời test thành công tới email của bạn.", { id: tid });
-      } else {
-        toast.warning("Đã tạo event test nhưng chưa có attendee. Kiểm tra Edge Function.", { id: tid });
-      }
-
-      setTestEmailInput("");
-      loadData();
-    } catch (err: any) {
-      toast.error(`Gửi test thất bại: ${err.message || "Lỗi không xác định"}`, { id: tid, duration: 8000 });
-      loadData();
-    } finally {
-      setTesting(false);
-    }
-  };
 
   // Nạp chuỗi mô phỏng
   const renderSamplePreview = (tpl: MessageTemplate) => {
@@ -461,6 +376,51 @@ function AdminTemplatesPage() {
     setFormAttachmentUrls(prev => prev.filter(u => u !== urlToRemove));
   };
 
+  // Gửi test email qua Business Sender hoặc Personal Gmail
+  const handleTestSend = async () => {
+    if (!testRecipientEmail.trim()) { toast.error("Vui lòng nhập email nhận test"); return; }
+    if (!testSenderId) { toast.error("Vui lòng chọn tài khoản gửi"); return; }
+    if (!testTemplate) return;
+
+    setTestSending(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const resp = await fetch(`${supabaseUrl}/functions/v1/send-marketing-message`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          customerId: "00000000-0000-0000-0000-000000000001",
+          templateId: testTemplate.id,
+          channel: "email",
+          mode: "provider_send",
+          messageMode: "campaign",
+          isTest: true,
+          testRecipientEmail: testRecipientEmail.trim(),
+          testSenderId: testSenderId,
+          testSenderType: testSenderType,
+        }),
+      });
+
+      const result = await resp.json() as any;
+      if (result.status === "sent" || result.allowed || result.success) {
+        toast.success(`✅ Email test đã gửi đến ${testRecipientEmail}`);
+        setTestModalOpen(false);
+      } else {
+        toast.error(`Gửi thất bại: ${result.error || result.reason || "Lỗi không xác định"}`);
+      }
+    } catch (e: any) {
+      toast.error("Lỗi gửi test: " + e.message);
+    } finally {
+      setTestSending(false);
+    }
+  };
+
   const activeTemplatesCount = useMemo(() => templates.filter(t => t.is_active).length, [templates]);
 
   return (
@@ -479,7 +439,7 @@ function AdminTemplatesPage() {
             </div>
             <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-3">
               <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-                <Megaphone className="w-6 h-6 text-purple-600" /> Kho Mẫu Tiếp Thị & Truyền Thông B2B
+                <Megaphone className="w-6 h-6 text-purple-600" /> Thư viện Mẫu tin nhắn (Template Library)
               </h1>
               <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-purple-500/10 text-purple-600 border border-purple-500/20 self-start sm:self-auto">
                 Model Marketing CRM
@@ -488,18 +448,25 @@ function AdminTemplatesPage() {
           </div>
           
           <div className="flex items-center gap-2 flex-wrap justify-end">
+            {canEdit && (
+              <Button asChild variant="outline" className="border-purple-200 hover:bg-purple-50 hover:text-purple-700 font-bold h-10 px-3 rounded-xl bg-purple-50/20 text-purple-700 hidden sm:inline-flex">
+                <Link to="/admin/sender-accounts">⚙️ Quản lý tài khoản gửi</Link>
+              </Button>
+            )}
             <Button asChild variant="outline" className="border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 font-bold h-10 px-3 rounded-xl bg-indigo-50/20 text-indigo-700 hidden sm:inline-flex">
               <Link to="/marketing/campaigns">🚀 Phát hành Campaign</Link>
             </Button>
             <Button asChild variant="outline" className="border-pink-200 hover:bg-pink-50 hover:text-pink-700 font-bold h-10 px-3 rounded-xl bg-pink-50/20 text-pink-700 hidden sm:inline-flex">
               <Link to="/marketing/reports">📊 Báo cáo CRM</Link>
             </Button>
-            <Button 
-              onClick={handleOpenCreate} 
-              className="bg-purple-600 hover:bg-purple-700 shadow-sm font-bold text-white h-10 px-4 rounded-xl"
-            >
-              <Plus className="w-4 h-4 mr-2.5" /> Thêm mẫu mới
-            </Button>
+            {canEdit && (
+              <Button 
+                onClick={handleOpenCreate} 
+                className="bg-purple-600 hover:bg-purple-700 shadow-sm font-bold text-white h-10 px-4 rounded-xl"
+              >
+                <Plus className="w-4 h-4 mr-2.5" /> Thêm mẫu mới
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -518,16 +485,19 @@ function AdminTemplatesPage() {
             </div>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs relative overflow-hidden">
-            <div className="absolute right-0 bottom-0 translate-x-4 translate-y-4 w-24 h-24 bg-blue-50 rounded-full -z-0"></div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Lịch Google Nguồn</span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-slate-900">{senderAccounts.length}</span>
-              <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                OAuth Động
-              </span>
+          <Link to="/admin/sender-accounts" className="bg-white p-5 rounded-2xl border border-slate-200/80 hover:border-purple-300 shadow-2xs relative overflow-hidden group transition-all">
+            <div className="absolute right-0 bottom-0 translate-x-4 translate-y-4 w-24 h-24 bg-purple-50/50 group-hover:bg-purple-50 rounded-full -z-0 transition-colors"></div>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Tài khoản gửi tin</span>
+            <div className="flex items-baseline justify-between mt-1">
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-slate-900">{senderAccounts.length}</span>
+                <span className="text-xs font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
+                  Hoạt động
+                </span>
+              </div>
+              <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-all animate-pulse" />
             </div>
-          </div>
+          </Link>
 
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs relative overflow-hidden">
             <div className="absolute right-0 bottom-0 translate-x-4 translate-y-4 w-24 h-24 bg-amber-50 rounded-full -z-0"></div>
@@ -596,47 +566,84 @@ function AdminTemplatesPage() {
                         <p className="text-xs text-slate-500 font-mono mt-0.5">Mã key: {tpl.key}</p>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        {/* Switch trạng thái */}
-                        <button
-                          type="button"
-                          onClick={() => handleToggleActive(tpl)}
-                          className={`h-8 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                            isActive 
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100' 
-                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                          }`}
-                          title="Bấm để chuyển đổi trạng thái"
-                        >
-                          <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
-                          {isActive ? 'Đang kích hoạt' : 'Đang tắt'}
-                        </button>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* Badge trạng thái */}
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleActive(tpl)}
+                            className={`h-8 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                              isActive 
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100' 
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                            title="Bấm để chuyển đổi trạng thái"
+                          >
+                            <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                            {isActive ? 'Đang kích hoạt' : 'Đang tắt'}
+                          </button>
+                        )}
+                        {!canEdit && (
+                          <span className={`h-8 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 ${
+                            isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'
+                          }`}>
+                            <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                            {isActive ? 'Đang kích hoạt' : 'Đang tắt'}
+                          </span>
+                        )}
 
-                        {/* Nút Xem thử mô phỏng */}
+                        {/* Nút Xem trước */}
                         <button
                           type="button"
-                          onClick={() => {
-                            setPreviewTemplate(tpl);
-                            setPreviewOpen(true);
-                          }}
+                          onClick={() => { setPreviewTemplate(tpl); setPreviewOpen(true); }}
                           className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 flex items-center justify-center transition-all"
                           title="Xem trước kết xuất mẫu"
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
 
-                        {/* Nút Sửa */}
+                        {/* Nút Test Gửi (mọi role) */}
+                        {tpl.channel === 'email' || tpl.channel === 'marketing_email' || tpl.channel === 'email_campaign' || tpl.channel === 'event_follow_up_email' ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTestTemplate(tpl);
+                              setTestSenderType("business");
+                              setTestSenderId(senderAccounts[0]?.id || "");
+                              setTestRecipientEmail("");
+                              setTestModalOpen(true);
+                            }}
+                            className="h-8 px-2.5 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 text-xs font-bold flex items-center gap-1.5 transition-all"
+                            title="Gửi email test thử"
+                          >
+                            <FlaskConical className="w-3.5 h-3.5" /> Test
+                          </button>
+                        ) : null}
+
+                        {/* Nút Tạo chiến dịch (mọi role) */}
                         <button
                           type="button"
-                          onClick={() => handleOpenEdit(tpl)}
-                          className="w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-600 flex items-center justify-center transition-all"
-                          title="Chỉnh sửa nội dung"
+                          onClick={() => navigate({ to: "/marketing/campaigns", search: { template_id: tpl.id } as any })}
+                          className="h-8 px-2.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold flex items-center gap-1.5 transition-all"
+                          title="Tạo chiến dịch từ mẫu này"
                         >
-                          <Pencil className="w-3.5 h-3.5" />
+                          <Rocket className="w-3.5 h-3.5" /> Tạo Campaign
                         </button>
 
-                        {/* Nút Xóa */}
-                        {!isDefault && (
+                        {/* Nút Sửa (chỉ manager) */}
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(tpl)}
+                            className="w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-600 flex items-center justify-center transition-all"
+                            title="Chỉnh sửa nội dung"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
+                        {/* Nút Xóa (chỉ manager, không phải mẫu gốc) */}
+                        {canEdit && !isDefault && (
                           <button
                             type="button"
                             onClick={() => handleDeleteTemplate(tpl)}
@@ -674,127 +681,23 @@ function AdminTemplatesPage() {
           )}
         </div>
 
-        {/* Phân hệ Test Gửi Thiệp Mời Thực Tế (1 cột phải) */}
+        {/* Phân hệ Quản lý tài khoản gửi (1 cột phải) */}
         <div className="space-y-6">
           
-          {/* Bảng điều khiển Gửi Test */}
-          <div className="bg-white rounded-2xl border border-purple-200 p-5 shadow-sm relative">
-            <div className="absolute top-0 right-0 translate-x-2 -translate-y-2">
-              <span className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-sm uppercase tracking-wider flex items-center gap-1">
-                <Sparkles className="w-3 h-3" /> Test Engine
-              </span>
-            </div>
-
-            <h2 className="text-base font-black text-slate-900 mb-1 flex items-center gap-1.5">
-              🚀 Phát hành Lời mời Kiểm thử
-            </h2>
-            <p className="text-xs text-slate-500 mb-4">
-              Gọi trực tiếp Edge Function để tạo một sự kiện GCal test trên Lịch công ty thực tế.
-            </p>
-
-            <form onSubmit={handleSendTestInvite} className="space-y-3">
-              <div>
-                <Label className="text-xs font-bold text-slate-700">1. Chọn Mẫu kết xuất</Label>
-                <select
-                  value={testTemplateId}
-                  onChange={e => setTestTemplateId(e.target.value)}
-                  className="w-full h-10 px-3 text-xs rounded-xl border border-slate-200 bg-slate-50 mt-1 font-medium focus:outline-none focus:ring-2 focus:ring-purple-600"
-                >
-                  {templates.map(t => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} ({t.is_active ? 'Bật' : 'Tắt'})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <Label className="text-xs font-bold text-slate-700">2. Lịch Google nguồn gửi</Label>
-                <select
-                  value={selectedSenderId}
-                  onChange={e => setSelectedSenderId(e.target.value)}
-                  className="w-full h-10 px-3 text-xs rounded-xl border border-slate-200 bg-slate-50 mt-1 font-medium focus:outline-none focus:ring-2 focus:ring-purple-600"
-                >
-                  {senderAccounts.map(a => (
-                    <option key={a.id} value={a.id}>
-                      {a.name} — {a.sender_email}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <Label className="text-xs font-bold text-slate-700">3. Email người nhận Test</Label>
-                <Input
-                  placeholder="admin-test@gmail.com"
-                  value={testEmailInput}
-                  onChange={e => setTestEmailInput(e.target.value)}
-                  className="h-10 text-xs rounded-xl border-slate-200 mt-1"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">Hệ thống sẽ đặt lịch hẹn test sau 1 ngày từ mốc hiện tại.</p>
-              </div>
-
-              <Button
-                type="submit"
-                disabled={testing || !testTemplateId || !selectedSenderId || !testEmailInput.trim()}
-                className="w-full h-10 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs mt-2 shadow-2xs"
-              >
-                {testing ? "Đang phát hành thiệp mời..." : "🚀 Bấm Gửi Thiệp Mời Test"}
-              </Button>
-            </form>
-          </div>
-
-          {/* Nhật ký bắn thử gần đây */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs">
-            <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-slate-400" /> Nhật ký Test gần đây
+          {/* Card liên kết chéo sang Sender Accounts */}
+          <div className="bg-white rounded-2xl border border-purple-200 p-6 shadow-2xs space-y-4">
+            <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+              ⚙️ Quản lý tài khoản gửi
             </h3>
-
-            {testLogs.length === 0 ? (
-              <p className="text-center text-xs text-slate-400 py-6 italic">Chưa có lịch sử bắn test nào được ghi lại.</p>
-            ) : (
-              <div className="space-y-2.5 max-h-[320px] overflow-y-auto custom-scrollbar pr-1">
-                {testLogs.map(log => {
-                  const isSent = log.status === 'sent';
-                  const isNotSent = log.status === 'not_sent';
-                  
-                  let badgeBg = 'bg-rose-100 text-rose-700';
-                  let badgeTxt = '✕ Thất bại';
-                  if (isSent) {
-                    badgeBg = 'bg-emerald-100 text-emerald-700';
-                    badgeTxt = '✓ Đã gửi Email';
-                  } else if (isNotSent) {
-                    badgeBg = 'bg-amber-100 text-amber-700';
-                    badgeTxt = '⚠ Đã tạo Lịch';
-                  }
-
-                  return (
-                    <div key={log.id} className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-900 truncate max-w-[150px]">{log.test_email}</span>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${badgeBg}`}>
-                          {badgeTxt}
-                        </span>
-                      </div>
-                      <div className="space-y-0.5 text-[10px] text-slate-500">
-                        <div className="flex items-center justify-between">
-                          <span className="truncate max-w-[120px]">Mẫu: {log.template_name || 'N/A'}</span>
-                          <span>{new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                        </div>
-                        <p className="text-[9px] text-slate-400 truncate italic">
-                          Nguồn: {log.account_name}
-                        </p>
-                      </div>
-                      {!isSent && !isNotSent && log.error_message && (
-                        <p className="text-[10px] text-rose-600 font-mono bg-rose-50 p-1 rounded mt-1 line-clamp-2">
-                          Lý do: {log.error_message}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <p className="text-xs text-slate-600 leading-relaxed font-medium">
+              Toàn bộ hạ tầng gửi tin (Gmail, Resend, Zalo OA), cấu hình xác thực, theo dõi daily quota và delivery logs đã được tập trung quản lý tại mục **Sender Accounts**.
+            </p>
+            <Button asChild className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl h-10 shadow-xs flex items-center justify-center gap-1.5 group">
+              <Link to="/admin/sender-accounts">
+                Đi đến Sender Accounts
+                <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </Button>
           </div>
 
           {/* Khối tài liệu hướng dẫn nhanh */}
@@ -1257,6 +1160,114 @@ function AdminTemplatesPage() {
               Đóng giao diện
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Test Send Modal ─────────────────────────────────────────────── */}
+      <Dialog open={testModalOpen} onOpenChange={setTestModalOpen}>
+        <DialogContent className="sm:max-w-[460px] p-6 rounded-2xl border-none shadow-2xl bg-white">
+          <DialogHeader className="space-y-1 pb-3 border-b border-slate-100">
+            <DialogTitle className="text-base font-black text-slate-900 flex items-center gap-2">
+              <FlaskConical className="w-4 h-4 text-amber-500" /> Test Gửi Email
+            </DialogTitle>
+            <p className="text-xs text-slate-500">
+              Gửi thử mẫu <strong>{testTemplate?.name}</strong> đến một địa chỉ email để kiểm tra.
+            </p>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3">
+            {/* Chọn loại Sender */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700">Tài khoản gửi</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setTestSenderType("business"); setTestSenderId(senderAccounts[0]?.id || ""); }}
+                  className={`flex items-center gap-2 p-3 rounded-xl border text-left transition-all ${testSenderType === "business" ? "border-indigo-400 bg-indigo-50 ring-1 ring-indigo-300" : "border-slate-200 hover:border-slate-300 bg-slate-50"}`}
+                >
+                  <Building2 className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">Email Công ty</p>
+                    <p className="text-[10px] text-slate-500">Gửi qua Resend</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setTestSenderType("personal"); setTestSenderId(personalSenders[0]?.id || ""); }}
+                  disabled={personalSenders.length === 0}
+                  className={`flex items-center gap-2 p-3 rounded-xl border text-left transition-all ${personalSenders.length === 0 ? "opacity-50 cursor-not-allowed border-slate-200 bg-slate-50" : testSenderType === "personal" ? "border-emerald-400 bg-emerald-50 ring-1 ring-emerald-300" : "border-slate-200 hover:border-slate-300 bg-slate-50"}`}
+                >
+                  <Mail className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">Gmail cá nhân</p>
+                    <p className="text-[10px] text-slate-500">
+                      {personalSenders.length === 0 ? "Chưa cấu hình" : personalSenders[0]?.account_identifier}
+                    </p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Chọn tài khoản cụ thể */}
+            {testSenderType === "business" && senderAccounts.length > 0 && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Tài khoản Business Sender</label>
+                <select
+                  value={testSenderId}
+                  onChange={e => setTestSenderId(e.target.value)}
+                  className="w-full h-10 px-3 text-xs rounded-xl border border-slate-200 bg-slate-50 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                >
+                  {senderAccounts.map(a => (
+                    <option key={a.id} value={a.id}>{a.name} ({a.sender_email})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {testSenderType === "personal" && personalSenders.length > 1 && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Tài khoản Gmail cá nhân</label>
+                <select
+                  value={testSenderId}
+                  onChange={e => setTestSenderId(e.target.value)}
+                  className="w-full h-10 px-3 text-xs rounded-xl border border-slate-200 bg-slate-50 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                >
+                  {personalSenders.map((a: any) => (
+                    <option key={a.id} value={a.id}>{a.account_name} ({a.account_identifier})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Email nhận test */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700">Email nhận test *</label>
+              <input
+                type="email"
+                value={testRecipientEmail}
+                onChange={e => setTestRecipientEmail(e.target.value)}
+                placeholder="Nhập địa chỉ email để nhận mail test..."
+                className="w-full h-10 px-3 text-xs rounded-xl border border-slate-200 bg-white font-medium focus:outline-none focus:ring-1 focus:ring-amber-400"
+              />
+              <p className="text-[10px] text-slate-400">Email này sẽ nhận bản thử nghiệm của mẫu với dữ liệu mô phỏng.</p>
+            </div>
+          </div>
+
+          <DialogFooter className="pt-2 border-t border-slate-100 flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setTestModalOpen(false)} className="h-9 px-4 rounded-xl text-xs font-bold">
+              Hủy
+            </Button>
+            <Button
+              onClick={handleTestSend}
+              disabled={testSending || !testRecipientEmail.trim() || !testSenderId}
+              className="h-9 px-5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl flex items-center gap-2"
+            >
+              {testSending ? (
+                <><div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> Đang gửi...</>
+              ) : (
+                <><Send className="w-3.5 h-3.5" /> Gửi Test</>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
