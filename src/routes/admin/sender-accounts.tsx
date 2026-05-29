@@ -731,7 +731,7 @@ function SenderAccountsPage() {
               size="sm"
               className="rounded-xl border-purple-200 hover:bg-purple-50 hover:text-purple-700 font-bold text-xs h-9 px-4 gap-2 bg-purple-50/10 text-purple-700 hidden sm:inline-flex"
             >
-              <Link to="/admin/templates">📝 Template Library</Link>
+              <Link to="/marketing/templates">📝 Template Library</Link>
             </Button>
             <Button
               variant="outline"

@@ -30,14 +30,15 @@ import { Route as ReportsAutomationRouteImport } from './routes/reports/automati
 import { Route as ProductsKnowledgeRouteImport } from './routes/products/knowledge'
 import { Route as OrdersNewRouteImport } from './routes/orders/new'
 import { Route as OrdersIdRouteImport } from './routes/orders/$id'
+import { Route as MarketingTemplatesRouteImport } from './routes/marketing/templates'
 import { Route as MarketingReportsRouteImport } from './routes/marketing/reports'
 import { Route as MarketingCampaignsRouteImport } from './routes/marketing/campaigns'
 import { Route as CustomersMapRouteImport } from './routes/customers/map'
 import { Route as CustomersIdRouteImport } from './routes/customers/$id'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminUatRouteImport } from './routes/admin/uat'
-import { Route as AdminTemplatesRouteImport } from './routes/admin/templates'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
+import { Route as AdminSenderAccountsRouteImport } from './routes/admin/sender-accounts'
 import { Route as AdminSegmentsRouteImport } from './routes/admin/segments'
 import { Route as AdminSecurityAuditRouteImport } from './routes/admin/security-audit'
 import { Route as AdminReclamationRouteImport } from './routes/admin/reclamation'
@@ -166,6 +167,11 @@ const OrdersIdRoute = OrdersIdRouteImport.update({
   path: '/orders/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MarketingTemplatesRoute = MarketingTemplatesRouteImport.update({
+  id: '/marketing/templates',
+  path: '/marketing/templates',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MarketingReportsRoute = MarketingReportsRouteImport.update({
   id: '/marketing/reports',
   path: '/marketing/reports',
@@ -196,14 +202,14 @@ const AdminUatRoute = AdminUatRouteImport.update({
   path: '/admin/uat',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminTemplatesRoute = AdminTemplatesRouteImport.update({
-  id: '/admin/templates',
-  path: '/admin/templates',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AdminSettingsRoute = AdminSettingsRouteImport.update({
   id: '/admin/settings',
   path: '/admin/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSenderAccountsRoute = AdminSenderAccountsRouteImport.update({
+  id: '/admin/sender-accounts',
+  path: '/admin/sender-accounts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminSegmentsRoute = AdminSegmentsRouteImport.update({
@@ -344,14 +350,15 @@ export interface FileRoutesByFullPath {
   '/admin/reclamation': typeof AdminReclamationRoute
   '/admin/security-audit': typeof AdminSecurityAuditRoute
   '/admin/segments': typeof AdminSegmentsRoute
+  '/admin/sender-accounts': typeof AdminSenderAccountsRoute
   '/admin/settings': typeof AdminSettingsRoute
-  '/admin/templates': typeof AdminTemplatesRoute
   '/admin/uat': typeof AdminUatRoute
   '/admin/users': typeof AdminUsersRoute
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
   '/marketing/campaigns': typeof MarketingCampaignsRoute
   '/marketing/reports': typeof MarketingReportsRoute
+  '/marketing/templates': typeof MarketingTemplatesRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
   '/products/knowledge': typeof ProductsKnowledgeRoute
@@ -395,14 +402,15 @@ export interface FileRoutesByTo {
   '/admin/reclamation': typeof AdminReclamationRoute
   '/admin/security-audit': typeof AdminSecurityAuditRoute
   '/admin/segments': typeof AdminSegmentsRoute
+  '/admin/sender-accounts': typeof AdminSenderAccountsRoute
   '/admin/settings': typeof AdminSettingsRoute
-  '/admin/templates': typeof AdminTemplatesRoute
   '/admin/uat': typeof AdminUatRoute
   '/admin/users': typeof AdminUsersRoute
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
   '/marketing/campaigns': typeof MarketingCampaignsRoute
   '/marketing/reports': typeof MarketingReportsRoute
+  '/marketing/templates': typeof MarketingTemplatesRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
   '/products/knowledge': typeof ProductsKnowledgeRoute
@@ -448,14 +456,15 @@ export interface FileRoutesById {
   '/admin/reclamation': typeof AdminReclamationRoute
   '/admin/security-audit': typeof AdminSecurityAuditRoute
   '/admin/segments': typeof AdminSegmentsRoute
+  '/admin/sender-accounts': typeof AdminSenderAccountsRoute
   '/admin/settings': typeof AdminSettingsRoute
-  '/admin/templates': typeof AdminTemplatesRoute
   '/admin/uat': typeof AdminUatRoute
   '/admin/users': typeof AdminUsersRoute
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
   '/marketing/campaigns': typeof MarketingCampaignsRoute
   '/marketing/reports': typeof MarketingReportsRoute
+  '/marketing/templates': typeof MarketingTemplatesRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
   '/products/knowledge': typeof ProductsKnowledgeRoute
@@ -502,14 +511,15 @@ export interface FileRouteTypes {
     | '/admin/reclamation'
     | '/admin/security-audit'
     | '/admin/segments'
+    | '/admin/sender-accounts'
     | '/admin/settings'
-    | '/admin/templates'
     | '/admin/uat'
     | '/admin/users'
     | '/customers/$id'
     | '/customers/map'
     | '/marketing/campaigns'
     | '/marketing/reports'
+    | '/marketing/templates'
     | '/orders/$id'
     | '/orders/new'
     | '/products/knowledge'
@@ -553,14 +563,15 @@ export interface FileRouteTypes {
     | '/admin/reclamation'
     | '/admin/security-audit'
     | '/admin/segments'
+    | '/admin/sender-accounts'
     | '/admin/settings'
-    | '/admin/templates'
     | '/admin/uat'
     | '/admin/users'
     | '/customers/$id'
     | '/customers/map'
     | '/marketing/campaigns'
     | '/marketing/reports'
+    | '/marketing/templates'
     | '/orders/$id'
     | '/orders/new'
     | '/products/knowledge'
@@ -605,14 +616,15 @@ export interface FileRouteTypes {
     | '/admin/reclamation'
     | '/admin/security-audit'
     | '/admin/segments'
+    | '/admin/sender-accounts'
     | '/admin/settings'
-    | '/admin/templates'
     | '/admin/uat'
     | '/admin/users'
     | '/customers/$id'
     | '/customers/map'
     | '/marketing/campaigns'
     | '/marketing/reports'
+    | '/marketing/templates'
     | '/orders/$id'
     | '/orders/new'
     | '/products/knowledge'
@@ -658,12 +670,13 @@ export interface RootRouteChildren {
   AdminReclamationRoute: typeof AdminReclamationRoute
   AdminSecurityAuditRoute: typeof AdminSecurityAuditRoute
   AdminSegmentsRoute: typeof AdminSegmentsRoute
+  AdminSenderAccountsRoute: typeof AdminSenderAccountsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
-  AdminTemplatesRoute: typeof AdminTemplatesRoute
   AdminUatRoute: typeof AdminUatRoute
   AdminUsersRoute: typeof AdminUsersRoute
   MarketingCampaignsRoute: typeof MarketingCampaignsRoute
   MarketingReportsRoute: typeof MarketingReportsRoute
+  MarketingTemplatesRoute: typeof MarketingTemplatesRoute
   OrdersIdRoute: typeof OrdersIdRoute
   OrdersNewRoute: typeof OrdersNewRoute
   ProductsKnowledgeRoute: typeof ProductsKnowledgeRoute
@@ -826,6 +839,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrdersIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/marketing/templates': {
+      id: '/marketing/templates'
+      path: '/marketing/templates'
+      fullPath: '/marketing/templates'
+      preLoaderRoute: typeof MarketingTemplatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/marketing/reports': {
       id: '/marketing/reports'
       path: '/marketing/reports'
@@ -868,18 +888,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/templates': {
-      id: '/admin/templates'
-      path: '/admin/templates'
-      fullPath: '/admin/templates'
-      preLoaderRoute: typeof AdminTemplatesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/admin/settings': {
       id: '/admin/settings'
       path: '/admin/settings'
       fullPath: '/admin/settings'
       preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/sender-accounts': {
+      id: '/admin/sender-accounts'
+      path: '/admin/sender-accounts'
+      fullPath: '/admin/sender-accounts'
+      preLoaderRoute: typeof AdminSenderAccountsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/segments': {
@@ -1079,12 +1099,13 @@ const rootRouteChildren: RootRouteChildren = {
   AdminReclamationRoute: AdminReclamationRoute,
   AdminSecurityAuditRoute: AdminSecurityAuditRoute,
   AdminSegmentsRoute: AdminSegmentsRoute,
+  AdminSenderAccountsRoute: AdminSenderAccountsRoute,
   AdminSettingsRoute: AdminSettingsRoute,
-  AdminTemplatesRoute: AdminTemplatesRoute,
   AdminUatRoute: AdminUatRoute,
   AdminUsersRoute: AdminUsersRoute,
   MarketingCampaignsRoute: MarketingCampaignsRoute,
   MarketingReportsRoute: MarketingReportsRoute,
+  MarketingTemplatesRoute: MarketingTemplatesRoute,
   OrdersIdRoute: OrdersIdRoute,
   OrdersNewRoute: OrdersNewRoute,
   ProductsKnowledgeRoute: ProductsKnowledgeRoute,

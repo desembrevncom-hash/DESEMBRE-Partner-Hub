@@ -38,8 +38,8 @@ import {
 } from "@/components/ui/dialog";
 import { renderTemplate, SUPPORTED_TEMPLATE_VARIABLES } from "@/lib/templateRenderer";
 
-export const Route = createFileRoute("/admin/templates")({
-  component: AdminTemplatesPage,
+export const Route = createFileRoute("/marketing/templates")({
+  component: MarketingTemplatesPage,
 });
 
 // Kiểu dữ liệu chuẩn hóa
@@ -78,7 +78,7 @@ interface SenderAccount {
   is_active: boolean;
 }
 
-function AdminTemplatesPage() {
+function MarketingTemplatesPage() {
   const { user, isManager, isSale, isSalesMember } = useAuth();
   const navigate = useNavigate();
   const canEdit = isManager || isSale; // cho phép cả manager và sale tạo/quản lý template
