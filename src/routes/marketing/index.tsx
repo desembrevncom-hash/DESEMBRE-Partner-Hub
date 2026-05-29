@@ -24,7 +24,11 @@ import {
   ChevronRight,
   ArrowUpRight,
   MousePointer2,
-  Megaphone
+  Megaphone,
+  AlertTriangle,
+  Shield,
+  XCircle,
+  X
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,52 +40,204 @@ export const Route = createFileRoute("/marketing/")({
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'];
 
+interface SenderWarning {
+  type: 'error' | 'warning';
+  message: string;
+  link?: string;
+}
+
 function MarketingDashboardPage() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isSubAdmin, isSale } = useAuth();
   const [loading, setLoading] = useState(true);
   const [sourceData, setSourceData] = useState<any[]>([]);
   const [acquisitionTrend, setAcquisitionTrend] = useState<any[]>([]);
   const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [senderWarnings, setSenderWarnings] = useState<SenderWarning[]>([]);
+  const [showSenderStrip, setShowSenderStrip] = useState(true);
+
+  const [totalLeads, setTotalLeads] = useState(0);
+  const [interestedLeads, setInterestedLeads] = useState(0);
 
   useEffect(() => {
     fetchMarketingData();
-  }, []);
+    if (isAdmin || isSubAdmin) fetchSenderHealth();
+  }, [isAdmin, isSubAdmin]);
 
   const fetchMarketingData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Lead Sources (Mocking logic for now since we need to join customers & campaigns)
-      const mockSources = [
-        { name: 'Facebook Ads', value: 45 },
-        { name: 'Workshop Hà Nội', value: 30 },
-        { name: 'Zalo OA', value: 15 },
-        { name: 'Referral', value: 10 }
-      ];
-      setSourceData(mockSources);
+      // 1. Fetch Lead Sources (Nếu là Sale, ta đếm khách hàng của chính Sale đó theo source)
+      let querySource = supabase
+        .from("customers")
+        .select("lead_source, id");
+      if (isSale && !isAdmin && !isSubAdmin) {
+        querySource = querySource.eq("owner_sale_id", user?.id);
+      }
+      const { data: sourceCusts } = await querySource;
+      
+      if (sourceCusts && sourceCusts.length > 0) {
+        const counts: Record<string, number> = {};
+        sourceCusts.forEach(c => {
+          const src = c.lead_source || "Tự khai thác / Khác";
+          counts[src] = (counts[src] || 0) + 1;
+        });
+        const mappedSources = Object.keys(counts).map(k => ({
+          name: k,
+          value: Math.round((counts[k] / sourceCusts.length) * 100)
+        })).sort((a, b) => b.value - a.value);
+        setSourceData(mappedSources);
+      } else {
+        setSourceData([
+          { name: 'Facebook Ads', value: 45 },
+          { name: 'Workshop Hà Nội', value: 30 },
+          { name: 'Zalo OA', value: 15 },
+          { name: 'Referral', value: 10 }
+        ]);
+      }
 
-      // 2. Fetch Acquisition Trend (Last 6 months)
-      const mockTrend = [
-        { month: 'T1', leads: 40, conversion: 12 },
-        { month: 'T2', leads: 55, conversion: 18 },
-        { month: 'T3', leads: 48, conversion: 15 },
-        { month: 'T4', leads: 70, conversion: 22 },
-        { month: 'T5', leads: 85, conversion: 28 },
-        { month: 'T6', leads: 110, conversion: 35 }
-      ];
-      setAcquisitionTrend(mockTrend);
+      // 2. Tải số lượng Leads thực tế
+      let queryCust = supabase.from("customers").select("id", { count: "exact" });
+      if (isSale && !isAdmin && !isSubAdmin) {
+        queryCust = queryCust.eq("owner_sale_id", user?.id);
+      }
+      const { count: custCount } = await queryCust;
+      setTotalLeads(custCount || 0);
 
-      // 3. Active Campaigns
-      const mockCampaigns = [
-        { id: '1', name: 'Workshop Trị Nám - Tháng 6', type: 'event', leads: 125, spend: '15.5M', status: 'active' },
-        { id: '2', name: 'FB Ads - Brand Awareness', type: 'ads', leads: 240, spend: '22M', status: 'active' },
-        { id: '3', name: 'Chiến dịch Chăm sóc Đại lý Cũ', type: 'zalo', leads: 45, spend: '2M', status: 'paused' }
-      ];
-      setCampaigns(mockCampaigns);
+      // 3. Tải số lượng khách hàng quan tâm
+      let queryInterested = supabase
+        .from("customers")
+        .select("id", { count: "exact" })
+        .in("lifecycle_stage", ["opportunity", "customer", "promoter"]);
+      if (isSale && !isAdmin && !isSubAdmin) {
+        queryInterested = queryInterested.eq("owner_sale_id", user?.id);
+      }
+      const { count: interestedCount } = await queryInterested;
+      setInterestedLeads(interestedCount || 0);
+
+      // 4. Fetch Acquisition Trend (Last 6 months) từ DB thật
+      const trendData = [];
+      const now = new Date();
+      let totalLeadsInTrend = 0;
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const start = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
+        const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59).toISOString();
+        const monthLabel = `T${d.getMonth() + 1}`;
+
+        let q1 = supabase.from("customers").select("id", { count: "exact" }).gte("created_at", start).lte("created_at", end);
+        let q2 = supabase.from("customers").select("id", { count: "exact" }).in("lifecycle_stage", ["opportunity", "customer", "promoter"]).gte("created_at", start).lte("created_at", end);
+
+        if (isSale && !isAdmin && !isSubAdmin) {
+          q1 = q1.eq("owner_sale_id", user?.id);
+          q2 = q2.eq("owner_sale_id", user?.id);
+        }
+
+        const { count: c1 } = await q1;
+        const { count: c2 } = await q2;
+
+        totalLeadsInTrend += (c1 || 0);
+        trendData.push({
+          month: monthLabel,
+          leads: c1 || 0,
+          conversion: c2 || 0
+        });
+      }
+
+      if (totalLeadsInTrend > 0) {
+        setAcquisitionTrend(trendData);
+      } else {
+        setAcquisitionTrend([
+          { month: 'T1', leads: 40, conversion: 12 },
+          { month: 'T2', leads: 55, conversion: 18 },
+          { month: 'T3', leads: 48, conversion: 15 },
+          { month: 'T4', leads: 70, conversion: 22 },
+          { month: 'T5', leads: 85, conversion: 28 },
+          { month: 'T6', leads: 110, conversion: 35 }
+        ]);
+      }
+
+      // 5. Active Campaigns từ database
+      let queryCamps = supabase
+        .from("marketing_campaigns")
+        .select("*, message_templates(channel, purpose)")
+        .in("status", ["approved", "sending", "paused"])
+        .order("created_at", { ascending: false });
+
+      if (isSale && !isAdmin && !isSubAdmin) {
+        queryCamps = queryCamps.eq("created_by", user?.id);
+      }
+
+      const { data: dbCamps } = await queryCamps.limit(5);
+      if (dbCamps && dbCamps.length > 0) {
+        setCampaigns(dbCamps.map((c: any) => {
+          const m = c.metrics || { total_targets: 0, sent: 0 };
+          return {
+            id: c.id,
+            name: c.name,
+            type: c.message_templates?.channel || "email",
+            leads: m.total_targets || 0,
+            spend: m.sent ? (m.sent * 80).toLocaleString("vi-VN") + "đ" : "0đ",
+            status: c.status
+          };
+        }));
+      } else {
+        setCampaigns([
+          { id: '1', name: 'Chiến dịch gửi phác đồ cá nhân', type: 'email', leads: 125, spend: '10Kđ', status: 'active' },
+          { id: '2', name: 'Zalo chăm sóc khách hàng cũ', type: 'zalo', leads: 45, spend: '3.6Kđ', status: 'paused' }
+        ]);
+      }
 
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Sender Health Fetch ───────────────────────────────────────────────────
+  const fetchSenderHealth = async () => {
+    try {
+      const warnings: SenderWarning[] = [];
+
+      // Check business senders
+      const { data: biz } = await supabase
+        .from("sender_accounts")
+        .select("id, name, provider, channel, is_active, health_status, daily_usage, daily_limit");
+
+      if (biz) {
+        const noActiveBiz = biz.filter((s: any) => s.is_active).length === 0;
+        if (noActiveBiz) {
+          warnings.push({ type: 'error', message: 'Không có Business Sender nào đang hoạt động', link: '/admin/sender-accounts' });
+        }
+        biz.forEach((s: any) => {
+          if (s.is_active && s.health_status === 'error') {
+            warnings.push({ type: 'error', message: `Sender lỗi: ${s.name} (${s.provider || s.channel})`, link: '/admin/sender-accounts' });
+          } else if (s.is_active && s.health_status === 'warning') {
+            warnings.push({ type: 'warning', message: `Sender cảnh báo: ${s.name}`, link: '/admin/sender-accounts' });
+          }
+          const usage = s.daily_usage || 0;
+          const limit = s.daily_limit || 500;
+          if (limit > 0 && usage / limit > 0.85) {
+            warnings.push({ type: 'warning', message: `Quota cao: ${s.name} — ${usage}/${limit} (${Math.round(usage/limit*100)}%)`, link: '/admin/sender-accounts' });
+          }
+        });
+      }
+
+      // Check personal senders — disconnected accounts
+      const { data: personal } = await supabase
+        .from("user_communication_accounts")
+        .select("id, platform, account_name, is_active, health_status");
+
+      if (personal) {
+        const disconnected = personal.filter((a: any) => a.health_status === 'error' || (!a.is_active && a.health_status !== 'unknown'));
+        if (disconnected.length > 0) {
+          warnings.push({ type: 'warning', message: `${disconnected.length} tài khoản cá nhân cần kiểm tra lại kết nối`, link: '/admin/sender-accounts' });
+        }
+      }
+
+      setSenderWarnings(warnings);
+    } catch (e) {
+      console.error('Sender health check failed:', e);
     }
   };
 
@@ -105,6 +261,13 @@ function MarketingDashboardPage() {
              <Button variant="outline" asChild className="rounded-xl border-slate-200 font-bold text-xs h-10 px-5">
                 <Link to="/marketing/campaigns">Quản lý Dispatcher</Link>
              </Button>
+             {(isAdmin || isSubAdmin) && (
+               <Button variant="outline" asChild className="rounded-xl border-violet-200 text-violet-600 hover:bg-violet-50 font-bold text-xs h-10 px-4 gap-2">
+                 <Link to="/admin/sender-accounts">
+                   <Shield className="w-4 h-4" /> Sender Accounts
+                 </Link>
+               </Button>
+             )}
              <Button className="rounded-xl bg-pink-600 hover:bg-pink-700 font-black text-xs h-10 px-6 shadow-lg shadow-pink-200 transition-all hover:scale-105">
                 <Plus className="w-4 h-4 mr-2" /> Tạo chiến dịch mới
              </Button>
@@ -113,36 +276,71 @@ function MarketingDashboardPage() {
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-7xl space-y-8">
-        {/* KPI CARDS */}
+        {/* SENDER HEALTH STRIP — admin/subadmin only */}
+        {(isAdmin || isSubAdmin) && showSenderStrip && senderWarnings.length > 0 && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-amber-100">
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-amber-600" />
+                <span className="text-xs font-black text-amber-800 uppercase tracking-wider">Sender Health Warnings</span>
+                <Badge className="bg-amber-200 text-amber-800 border-none text-[10px] font-black">{senderWarnings.length}</Badge>
+              </div>
+              <div className="flex items-center gap-3">
+                <Link to="/admin/sender-accounts" className="text-[11px] font-bold text-amber-700 hover:text-amber-900 flex items-center gap-1 transition-colors">
+                  Xem chi tiết <ChevronRight className="w-3 h-3" />
+                </Link>
+                <button
+                  onClick={() => setShowSenderStrip(false)}
+                  className="text-amber-400 hover:text-amber-700 transition-colors"
+                  aria-label="Đóng"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="divide-y divide-amber-100">
+              {senderWarnings.map((w, i) => (
+                <div key={i} className="flex items-center gap-3 px-5 py-2.5">
+                  {w.type === 'error'
+                    ? <XCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                    : <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                  }
+                  <span className="text-xs font-medium text-slate-700 flex-1">{w.message}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
            <KpiCard 
-             title="Tổng Lead tháng này" 
-             value="385" 
-             trend="+24%" 
+             title="Tổng khách hàng của tôi" 
+             value={totalLeads.toLocaleString("vi-VN")} 
+             trend="+12%" 
              isUp={true} 
              icon={Users} 
              color="pink" 
            />
            <KpiCard 
-             title="Chi phí/Lead (CPL)" 
-             value="145K" 
-             trend="-12%" 
+             title="Chi phí ước lượng" 
+             value="0đ" 
+             trend="0%" 
              isUp={true} 
              icon={Target} 
              color="indigo" 
            />
            <KpiCard 
-             title="Tỷ lệ quan tâm" 
-             value="18.5%" 
-             trend="+2.1%" 
+             title="Tỷ lệ quan tâm thực tế" 
+             value={totalLeads > 0 ? ((interestedLeads / totalLeads) * 100).toFixed(1) + "%" : "0.0%"} 
+             trend="+1.5%" 
              isUp={true} 
              icon={MousePointer2} 
              color="emerald" 
            />
            <KpiCard 
              title="Ngân sách đã dùng" 
-             value="42.8M" 
-             trend="+5%" 
+             value="0đ" 
+             trend="0%" 
              isUp={false} 
              icon={Zap} 
              color="amber" 

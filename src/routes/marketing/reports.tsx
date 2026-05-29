@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -53,6 +54,7 @@ interface OptOutRecord {
 }
 
 function MarketingReportsPage() {
+  const { user, isAdmin, isSubAdmin, isSale } = useAuth();
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<"7d" | "30d" | "90d" | "all">("30d");
   const [selectedChannel, setSelectedChannel] = useState<string>("all");
@@ -157,12 +159,17 @@ function MarketingReportsPage() {
 
     try {
       // 1. Tải danh sách chiến dịch đã hoàn thành
-      const { data: camps, error: errCamps } = await supabase
+      let queryCamps = supabase
         .from("marketing_campaigns")
         .select("*, message_templates(channel, purpose)")
         .eq("status", "completed")
-        .order("created_at", { ascending: false })
-        .limit(20);
+        .order("created_at", { ascending: false });
+
+      if (isSale && !isAdmin && !isSubAdmin) {
+        queryCamps = queryCamps.eq("created_by", user?.id);
+      }
+
+      const { data: camps, error: errCamps } = await queryCamps.limit(20);
 
       if (errCamps) throw errCamps;
 
@@ -192,14 +199,20 @@ function MarketingReportsPage() {
       }
 
       // 2. Tải danh sách khách hàng đã Opt-out
-      const { data: custData, error: errCust } = await supabase
+      let queryCusts = supabase
         .from("customers")
         .select("id, email, phone, facility_name, marketing_opt_out_at, opt_out_reason")
         .not("marketing_opt_out_at", "is", null)
         .order("marketing_opt_out_at", { ascending: false });
 
+      if (isSale && !isAdmin && !isSubAdmin) {
+        queryCusts = queryCusts.eq("owner_sale_id", user?.id);
+      }
+
+      const { data: custData, error: errCust } = await queryCusts;
+
       if (!errCust && custData && custData.length > 0) {
-        setOptOutList(custData.map(c => ({
+        setOptOutList(custData.map((c: any) => ({
           id: c.id,
           email: c.email || `${c.id}@local`,
           phone: c.phone,

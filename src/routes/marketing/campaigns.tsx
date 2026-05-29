@@ -231,7 +231,7 @@ function MarketingCampaignsPage() {
 
     try {
       // 1. Tải chiến dịch
-      const { data: cData, error: cErr } = await supabase
+      let queryCamps = supabase
         .from("marketing_campaigns")
         .select(`
           *,
@@ -239,8 +239,13 @@ function MarketingCampaignsPage() {
           zns_templates ( template_name, category, purpose ),
           sender_accounts ( name, sender_email, health_status, daily_limit, daily_usage ),
           customer_segments ( name )
-        `)
-        .order("created_at", { ascending: false });
+        `);
+
+      if (isSale && !isAdmin && !isSubAdmin) {
+        queryCamps = queryCamps.eq("created_by", user?.id);
+      }
+
+      const { data: cData, error: cErr } = await queryCamps.order("created_at", { ascending: false });
 
       if (cErr) throw cErr;
       setCampaigns(cData || []);
