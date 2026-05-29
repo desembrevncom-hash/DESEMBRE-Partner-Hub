@@ -609,7 +609,8 @@ function AdminTemplatesPage() {
                             onClick={() => {
                               setTestTemplate(tpl);
                               setTestSenderType("business");
-                              setTestSenderId(senderAccounts[0]?.id || "");
+                              const resendSender = senderAccounts.find(a => a.provider === "resend" || a.provider === "email");
+                              setTestSenderId(resendSender?.id || "");
                               setTestRecipientEmail("");
                               setTestModalOpen(true);
                             }}
@@ -1182,7 +1183,11 @@ function AdminTemplatesPage() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => { setTestSenderType("business"); setTestSenderId(senderAccounts[0]?.id || ""); }}
+                  onClick={() => {
+                    setTestSenderType("business");
+                    const resendSender = senderAccounts.find(a => a.provider === "resend" || a.provider === "email");
+                    setTestSenderId(resendSender?.id || "");
+                  }}
                   className={`flex items-center gap-2 p-3 rounded-xl border text-left transition-all ${testSenderType === "business" ? "border-indigo-400 bg-indigo-50 ring-1 ring-indigo-300" : "border-slate-200 hover:border-slate-300 bg-slate-50"}`}
                 >
                   <Building2 className="w-4 h-4 text-indigo-600 flex-shrink-0" />
@@ -1209,7 +1214,7 @@ function AdminTemplatesPage() {
             </div>
 
             {/* Chọn tài khoản cụ thể */}
-            {testSenderType === "business" && senderAccounts.length > 0 && (
+            {testSenderType === "business" && senderAccounts.filter(a => a.provider === "resend" || a.provider === "email").length > 0 && (
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700">Tài khoản Business Sender</label>
                 <select
@@ -1217,7 +1222,7 @@ function AdminTemplatesPage() {
                   onChange={e => setTestSenderId(e.target.value)}
                   className="w-full h-10 px-3 text-xs rounded-xl border border-slate-200 bg-slate-50 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-400"
                 >
-                  {senderAccounts.map(a => (
+                  {senderAccounts.filter(a => a.provider === "resend" || a.provider === "email").map(a => (
                     <option key={a.id} value={a.id}>{a.name} ({a.sender_email})</option>
                   ))}
                 </select>

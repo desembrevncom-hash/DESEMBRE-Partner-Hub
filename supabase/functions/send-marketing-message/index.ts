@@ -338,9 +338,16 @@ serve(async (req: Request) => {
       if (senderType === "business") {
         const { data: senderRow } = await adminClient
           .from("sender_accounts")
-          .select("sender_email, name, provider_secret")
+          .select("sender_email, name, provider_secret, provider")
           .eq("id", resolvedSenderId)
           .single() as any;
+
+        const provider = (senderRow?.provider || "").toLowerCase();
+        if (provider !== "resend" && provider !== "email") {
+          return new Response(JSON.stringify({ allowed: false, status: "failed", reason: `Cấu hình tài khoản "${senderRow?.name}" thuộc loại "${provider}", không hỗ trợ gửi email chiến dịch. Vui lòng chọn tài khoản Resend.` }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
 
         const globalResendKey = Deno.env.get("RESEND_API_KEY");
         const activeResendKey = senderRow?.provider_secret || globalResendKey;
