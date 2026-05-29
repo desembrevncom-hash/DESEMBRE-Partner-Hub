@@ -284,7 +284,7 @@ serve(async (req: Request) => {
 
   // ── Mode: provider_send ───────────────────────────────────────────────────
   if (mode === "provider_send") {
-    if (!PROVIDER_SEND_ENABLED) {
+    if (!isTest && !PROVIDER_SEND_ENABLED) {
       return new Response(JSON.stringify({
         allowed: false,
         reason: "Provider send is disabled (MARKETING_PROVIDER_SEND_ENABLED=false). Only copy mode is available.",
