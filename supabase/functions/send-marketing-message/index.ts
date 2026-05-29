@@ -336,24 +336,26 @@ serve(async (req: Request) => {
       }
 
       if (senderType === "business") {
-        const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-        if (!RESEND_API_KEY) {
+        const { data: senderRow } = await adminClient
+          .from("sender_accounts")
+          .select("sender_email, name, provider_secret")
+          .eq("id", resolvedSenderId)
+          .single() as any;
+
+        const globalResendKey = Deno.env.get("RESEND_API_KEY");
+        const activeResendKey = senderRow?.provider_secret || globalResendKey;
+
+        if (!activeResendKey) {
           // Log and return error
           await adminClient.rpc("log_marketing_delivery_event", {
             p_customer_id: logCustomerId, p_campaign_id: campaignId ?? null, p_template_id: templateId ?? null,
             p_sender_account_id: resolvedSenderId, p_channel: channel, p_mode: "provider_send",
             p_status: "failed", p_reason: "missing_resend_key",
           });
-          return new Response(JSON.stringify({ allowed: false, status: "failed", reason: "RESEND_API_KEY not configured." }), {
+          return new Response(JSON.stringify({ allowed: false, status: "failed", reason: "RESEND_API_KEY not configured. Vui lòng nhập API Key cho tài khoản này." }), {
             status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-
-        const { data: senderRow } = await adminClient
-          .from("sender_accounts")
-          .select("sender_email, name")
-          .eq("id", resolvedSenderId)
-          .single() as any;
 
         const senderEmail = senderRow?.sender_email ?? "noreply@desembrevn.com";
         const senderName  = senderRow?.name ?? "DESEMBRE";
@@ -362,7 +364,7 @@ serve(async (req: Request) => {
           const resendResp = await fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: {
-              "Authorization": `Bearer ${RESEND_API_KEY}`,
+              "Authorization": `Bearer ${activeResendKey}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
