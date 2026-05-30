@@ -15,6 +15,8 @@ import { generateSuggestions } from "@/lib/aiSuggestionEngine";
 import { AdminCustomerInsights } from "./AdminCustomerInsights";
 import { SaleCustomerInsights } from "./SaleCustomerInsights";
 import { AssignStaffDialog } from "./AssignStaffDialog";
+import { DataHealthBadge } from "@/components/customers/DataHealthBadge";
+import { getCustomerDataHealth } from "@/lib/customers/dataHealth";
 import {
   Sheet,
   SheetContent,
@@ -879,7 +881,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       fetchCustomerDetails();
     } catch (err: any) {
       toast.dismiss(toastId);
-      toast.error("Lỗi khi check-in: " + err.message);
+      toast.error("Không thể check-in: " + err.message);
     } finally {
       setCheckinSubmitting(false);
     }
@@ -1058,7 +1060,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
         window.location.reload();
       }
     } catch (err: any) {
-      toast.error("Lỗi khi thu hồi: " + err.message, { id: toastId });
+      toast.error("Không thể thu hồi: " + err.message, { id: toastId });
     }
   };
 
@@ -1360,6 +1362,130 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
               >
                 <Calendar className="w-3.5 h-3.5 mr-1" /> Hẹn Lịch
               </Button>
+            </div>
+
+            {/* SECTION: DATA HEALTH */}
+            {(() => {
+               const health = getCustomerDataHealth(activeCustomer ?? customer);
+               return (
+                 <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 shadow-sm space-y-3">
+                   <div className="flex items-center justify-between">
+                     <h3 className="text-[12px] font-black text-slate-800 uppercase flex items-center gap-2">
+                       <Activity className="w-4 h-4 text-slate-500" /> Sức khỏe dữ liệu
+                     </h3>
+                     <DataHealthBadge customer={activeCustomer ?? customer} mode="compact" />
+                   </div>
+                   {health.severity === 'ok' ? (
+                     <div className="text-[11px] font-bold text-emerald-600 bg-emerald-50 p-2.5 rounded-lg border border-emerald-100 flex items-center gap-2">
+                       <Check className="w-4 h-4" /> Dữ liệu khách hàng ổn định
+                     </div>
+                   ) : (
+                     <ul className="space-y-1.5">
+                       {health.reasons.map((r, i) => (
+                         <li key={i} className="text-[11px] font-medium text-slate-600 flex items-start gap-1.5 bg-white p-2 rounded-lg border border-slate-100 shadow-3xs">
+                           <AlertTriangle className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${health.severity === 'danger' ? 'text-rose-500' : 'text-amber-500'}`} />
+                           {r}
+                         </li>
+                       ))}
+                     </ul>
+                   )}
+                 </div>
+               );
+            })()}
+
+            {/* SECTION: CORE INFO */}
+            <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-4">
+              <h3 className="text-[12px] font-black text-slate-800 uppercase flex items-center gap-2 border-b border-slate-100 pb-2">
+                <Info className="w-4 h-4 text-slate-500" /> Thông tin chính
+              </h3>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Khách hàng</span>
+                  <div className="text-[11px] font-bold text-slate-900 break-words">{customer.contact_name || customer.name || "Chưa có"}</div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Cơ sở / Doanh nghiệp</span>
+                  <div className="text-[11px] font-bold text-slate-900 break-words">{customer.business_name || customer.facility_name || "Chưa có"}</div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Điện thoại</span>
+                  <div className="text-[11px] font-bold text-slate-900 flex items-center gap-1">
+                    {customer.phone ? <><Phone className="w-3 h-3 text-emerald-500"/>{customer.phone}</> : "Chưa có"}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Email</span>
+                  <div className="text-[11px] font-bold text-slate-900 break-words">{customer.email || "Chưa có"}</div>
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Địa chỉ</span>
+                  <div className="text-[11px] font-bold text-slate-900 break-words">{[customer.address, customer.city].filter(Boolean).join(", ") || "Chưa có"}</div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Nguồn khách</span>
+                  <div className="text-[11px] font-bold text-slate-900">{customer.customer_channel || customer.source || "Chưa rõ"}</div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Giai đoạn chăm sóc</span>
+                  <div className="text-[11px] font-bold text-slate-900">{customer.lifecycle_stage || customer.status || "Chưa có"}</div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Người phụ trách</span>
+                  <div className="text-[11px] font-bold text-slate-900">{getStaffDisplayName(customer.owner_sale_id || customer.owner_tele_id, combinedStaffMap) || "Chưa có"}</div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Ngày tạo</span>
+                  <div className="text-[11px] font-bold text-slate-900">{customer.created_at ? format(new Date(customer.created_at), 'dd/MM/yyyy HH:mm', { locale: vi }) : "Chưa có"}</div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Cập nhật cuối</span>
+                  <div className="text-[11px] font-bold text-slate-900">{customer.updated_at ? format(new Date(customer.updated_at), 'dd/MM/yyyy HH:mm', { locale: vi }) : "Chưa có"}</div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Liên hệ lần cuối</span>
+                  <div className="text-[11px] font-bold text-slate-900">{customer.last_contacted_at ? format(new Date(customer.last_contacted_at), 'dd/MM/yyyy HH:mm', { locale: vi }) : "Chưa có"}</div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Tương tác hệ thống cuối</span>
+                  <div className="text-[11px] font-bold text-slate-900">{customer.last_activity_at ? format(new Date(customer.last_activity_at), 'dd/MM/yyyy HH:mm', { locale: vi }) : "Chưa có"}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION: CONSENT & TAGS */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-3">
+                <h3 className="text-[12px] font-black text-slate-800 uppercase flex items-center gap-2 border-b border-slate-100 pb-2">
+                  <MessageCircle className="w-4 h-4 text-slate-500" /> Marketing Consent
+                </h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-600">Email</span>
+                    <Badge variant="outline" className="text-[9px] bg-white text-slate-500 border-slate-200">Chưa có dữ liệu consent</Badge>
+                  </div>
+                  <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-600">Zalo OA</span>
+                    <Badge variant="outline" className="text-[9px] bg-white text-slate-500 border-slate-200">Chưa có dữ liệu consent</Badge>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-3">
+                <h3 className="text-[12px] font-black text-slate-800 uppercase flex items-center gap-2 border-b border-slate-100 pb-2">
+                  <Target className="w-4 h-4 text-slate-500" /> Phân loại (Tags)
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {customer.tags && Array.isArray(customer.tags) && customer.tags.length > 0 ? (
+                    customer.tags.map((tag: string, idx: number) => (
+                      <Badge key={idx} variant="secondary" className="text-[10px] bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-100">
+                        {tag}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-[11px] font-medium text-slate-400 italic">Chưa có tag</span>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* CARE MODEL WARNING */}
@@ -1872,7 +1998,14 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 <span className="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
               </summary>
               <div className="bg-white p-4 border-t border-slate-200">
-                <CustomerTimelineFeed customerId={customer.id} />
+                {activities.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                    <History className="w-8 h-8 text-slate-300 mb-2" />
+                    <span className="text-[11px] font-medium text-slate-500">Chưa có lịch sử chăm sóc</span>
+                  </div>
+                ) : (
+                  <CustomerTimelineFeed customerId={customer.id} />
+                )}
               </div>
             </details>
 

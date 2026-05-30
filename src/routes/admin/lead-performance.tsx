@@ -45,7 +45,7 @@ function LeadPerformanceDashboard() {
       setData(result);
     } catch (error: any) {
       console.error(error);
-      toast.error("Lỗi khi tải dữ liệu dashboard: " + error.message);
+      toast.error("Không thể tải dữ liệu dashboard: " + error.message);
     } finally {
       setLoading(false);
     }

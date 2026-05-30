@@ -12,7 +12,8 @@ import { getRecommendedAssignee, distributeEvenly } from "@/lib/dispatchRecommen
 import { BatchActionBar, BatchAction } from "@/components/crm/BatchActionBar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
-import { BulkLeadImportDialog } from "@/components/customers/BulkLeadImportDialog";
+import { SafeCustomerImportDialog } from "@/components/customers/SafeCustomerImportDialog";
+import { BatchReviewDialog } from "@/components/customers/BatchReviewDialog";
 import { AssignStaffDialog } from "@/components/customers/AssignStaffDialog";
 import { createNotification } from "@/lib/notifications";
 import { toast } from "sonner";
@@ -42,7 +43,7 @@ function getLeadSource(customer: any): { label: string; color: string; icon: str
 }
 
 function CRMOpsWorkspace() {
-  const { user } = useAuth();
+  const { user, isAdminOrSubAdmin } = useAuth();
   const navigate = useNavigate();
   const [customers, setCustomers] = useState<any[]>([]);
   const [staffProfiles, setStaffProfiles] = useState<any[]>([]);
@@ -51,17 +52,21 @@ function CRMOpsWorkspace() {
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [intakeFilter, setIntakeFilter] = useState<'all' | 'overdue24h'>('all');
   const [manualAssignCustomer, setManualAssignCustomer] = useState<any | null>(null);
+  const [recentBatches, setRecentBatches] = useState<any[]>([]);
+  const [reviewBatchId, setReviewBatchId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const [custRes, staffRes] = await Promise.all([
+      const [custRes, staffRes, batchRes] = await Promise.all([
         supabase.from('customers').select('*').order('created_at', { ascending: false }),
-        supabase.from('profiles').select('*')
+        supabase.from('profiles').select('*'),
+        supabase.from('customer_import_batches').select('*').order('created_at', { ascending: false }).limit(5)
       ]);
       
       if (custRes.data) setCustomers(custRes.data);
       if (staffRes.data) setStaffProfiles(staffRes.data);
+      if (batchRes.data) setRecentBatches(batchRes.data);
       setLoading(false);
     };
     fetchData();
@@ -222,13 +227,15 @@ function CRMOpsWorkspace() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              className="bg-white border-emerald-200 text-emerald-700 hover:bg-emerald-50 font-black text-xs h-10 px-5 flex items-center gap-2"
-              onClick={() => setIsBulkImportOpen(true)}
-            >
-              <FileSpreadsheet className="w-4 h-4" /> Nhập Lead Excel
-            </Button>
+            {isAdminOrSubAdmin && (
+              <Button
+                variant="outline"
+                className="bg-white border-emerald-200 text-emerald-700 hover:bg-emerald-50 font-black text-xs h-10 px-5 flex items-center gap-2"
+                onClick={() => setIsBulkImportOpen(true)}
+              >
+                <FileSpreadsheet className="w-4 h-4" /> Nhập Lead Excel
+              </Button>
+            )}
             <Button
               className="rounded-xl bg-indigo-600 hover:bg-indigo-700 font-black text-xs h-10 px-5 shadow-lg shadow-indigo-200 text-white flex items-center gap-2"
               onClick={() => setIsAddLeadOpen(true)}
@@ -693,6 +700,74 @@ function CRMOpsWorkspace() {
           </div>
 
         </div>
+
+        {/* Section 6: Lịch sử Import */}
+        {isAdminOrSubAdmin && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <FileSpreadsheet className="w-5 h-5 text-indigo-500" /> Lịch sử Import / Import Staging
+              </h2>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b border-slate-100 text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 font-bold">File Name</th>
+                    <th className="px-4 py-3 font-bold">Ngày tạo</th>
+                    <th className="px-4 py-3 font-bold">Tổng</th>
+                    <th className="px-4 py-3 font-bold text-emerald-600">Valid</th>
+                    <th className="px-4 py-3 font-bold text-rose-600">Invalid</th>
+                    <th className="px-4 py-3 font-bold text-amber-600">Dup</th>
+                    <th className="px-4 py-3 font-bold text-center">Status</th>
+                    <th className="px-4 py-3 font-bold text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {recentBatches.map((batch) => (
+                    <tr key={batch.id} className="hover:bg-slate-50">
+                      <td className="px-4 py-3 font-medium text-slate-900 truncate max-w-[200px]" title={batch.file_name}>
+                        {batch.file_name}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500">
+                        {format(new Date(batch.created_at), 'dd/MM/yyyy HH:mm')}
+                      </td>
+                      <td className="px-4 py-3 font-bold text-slate-700">{batch.total_rows}</td>
+                      <td className="px-4 py-3 font-bold text-emerald-600">{batch.valid_rows}</td>
+                      <td className="px-4 py-3 font-bold text-rose-600">{batch.invalid_rows}</td>
+                      <td className="px-4 py-3 font-bold text-amber-600">{batch.duplicate_rows}</td>
+                      <td className="px-4 py-3 text-center">
+                        {batch.status === 'completed' ? (
+                          <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 shadow-none border-none">Completed</Badge>
+                        ) : batch.status === 'staging' ? (
+                          <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 shadow-none border-none">Staging</Badge>
+                        ) : (
+                          <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 shadow-none border-none">{batch.status}</Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs font-bold text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                          onClick={() => setReviewBatchId(batch.id)}
+                        >
+                          Review
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                  {recentBatches.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="p-8 text-center text-slate-400">Không có dữ liệu import gần đây.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
       </div>
       <BatchActionBar selectedIds={dispatchSelected} actions={dispatchActions} onClear={clearDispatch} />
       <BatchActionBar selectedIds={recoverySelected} actions={recoveryActions} onClear={clearRecovery} />
@@ -716,21 +791,27 @@ function CRMOpsWorkspace() {
         }}
       />
 
-      {/* Bulk Lead Import Dialog */}
-      <BulkLeadImportDialog
+      {/* Safe Customer Import Dialog */}
+      <SafeCustomerImportDialog
         open={isBulkImportOpen}
         onOpenChange={setIsBulkImportOpen}
-        onSuccess={() => {
-          setIsBulkImportOpen(false);
-          const fetchData = async () => {
-            const [custRes, staffRes] = await Promise.all([
-              supabase.from('customers').select('*').order('created_at', { ascending: false }),
-              supabase.from('profiles').select('*')
-            ]);
-            if (custRes.data) setCustomers(custRes.data);
-            if (staffRes.data) setStaffProfiles(staffRes.data);
-          };
-          fetchData();
+        onReviewBatch={(id) => setReviewBatchId(id)}
+      />
+
+      {/* Batch Review Dialog */}
+      <BatchReviewDialog
+        batchId={reviewBatchId}
+        onOpenChange={(open) => { if (!open) setReviewBatchId(null); }}
+        onConfirmSuccess={async () => {
+          // Re-fetch everything
+          const [custRes, staffRes, batchRes] = await Promise.all([
+            supabase.from('customers').select('*').order('created_at', { ascending: false }),
+            supabase.from('profiles').select('*'),
+            supabase.from('customer_import_batches').select('*').order('created_at', { ascending: false }).limit(5)
+          ]);
+          if (custRes.data) setCustomers(custRes.data);
+          if (staffRes.data) setStaffProfiles(staffRes.data);
+          if (batchRes.data) setRecentBatches(batchRes.data);
         }}
       />
 

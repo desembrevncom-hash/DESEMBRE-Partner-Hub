@@ -43,7 +43,7 @@ function AdminProductKnowledge() {
       .from('product_knowledge')
       .select('*');
     if (error) {
-      toast.error('Lỗi khi tải dữ liệu sản phẩm');
+      toast.error('Không thể tải dữ liệu sản phẩm');
       return;
     }
     setProducts(data || []);
@@ -77,7 +77,7 @@ function AdminProductKnowledge() {
       })
       .eq('id', selectedProduct.id);
     if (error) {
-      toast.error('Lỗi khi lưu dữ liệu');
+      toast.error('Không thể lưu dữ liệu');
     } else {
       toast.success('Đã lưu Structured Data');
       fetchProducts();
@@ -96,7 +96,7 @@ function AdminProductKnowledge() {
       })
       .eq('id', selectedProduct.id);
     if (error) {
-      toast.error('Lỗi khi cập nhật trạng thái');
+      toast.error('Không thể cập nhật trạng thái');
     } else {
       const label = { draft: 'Nháp', review: 'Chờ duyệt', approved: 'Đã duyệt', archived: 'Lưu trữ' }[newStatus] || newStatus;
       toast.success(`Đã chuyển trạng thái sang: ${label}`);

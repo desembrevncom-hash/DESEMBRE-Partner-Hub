@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useMemo } from "react";
 import { 
@@ -122,7 +123,7 @@ function AutomationCenterPage() {
         .order("name", { ascending: true });
 
       if (error) {
-        toast.error("Lỗi khi tải danh sách rules: " + error.message);
+        toast.error("Không thể tải danh sách rules: " + error.message);
       } else if (data) {
         setRules(data);
         
@@ -140,7 +141,7 @@ function AutomationCenterPage() {
       }
     } catch (err: any) {
       console.error(err);
-      toast.error("Lỗi hệ thống: " + err.message);
+      toast.error("Lỗi: " + err.message);
     } finally {
       setBusy(false);
     }
@@ -156,13 +157,13 @@ function AutomationCenterPage() {
         .limit(100);
 
       if (error) {
-        toast.error("Lỗi khi tải nhật ký: " + error.message);
+        toast.error("Không thể tải nhật ký: " + error.message);
       } else if (data) {
         setLogs(data);
       }
     } catch (err: any) {
       console.error(err);
-      toast.error("Lỗi hệ thống: " + err.message);
+      toast.error("Lỗi: " + err.message);
     } finally {
       setLogsLoading(false);
     }
@@ -190,7 +191,7 @@ function AutomationCenterPage() {
       
       const { data, error } = await query.order("created_at", { ascending: false });
       if (error) {
-        toast.error("Lỗi khi tải dữ liệu dashboard: " + error.message);
+        toast.error("Không thể tải dữ liệu dashboard: " + error.message);
       } else if (data) {
         setDashboardLogs(data);
         

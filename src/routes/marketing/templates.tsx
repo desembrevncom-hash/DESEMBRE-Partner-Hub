@@ -39,7 +39,7 @@ import {
 import { renderTemplate, SUPPORTED_TEMPLATE_VARIABLES } from "@/lib/templateRenderer";
 
 export const Route = createFileRoute("/marketing/templates")({
-  component: MarketingTemplatesPage,
+  component: AdminTemplatesPage,
 });
 
 // Kiểu dữ liệu chuẩn hóa
@@ -78,10 +78,10 @@ interface SenderAccount {
   is_active: boolean;
 }
 
-function MarketingTemplatesPage() {
+function AdminTemplatesPage() {
   const { user, isManager, isSale, isSalesMember } = useAuth();
   const navigate = useNavigate();
-  const canEdit = isManager || isSale; // cho phép cả manager và sale tạo/quản lý template
+  const canEdit = isManager; // chỉ cho phép manager tạo template mới
   const canModifyTemplate = (tpl: any) => isManager || (isSale && tpl.created_by === user?.id);
 
   // Dữ liệu DB
@@ -607,8 +607,8 @@ function MarketingTemplatesPage() {
                           <Eye className="w-3.5 h-3.5" />
                         </button>
 
-                        {/* Nút Test Gửi (mọi role) */}
-                        {tpl.channel === 'email' || tpl.channel === 'marketing_email' || tpl.channel === 'email_campaign' || tpl.channel === 'event_follow_up_email' ? (
+                        {/* Nút Test Gửi (chỉ Manager/Admin) */}
+                        {isManager && (tpl.channel === 'email' || tpl.channel === 'marketing_email' || tpl.channel === 'email_campaign' || tpl.channel === 'event_follow_up_email') ? (
                           <button
                             type="button"
                             onClick={() => {
@@ -691,20 +691,22 @@ function MarketingTemplatesPage() {
         <div className="space-y-6">
           
           {/* Card liên kết chéo sang Sender Accounts */}
-          <div className="bg-white rounded-2xl border border-purple-200 p-6 shadow-2xs space-y-4">
-            <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-              ⚙️ Quản lý tài khoản gửi
-            </h3>
-            <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Toàn bộ hạ tầng gửi tin (Gmail, Resend, Zalo OA), cấu hình xác thực, theo dõi daily quota và delivery logs đã được tập trung quản lý tại mục **Sender Accounts**.
-            </p>
-            <Button asChild className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl h-10 shadow-xs flex items-center justify-center gap-1.5 group">
-              <Link to="/admin/sender-accounts">
-                Đi đến Sender Accounts
-                <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-              </Link>
-            </Button>
-          </div>
+          {isManager && (
+            <div className="bg-white rounded-2xl border border-purple-200 p-6 shadow-2xs space-y-4">
+              <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                ⚙️ Quản lý tài khoản gửi
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                Toàn bộ hạ tầng gửi tin (Gmail, Resend, Zalo OA), cấu hình xác thực, theo dõi daily quota và delivery logs đã được tập trung quản lý tại mục **Sender Accounts**.
+              </p>
+              <Button asChild className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl h-10 shadow-xs flex items-center justify-center gap-1.5 group">
+                <Link to="/admin/sender-accounts">
+                  Đi đến Sender Accounts
+                  <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                </Link>
+              </Button>
+            </div>
+          )}
 
           {/* Khối tài liệu hướng dẫn nhanh */}
           <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-2xl p-5 text-white shadow-sm space-y-2">

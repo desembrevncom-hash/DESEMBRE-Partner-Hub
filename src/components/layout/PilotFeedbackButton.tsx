@@ -66,7 +66,7 @@ export function PilotFeedbackButton() {
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-2">
               {[
-                { id: 'bug', label: 'Lỗi hệ thống' },
+                { id: 'bug', label: 'Lỗi' },
                 { id: 'slow', label: 'Thao tác chậm' },
                 { id: 'confusing', label: 'Giao diện rối' },
                 { id: 'missing_feature', label: 'Thiếu tính năng' },

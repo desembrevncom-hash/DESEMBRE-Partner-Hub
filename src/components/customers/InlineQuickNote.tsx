@@ -32,7 +32,7 @@ export function InlineQuickNote({ customer, open, onOpenChange, onSaved }: Inlin
       onSaved();
       onOpenChange(false);
     } catch (err: any) {
-      toast.error('Lỗi khi lưu ghi chú', { description: err.message });
+      toast.error('Không thể lưu ghi chú', { description: err.message });
     } finally {
       setLoading(false);
     }

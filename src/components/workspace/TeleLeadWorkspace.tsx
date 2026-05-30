@@ -100,7 +100,7 @@ export const TeleLeadWorkspace: React.FC = () => {
 
       let staffList: any[] = [];
       if (staffRolesRes.data && staffRolesRes.data.length > 0) {
-        const ids = staffRolesRes.data.map(r => r.user_id);
+        const ids = staffRolesRes.data.map((r: any) => r.user_id);
         const { data: profiles } = await supabase.from("profiles").select("*").in("id", ids);
         staffList = profiles || [];
       }

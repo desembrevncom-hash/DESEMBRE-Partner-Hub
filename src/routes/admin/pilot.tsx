@@ -122,7 +122,7 @@ function PilotModePage() {
       // Optionally trigger reload for context
       setTimeout(() => window.location.reload(), 1000);
     } catch (e: any) {
-      toast.error("Lỗi khi lưu: " + e.message);
+      toast.error("Không thể lưu: " + e.message);
     } finally {
       setSaving(false);
     }

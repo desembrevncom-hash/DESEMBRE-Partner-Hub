@@ -124,7 +124,7 @@ function RAGAuditPage() {
       setLogs(data || []);
     } catch (e: any) {
       console.error(e);
-      toast.error('Lỗi khi tải lịch sử audit.');
+      toast.error('Không thể tải lịch sử audit.');
     } finally {
       setIsStatsLoading(false);
     }
@@ -186,7 +186,7 @@ function RAGAuditPage() {
       toast.success('Băm vector và truy vấn AI thành công!');
     } catch (e: any) {
       console.error(e);
-      toast.error(e.message || 'Lỗi hệ thống khi gọi AI.');
+      toast.error(e.message || 'Không thể gọi AI.');
     } finally {
       setIsLoading(false);
     }

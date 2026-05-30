@@ -142,7 +142,7 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
       fetchChannels();
       window.dispatchEvent(new Event('customer_timeline_refresh'));
     } catch (err: any) {
-      toast.error(err.message || "Lỗi khi thêm kênh liên hệ");
+      toast.error(err.message || "Không thể thêm kênh liên hệ");
     } finally {
       setAdding(false);
     }

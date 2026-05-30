@@ -375,7 +375,7 @@ function Dashboard() {
 
 function KpiCard({ title, value, trend, icon: Icon, color }: any) {
   return (
-    <Card className="rounded-[32px] border-none shadow-sm hover:shadow-xl transition-all duration-300 bg-white group overflow-hidden">
+    <Card className="rounded-[32px] border-none shadow-sm hover:shadow-xl transition-all duration-200 bg-white group overflow-hidden">
        <CardContent className="p-8">
           <div className="flex justify-between items-start mb-6">
              <div className={`p-4 rounded-[22px] ${color} text-white shadow-lg transition-transform group-hover:scale-110`}>

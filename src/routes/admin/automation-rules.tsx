@@ -43,7 +43,7 @@ function AutomationRulesMVPPage() {
       setRules(data || []);
     } catch (err: any) {
       console.error(err);
-      toast.error("Lỗi khi tải danh sách Rules: " + err.message);
+      toast.error("Không thể tải danh sách Rules: " + err.message);
     }
   };
 
@@ -100,7 +100,7 @@ function AutomationRulesMVPPage() {
       if (data?.success) {
         toast.success(`Chạy thành công! Đã tạo ${data.action_count} actions trên ${data.matched_count} bản ghi.`);
       } else {
-        toast.error("Lỗi khi chạy: " + data?.error_message);
+        toast.error("Không thể chạy: " + data?.error_message);
       }
     } catch (err: any) {
       toast.error("System Error: " + err.message);

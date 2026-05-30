@@ -87,7 +87,7 @@ export function AddTaskDialog({ isOpen, onClose, customer, onSuccess }: AddTaskD
       
       if (error) throw error;
       if (data) {
-        setStaffList(data.map(p => ({
+        setStaffList(data.map((p: any) => ({
           id: p.id,
           name: p.display_name || p.email?.split("@")[0] || "Chưa đặt tên"
         })));
@@ -132,7 +132,7 @@ export function AddTaskDialog({ isOpen, onClose, customer, onSuccess }: AddTaskD
       onSuccess();
       onClose();
     } catch (e: any) {
-      console.error("Lỗi khi thêm việc cần làm:", e);
+      console.error("Không thể thêm việc cần làm:", e);
       toast.error("Lỗi: " + e.message);
     } finally {
       setSaving(false);

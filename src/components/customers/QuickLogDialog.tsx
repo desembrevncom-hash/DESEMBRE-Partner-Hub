@@ -69,7 +69,7 @@ export function QuickLogDialog({ customer, isOpen, onClose, onSuccess }: QuickLo
       onSuccess?.();
       onClose();
     } catch (e: any) {
-      console.error("Lỗi khi lưu ghi chú:", e);
+      console.error("Không thể lưu ghi chú:", e);
       toast.error(`Lỗi khi lưu ghi chú: ${e.message || "Lỗi không xác định"}`);
     } finally {
       setLoading(false);

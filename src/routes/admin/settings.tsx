@@ -259,7 +259,7 @@ function SystemSettingsPage() {
         }
       }
     } catch (err: any) {
-      toast.error("Lỗi hệ thống: " + err.message);
+      toast.error("Lỗi: " + err.message);
     } finally {
       setSavingOffice(false);
     }
@@ -363,7 +363,7 @@ function SystemSettingsPage() {
         await loadOffice();
       }
     } catch (err: any) {
-      toast.error("Lỗi hệ thống khi lưu: " + err.message);
+      toast.error("Không thể lưu: " + err.message);
     } finally {
       setSavingOffice(false);
     }

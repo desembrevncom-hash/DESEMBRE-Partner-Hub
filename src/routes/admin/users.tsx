@@ -143,7 +143,7 @@ function AdminUsersPage() {
       setProfiles(prev => prev.filter(p => p.id !== deleteCandidate.id));
       setDeleteCandidate(null);
     } catch (e) {
-      toast.error("Lỗi khi xóa nhân sự");
+      toast.error("Không thể xóa nhân sự");
     } finally {
       setDeleting(false);
     }

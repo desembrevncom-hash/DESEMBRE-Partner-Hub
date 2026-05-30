@@ -54,7 +54,7 @@ function AutomationGovernancePage() {
       }
     } catch (err: any) {
       console.error(err);
-      toast.error("Lỗi khi tải dữ liệu: " + err.message);
+      toast.error("Không thể tải dữ liệu: " + err.message);
     } finally {
       setLoading(false);
     }

@@ -78,6 +78,8 @@ import { trackKanbanDrag, trackSearch, trackFilterUsage, trackDrawerOpen } from 
 import { useCRMShortcuts } from "@/lib/keyboardShortcuts";
 import { FocusQueueBar } from "@/components/customers/FocusQueueBar";
 import { InlineCustomerActions } from "@/components/customers/InlineCustomerActions";
+import { DataHealthBadge } from "@/components/customers/DataHealthBadge";
+import { getCustomerDataHealth } from "@/lib/customers/dataHealth";
 
 export const Route = createFileRoute("/customers/")({
   validateSearch: (search: Record<string, unknown>) => {
@@ -308,7 +310,7 @@ function CustomersPage() {
       
       toast.success(`Đã xuất thành công ${data.length} dòng dữ liệu (${exportType})!`);
     } catch (e: any) {
-      toast.error("Lỗi khi xuất dữ liệu: " + e.message);
+      toast.error("Không thể xuất dữ liệu: " + e.message);
     }
   };
 
@@ -368,7 +370,7 @@ function CustomersPage() {
     setLoading(true);
     try {
       let query = supabase.from("customers")
-        .select("id, created_at, name, facility_name, phone, city, address, owner_sale_id, owner_tele_id, lifecycle_stage, ownership_status, customer_channel, customer_distance_type, next_follow_up_at, last_contacted_at, latitude, longitude, orders(id, total, status)")
+        .select("id, created_at, name, facility_name, contact_name, business_name, email, phone, city, address, owner_sale_id, owner_tele_id, lifecycle_stage, ownership_status, customer_channel, source, status, customer_distance_type, next_follow_up_at, last_contacted_at, last_activity_at, latitude, longitude, orders(id, total, status)")
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
       
@@ -463,9 +465,11 @@ function CustomersPage() {
       result = result.filter(c => {
         const nameMatch = stripAccents(c.contact_name?.toLowerCase() || "").includes(q) || 
                           stripAccents(c.business_name?.toLowerCase() || "").includes(q) ||
-                          stripAccents(c.facility_name?.toLowerCase() || "").includes(q);
+                          stripAccents(c.facility_name?.toLowerCase() || "").includes(q) ||
+                          stripAccents(c.name?.toLowerCase() || "").includes(q);
         const phoneMatch = c.phone?.includes(q);
-        return nameMatch || phoneMatch;
+        const emailMatch = c.email?.toLowerCase().includes(q);
+        return nameMatch || phoneMatch || emailMatch;
       });
     }
 
@@ -480,6 +484,16 @@ function CustomersPage() {
     // SMART FILTERS LOGIC
     if (smartFilter === 'unassigned') {
       result = result.filter(c => !c.owner_sale_id && !c.owner_tele_id);
+    } else if (smartFilter === 'data_ok') {
+      result = result.filter(c => getCustomerDataHealth(c).severity === 'ok');
+    } else if (smartFilter === 'data_warning') {
+      result = result.filter(c => getCustomerDataHealth(c).severity === 'warning');
+    } else if (smartFilter === 'data_danger') {
+      result = result.filter(c => getCustomerDataHealth(c).severity === 'danger');
+    } else if (smartFilter === 'data_unassigned') {
+      result = result.filter(c => !c.owner_sale_id && !c.owner_tele_id);
+    } else if (smartFilter === 'data_stale') {
+      result = result.filter(c => getCustomerDataHealth(c).reasons.some(r => r.includes('Bỏ quên')));
     } else if (smartFilter === 'focus') {
       result = result.filter(c => {
          const conv = getCustomerConversationState(c);
@@ -798,10 +812,26 @@ function CustomersPage() {
            <div className="h-4 w-px bg-slate-200 hidden lg:block" />
 
            {/* Quick Filters */}
-           <div className="flex items-center gap-1 overflow-x-auto w-full no-scrollbar">
+           <div className="flex items-center gap-1 overflow-x-auto w-full no-scrollbar pb-1">
               <Button variant={smartFilter === 'all' ? 'default' : 'ghost'} size="sm" className={`rounded-lg text-[10px] h-8 font-black uppercase ${smartFilter === 'all' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50'}`} onClick={() => setSmartFilter('all')}>
                  Tất cả
               </Button>
+              <Button variant={smartFilter === 'data_ok' ? 'default' : 'ghost'} size="sm" className={`rounded-lg text-[10px] h-8 font-black uppercase transition-colors ${smartFilter === 'data_ok' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-emerald-50/50'}`} onClick={() => setSmartFilter('data_ok')}>
+                 🟢 OK
+              </Button>
+              <Button variant={smartFilter === 'data_warning' ? 'default' : 'ghost'} size="sm" className={`rounded-lg text-[10px] h-8 font-black uppercase transition-colors ${smartFilter === 'data_warning' ? 'bg-amber-100 text-amber-700' : 'text-slate-500 hover:bg-amber-50/50'}`} onClick={() => setSmartFilter('data_warning')}>
+                 🟡 Cần chú ý
+              </Button>
+              <Button variant={smartFilter === 'data_danger' ? 'default' : 'ghost'} size="sm" className={`rounded-lg text-[10px] h-8 font-black uppercase transition-colors ${smartFilter === 'data_danger' ? 'bg-rose-100 text-rose-700' : 'text-slate-500 hover:bg-rose-50/50'}`} onClick={() => setSmartFilter('data_danger')}>
+                 🔴 Lỗi dữ liệu
+              </Button>
+              <Button variant={smartFilter === 'data_unassigned' ? 'default' : 'ghost'} size="sm" className={`rounded-lg text-[10px] h-8 font-black uppercase transition-colors ${smartFilter === 'data_unassigned' ? 'bg-purple-100 text-purple-700' : 'text-slate-500 hover:bg-purple-50/50'}`} onClick={() => setSmartFilter('data_unassigned')}>
+                 ⭕ Chưa chia
+              </Button>
+              <Button variant={smartFilter === 'data_stale' ? 'default' : 'ghost'} size="sm" className={`rounded-lg text-[10px] h-8 font-black uppercase transition-colors ${smartFilter === 'data_stale' ? 'bg-orange-100 text-orange-700' : 'text-slate-500 hover:bg-orange-50/50'}`} onClick={() => setSmartFilter('data_stale')}>
+                 ⏳ Bỏ quên {'>'}7d
+              </Button>
+              <div className="w-px h-4 bg-slate-200 mx-1 shrink-0" />
               <Button variant={smartFilter === 'focus' ? 'default' : 'ghost'} size="sm" className={`rounded-lg text-[10px] h-8 font-black uppercase transition-colors ${smartFilter === 'focus' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:bg-indigo-50/50'}`} onClick={() => setSmartFilter('focus')}>
                  🎯 Focus
               </Button>
@@ -1256,9 +1286,10 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({ customer, stag
           {/* Header */}
           <div className="flex justify-between items-start">
              <div className="space-y-0.5 max-w-[85%]">
+                <div className="flex items-center gap-1.5 mb-1"><DataHealthBadge customer={customer} mode="compact" /></div>
                 <h4 className="text-[13px] font-bold text-slate-800 tracking-tight leading-tight group-hover:text-indigo-600 transition-colors line-clamp-1">{customer.business_name || customer.facility_name || customer.contact_name || customer.name}</h4>
                 <div className="flex items-center gap-1.5 flex-wrap">
-                   <p className="text-[10px] text-slate-500 font-medium">{customer.city || "Toàn quốc"}</p>
+                   <p className="text-[10px] text-slate-500 font-medium">{customer.city || "Toàn quốc"} • {customer.customer_channel || customer.source || "N/A"}</p>
                    
                    {/* Temperature & Signals */}
                    <div className="flex items-center gap-1 border-l border-slate-200 pl-1.5">
@@ -1279,7 +1310,7 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({ customer, stag
 
           {/* Contact Info (No owner initials) */}
           <div className="flex items-center gap-2">
-             <span className="text-[11px] font-bold text-slate-600">{primaryPhone ? primaryPhone.slice(-4).padStart(primaryPhone.length, '*') : 'Chưa có SĐT'}</span>
+             <span className="text-[11px] font-bold text-slate-600">{primaryPhone ? primaryPhone.slice(-4).padStart(primaryPhone.length, '*') : (customer.email ? customer.email.split('@')[0] + '@...' : 'Chưa có SĐT/Email')}</span>
              <div className="flex gap-1 ml-auto">
                 {hasZalo && <div title="Có Zalo"><MessageSquare className="w-3.5 h-3.5 text-blue-500" /></div>}
                 {!hasSocial && <div title="Thiếu kênh MXH"><AlertCircle className="w-3.5 h-3.5 text-amber-500" /></div>}
@@ -1411,9 +1442,10 @@ const ManagerCustomerCard = React.memo(function ManagerCustomerCard({ customer, 
                    />
                 </div>
                 <div className="space-y-0.5">
+                   <div className="flex items-center gap-1.5 mb-1"><DataHealthBadge customer={customer} mode="compact" /></div>
                    <h4 className="text-[13px] font-bold tracking-tight text-slate-800 leading-tight group-hover:text-indigo-600 transition-colors line-clamp-1">{customer.business_name || customer.facility_name || customer.contact_name || customer.name}</h4>
                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <p className="text-[10px] text-slate-500 font-medium">{customer.city || "Toàn quốc"}</p>
+                      <p className="text-[10px] text-slate-500 font-medium">{customer.city || "Toàn quốc"} • {customer.customer_channel || customer.source || "N/A"}</p>
                       
                       {/* Dispatch Signals (Max 2 badges) */}
                       <div className="flex items-center gap-1 border-l border-slate-200 pl-1.5">
@@ -1525,9 +1557,10 @@ function CustomerIntelligenceRow({ customer, staffMap, onPreview, onQuickLog, is
              {!customer.owner_sale_id && !customer.owner_tele_id && <div className="w-8 h-8 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[10px] text-slate-400 font-bold" title="Chưa phân công">?</div>}
           </div>
           <div>
+             <div className="flex items-center gap-1.5 mb-1"><DataHealthBadge customer={customer} mode="compact" /></div>
              <h4 className="text-sm font-black text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">{customer.business_name || customer.facility_name || customer.contact_name || customer.name}</h4>
              <p className="text-xs font-bold text-slate-500 mt-0.5 flex items-center gap-1">
-                {customer.city || "Toàn quốc"} • {primaryPhone ? primaryPhone.slice(-4).padStart(primaryPhone.length, '*') : 'Chưa có SĐT'}
+                {customer.city || "Toàn quốc"} • {customer.customer_channel || customer.source || "N/A"} • {primaryPhone ? primaryPhone.slice(-4).padStart(primaryPhone.length, '*') : (customer.email ? customer.email.split('@')[0] + '@...' : 'Chưa có SĐT')}
              </p>
              <div className="flex items-center gap-2 mt-2">
                 <Badge className={`${visualState.bgColor} ${visualState.textColor} text-[8px] px-2 py-0 h-5 uppercase font-black`}>

@@ -55,7 +55,7 @@ export function AdminProductCopilot() {
         
       if (metrics) {
         const s = { ask: 0, copy: 0, copy_zalo: 0, save_note: 0, create_template: 0 };
-        metrics.forEach(m => {
+        metrics.forEach((m: any) => {
           if (m.action_key === 'product_copilot_ask') s.ask++;
           if (m.action_key === 'product_copilot_copy') s.copy++;
           if (m.action_key === 'product_copilot_copy_zalo') s.copy_zalo++;
@@ -65,7 +65,7 @@ export function AdminProductCopilot() {
         setStats(s);
       }
     } catch (err) {
-      toast.error("Lỗi khi tải dữ liệu");
+      toast.error("Không thể tải dữ liệu");
     } finally {
       setLoading(false);
     }

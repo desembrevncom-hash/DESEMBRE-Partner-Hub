@@ -460,7 +460,7 @@ function CalendarPage() {
       if (res.data && !res.data.success) {
         throw new Error(res.data.error || "Lỗi đồng bộ ngầm định từ máy chủ Google");
       }
-      toast.success("Đã đồng bộ Google Calendar");
+      toast.success("Đã đồng bộ lịch.");
       await loadEvents();
     } catch (err: any) {
       let errorMsg = err.message || JSON.stringify(err);
@@ -698,7 +698,7 @@ function CalendarPage() {
         setModalOpen(false);
         await loadEvents();
       } catch (err: any) {
-        toast.error("Lỗi khi xóa: " + err.message);
+        toast.error("Không thể xóa: " + err.message);
       } finally {
         setSaving(false);
       }
@@ -911,7 +911,7 @@ function CalendarPage() {
       toast.success("Đã gỡ khách hàng khỏi danh sách");
       await loadEvents();
     } catch (err: any) {
-      toast.error("Lỗi khi xóa: " + err.message);
+      toast.error("Không thể xóa: " + err.message);
     }
   };
 
@@ -1021,7 +1021,7 @@ function CalendarPage() {
       
       toast.success("Đã xuất danh sách thành công! Bạn có thể Import file CSV này thẳng vào Google Sheets.");
     } catch (err: any) {
-      toast.error("Lỗi khi xuất file: " + err.message);
+      toast.error("Không thể xuất file: " + err.message);
     }
   };
 

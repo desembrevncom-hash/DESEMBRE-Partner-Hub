@@ -78,7 +78,7 @@ function OrderDetail() {
         setItems(itemsData ?? []);
       }
     } catch (err: any) {
-      toast.error("Lỗi khi tải thông tin đơn hàng");
+      toast.error("Không thể tải thông tin đơn hàng");
       console.error(err);
     } finally {
       setBusy(false);

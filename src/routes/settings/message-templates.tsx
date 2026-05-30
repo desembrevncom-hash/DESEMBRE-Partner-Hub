@@ -93,7 +93,7 @@ function MessageTemplatesSettings() {
         })
         .eq('id', isEditing);
 
-      if (error) toast.error('Lỗi khi lưu');
+      if (error) toast.error('Không thể lưu');
       else {
         toast.success('Đã lưu mẫu');
         setIsEditing(null);
@@ -112,7 +112,7 @@ function MessageTemplatesSettings() {
           created_by: userId
         });
 
-      if (error) toast.error('Lỗi khi tạo');
+      if (error) toast.error('Không thể tạo');
       else {
         toast.success('Đã tạo mẫu tin nhắn');
         resetForm();
@@ -124,7 +124,7 @@ function MessageTemplatesSettings() {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Xoá mẫu này?')) return;
     const { error } = await supabase.from('message_templates').delete().eq('id', id);
-    if (error) toast.error('Lỗi khi xoá');
+    if (error) toast.error('Không thể xoá');
     else {
       toast.success('Đã xoá');
       fetchData();

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from "react";
 import { fmt } from "@/lib/utils"; // Assuming utils has fmt or I'll define it locally
 

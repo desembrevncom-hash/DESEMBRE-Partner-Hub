@@ -346,7 +346,7 @@ function CustomerDetailPage() {
       toast.success("Đã xóa khách hàng thành công (Soft delete)!");
       navigate({ to: "/customers" });
     } catch (e: any) {
-      toast.error("Lỗi khi xóa khách hàng: " + e.message);
+      toast.error("Không thể xóa khách hàng: " + e.message);
     }
   };
 

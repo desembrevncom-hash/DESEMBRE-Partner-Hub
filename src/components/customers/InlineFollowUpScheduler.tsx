@@ -39,7 +39,7 @@ export function InlineFollowUpScheduler({ customer, open, onOpenChange, onSaved 
       onSaved();
       onOpenChange(false);
     } catch (err: any) {
-      toast.error('Lỗi khi đặt lịch', { description: err.message });
+      toast.error('Không thể đặt lịch', { description: err.message });
     } finally {
       setLoading(false);
     }

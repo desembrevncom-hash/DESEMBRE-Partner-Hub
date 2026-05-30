@@ -36,7 +36,7 @@ export function getFriendlyErrorMessage(error: any): string {
 
   // 3. Database / SQL Errors (Hide raw details)
   if (msg.includes('relation') || msg.includes('column') || msg.includes('syntax error') || msg.includes('Postgres')) {
-    return "Lỗi hệ thống tạm thời. Vui lòng thử lại sau hoặc báo cáo với quản trị viên.";
+    return "Lỗi tạm thời. Vui lòng thử lại sau hoặc báo cáo với quản trị viên.";
   }
   
   if (msg.includes('duplicate key value')) {

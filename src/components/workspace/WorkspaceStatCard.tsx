@@ -18,7 +18,7 @@ export const WorkspaceStatCard: React.FC<WorkspaceStatCardProps> = ({ label, val
         </p>
       </div>
       <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 shrink-0 ${color.replace('text-', 'bg-').replace('600', '50').replace('500', '50')}`}>
-        {React.cloneElement(icon as React.ReactElement, { className: 'w-4 h-4' })}
+        {React.cloneElement(icon as React.ReactElement<any>, { className: 'w-4 h-4' })}
       </div>
     </div>
   );

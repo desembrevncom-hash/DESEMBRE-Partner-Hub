@@ -29,7 +29,7 @@ export function InlineOwnerControl({ customer, open, onOpenChange, onSaved }: In
       onSaved();
       onOpenChange(false);
     } catch (err: any) {
-      toast.error('Lỗi khi thu hồi', { description: err.message });
+      toast.error('Không thể thu hồi', { description: err.message });
     } finally {
       setLoading(false);
     }

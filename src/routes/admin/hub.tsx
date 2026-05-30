@@ -16,7 +16,9 @@ import {
   DatabaseZap,
   ListTodo,
   Wrench,
-  BookOpen
+  BookOpen,
+  Shield,
+  Radio
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 
@@ -110,6 +112,14 @@ function AdminControlHub() {
         { label: "Lead Performance", to: "/admin/lead-performance", icon: <BarChart className="w-4 h-4" /> },
         { label: "Data Quality", to: "/admin/crm-health", icon: <DatabaseZap className="w-4 h-4" /> },
         { label: "AI Readiness", to: "/admin/crm-health", icon: <Bot className="w-4 h-4" /> },
+      ]
+    },
+    {
+      title: "Marketing Infra",
+      icon: <Shield className="w-6 h-6 text-violet-500" />,
+      description: "Quản trị tài khoản gửi tin, health kênh và phân tuyến chiến dịch",
+      links: [
+        { label: "Sender Accounts", to: "/admin/sender-accounts", icon: <Radio className="w-4 h-4" /> },
       ]
     }
   ];

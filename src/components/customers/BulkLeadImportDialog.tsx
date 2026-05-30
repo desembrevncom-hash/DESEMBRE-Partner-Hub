@@ -398,8 +398,8 @@ export function BulkLeadImportDialog({ open, onOpenChange, onSuccess }: BulkLead
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl p-0 overflow-hidden font-sans bg-slate-50 border-slate-200">
-        <DialogHeader className="p-6 pb-4 bg-white border-b border-slate-100">
+      <DialogContent className="max-w-2xl p-0 overflow-hidden rounded-[24px] border-none shadow-2xl font-sans bg-slate-50">
+        <DialogHeader className="px-6 pt-6 pb-4 bg-white border-b border-slate-100">
           <DialogTitle className="text-xl font-black text-slate-900 flex items-center gap-2">
             <FileSpreadsheet className="w-5 h-5 text-indigo-600" />
             Bulk Lead Intake
@@ -433,7 +433,7 @@ export function BulkLeadImportDialog({ open, onOpenChange, onSuccess }: BulkLead
           </div>
         </DialogHeader>
 
-        <div className="p-6">
+        <div className="px-6 py-4 overflow-y-auto max-h-[70vh]">
           {/* ─── STEP 1: UPLOAD ─── */}
           {step === 1 && (
             <div className="space-y-6">

@@ -41,13 +41,13 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
         const rewriteMap = new Map(data.rewrites.map((r: any) => [r.id, r.generatedPrompt]));
         setRewrittenSuggestions(suggestions.map(s => ({
           ...s,
-          generatedPrompt: rewriteMap.get(s.id) || s.generatedPrompt
+          generatedPrompt: (rewriteMap.get(s.id) as string) || s.generatedPrompt
         })));
         setHasRewritten(true);
         toast.success("AI đã tạo xong nội dung!");
       }
     } catch (err: any) {
-      toast.error(err.message || "Lỗi khi tạo nội dung AI");
+      toast.error(err.message || "Không thể tạo nội dung AI");
     } finally {
       setLoading(false);
     }
@@ -71,7 +71,7 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
           status: 'copied'
         });
       }
-    } catch { toast.error("Lỗi khi copy"); }
+    } catch { toast.error("Không thể copy"); }
   };
 
   // Phase 9: Feedback Loop (RLHF mini)

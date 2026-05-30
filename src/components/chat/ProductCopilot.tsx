@@ -103,7 +103,7 @@ export function ProductCopilot() {
         metadata: { customer_id: customerContext.currentCustomerId }
       }).then();
     } catch (err) {
-      toast.error("Lỗi khi lưu ghi chú");
+      toast.error("Không thể lưu ghi chú");
     }
   };
 
@@ -128,7 +128,7 @@ export function ProductCopilot() {
         metadata: { is_shared: isShared }
       }).then();
     } catch (err) {
-      toast.error("Lỗi khi tạo mẫu tin nhắn");
+      toast.error("Không thể tạo mẫu tin nhắn");
     }
   };
 

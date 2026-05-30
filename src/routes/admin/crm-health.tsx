@@ -221,7 +221,7 @@ function CRMHealthPage() {
                 .is("deleted_at", null);
               if (!error && data) {
                 const freq: Record<string, number> = {};
-                data.forEach(r => { if (r.normalized_phone) freq[r.normalized_phone] = (freq[r.normalized_phone] || 0) + 1; });
+                data.forEach((r: any) => { if (r.normalized_phone) freq[r.normalized_phone] = (freq[r.normalized_phone] || 0) + 1; });
                 count = Object.values(freq).filter(v => v > 1).length;
               }
             }
@@ -587,7 +587,7 @@ function CRMHealthPage() {
                             ) : isWarn ? (
                               <AlertTriangle className="w-4 h-4 text-amber-500" />
                             ) : (
-                              <Info className="w-4 h-4 text-slate-300" title="Module chưa khả dụng" />
+                              <div title="Module chưa khả dụng"><Info className="w-4 h-4 text-slate-300" /></div>
                             )}
                           </div>
 

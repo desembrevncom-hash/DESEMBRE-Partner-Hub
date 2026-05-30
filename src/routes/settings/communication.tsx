@@ -24,6 +24,7 @@ function CommunicationSettings() {
   const [newPlatform, setNewPlatform] = useState<CommunicationPlatform>('zalo');
   const [newName, setNewName] = useState('');
   const [newIdentifier, setNewIdentifier] = useState('');
+  const [newSecret, setNewSecret] = useState('');
 
   useEffect(() => {
     fetchAccounts();
@@ -57,6 +58,11 @@ function CommunicationSettings() {
       return;
     }
 
+    if (newPlatform === 'email' && !newSecret.trim()) {
+      toast.error('Vui lòng nhập Mật khẩu ứng dụng (App Password) cho Email');
+      return;
+    }
+
     // Check if this is the first account for this platform
     const isFirst = !accounts.find(a => a.platform === newPlatform);
 
@@ -65,16 +71,18 @@ function CommunicationSettings() {
       platform: newPlatform,
       account_name: newName.trim(),
       account_identifier: newIdentifier.trim(),
+      provider_secret: newPlatform === 'email' ? newSecret.trim() : null,
       is_default: isFirst // Auto set as default if it's the first one
     });
 
     if (error) {
-      toast.error('Lỗi khi thêm tài khoản');
+      toast.error('Không thể thêm tài khoản');
       console.error(error);
     } else {
       toast.success('Đã thêm tài khoản');
       setNewName('');
       setNewIdentifier('');
+      setNewSecret('');
       fetchAccounts();
     }
   };
@@ -83,7 +91,7 @@ function CommunicationSettings() {
     if (!window.confirm('Xoá tài khoản này?')) return;
     const { error } = await supabase.from('user_communication_accounts').delete().eq('id', id);
     if (error) {
-      toast.error('Lỗi khi xoá');
+      toast.error('Không thể xoá');
     } else {
       toast.success('Đã xoá tài khoản');
       fetchAccounts();
@@ -108,7 +116,7 @@ function CommunicationSettings() {
       .eq('id', id);
 
     if (error) {
-      toast.error('Lỗi khi set mặc định');
+      toast.error('Không thể set mặc định');
     } else {
       toast.success('Đã thay đổi tài khoản mặc định');
       fetchAccounts();
@@ -121,44 +129,74 @@ function CommunicationSettings() {
       
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-8">
         <h2 className="text-sm font-bold text-slate-700 mb-4">Thêm tài khoản mới</h2>
-        <form onSubmit={handleAddAccount} className="flex items-end gap-3">
-          <div className="flex-1">
-            <label className="block text-xs font-medium text-slate-500 mb-1">Kênh liên lạc</label>
-            <select 
-              value={newPlatform} 
-              onChange={e => setNewPlatform(e.target.value as CommunicationPlatform)}
-              className="w-full text-sm border-slate-200 rounded-xl"
-            >
-              <option value="zalo">Zalo</option>
-              <option value="facebook">Facebook</option>
-              <option value="email">Email</option>
-              <option value="phone">Điện thoại</option>
-              <option value="tiktok">TikTok</option>
-            </select>
+        <form onSubmit={handleAddAccount} className="flex flex-col gap-4">
+          <div className="flex items-end gap-3 flex-wrap">
+            <div className="flex-1 min-w-[150px]">
+              <label className="block text-xs font-medium text-slate-500 mb-1">Kênh liên lạc</label>
+              <select 
+                value={newPlatform} 
+                onChange={e => {
+                  setNewPlatform(e.target.value as CommunicationPlatform);
+                  if (e.target.value !== 'email') setNewSecret('');
+                }}
+                className="w-full text-sm border-slate-200 rounded-xl"
+              >
+                <option value="zalo">Zalo</option>
+                <option value="facebook">Facebook</option>
+                <option value="email">Email</option>
+                <option value="phone">Điện thoại</option>
+                <option value="tiktok">TikTok</option>
+              </select>
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-xs font-medium text-slate-500 mb-1">Tên gợi nhớ (VD: Gmail Công ty)</label>
+              <input 
+                type="text" 
+                value={newName} 
+                onChange={e => setNewName(e.target.value)}
+                className="w-full text-sm border-slate-200 rounded-xl"
+                placeholder="Nhập tên..."
+              />
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-xs font-medium text-slate-500 mb-1">ID (SĐT, Email, Username)</label>
+              <input 
+                type="text" 
+                value={newIdentifier} 
+                onChange={e => setNewIdentifier(e.target.value)}
+                className="w-full text-sm border-slate-200 rounded-xl"
+                placeholder="Nhập ID..."
+              />
+            </div>
           </div>
-          <div className="flex-1">
-            <label className="block text-xs font-medium text-slate-500 mb-1">Tên gợi nhớ (VD: Zalo Công ty)</label>
-            <input 
-              type="text" 
-              value={newName} 
-              onChange={e => setNewName(e.target.value)}
-              className="w-full text-sm border-slate-200 rounded-xl"
-              placeholder="Nhập tên..."
-            />
+          
+          {newPlatform === 'email' && (
+            <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 mb-2">
+              <div className="flex items-center gap-2 mb-2">
+                <ShieldAlert className="w-4 h-4 text-emerald-600" />
+                <span className="text-xs font-bold text-emerald-800">Cấu hình gửi Email (SMTP)</span>
+              </div>
+              <p className="text-[11px] text-emerald-700 mb-3 leading-relaxed">
+                Để hệ thống có thể tự động gửi Email Marketing từ tài khoản của bạn, vui lòng cung cấp Mật khẩu ứng dụng (App Password). Mật khẩu này được mã hóa an toàn và hệ thống không lưu mật khẩu thật của bạn.
+              </p>
+              <div>
+                <label className="block text-xs font-medium text-emerald-800 mb-1">Mật khẩu ứng dụng (16 ký tự)</label>
+                <input 
+                  type="password" 
+                  value={newSecret} 
+                  onChange={e => setNewSecret(e.target.value)}
+                  className="w-full md:w-1/2 text-sm border-emerald-200 focus:ring-emerald-500 focus:border-emerald-500 rounded-xl bg-white"
+                  placeholder="abcd efgh ijkl mnop"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <button type="submit" className="bg-primary text-white h-[42px] px-6 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-primary/90 transition-colors">
+              <Plus className="w-4 h-4" /> Thêm Tài Khoản
+            </button>
           </div>
-          <div className="flex-1">
-            <label className="block text-xs font-medium text-slate-500 mb-1">ID (SĐT, Email, Username)</label>
-            <input 
-              type="text" 
-              value={newIdentifier} 
-              onChange={e => setNewIdentifier(e.target.value)}
-              className="w-full text-sm border-slate-200 rounded-xl"
-              placeholder="Nhập ID..."
-            />
-          </div>
-          <button type="submit" className="bg-primary text-white h-[42px] px-4 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-primary/90">
-            <Plus className="w-4 h-4" /> Thêm
-          </button>
         </form>
       </div>
 
@@ -195,6 +233,11 @@ function CommunicationSettings() {
                     <p className="text-xs text-slate-500 mt-0.5">
                       Kênh: <span className="font-medium capitalize">{acc.platform}</span> · ID: <span className="font-medium">{acc.account_identifier}</span>
                     </p>
+                    {acc.platform === 'email' && (
+                      <p className="text-[10px] text-emerald-600 mt-1 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Đã cấu hình SMTP (Sẵn sàng gửi)
+                      </p>
+                    )}
                   </div>
                 </div>
                 

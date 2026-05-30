@@ -35,7 +35,6 @@ import { normalizePhone } from "@/lib/phone";
 import { VIETNAM_PROVINCES, stripAccents, findProvinceByName } from "@/lib/vietnamProvinces";
 import { createLeadAssignedAutomation } from "@/lib/automation";
 import { Badge } from "@/components/ui/badge";
-import { checkPhoneNumberDuplicate } from "@/lib/customerPhone";
 import { createContactChannel } from "@/lib/contactChannels";
 
 interface AddCustomerDialogProps {
@@ -344,7 +343,7 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
         if (insertErr.code === "23505") {
           toast.error("Số điện thoại này đã tồn tại trên hệ thống. Vui lòng thử lại!");
         } else {
-          toast.error("Lỗi khi tạo KH: " + insertErr.message);
+          toast.error("Không thể tạo KH: " + insertErr.message);
         }
         setSaving(false);
         return;
@@ -413,19 +412,19 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
               user
           });
           if (resErr) throw resErr;
-          toast.success("Thêm khách hàng thành công!");
+          toast.success("Đã tạo khách hàng mới.");
         } catch (err: any) {
           toast.warning("Khách đã tạo, nhưng kênh liên hệ chính chưa lưu được: " + err.message);
         }
       } else {
-        toast.success("Thêm khách hàng thành công!");
+        toast.success("Đã tạo khách hàng mới.");
       }
 
       onOpenChange(false);
       if (onSuccess) onSuccess();
 
     } catch (err: any) {
-      toast.error("Lỗi hệ thống: " + err.message);
+      toast.error("Lỗi: " + err.message);
     } finally {
       setSaving(false);
     }

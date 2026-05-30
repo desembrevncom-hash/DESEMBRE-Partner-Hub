@@ -169,7 +169,7 @@ export function RouteScheduleDialog({
       if (resR.data) setRolesList(resR.data);
     } catch (e) {
       console.error("Error fetching staff roles:", e);
-      toast.error("Lỗi khi tải danh sách nhân sự phụ trách.");
+      toast.error("Không thể tải danh sách nhân sự phụ trách.");
     } finally {
       setLoadingStaff(false);
     }

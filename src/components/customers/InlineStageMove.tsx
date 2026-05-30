@@ -33,7 +33,7 @@ export function InlineStageMove({ customer, onSaved, children }: InlineStageMove
       toast.success('Đã đổi trạng thái');
       onSaved();
     } catch (err: any) {
-      toast.error('Lỗi khi đổi trạng thái', { description: err.message });
+      toast.error('Không thể đổi trạng thái', { description: err.message });
     } finally {
       setLoading(false);
     }

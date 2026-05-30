@@ -583,7 +583,7 @@ function CustomerMapPage() {
         
         // Fetch user profiles to build staffMap
         const userIds = new Set<string>();
-        customerList.forEach(c => {
+        customerList.forEach((c: any) => {
           if (c.owner_sale_id) userIds.add(c.owner_sale_id);
           if (c.owner_tele_id) userIds.add(c.owner_tele_id);
         });

@@ -95,7 +95,7 @@ function ProductLearningCenter() {
         setKnowledgeList((pkData || []) as any[]);
 
         if (pkData && pkData.length > 0) {
-          const productIds = pkData.map(k => k.product_id);
+          const productIds = pkData.map((k: any) => k.product_id);
           const { data: objData, error: objError } = await supabase
             .from("product_objections")
             .select("*")
@@ -104,7 +104,7 @@ function ProductLearningCenter() {
 
           if (!objError && objData) {
             const map: Record<number, ProductObjection[]> = {};
-            objData.forEach(o => {
+            objData.forEach((o: any) => {
               if (!map[o.product_id]) map[o.product_id] = [];
               map[o.product_id].push(o);
             });

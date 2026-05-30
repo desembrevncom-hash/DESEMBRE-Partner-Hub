@@ -134,7 +134,7 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ ev
     });
 
     if (calError) {
-      toast.error("Lỗi khi tạo lịch: " + calError.message);
+      toast.error("Không thể tạo lịch: " + calError.message);
       setLoading(false);
       return;
     }
@@ -160,7 +160,7 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ ev
       .eq("id", selectedEvent.id);
       
     if (error) {
-      toast.error("Lỗi khi hoàn thành công việc: " + error.message);
+      toast.error("Không thể hoàn thành công việc: " + error.message);
     } else {
       toast.success("Chúc mừng! Đã hoàn thành công việc thành công 🎉");
       setIsDetailDialogOpen(false);
@@ -183,7 +183,7 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({ ev
       .eq("id", selectedEvent.id);
       
     if (error) {
-      toast.error("Lỗi khi xóa công việc: " + error.message);
+      toast.error("Không thể xóa công việc: " + error.message);
     } else {
       toast.success("Đã xóa công việc thành công");
       setIsDetailDialogOpen(false);

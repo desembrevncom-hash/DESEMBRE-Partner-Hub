@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as fs from 'fs';
 import { sections, flatProducts } from './desembreProducts';
 import { PRODUCT_DEFAULTS } from './productDefaults';

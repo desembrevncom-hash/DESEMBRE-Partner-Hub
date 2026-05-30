@@ -32,7 +32,11 @@ import {
   MoreHorizontal,
   UserX,
   Heart,
-  ArrowRightLeft
+  ArrowRightLeft,
+  MessageCircle,
+  Mail,
+  CheckCircle2,
+  AlertTriangle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -59,6 +63,8 @@ export const SaleWorkspace: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { data: dashData, loading: dashLoading } = useWorkspaceDashboard();
+  const [personalAccounts, setPersonalAccounts] = React.useState<any[]>([]);
+  const [loadingAccounts, setLoadingAccounts] = React.useState(true);
   
   const [data, setData] = useState<any>({
     allTasks: [],
@@ -74,6 +80,19 @@ export const SaleWorkspace: React.FC = () => {
 
   const [refreshKey, setRefreshKey] = useState(0);
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
+  
+  // Fetch personal sender accounts for this sale
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("user_communication_accounts")
+      .select("id, platform, account_name, is_active, health_status")
+      .eq("user_id", user.id)
+      .then(({ data }: { data: any }) => {
+        setPersonalAccounts(data || []);
+        setLoadingAccounts(false);
+      });
+  }, [user]);
   
   // Task Actions
   const [taskAction, setTaskAction] = useState<{ task: any; action: string } | null>(null);
@@ -228,6 +247,46 @@ export const SaleWorkspace: React.FC = () => {
       </div>
 
       <WorkspaceKpiCards counters={dashData?.counters} loading={dashLoading} />
+
+      {/* PERSONAL SENDER STATUS — read-only, sale-only view */}
+      {!loadingAccounts && (
+        <div className="rounded-2xl border border-slate-100 bg-white p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kênh liên lạc cá nhân</span>
+          </div>
+          {personalAccounts.length === 0 ? (
+            <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-3 py-2 rounded-xl">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              <span className="text-xs font-bold">Bạn chưa cấu hình kênh cá nhân nào. Liên hệ Admin để thiết lập.</span>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              {(['zalo', 'email', 'phone'].map(ch => {
+                const acc = personalAccounts.find(a => a.platform?.toLowerCase().includes(ch));
+                const isOk = acc?.is_active && (acc?.health_status === 'healthy' || acc?.health_status === 'unknown');
+                const label = ch === 'zalo' ? 'Zalo' : ch === 'email' ? 'Email' : 'Phone';
+                const Icon = ch === 'email' ? Mail : ch === 'zalo' ? MessageCircle : Phone;
+                return (
+                  <div key={ch} className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold ${
+                    !acc ? 'bg-slate-50 border-slate-100 text-slate-400'
+                    : isOk ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
+                    : 'bg-amber-50 border-amber-100 text-amber-700'
+                  }`}>
+                    <Icon className="w-3.5 h-3.5" />
+                    {label}:
+                    {!acc
+                      ? <span>Chưa cấu hình</span>
+                      : isOk
+                      ? <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3" />Đã cấu hình</span>
+                      : <span className="flex items-center gap-1"><AlertTriangle className="w-3 h-3" />Cần kiểm tra</span>
+                    }
+                  </div>
+                );
+              }))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         {/* CỘT TRÁI (2 phần) - Ưu tiên hôm nay & Lịch */}
