@@ -217,6 +217,54 @@ function SenderAccountsPage() {
   const [zaloAppId, setZaloAppId] = useState("");
   const [zaloOaId, setZaloOaId] = useState("");
   
+  // ── Resend Config state ──────────────────────────────────────
+  const [resendModalOpen, setResendModalOpen] = useState(false);
+  const [resendConfiguring, setResendConfiguring] = useState(false);
+  const [resendSenderId, setResendSenderId] = useState<string | null>(null);
+  const [resendSenderName, setResendSenderName] = useState("");
+  const [resendSenderEmail, setResendSenderEmail] = useState("");
+  const [resendApiKey, setResendApiKey] = useState("");
+
+  const handleConfigureResend = async () => {
+    if (!resendSenderName.trim()) return toast.error("Vui lòng nhập tên hiển thị");
+    if (!resendSenderEmail.trim() || !resendSenderEmail.includes("@")) return toast.error("Vui lòng nhập Email hợp lệ");
+    
+    setResendConfiguring(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Chưa đăng nhập");
+
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sender-account-configure`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          provider: "resend",
+          sender_account_id: resendSenderId,
+          sender_name: resendSenderName,
+          sender_email: resendSenderEmail,
+          api_key: resendApiKey
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || data.message || "Lỗi cấu hình Resend");
+      }
+
+      toast.success(data.message || "Cấu hình Resend thành công");
+      setResendModalOpen(false);
+      fetchData(); // Reload table
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setResendConfiguring(false);
+      setResendApiKey(""); // Cấm lưu plaintext, luôn clear input
+    }
+  };
+  
   // ── ZNS Template state ───────────────────────────────────────
   const [znsTemplateModalOpen, setZnsTemplateModalOpen] = useState(false);
   const [editingZnsTemplate, setEditingZnsTemplate] = useState<ZnsTemplate | null>(null);
@@ -463,43 +511,69 @@ function SenderAccountsPage() {
   };
 
   // ── Test Connection ─────────────────────────────────────────────────────────
-  const testConnection = async (senderId: string, senderType: "business" | "personal") => {
-    setTestingId(senderId);
+  const testConnection = async (sender: BusinessSender | PersonalSender, senderType: "business" | "personal") => {
+    setTestingId(sender.id);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error("Không tìm thấy session");
 
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/test-sender-connection`,
-        {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${session.access_token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ sender_id: senderId, sender_type: senderType }),
-        }
-      );
+      let endpoint = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/test-sender-connection`;
+      let body = { sender_id: sender.id, sender_type: senderType };
+
+      if (senderType === "business" && ("provider" in sender) && (sender.provider === "resend" || sender.provider === "zalo_oa")) {
+        endpoint = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sender-account-health-check`;
+        body = { provider: sender.provider, sender_account_id: sender.id } as any;
+      }
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
       const json = await res.json();
 
       if (!res.ok) throw new Error(json.error || "Lỗi không xác định");
 
-      const healthLabel: Record<string, string> = {
-        healthy: "✅ Kết nối tốt",
-        warning: "⚠️ Cảnh báo",
-        error: "❌ Lỗi kết nối",
-      };
-      toast[json.health_status === "healthy" ? "success" : json.health_status === "warning" ? "warning" : "error"](
-        healthLabel[json.health_status] || "Kiểm tra xong",
-        { description: json.last_error || "Không có lỗi" }
-      );
-
-      // Nếu test thành công và là business sender, tự động chuyển trạng thái thành active
-      if (json.health_status === "healthy" && senderType === "business") {
+      // Handle response from sender-account-health-check
+      if (senderType === "business" && ("provider" in sender) && (sender.provider === "resend" || sender.provider === "zalo_oa")) {
+        const isHealthy = json.configured && (!json.domain_status || json.domain_status === "verified");
+        const health_status = isHealthy ? "healthy" : "error";
+        const last_error = isHealthy ? null : json.message;
+        
         await supabase.from("sender_accounts")
-          .update({ status: "active", is_active: true, updated_at: new Date().toISOString() })
-          .eq("id", senderId)
-          .eq("status", "pending_verification");
+          .update({ 
+            health_status, 
+            last_error, 
+            last_checked_at: new Date().toISOString(),
+            status: isHealthy ? "active" : "error",
+            is_active: isHealthy,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", sender.id);
+        
+        toast[isHealthy ? "success" : "error"]("Kiểm tra cấu hình", { description: json.message });
+      } else {
+        // Legacy handling
+        const healthLabel: Record<string, string> = {
+          healthy: "✅ Kết nối tốt",
+          warning: "⚠️ Cảnh báo",
+          error: "❌ Lỗi kết nối",
+        };
+        toast[json.health_status === "healthy" ? "success" : json.health_status === "warning" ? "warning" : "error"](
+          healthLabel[json.health_status] || "Kiểm tra xong",
+          { description: json.last_error || "Không có lỗi" }
+        );
+
+        // Nếu test thành công và là business sender, tự động chuyển trạng thái thành active
+        if (json.health_status === "healthy" && senderType === "business") {
+          await supabase.from("sender_accounts")
+            .update({ status: "active", is_active: true, updated_at: new Date().toISOString() })
+            .eq("id", sender.id)
+            .eq("status", "pending_verification");
+        }
       }
 
       await fetchData();
@@ -1141,6 +1215,11 @@ function SenderAccountsPage() {
                                   {s.last_error}
                                 </p>
                               )}
+                              {s.provider === "resend" && s.auth_type === "api_key" && s.health_status === "healthy" && (
+                                <p className="text-[10px] text-emerald-600 font-bold mt-1 max-w-[150px] mx-auto" title="Available for Campaigns">
+                                  Available for Campaigns
+                                </p>
+                              )}
                             </td>
                             <td className="px-6 py-4 text-center">
                               <span className="text-[11px] text-slate-400 font-medium flex items-center justify-center gap-1">
@@ -1168,7 +1247,7 @@ function SenderAccountsPage() {
                                       size="sm"
                                       variant="outline"
                                       className="rounded-xl text-xs font-bold h-8 px-3 gap-1.5 border-indigo-100 text-indigo-600 hover:bg-indigo-50"
-                                      onClick={() => testConnection(s.id, "business")}
+                                      onClick={() => testConnection(s, "business")}
                                       disabled={testingId === s.id}
                                     >
                                       {testingId === s.id ? (
@@ -1176,7 +1255,7 @@ function SenderAccountsPage() {
                                       ) : (
                                         <Activity className="w-3 h-3" />
                                       )}
-                                      Test
+                                      Test / Check Health
                                     </Button>
 
                                     {(s.health_status === "warning" || s.health_status === "error" || s.status === "disabled") && (
@@ -1211,19 +1290,27 @@ function SenderAccountsPage() {
                                       {s.is_active ? "Disable" : "Enable"}
                                     </Button>
 
-                                    <Button
-                                      id={`edit-biz-${s.id}`}
-                                      size="sm"
-                                      variant="outline"
-                                      className="rounded-xl text-xs font-bold h-8 px-3 gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-100"
-                                      onClick={() => {
-                                        setEditSenderData(s);
-                                        setIsEditModalOpen(true);
-                                      }}
-                                      disabled={togglingId === s.id}
-                                    >
-                                      Sửa
-                                    </Button>
+                                      <Button
+                                        id={`edit-biz-${s.id}`}
+                                        size="sm"
+                                        variant="outline"
+                                        className="rounded-xl text-xs font-bold h-8 px-3 gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-100"
+                                        onClick={() => {
+                                          if (s.provider === "resend") {
+                                            setResendSenderId(s.id);
+                                            setResendSenderName(s.name || s.sender_name || "");
+                                            setResendSenderEmail(s.sender_email || "");
+                                            setResendApiKey("");
+                                            setResendModalOpen(true);
+                                          } else {
+                                            setEditSenderData(s);
+                                            setIsEditModalOpen(true);
+                                          }
+                                        }}
+                                        disabled={togglingId === s.id}
+                                      >
+                                        Sửa / Cấu hình
+                                      </Button>
 
                                     <Button
                                       id={`archive-biz-${s.id}`}
@@ -1858,6 +1945,89 @@ function SenderAccountsPage() {
         )}
 
       </main>
+
+      {/* ── RESEND CONFIG MODAL ── */}
+      {resendModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-600 to-indigo-500 p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center">
+                    <Mail className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-black">Cấu hình Resend Email</h2>
+                    <p className="text-[11px] text-indigo-100 font-medium">Bảo mật API Key - Token lưu ở server</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setResendModalOpen(false)}
+                  className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tên hiển thị</Label>
+                <Input
+                  placeholder="Ví dụ: Info Desembre"
+                  value={resendSenderName}
+                  onChange={(e) => setResendSenderName(e.target.value)}
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">From Email</Label>
+                <Input
+                  placeholder="Ví dụ: info@desembre-vn.com"
+                  value={resendSenderEmail}
+                  onChange={(e) => setResendSenderEmail(e.target.value)}
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Resend API Key (Bảo mật)</Label>
+                <Input
+                  type="password"
+                  placeholder="Bắt đầu bằng re_..."
+                  value={resendApiKey}
+                  onChange={(e) => setResendApiKey(e.target.value)}
+                  className="rounded-xl font-mono text-sm"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Khóa sẽ được mã hóa AES-GCM tại server. Nhập khóa mới để ghi đè khóa cũ, hoặc để trống nếu chỉ muốn sửa Tên/Email.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setResendModalOpen(false)}
+                  className="flex-1 rounded-xl h-10 font-bold text-sm border-slate-200"
+                  disabled={resendConfiguring}
+                >
+                  Hủy
+                </Button>
+                <Button
+                  onClick={handleConfigureResend}
+                  className="flex-1 rounded-xl h-10 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-md"
+                  disabled={resendConfiguring}
+                >
+                  {resendConfiguring ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang lưu...</>
+                  ) : (
+                    "Lưu Cấu Hình"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── ZALO OA CONNECT MODAL ─────────────────────────────────────── */}
       {zaloModalOpen && (

@@ -115,6 +115,32 @@ serve(async (req: Request) => {
     });
   }
 
+  // ── Global Kill Switch for Production Sending ──
+  const globalKillSwitch = Deno.env.get("MARKETING_PRODUCTION_SENDING_ENABLED");
+  if (mode === "provider_send" && !isTest && globalKillSwitch !== "true") {
+    // Log failure
+    const logCustomerId = isTest ? null : customerId;
+    await adminClient.rpc("log_marketing_delivery_event", {
+      p_customer_id: logCustomerId,
+      p_campaign_id: campaignId || null,
+      p_channel: channel,
+      p_mode: mode,
+      p_status: "failed",
+      p_reason: "production_sending_disabled",
+      p_provider_msg_id: null,
+      p_created_by: user.id,
+      p_metadata: { is_test: isTest }
+    });
+
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: "Production sending is disabled", 
+      step: "global_kill_switch" 
+    }), {
+      status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   const logCustomerId = isTest ? null : customerId;
 
   // ── Load customer ─────────────────────────────────────────────────────────

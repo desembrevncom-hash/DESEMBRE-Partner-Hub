@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { 
   Activity, ShieldAlert, BarChart3, AlertCircle, AlertOctagon, 
   UserMinus, Flame, Clock, CheckCircle2, ChevronRight, UserCircle,
-  Bell as BellIcon, Zap, Inbox, Plus, ArrowRight, Tag, Sparkles, PhoneOff, FileSpreadsheet
+  Bell as BellIcon, Zap, Inbox, Plus, ArrowRight, Tag, Sparkles, PhoneOff, FileSpreadsheet, ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,19 +54,23 @@ function CRMOpsWorkspace() {
   const [manualAssignCustomer, setManualAssignCustomer] = useState<any | null>(null);
   const [recentBatches, setRecentBatches] = useState<any[]>([]);
   const [reviewBatchId, setReviewBatchId] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [recentSyncLogs, setRecentSyncLogs] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const [custRes, staffRes, batchRes] = await Promise.all([
+      const [custRes, staffRes, batchRes, logRes] = await Promise.all([
         supabase.from('customers').select('*').order('created_at', { ascending: false }),
         supabase.from('profiles').select('*'),
-        supabase.from('customer_import_batches').select('*').order('created_at', { ascending: false }).limit(5)
+        supabase.from('customer_import_batches').select('*').order('created_at', { ascending: false }).limit(5),
+        supabase.from('crm_sync_logs').select('*').order('created_at', { ascending: false }).limit(5)
       ]);
       
       if (custRes.data) setCustomers(custRes.data);
       if (staffRes.data) setStaffProfiles(staffRes.data);
       if (batchRes.data) setRecentBatches(batchRes.data);
+      if (logRes && logRes.data) setRecentSyncLogs(logRes.data);
       setLoading(false);
     };
     fetchData();
@@ -173,6 +177,40 @@ function CRMOpsWorkspace() {
     } catch (e: any) {
       console.error(e);
       toast.error('Lỗi phân tuyến: ' + e.message);
+    }
+  };
+
+  const handleSyncMirror = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('export-crm-to-google-sheets');
+      
+      if (error) {
+        // Supabase invoke throws generic message if non-200. Try to extract backend message
+        let errMsg = error.message;
+        let step = "";
+        let details = "";
+        if (error.context && typeof error.context.json === 'function') {
+           try {
+             const errData = await error.context.json();
+             if (errData.error) errMsg = errData.error;
+             if (errData.step) step = errData.step;
+             if (errData.details) details = errData.details;
+           } catch(e) {}
+        }
+        throw new Error(step ? `[Step: ${step}] ${errMsg}${details ? ' - ' + details : ''}` : errMsg);
+      }
+      
+      toast.success(data?.message || 'Đồng bộ Google Sheet thành công!');
+      
+      // Reload log
+      const { data: newLogs } = await supabase.from('crm_sync_logs').select('*').order('created_at', { ascending: false }).limit(5);
+      if (newLogs) setRecentSyncLogs(newLogs);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Lỗi khi đồng bộ Google Sheet');
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -719,51 +757,165 @@ function CRMOpsWorkspace() {
                     <th className="px-4 py-3 font-bold text-emerald-600">Valid</th>
                     <th className="px-4 py-3 font-bold text-rose-600">Invalid</th>
                     <th className="px-4 py-3 font-bold text-amber-600">Dup</th>
+                    <th className="px-4 py-3 font-bold text-indigo-600">Inserted</th>
+                    <th className="px-4 py-3 font-bold text-slate-500">Skipped</th>
+                    <th className="px-4 py-3 font-bold text-rose-700">Failed</th>
                     <th className="px-4 py-3 font-bold text-center">Status</th>
                     <th className="px-4 py-3 font-bold text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {recentBatches.map((batch) => (
-                    <tr key={batch.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 font-medium text-slate-900 truncate max-w-[200px]" title={batch.file_name}>
-                        {batch.file_name}
-                      </td>
-                      <td className="px-4 py-3 text-slate-500">
-                        {format(new Date(batch.created_at), 'dd/MM/yyyy HH:mm')}
-                      </td>
-                      <td className="px-4 py-3 font-bold text-slate-700">{batch.total_rows}</td>
-                      <td className="px-4 py-3 font-bold text-emerald-600">{batch.valid_rows}</td>
-                      <td className="px-4 py-3 font-bold text-rose-600">{batch.invalid_rows}</td>
-                      <td className="px-4 py-3 font-bold text-amber-600">{batch.duplicate_rows}</td>
-                      <td className="px-4 py-3 text-center">
-                        {batch.status === 'completed' ? (
-                          <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 shadow-none border-none">Completed</Badge>
-                        ) : batch.status === 'staging' ? (
-                          <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 shadow-none border-none">Staging</Badge>
-                        ) : (
-                          <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 shadow-none border-none">{batch.status}</Badge>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs font-bold text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-                          onClick={() => setReviewBatchId(batch.id)}
-                        >
-                          Review
-                        </Button>
-                      </td>
-                    </tr>
+                    <React.Fragment key={batch.id}>
+                      <tr className="hover:bg-slate-50">
+                        <td className="px-4 py-3 font-medium text-slate-900 truncate max-w-[200px]" title={batch.file_name}>
+                          {batch.file_name}
+                        </td>
+                        <td className="px-4 py-3 text-slate-500">
+                          {format(new Date(batch.created_at), 'dd/MM/yyyy HH:mm')}
+                        </td>
+                        <td className="px-4 py-3 font-bold text-slate-700">{batch.total_rows || 0}</td>
+                        <td className="px-4 py-3 font-bold text-emerald-600">{batch.valid_rows || 0}</td>
+                        <td className="px-4 py-3 font-bold text-rose-600">{batch.invalid_rows || 0}</td>
+                        <td className="px-4 py-3 font-bold text-amber-600">{batch.duplicate_rows || 0}</td>
+                        <td className="px-4 py-3 font-bold text-indigo-600">{batch.inserted_rows || 0}</td>
+                        <td className="px-4 py-3 font-bold text-slate-500">{batch.skipped_rows || 0}</td>
+                        <td className="px-4 py-3 font-bold text-rose-700">{batch.failed_rows || 0}</td>
+                        <td className="px-4 py-3 text-center">
+                          {batch.status === 'completed' ? (
+                            <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 shadow-none border-none">Completed</Badge>
+                          ) : batch.status === 'processing' ? (
+                            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 shadow-none border-none">Processing</Badge>
+                          ) : batch.status === 'staging' || batch.status === 'pending' ? (
+                            <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 shadow-none border-none">Staging</Badge>
+                          ) : batch.status === 'failed' ? (
+                            <Badge className="bg-rose-100 text-rose-700 hover:bg-rose-100 shadow-none border-none">Failed</Badge>
+                          ) : (
+                            <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 shadow-none border-none">{batch.status}</Badge>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs font-bold text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                            onClick={() => setReviewBatchId(batch.id)}
+                          >
+                            Review
+                          </Button>
+                        </td>
+                      </tr>
+                      {batch.status === 'failed' && batch.error_message && (
+                        <tr className="bg-rose-50/50">
+                          <td colSpan={11} className="px-4 py-2 text-xs text-rose-600 font-mono">
+                            <span className="font-bold">Error:</span> {batch.error_message}
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   ))}
                   {recentBatches.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="p-8 text-center text-slate-400">Không có dữ liệu import gần đây.</td>
+                      <td colSpan={11} className="p-8 text-center text-slate-400">Không có dữ liệu import gần đây.</td>
                     </tr>
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* Section 7: Google Sheet Mirror */}
+        {isAdminOrSubAdmin && (
+          <div className="space-y-4 pb-8">
+            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <FileSpreadsheet className="w-5 h-5 text-emerald-500" /> CRM Mirror Sheet
+            </h2>
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
+              <div>
+                <h3 className="font-bold text-slate-800 text-lg">Đồng bộ dữ liệu sang Google Sheet</h3>
+                <p className="text-slate-500 text-sm mt-1 max-w-xl">
+                  Tính năng này đẩy dữ liệu CRM (Read-only) lên Google Sheet giúp Ban Giám đốc quan sát trực quan.
+                  Chỉ có thể đồng bộ 1 chiều từ hệ thống ra file Excel/Sheet.
+                </p>
+                <div className="mt-6 flex flex-col gap-4">
+                  {recentSyncLogs.length === 0 ? (
+                    <div className="text-sm text-slate-500 italic">Chưa từng đồng bộ.</div>
+                  ) : (
+                    <div className="space-y-3 max-w-2xl">
+                      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Lịch sử 5 lần đồng bộ gần nhất</div>
+                      {recentSyncLogs.map((log, index) => {
+                        const durationStr = log.completed_at ? ` (Mất ${Math.round((new Date(log.completed_at).getTime() - new Date(log.created_at).getTime()) / 1000)}s)` : '';
+                        return (
+                          <div key={log.id} className="bg-slate-50 border border-slate-100 rounded-lg p-3 text-sm">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-slate-600">
+                                  {format(new Date(log.created_at), 'dd/MM/yyyy HH:mm:ss')} {durationStr}
+                                </span>
+                                {log.status === 'success' ? (
+                                  <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none">Success</Badge>
+                                ) : log.status === 'failed' ? (
+                                  <Badge className="bg-rose-100 text-rose-700 hover:bg-rose-100 border-none">Failed</Badge>
+                                ) : log.status === 'processing' ? (
+                                  <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-none">Processing</Badge>
+                                ) : (
+                                  <span className="text-slate-400 font-medium">N/A</span>
+                                )}
+                              </div>
+                              {index === 0 && log.metadata?.service_account && (
+                                <span className="text-[10px] bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-500">
+                                  {log.metadata.service_account}
+                                </span>
+                              )}
+                            </div>
+                            
+                            {log.status === 'failed' && log.error_message && (
+                              <div className="text-rose-600 text-xs bg-rose-50/50 p-2 rounded font-mono truncate hover:text-wrap" title={log.error_message}>
+                                {log.error_message}
+                              </div>
+                            )}
+
+                            {log.status === 'success' && log.metadata?.row_counts && (
+                              <div className="flex flex-wrap gap-1.5 mt-2">
+                                {Object.entries(log.metadata.row_counts).map(([tab, count]) => (
+                                  <div key={tab} className="flex items-center gap-1 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-[11px]">
+                                    <span className="text-slate-500">{tab.replace(/_/g, ' ')}:</span>
+                                    <span className="font-bold text-emerald-600">{count !== undefined && count !== null ? String(count) : 'N/A'}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 shrink-0">
+                <Button 
+                  onClick={handleSyncMirror} 
+                  disabled={syncing}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11 px-8 shadow-sm"
+                >
+                  {syncing ? (
+                    <><Activity className="w-4 h-4 mr-2 animate-spin" /> Đang đồng bộ...</>
+                  ) : (
+                    <><Zap className="w-4 h-4 mr-2" /> Sync Now</>
+                  )}
+                </Button>
+                {recentSyncLogs[0]?.metadata?.spreadsheet_id ? (
+                  <Button variant="outline" className="font-bold text-slate-700 w-full" onClick={() => window.open(`https://docs.google.com/spreadsheets/d/${recentSyncLogs[0].metadata.spreadsheet_id}`, '_blank')}>
+                    Mở Google Sheet <ExternalLink className="w-4 h-4 ml-1" />
+                  </Button>
+                ) : (
+                  <Button variant="outline" disabled className="text-slate-400 w-full">
+                    Chưa cấu hình Sheet
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         )}

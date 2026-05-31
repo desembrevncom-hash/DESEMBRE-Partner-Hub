@@ -234,7 +234,24 @@ serve(async (req) => {
 
   // ── PROVIDER SEND ───────────────────────────────────────────────────────────
 
-  // 7. Safe env gate
+  // 7. Safe env gates
+  const globalKillSwitch = Deno.env.get("MARKETING_PRODUCTION_SENDING_ENABLED");
+  if (globalKillSwitch !== "true") {
+    // Log failure
+    await logDelivery(adminClient, {
+      customer_id, sender_account_id: sender.id, zns_template_id,
+      status: "failed", reason: "production_sending_disabled",
+      normalized_error_code: "production_sending_disabled",
+      user_id: user.id
+    });
+    return new Response(JSON.stringify({ 
+      allowed: false, 
+      reason: "Production sending is disabled", 
+      reason_code: "provider_disabled",
+      step: "global_kill_switch"
+    }), { headers: corsHeaders });
+  }
+
   const providerSendEnabled = Deno.env.get("MARKETING_PROVIDER_SEND_ENABLED") === "true";
   if (!providerSendEnabled) {
     return new Response(JSON.stringify({ allowed: false, reason: "Gửi ZNS thật đang bị tắt (MARKETING_PROVIDER_SEND_ENABLED=false)", reason_code: "provider_disabled" }), { headers: corsHeaders });

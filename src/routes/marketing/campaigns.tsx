@@ -3,6 +3,7 @@ import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import {
   AlertTriangle,
   Play,
   Pause,
+  Mail,
   RefreshCw,
   Search,
   Filter,
@@ -26,7 +28,10 @@ import {
   Users,
   Send,
   Loader2,
-  Calendar
+  Calendar,
+  Activity,
+  Lock,
+  ShieldAlert
 } from "lucide-react";
 import {
   Dialog,
@@ -38,6 +43,7 @@ import {
 
 import { canSendMarketingMessage, ComplianceCustomer, ComplianceTemplate } from "@/lib/messagingRules";
 import { resolveSenderForMessage } from "@/lib/senderResolver";
+import { CampaignDraftDialog } from "@/components/marketing/CampaignDraftDialog";
 
 export const Route = createFileRoute("/marketing/campaigns")({
   component: MarketingCampaignsPage,
@@ -133,6 +139,7 @@ function MarketingCampaignsPage() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [draftDialogOpen, setDraftDialogOpen] = useState(false);
 
   // Payload Form
   const [campaignType, setCampaignType] = useState<"zns" | "general">("zns");
@@ -149,10 +156,19 @@ function MarketingCampaignsPage() {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [approvalConfirmed, setApprovalConfirmed] = useState(false);
+  const [testDialogOpen, setTestDialogOpen] = useState(false);
+  const [testRecipient, setTestRecipient] = useState("");
+  const [testZaloDialogOpen, setTestZaloDialogOpen] = useState(false);
+  const [testZaloUserId, setTestZaloUserId] = useState("");
+  const [isTestSending, setIsTestSending] = useState(false);
   const [isSendingLoopActive, setIsSendingLoopActive] = useState(false);
   const [consoleLogs, setConsoleLogs] = useState<string[]>([]);
   const [snapshots, setSnapshots] = useState<any[]>([]);
   const [snapshotLoading, setSnapshotLoading] = useState(false);
+  const [readinessData, setReadinessData] = useState<any>(null);
+  const [isReadinessLoading, setIsReadinessLoading] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [isMockSending, setIsMockSending] = useState(false);
 
   // Dữ liệu giả lập cao cấp khi chưa chạy DB Cloud
   const isMock = !!localStorage.getItem("mock_marketing_session");
@@ -973,7 +989,7 @@ function MarketingCampaignsPage() {
       let localCamps = JSON.parse(localStorage.getItem("mock_campaigns") || "[]");
       const idx = localCamps.findIndex((c: any) => c.id === campaignId);
       if (idx !== -1) {
-        localCamps[idx].status = "pending_review";
+        localCamps[idx].approval_status = "pending_approval";
         localStorage.setItem("mock_campaigns", JSON.stringify(localCamps));
         setCampaigns(localCamps);
         setSelectedCampaign(localCamps[idx]);
@@ -982,10 +998,17 @@ function MarketingCampaignsPage() {
       return;
     }
 
+    // Validate subject/body
+    const campaign = campaigns.find((c: any) => c.id === campaignId);
+    if (!campaign?.draft_subject || !campaign?.draft_body) {
+      toast.error("Campaign cần có subject/body trước khi gửi duyệt.");
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from("marketing_campaigns")
-        .update({ status: "pending_review" })
+        .update({ approval_status: "pending_approval" })
         .eq("id", campaignId);
 
       if (error) throw error;
@@ -996,6 +1019,246 @@ function MarketingCampaignsPage() {
       if (data) setSelectedCampaign(data);
     } catch (err: any) {
       toast.error("Lỗi gửi yêu cầu duyệt: " + err.message);
+    }
+  };
+
+  const handleApprove = async (campaignId: string) => {
+    if (useLocalFallback) {
+      let localCamps = JSON.parse(localStorage.getItem("mock_campaigns") || "[]");
+      const idx = localCamps.findIndex((c: any) => c.id === campaignId);
+      if (idx !== -1) {
+        localCamps[idx].approval_status = "approved";
+        localCamps[idx].approved_by = "mock-uuid";
+        localCamps[idx].approved_at = new Date().toISOString();
+        localStorage.setItem("mock_campaigns", JSON.stringify(localCamps));
+        setCampaigns(localCamps);
+        setSelectedCampaign(localCamps[idx]);
+      }
+      toast.success("Campaign đã được duyệt. Gửi thật sẽ được triển khai ở phase sau.");
+      return;
+    }
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData?.user?.id;
+
+      const { error } = await supabase
+        .from("marketing_campaigns")
+        .update({ 
+          approval_status: "approved",
+          approved_by: userId,
+          approved_at: new Date().toISOString()
+        })
+        .eq("id", campaignId);
+
+      if (error) throw error;
+      toast.success("Campaign đã được duyệt. Gửi thật sẽ được triển khai ở phase sau.");
+      loadAllData();
+
+      const { data } = await supabase.from("marketing_campaigns").select("*, message_templates(*), zns_templates(*), sender_accounts(*), customer_segments(*)").eq("id", campaignId).single();
+      if (data) setSelectedCampaign(data);
+    } catch (err: any) {
+      toast.error("Lỗi phê duyệt chiến dịch: " + err.message);
+    }
+  };
+
+  const handleReject = async (campaignId: string) => {
+    if (useLocalFallback) {
+      let localCamps = JSON.parse(localStorage.getItem("mock_campaigns") || "[]");
+      const idx = localCamps.findIndex((c: any) => c.id === campaignId);
+      if (idx !== -1) {
+        localCamps[idx].approval_status = "rejected";
+        localStorage.setItem("mock_campaigns", JSON.stringify(localCamps));
+        setCampaigns(localCamps);
+        setSelectedCampaign(localCamps[idx]);
+      }
+      toast.success("Đã từ chối chiến dịch.");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("marketing_campaigns")
+        .update({ approval_status: "rejected" })
+        .eq("id", campaignId);
+
+      if (error) throw error;
+      toast.success("Đã từ chối chiến dịch.");
+      loadAllData();
+
+      const { data } = await supabase.from("marketing_campaigns").select("*, message_templates(*), zns_templates(*), sender_accounts(*), customer_segments(*)").eq("id", campaignId).single();
+      if (data) setSelectedCampaign(data);
+    } catch (err: any) {
+      toast.error("Lỗi từ chối chiến dịch: " + err.message);
+    }
+  };
+
+  const handleSendTest = async () => {
+    if (!selectedCampaign || !testRecipient.trim()) return;
+
+    if (useLocalFallback) {
+      toast.info("Chức năng gửi Test không khả dụng trong môi trường Mock.");
+      setTestDialogOpen(false);
+      return;
+    }
+
+    setIsTestSending(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Chưa đăng nhập");
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/send-campaign-test`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          campaign_id: selectedCampaign.id,
+          test_recipient: testRecipient.trim(),
+          sender_account_id: selectedCampaign.sender_account_id || null
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Có lỗi xảy ra khi gửi test");
+      }
+
+      toast.success("Gửi Test Email thành công!");
+      setTestDialogOpen(false);
+      setTestRecipient("");
+    } catch (err: any) {
+      toast.error(`Gửi Test Email thất bại: ${err.message}`);
+    } finally {
+      setIsTestSending(false);
+    }
+  };
+
+  const handleSendZaloTest = async () => {
+    if (!selectedCampaign || !testZaloUserId.trim()) return;
+
+    if (useLocalFallback) {
+      toast.info("Chức năng gửi Test không khả dụng trong môi trường Mock.");
+      setTestZaloDialogOpen(false);
+      return;
+    }
+
+    setIsTestSending(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Chưa đăng nhập");
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/send-campaign-test`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          campaign_id: selectedCampaign.id,
+          test_zalo_user_id: testZaloUserId.trim(),
+          sender_account_id: selectedCampaign.sender_account_id || null
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Có lỗi xảy ra khi gửi test Zalo");
+      }
+
+      toast.success("Gửi Test Zalo thành công!");
+      setTestZaloDialogOpen(false);
+      setTestZaloUserId("");
+    } catch (err: any) {
+      toast.error(`Gửi Test Zalo thất bại: ${err.message}`);
+    } finally {
+      setIsTestSending(false);
+    }
+  };
+
+  const handleRunReadinessCheck = async () => {
+    if (!selectedCampaign) return;
+    
+    setIsReadinessLoading(true);
+    setReadinessData(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Chưa đăng nhập");
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/prepare-campaign-audience`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          campaign_id: selectedCampaign.id
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Lỗi kiểm tra Readiness");
+      }
+
+      setReadinessData(data);
+      toast.success("Kiểm tra Production Readiness hoàn tất.");
+    } catch (err: any) {
+      toast.error(`Readiness Check thất bại: ${err.message}`);
+    } finally {
+      setIsReadinessLoading(false);
+    }
+  };
+
+  const handleMockSend = async () => {
+    if (!selectedCampaign || confirmText !== "CONFIRM") return;
+    setIsMockSending(true);
+    setConsoleLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Bắt đầu quy trình Mock Production Send...`]);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Chưa đăng nhập");
+
+      // 1. Lưu final_confirmed_at & final_confirmed_by
+      const { error: updErr } = await supabase.from("marketing_campaigns").update({
+        final_confirmed_at: new Date().toISOString(),
+        final_confirmed_by: user?.id,
+        status: "sending"
+      }).eq("id", selectedCampaign.id);
+
+      if (updErr) throw new Error("Lỗi lưu xác nhận Final Confirmation");
+      setConsoleLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Đã lưu chữ ký xác nhận của Admin.`]);
+
+      // 2. Kích hoạt Edge Function process-marketing-campaign (Mock mode)
+      setConsoleLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Gọi Edge Function process-marketing-campaign...`]);
+      const response = await fetch(`${supabaseUrl}/functions/v1/process-marketing-campaign`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          campaign_id: selectedCampaign.id
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Lỗi khi chạy mock sender");
+      }
+
+      setConsoleLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] HOÀN TẤT MOCK SEND! Result: ${JSON.stringify(data)}`]);
+      toast.success("Đã chạy Mock Sender thành công.");
+      
+      // Update local state to reflect changes
+      setCampaigns(prev => prev.map(c => c.id === selectedCampaign.id ? { ...c, status: 'completed' } : c));
+      setSelectedCampaign({ ...selectedCampaign, status: 'completed' });
+      setConfirmText("");
+    } catch (err: any) {
+      setConsoleLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] LỖI: ${err.message}`]);
+      toast.error(`Mock Send thất bại: ${err.message}`);
+    } finally {
+      setIsMockSending(false);
     }
   };
 
@@ -1030,15 +1293,44 @@ function MarketingCampaignsPage() {
             >
               <RefreshCw className="w-4 h-4" />
             </Button>
+            
+            {isAdminOrSubAdmin && (
+              <Link to="/marketing/logs">
+                <Button
+                  variant="outline"
+                  className="h-10 px-4 bg-slate-900 border-slate-800 text-rose-400 hover:text-rose-300 hover:bg-slate-800"
+                  title="Quản lý Suppression List & Delivery Logs"
+                >
+                  <ShieldAlert className="w-4 h-4 mr-2" />
+                  Logs & Suppression
+                </Button>
+              </Link>
+            )}
+            {isAdminOrSubAdmin && (
+              <Button
+                onClick={() => setDraftDialogOpen(true)}
+                className="h-10 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-lg"
+              >
+                <Plus className="w-4 h-4 mr-2" /> Create Draft Campaign
+              </Button>
+            )}
             <Button
-              onClick={handleOpenWizard}
-              className="h-10 px-5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold shadow-lg shadow-purple-900/20"
+              disabled
+              title="Coming soon"
+              className="h-10 px-5 rounded-xl bg-slate-800 text-slate-400 font-bold cursor-not-allowed"
             >
-              <Rocket className="w-4 h-4 mr-2" /> Khởi tạo Chiến dịch
+              <Rocket className="w-4 h-4 mr-2" /> Khởi tạo Chiến dịch (Coming soon)
             </Button>
           </div>
         </div>
       </header>
+
+      <div className="container mx-auto px-4 md:px-6 pt-6">
+        <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 p-3 rounded-xl text-sm font-medium flex items-center gap-2 mb-6">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+          <span>Campaign approval chỉ là duyệt nội bộ. Hệ thống chưa gửi Email/Zalo thật.</span>
+        </div>
+      </div>
 
       <main className="container mx-auto px-4 md:px-6 mt-8 space-y-8">
         {/* Dải Banner Thống kê Hiệu năng Toàn hệ thống */}
@@ -1185,6 +1477,24 @@ function MarketingCampaignsPage() {
                   }
                 };
 
+                const getApprovalBadgeClass = (approval_status: string) => {
+                  switch (approval_status) {
+                    case 'pending_approval': return 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
+                    case 'approved': return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+                    case 'rejected': return 'bg-rose-500/10 text-rose-400 border border-rose-500/20';
+                    default: return 'bg-slate-800 text-slate-400 border border-slate-700'; // draft or null
+                  }
+                };
+
+                const getApprovalLabel = (approval_status: string) => {
+                  switch (approval_status) {
+                    case 'pending_approval': return 'Chờ duyệt';
+                    case 'approved': return 'Đã duyệt';
+                    case 'rejected': return 'Từ chối';
+                    default: return 'Bản nháp';
+                  }
+                };
+
                 return (
                   <div
                     key={c.id}
@@ -1198,12 +1508,20 @@ function MarketingCampaignsPage() {
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${getApprovalBadgeClass(c.approval_status)}`}>
+                            {getApprovalLabel(c.approval_status)}
+                          </span>
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${getStatusBadgeClass(c.status)}`}>
                             {getStatusLabel(c.status)}
                           </span>
                           <span className="text-[11px] text-slate-500 font-mono">
                             {new Date(c.created_at).toLocaleDateString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
                           </span>
+                          {c.approved_at && (
+                            <span className="text-[11px] text-emerald-500/70 font-mono italic">
+                              Duyệt: {new Date(c.approved_at).toLocaleDateString("vi-VN")}
+                            </span>
+                          )}
                         </div>
                         <h3 className="text-sm font-bold text-white tracking-wide group-hover:text-purple-400 transition-colors">{c.name}</h3>
                       </div>
@@ -1398,7 +1716,11 @@ function MarketingCampaignsPage() {
                         if (campaignType === "zns") {
                           return s.channel === "zalo_oa" || s.channel === "zalo";
                         }
-                        return s.channel === "email" || s.channel === "sms";
+                        // Email sender filter
+                        if (s.channel === "email") {
+                          return s.is_active === true && (s.health_status === "healthy" || s.health_status === "configured" || s.provider !== "resend");
+                        }
+                        return s.channel === "sms";
                       })
                       .map(s => {
                         const resolution = resolveSenderForMessage({
@@ -1831,10 +2153,147 @@ function MarketingCampaignsPage() {
                 </div>
               </div>
 
+              {/* Panel Production Readiness Check */}
+              {readinessData && (
+                <div className="mt-4 p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-black text-white flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-orange-400" />
+                      Production Readiness Report
+                    </h3>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${readinessData.approved ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                      APPROVED: {readinessData.approved ? "PASS" : "FAIL"}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
+                      <span className="text-[10px] text-slate-500 block mb-1">Eligible</span>
+                      <strong className={`text-lg ${readinessData.rate_limit?.exceeds_limit ? 'text-amber-400' : 'text-emerald-400'}`}>
+                        {readinessData.eligible_count}
+                      </strong>
+                    </div>
+                    <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
+                      <span className="text-[10px] text-slate-500 block mb-1">Suppressed</span>
+                      <strong className="text-lg text-rose-400">{readinessData.excluded_counts?.suppressed || 0}</strong>
+                    </div>
+                    <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
+                      <span className="text-[10px] text-slate-500 block mb-1">Duplicates</span>
+                      <strong className="text-lg text-rose-400">{readinessData.excluded_counts?.duplicate || 0}</strong>
+                    </div>
+                    <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
+                      <span className="text-[10px] text-slate-500 block mb-1">No Consent</span>
+                      <strong className="text-lg text-rose-400">{readinessData.excluded_counts?.no_consent || 0}</strong>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="text-xs font-bold text-slate-300">Rate Limit Status</div>
+                      <div className="p-2 rounded bg-slate-950 border border-slate-800 text-[11px] space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Max Batch Size:</span>
+                          <span className="text-slate-300 font-mono">{readinessData.rate_limit?.max_batch_size}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Exceeds Limit:</span>
+                          <span className={readinessData.rate_limit?.exceeds_limit ? "text-rose-400 font-bold" : "text-emerald-400"}>
+                            {readinessData.rate_limit?.exceeds_limit ? "YES" : "NO"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-xs font-bold text-slate-300">Safety Gates</div>
+                      <div className="p-2 rounded bg-slate-950 border border-slate-800 text-[11px] space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Global Kill Switch:</span>
+                          <span className={readinessData.production_sending_enabled ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"}>
+                            {readinessData.production_sending_enabled ? "ENABLED" : "DISABLED"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Can Send Production:</span>
+                          <span className="text-rose-400 font-bold">FALSE (6F.2 locked)</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-xs font-bold text-slate-300">Preview Recipients (Max {readinessData.preview_limit})</div>
+                    <div className="max-h-32 overflow-y-auto space-y-1">
+                      {readinessData.preview_recipients?.length > 0 ? (
+                        readinessData.preview_recipients.map((r: any, idx: number) => (
+                          <div key={idx} className="text-[10px] text-slate-400 p-1.5 bg-slate-950 rounded flex justify-between">
+                            <span>{r.name}</span>
+                            <span className="font-mono text-slate-500">{r.contact}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-[10px] text-slate-500 italic">Không có Audience hợp lệ.</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 p-2 rounded text-[11px] font-bold text-center">
+                    ⚠️ {readinessData.message}
+                  </div>
+
+                  {/* Khối Final Send Lock / Final Confirmation */}
+                  <div className="p-3 bg-rose-500/5 border border-rose-500/20 rounded-lg space-y-3">
+                    <div className="flex items-start gap-2">
+                      <Lock className="w-4 h-4 text-rose-400 mt-0.5" />
+                      <div>
+                        <h4 className="text-[11px] font-bold text-rose-400">Final Confirmation</h4>
+                        {readinessData.provider_mode === "resend_pilot" ? (
+                          <>
+                            <p className="text-[10px] text-slate-400 mt-1">
+                              Để chạy Pilot Send, bạn phải gõ chữ <strong className="text-white">CONFIRM</strong> vào ô bên dưới. 
+                              <br/>
+                              <strong className="text-amber-400">Email thật sẽ được gửi, nhưng chỉ tới whitelist nội bộ. Không gửi tới audience khách hàng.</strong>
+                            </p>
+                            <p className="text-[9px] text-rose-400 mt-1">
+                              Sau pilot, hiển thị reminder: Tắt MARKETING_PRODUCTION_SENDING_ENABLED=false và chuyển MARKETING_PROVIDER_MODE=mock.
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-[10px] text-slate-400 mt-1">
+                            Để chạy Mock Production Send, bạn phải gõ chữ <strong className="text-white">CONFIRM</strong> vào ô bên dưới. Việc này sẽ lưu chữ ký số của bạn vào hệ thống.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <Input 
+                        value={confirmText}
+                        onChange={(e) => setConfirmText(e.target.value.toUpperCase())}
+                        placeholder="Type CONFIRM" 
+                        disabled={!readinessData.approved || isMockSending || selectedCampaign?.status === 'completed'}
+                        className="h-8 bg-slate-950 border-slate-800 text-[11px] flex-1 text-white placeholder-slate-600 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 uppercase"
+                      />
+                      <Button 
+                        onClick={handleMockSend}
+                        disabled={confirmText !== "CONFIRM" || !readinessData.approved || isMockSending || selectedCampaign?.status === 'completed'} 
+                        className={`h-8 px-4 text-[11px] font-bold transition-all ${
+                          confirmText === "CONFIRM" 
+                            ? "bg-rose-600 hover:bg-rose-500 text-white shadow-[0_0_15px_rgba(225,29,72,0.4)]" 
+                            : "bg-slate-800 text-slate-500 cursor-not-allowed"
+                        }`}
+                      >
+                        {isMockSending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Activity className="w-3.5 h-3.5 mr-1" />}
+                        {readinessData.provider_mode === "resend_pilot" ? "Run Email Pilot Send (Internal Only)" : "Run Mock Production Send"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Nút Điều khiển / Hành động */}
               <div className="pt-2 border-t border-slate-800/60 flex flex-wrap gap-2 justify-end">
                 {/* Hành động 1: Request Review (Chỉ Admin/SubAdmin hoặc người tạo có quyền) */}
-                {selectedCampaign?.status === "draft" && canManageCampaign(selectedCampaign) && (
+                {(!selectedCampaign?.approval_status || selectedCampaign?.approval_status === "draft") && canManageCampaign(selectedCampaign) && (
                   <Button
                     onClick={() => handleRequestReview(selectedCampaign?.id || "")}
                     className="h-9 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs"
@@ -1843,36 +2302,95 @@ function MarketingCampaignsPage() {
                   </Button>
                 )}
 
-                {/* Hành động 2: Phê duyệt (Cho Admin hoặc người tạo tự phê duyệt chiến dịch của mình) */}
-                {selectedCampaign?.status === "pending_review" && canManageCampaign(selectedCampaign) && (
+                {/* Hành động 2.6: Production Readiness Check (Khi đã Approved) */}
+                {selectedCampaign?.approval_status === "approved" ? (
                   <Button
-                    onClick={() => {
-                      setApprovalConfirmed(false);
-                      setApprovalDialogOpen(true);
-                    }}
-                    className="h-9 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-xs"
+                    onClick={handleRunReadinessCheck}
+                    disabled={isReadinessLoading}
+                    className="h-9 px-4 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs"
                   >
-                    🛡️ Phê duyệt Chiến dịch
+                    {isReadinessLoading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Activity className="w-3.5 h-3.5 mr-1" />} 
+                    Run Production Readiness Check
+                  </Button>
+                ) : (
+                  <Button
+                    disabled
+                    className="h-9 px-4 rounded-xl bg-slate-800 text-slate-500 font-bold text-xs cursor-not-allowed"
+                    title="Campaign chưa được duyệt"
+                  >
+                    <Activity className="w-3.5 h-3.5 mr-1" /> Run Production Readiness Check
                   </Button>
                 )}
 
-                {/* Hành động 3: Bắt đầu Gửi / Tiếp tục gửi & Gửi thủ công (Cho Admin hoặc người tạo) */}
-                {["approved", "paused"].includes(selectedCampaign?.status || "") && canManageCampaign(selectedCampaign) && (
+                {/* Hành động 2: Phê duyệt / Từ chối (Cho Admin) */}
+                {selectedCampaign?.approval_status === "pending_approval" && isAdminOrSubAdmin && (
                   <>
                     <Button
-                      onClick={() => selectedCampaign && startSendingCampaign(selectedCampaign.id)}
-                      disabled={isSendingLoopActive}
-                      className="h-9 px-5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs"
+                      onClick={() => handleApprove(selectedCampaign?.id || "")}
+                      className="h-9 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs"
                     >
-                      <Play className="w-3.5 h-3.5 mr-1" /> {selectedCampaign?.status === "paused" ? "Gửi tự động (Loop)" : "Bắt đầu Gửi tự động"}
+                      ✅ Phê duyệt
+                    </Button>
+                    <Button
+                      onClick={() => handleReject(selectedCampaign?.id || "")}
+                      className="h-9 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs"
+                    >
+                      ❌ Từ chối
+                    </Button>
+                  </>
+                )}
+
+                {/* Hành động 2.5: Gửi Test Sandbox (Cho Admin) */}
+                {isAdminOrSubAdmin && (
+                  <>
+                    <Button
+                      onClick={() => {
+                        if (selectedCampaign?.channel !== "email" && selectedCampaign?.channel !== "email_campaign") {
+                          toast.error("Vui lòng chọn Chiến dịch Email để test.");
+                          return;
+                        }
+                        setTestDialogOpen(true);
+                      }}
+                      className="h-9 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs"
+                    >
+                      <Mail className="w-3.5 h-3.5 mr-1" /> Send Test Email
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        if (selectedCampaign?.channel !== "zalo" && selectedCampaign?.channel !== "zalo_oa") {
+                          toast.error("Vui lòng chọn Chiến dịch Zalo để test.");
+                          return;
+                        }
+                        setTestZaloDialogOpen(true);
+                      }}
+                      className="h-9 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs"
+                    >
+                      <Send className="w-3.5 h-3.5 mr-1" /> Send Test Zalo
+                    </Button>
+                  </>
+                )}
+
+                {/* Hành động 3: Bắt đầu Gửi / Tiếp tục gửi & Gửi thủ công (Cho Admin hoặc người tạo) */}
+                {["approved", "paused", "draft"].includes(selectedCampaign?.status || "") && canManageCampaign(selectedCampaign) && (
+                  <>
+                    <Button
+                      disabled
+                      className="h-9 px-5 rounded-xl bg-slate-800 text-slate-500 font-black text-xs cursor-not-allowed relative group"
+                    >
+                      <Lock className="w-3.5 h-3.5 mr-1 text-rose-500" /> Send to Audience (Locked)
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 p-2 bg-slate-800 text-slate-300 text-[10px] rounded shadow-xl border border-slate-700 z-50">
+                        Production sending chưa được bật. Phase hiện tại chỉ readiness/dry-run.
+                      </div>
                     </Button>
                     
                     <Button
-                      onClick={() => selectedCampaign && processSingleBatch(selectedCampaign.id)}
-                      disabled={isSendingLoopActive}
-                      className="h-9 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs"
+                      disabled
+                      className="h-9 px-4 rounded-xl bg-slate-800 text-slate-500 font-bold text-xs cursor-not-allowed relative group"
                     >
-                      <RefreshCw className="w-3.5 h-3.5 mr-1" /> Gửi 1 lô thủ công
+                      <Lock className="w-3.5 h-3.5 mr-1 text-rose-500" /> Run Production (Locked)
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 p-2 bg-slate-800 text-slate-300 text-[10px] rounded shadow-xl border border-slate-700 z-50">
+                        Production sending chưa được bật. Phase hiện tại chỉ readiness/dry-run.
+                      </div>
                     </Button>
                   </>
                 )}
@@ -1967,6 +2485,98 @@ function MarketingCampaignsPage() {
                   })}
                 </div>
               )}
+            </div>
+
+            </div>
+        </DialogContent>
+      </Dialog>
+      {/* Form Draft Chiến Dịch Mới */}
+      <CampaignDraftDialog 
+        open={draftDialogOpen} 
+        onOpenChange={setDraftDialogOpen} 
+        onSuccess={loadAllData} 
+        userId={user?.id} 
+      />
+
+      {/* Dialog Gửi Test Sandbox Email */}
+      <Dialog open={testDialogOpen} onOpenChange={setTestDialogOpen}>
+        <DialogContent className="sm:max-w-[450px] bg-slate-950 text-slate-100 border-slate-800 p-6 rounded-3xl shadow-2xl">
+          <DialogTitle className="text-lg font-black text-white flex items-center gap-2 mb-4">
+            <Mail className="w-5 h-5 text-blue-400" />
+            Send Test Email (Sandbox)
+          </DialogTitle>
+          <div className="space-y-4">
+            <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 p-3 rounded-xl text-[11px] font-medium flex items-start gap-2 leading-relaxed">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>Đây là sandbox test. Email chỉ gửi tới địa chỉ nằm trong whitelist. Không gửi tới audience thật. Cố tình nhập sai hoặc gửi ra ngoài whitelist sẽ bị chặn.</span>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-300">Email nhận Test (Whitelist Only):</label>
+              <Input
+                type="email"
+                placeholder="test@example.com"
+                value={testRecipient}
+                onChange={(e) => setTestRecipient(e.target.value)}
+                className="h-10 bg-slate-900 border-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => { setTestDialogOpen(false); setTestRecipient(""); }}
+                className="h-9 px-4 rounded-xl bg-slate-900 border-slate-800 text-slate-400 hover:text-white text-xs"
+              >
+                Hủy
+              </Button>
+              <Button
+                onClick={handleSendTest}
+                disabled={isTestSending || !testRecipient.trim()}
+                className="h-9 px-6 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg"
+              >
+                {isTestSending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Gửi Test"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Gửi Test Sandbox Zalo */}
+      <Dialog open={testZaloDialogOpen} onOpenChange={setTestZaloDialogOpen}>
+        <DialogContent className="sm:max-w-[450px] bg-slate-950 text-slate-100 border-slate-800 p-6 rounded-3xl shadow-2xl">
+          <DialogTitle className="text-lg font-black text-white flex items-center gap-2 mb-4">
+            <Send className="w-5 h-5 text-sky-400" />
+            Send Test Zalo OA (Sandbox)
+          </DialogTitle>
+          <div className="space-y-4">
+            <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 p-3 rounded-xl text-[11px] font-medium flex items-start gap-2 leading-relaxed">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>Đây là Zalo OA sandbox test. Tin chỉ gửi tới zalo_user_id whitelist. Không gửi qua Phone. Không gửi tới audience thật.</span>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-300">Zalo User ID nhận Test (Whitelist Only):</label>
+              <Input
+                type="text"
+                placeholder="Nhập Zalo User ID (VD: 12345678901234)"
+                value={testZaloUserId}
+                onChange={(e) => setTestZaloUserId(e.target.value)}
+                className="h-10 bg-slate-900 border-slate-800 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 text-sm"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => { setTestZaloDialogOpen(false); setTestZaloUserId(""); }}
+                className="h-9 px-4 rounded-xl bg-slate-900 border-slate-800 text-slate-400 hover:text-white text-xs"
+              >
+                Hủy
+              </Button>
+              <Button
+                onClick={handleSendZaloTest}
+                disabled={isTestSending || !testZaloUserId.trim()}
+                className="h-9 px-6 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-lg"
+              >
+                {isTestSending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Gửi Test"}
+              </Button>
             </div>
           </div>
         </DialogContent>

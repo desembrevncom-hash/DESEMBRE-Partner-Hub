@@ -269,11 +269,18 @@ function MarketingDashboardPage() {
                 </Link>
              </Button>
              {(isAdmin || isSubAdmin) && (
-               <Button variant="outline" asChild className="rounded-xl border-violet-200 text-violet-600 hover:bg-violet-50 font-bold text-xs h-10 px-4 gap-2">
-                 <Link to="/admin/sender-accounts">
-                   <Shield className="w-4 h-4" /> Sender Accounts
-                 </Link>
-               </Button>
+               <>
+                 <Button variant="outline" asChild className="rounded-xl border-violet-200 text-violet-600 hover:bg-violet-50 font-bold text-xs h-10 px-4 gap-2">
+                   <Link to="/admin/sender-accounts">
+                     <Shield className="w-4 h-4" /> Sender Accounts
+                   </Link>
+                 </Button>
+                 <Button variant="outline" asChild className="rounded-xl border-amber-200 text-amber-700 hover:bg-amber-50 font-bold text-xs h-10 px-4 gap-2">
+                   <Link to="/marketing/readiness">
+                     <AlertTriangle className="w-4 h-4" /> Marketing Readiness
+                   </Link>
+                 </Button>
+               </>
              )}
              <Button asChild className="rounded-xl bg-pink-600 hover:bg-pink-700 font-black text-xs h-10 px-6 shadow-lg shadow-pink-200 transition-all hover:scale-105">
                 <Link to="/marketing/campaigns" search={{ new: "true" }}>
