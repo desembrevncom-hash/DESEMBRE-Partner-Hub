@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.182.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
+import { resolveResendCredential } from "../_shared/sender-credentials.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -243,7 +244,6 @@ serve(async (req) => {
       let auth_type = "platform_secret";
       
       try {
-        const { resolveResendCredential } = await import("../_shared/sender-credentials.ts");
         const finalSenderAccountId = sender_account_id || campaign.sender_account_id || null;
         const cred = await resolveResendCredential(adminClient, finalSenderAccountId);
         resendKey = cred.api_key || "";

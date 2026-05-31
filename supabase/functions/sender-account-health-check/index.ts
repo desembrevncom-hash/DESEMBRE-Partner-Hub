@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.182.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
+import { resolveResendCredential } from "../_shared/sender-credentials.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -61,7 +62,6 @@ serve(async (req) => {
       let fromEmail = "";
 
       try {
-        const { resolveResendCredential } = await import("../_shared/sender-credentials.ts");
         const cred = await resolveResendCredential(adminClient, sender_account_id);
         auth_type = cred.auth_type;
         resendKey = cred.api_key || "";
