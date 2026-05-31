@@ -6,23 +6,21 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ── Crypto Helpers (AES-GCM server-side only) ────────────────────────────────
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
-  }
-  return bytes;
-}
+import { encode } from "https://deno.land/std@0.182.0/encoding/base64.ts";
 
-async function encryptToken(token: string, keyHex: string): Promise<string> {
-  const keyBytes = hexToBytes(keyHex.padEnd(64, "0").slice(0, 64));
-  const key = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, ["encrypt"]);
+// ── Crypto Helpers (AES-GCM server-side only) ────────────────────────────────
+async function encryptToken(token: string, keyString: string): Promise<string> {
+  const encKeyData = new TextEncoder().encode(keyString);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", encKeyData);
+  const key = await crypto.subtle.importKey("raw", hashBuffer, { name: "AES-GCM" }, false, ["encrypt"]);
+  
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(token);
-  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
+  const ciphertextBuffer = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
+  
   const ivHex = Array.from(iv).map((b) => b.toString(16).padStart(2, "0")).join("");
-  return ivHex + ":" + btoa(String.fromCharCode(...new Uint8Array(ciphertext)));
+  const cipherBase64 = encode(new Uint8Array(ciphertextBuffer));
+  return ivHex + ":" + cipherBase64;
 }
 
 serve(async (req) => {

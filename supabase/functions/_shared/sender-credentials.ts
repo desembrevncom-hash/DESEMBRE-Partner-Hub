@@ -1,4 +1,5 @@
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
+import { decode } from "https://deno.land/std@0.182.0/encoding/base64.ts";
 
 export interface SenderCredential {
   api_key: string | null;
@@ -7,36 +8,35 @@ export interface SenderCredential {
   provider: string;
 }
 
-export async function decryptSenderToken(encrypted: string, keyHex: string): Promise<string | null> {
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
+  }
+  return bytes;
+}
+
+export async function decryptSenderToken(encrypted: string, keyString: string): Promise<string | null> {
   try {
-    const [ivHex, ciphertextB64] = encrypted.split(":");
-    if (!ivHex || !ciphertextB64) return null;
+    const parts = encrypted.split(":");
+    if (parts.length !== 2) throw new Error("OLD_FORMAT_NO_COLON");
+    const ivHex = parts[0];
+    const ciphertextB64 = parts[1];
     
-    // Hex to Bytes
-    const keyBytes = new Uint8Array(keyHex.length / 2);
-    for (let i = 0; i < keyHex.length; i += 2) {
-      keyBytes[i / 2] = parseInt(keyHex.slice(i, i + 2), 16);
-    }
+    // Hash key string to 32 bytes
+    const encKeyData = new TextEncoder().encode(keyString);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", encKeyData);
+    const key = await crypto.subtle.importKey("raw", hashBuffer, { name: "AES-GCM" }, false, ["decrypt"]);
     
-    // Ensure key is 32 bytes (256-bit) for AES-256-GCM
-    const keyBytes64 = new Uint8Array(32);
-    keyBytes64.set(keyBytes.slice(0, 32));
-    
-    const key = await crypto.subtle.importKey(
-      "raw", keyBytes64, { name: "AES-GCM" }, false, ["decrypt"]
-    );
-    
-    const iv = new Uint8Array(ivHex.length / 2);
-    for (let i = 0; i < ivHex.length; i += 2) {
-      iv[i / 2] = parseInt(ivHex.slice(i, i + 2), 16);
-    }
-    
-    const ciphertext = Uint8Array.from(atob(ciphertextB64), (c) => c.charCodeAt(0));
+    const iv = hexToBytes(ivHex);
+    const ciphertext = decode(ciphertextB64);
+
     const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
     
     return new TextDecoder().decode(plaintext);
-  } catch {
-    return null;
+  } catch (e: any) {
+    console.error("Decryption error:", e);
+    throw new Error(`DECRYPT_ERROR: ${e.message || e}`);
   }
 }
 
