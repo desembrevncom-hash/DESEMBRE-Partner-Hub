@@ -121,9 +121,23 @@ serve(async (req) => {
       }
 
       // Token config
-      const zaloToken = Deno.env.get("ZALO_OA_ACCESS_TOKEN");
+      const { getSenderCredential } = await import("../_shared/sender-credentials.ts");
+      let zaloToken: string | null = null;
+      try {
+        const creds = await getSenderCredential(adminClient, "zalo_oa", sender_account_id);
+        zaloToken = creds.access_token || null;
+      } catch (err: any) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: `Lỗi cấu hình Zalo: ${err.message}`, 
+          step: "credential_resolver" 
+        }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+
       if (!zaloToken) {
-        return new Response(JSON.stringify({ success: false, error: "Thiếu cấu hình ZALO_OA_ACCESS_TOKEN ở Edge Function.", step: "env" }), {
+        return new Response(JSON.stringify({ success: false, error: "Thiếu cấu hình ZALO_OA_ACCESS_TOKEN hoặc Token trong DB.", step: "env" }), {
           status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }

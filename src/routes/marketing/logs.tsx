@@ -15,7 +15,8 @@ import {
   ListFilter,
   ShieldAlert,
   Plus,
-  Power
+  Power,
+  FileText
 } from "lucide-react";
 import {
   Dialog,
@@ -25,6 +26,11 @@ import {
 } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/marketing/logs")({
+  validateSearch: (search: Record<string, unknown>) => {
+    return {
+      campaign_id: (search.campaign_id as string) || undefined,
+    }
+  },
   component: MarketingLogsPage,
 });
 
@@ -33,17 +39,54 @@ function MarketingLogsPage() {
   const [activeTab, setActiveTab] = useState<"logs" | "suppression">("logs");
 
   // State for Delivery Logs
+  const search = Route.useSearch();
   const [logs, setLogs] = useState<any[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [logChannelFilter, setLogChannelFilter] = useState("all");
   const [logStatusFilter, setLogStatusFilter] = useState("all");
-  const [logSearchQuery, setLogSearchQuery] = useState("");
+  const [logModeFilter, setLogModeFilter] = useState("all");
+  const [logSearchQuery, setLogSearchQuery] = useState(search.campaign_id || "");
+  const [activeCampaignFilter, setActiveCampaignFilter] = useState<string | null>(search.campaign_id || null);
 
   // State for Suppression List
   const [suppressionList, setSuppressionList] = useState<any[]>([]);
   const [loadingSuppression, setLoadingSuppression] = useState(false);
   const [isAddSuppressionOpen, setIsAddSuppressionOpen] = useState(false);
   const [newSuppression, setNewSuppression] = useState({ channel: "email", contact_value: "", reason: "manual_block", note: "" });
+
+  const [metadataLogId, setMetadataLogId] = useState<any>(null);
+
+  const getModeLabel = (mode: string) => {
+    switch(mode) {
+      case "test": return "Gửi thử";
+      case "mock": return "Giả lập";
+      case "production_pilot": return "Pilot nội bộ";
+      case "production": return "Gửi thật";
+      default: return mode;
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch(status) {
+      case "test_sent": return "Gửi thử thành công";
+      case "test_failed": return "Gửi thử lỗi";
+      case "sent": return "Đã gửi";
+      case "failed": return "Lỗi";
+      case "skipped": return "Bỏ qua";
+      case "blocked": return "Bị chặn";
+      case "prepared": return "Đã chuẩn bị";
+      case "sending": return "Đang gửi";
+      default: return status;
+    }
+  };
+
+  const stats = {
+    test: logs.filter(l => l.delivery_metadata?.mode === 'test').length,
+    mock: logs.filter(l => l.delivery_metadata?.mode === 'mock').length,
+    pilot: logs.filter(l => l.delivery_metadata?.mode === 'production_pilot').length,
+    failed: logs.filter(l => l.status?.includes('failed') || l.status === 'blocked').length,
+    total: logs.length
+  };
 
   const loadLogs = async () => {
     setLoadingLogs(true);
@@ -56,8 +99,14 @@ function MarketingLogsPage() {
 
       if (logChannelFilter !== "all") query = query.eq("channel", logChannelFilter);
       if (logStatusFilter !== "all") query = query.eq("status", logStatusFilter);
+      if (logModeFilter !== "all") query = query.eq("mode", logModeFilter); // Note: Assuming mode is also saved at root level, or we can't filter jsonb easily here without raw sql. 
       if (logSearchQuery) {
-        query = query.or(`campaign_id.eq.${logSearchQuery},recipient.ilike.%${logSearchQuery}%`);
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(logSearchQuery)) {
+          query = query.eq("campaign_id", logSearchQuery);
+        } else {
+          // Nếu không phải UUID, tìm kiếm trong JSON (giả định email/zalo nằm trong delivery_metadata.to)
+          query = query.or(`delivery_metadata->>to.ilike.%${logSearchQuery}%`);
+        }
       }
 
       const { data, error } = await query;
@@ -95,7 +144,7 @@ function MarketingLogsPage() {
     } else {
       loadSuppressionList();
     }
-  }, [activeTab, logChannelFilter, logStatusFilter, logSearchQuery]);
+  }, [activeTab, logChannelFilter, logStatusFilter, logModeFilter, logSearchQuery]);
 
   const handleAddSuppression = async () => {
     if (!newSuppression.contact_value) return toast.error("Vui lòng nhập liên hệ");
@@ -192,6 +241,53 @@ function MarketingLogsPage() {
         {/* Tab Logs */}
         {activeTab === "logs" && (
           <div className="space-y-4">
+            
+            {activeCampaignFilter && (
+              <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span>
+                  <span className="text-xs font-bold text-purple-300">Đang lọc theo Campaign: <span className="font-mono text-purple-200 bg-purple-900/50 px-1.5 py-0.5 rounded">{activeCampaignFilter.substring(0, 12)}</span></span>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="h-7 px-2 text-[10px] border-purple-500/30 text-purple-300 hover:bg-purple-500/20 hover:text-white"
+                  onClick={() => {
+                    setActiveCampaignFilter(null);
+                    setLogSearchQuery("");
+                  }}
+                >
+                  Bỏ lọc
+                </Button>
+              </div>
+            )}
+
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+              <span className="text-[10px] font-black uppercase text-slate-500 block mb-3">{activeCampaignFilter ? "Tổng quan chiến dịch này" : "Tổng quan trang hiện tại"}</span>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="bg-slate-950 border border-slate-800 p-3 rounded-lg">
+                  <span className="text-[10px] text-slate-400 block mb-1 uppercase font-bold">Gửi thử</span>
+                  <span className="text-xl font-black text-white">{stats.test}</span>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 p-3 rounded-lg">
+                  <span className="text-[10px] text-slate-400 block mb-1 uppercase font-bold">Giả lập</span>
+                  <span className="text-xl font-black text-white">{stats.mock}</span>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 p-3 rounded-lg">
+                  <span className="text-[10px] text-slate-400 block mb-1 uppercase font-bold">Pilot Nội bộ</span>
+                  <span className="text-xl font-black text-white">{stats.pilot}</span>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 p-3 rounded-lg">
+                  <span className="text-[10px] text-rose-400 block mb-1 uppercase font-bold">Lỗi / Chặn</span>
+                  <span className="text-xl font-black text-rose-500">{stats.failed}</span>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 p-3 rounded-lg">
+                  <span className="text-[10px] text-indigo-400 block mb-1 uppercase font-bold">Tổng hiển thị</span>
+                  <span className="text-xl font-black text-indigo-500">{stats.total}</span>
+                </div>
+              </div>
+            </div>
+
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -214,15 +310,26 @@ function MarketingLogsPage() {
                 <option value="zalo_oa">Zalo OA</option>
               </select>
               <select 
+                value={logModeFilter} 
+                onChange={(e) => setLogModeFilter(e.target.value)}
+                className="h-9 rounded-md bg-slate-900 border border-slate-800 px-3 text-xs text-slate-300 outline-none focus:ring-1 focus:ring-purple-500"
+              >
+                <option value="all">Tất cả Mode</option>
+                <option value="test">Gửi thử</option>
+                <option value="mock">Giả lập</option>
+                <option value="production_pilot">Pilot Nội bộ</option>
+              </select>
+              <select 
                 value={logStatusFilter} 
                 onChange={(e) => setLogStatusFilter(e.target.value)}
                 className="h-9 rounded-md bg-slate-900 border border-slate-800 px-3 text-xs text-slate-300 outline-none focus:ring-1 focus:ring-purple-500"
               >
                 <option value="all">Tất cả trạng thái</option>
-                <option value="test_sent">Test Sent</option>
-                <option value="test_failed">Test Failed</option>
-                <option value="sent">Sent</option>
-                <option value="failed">Failed</option>
+                <option value="test_sent">Gửi thử thành công</option>
+                <option value="test_failed">Gửi thử lỗi</option>
+                <option value="sent">Đã gửi</option>
+                <option value="failed">Lỗi</option>
+                <option value="blocked">Bị chặn</option>
               </select>
               <Button onClick={loadLogs} variant="outline" className="h-9 px-3 bg-slate-900 border-slate-800">
                 <RefreshCw className="w-4 h-4" />
@@ -256,23 +363,33 @@ function MarketingLogsPage() {
                               {log.channel}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-slate-300">{log.recipient}</td>
+                          <td className="px-4 py-3 text-slate-300">{log.delivery_metadata?.to || log.delivery_metadata?.email || log.delivery_metadata?.phone || '-'}</td>
                           <td className="px-4 py-3">
                             <div className="flex flex-col gap-1">
                               <span className={`w-fit px-2 py-0.5 rounded text-[10px] font-bold ${
-                                log.status?.includes('failed') ? 'bg-rose-500/20 text-rose-400' :
+                                log.status?.includes('failed') || log.status === 'blocked' ? 'bg-rose-500/20 text-rose-400' :
                                 log.status?.includes('sent') ? 'bg-emerald-500/20 text-emerald-400' :
                                 'bg-slate-800 text-slate-400'
                               }`}>
-                                {log.status}
+                                {getStatusLabel(log.status)}
                               </span>
                               {log.delivery_metadata?.mode && (
-                                <span className="text-[9px] text-slate-500 uppercase font-mono tracking-widest">{log.delivery_metadata.mode} Mode</span>
+                                <span className="text-[9px] text-slate-400 bg-slate-800/50 px-1.5 py-0.5 rounded-sm w-fit uppercase font-bold tracking-widest">{getModeLabel(log.delivery_metadata.mode)}</span>
                               )}
                             </div>
                           </td>
                           <td className="px-4 py-3 text-slate-500 font-mono text-[10px]">{log.campaign_id?.substring(0, 8)}...</td>
-                          <td className="px-4 py-3 text-slate-400 text-[11px] max-w-[200px] truncate" title={log.reason}>{log.reason || '-'}</td>
+                          <td className="px-4 py-3 text-slate-400 text-[11px] max-w-[200px]">
+                            <div className="truncate mb-1" title={log.reason}>{log.reason || '-'}</div>
+                            {log.delivery_metadata?.provider_message_id && (
+                              <div className="text-[9px] text-slate-500 mb-1 font-mono bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800/50 w-fit">
+                                Mã NSX: {log.delivery_metadata.provider_message_id.substring(0, 16)}...
+                              </div>
+                            )}
+                            {log.delivery_metadata && (
+                              <button onClick={() => setMetadataLogId(log)} className="text-[9px] text-purple-400 hover:text-purple-300 underline font-bold">Xem chi tiết kỹ thuật</button>
+                            )}
+                          </td>
                         </tr>
                       ))
                     )}
@@ -401,6 +518,19 @@ function MarketingLogsPage() {
             >
               Thêm vào Blacklist
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!metadataLogId} onOpenChange={(open) => !open && setMetadataLogId(null)}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-slate-100 sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="text-white font-bold text-sm flex items-center gap-2">
+              <FileText className="w-4 h-4 text-purple-400" /> Chi tiết Metadata
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-4 bg-black p-3 rounded-xl border border-slate-800 text-slate-300 font-mono text-[10px] overflow-auto max-h-[60vh] whitespace-pre-wrap">
+            {metadataLogId ? JSON.stringify(metadataLogId.delivery_metadata, null, 2) : ""}
           </div>
         </DialogContent>
       </Dialog>

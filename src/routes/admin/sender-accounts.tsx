@@ -137,31 +137,32 @@ interface DeliveryLog {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-function HealthBadge({ status }: { status: string }) {
+function HealthBadge({ status, provider, lastError }: { status: string, provider?: string, lastError?: string | null }) {
   if (status === "healthy") {
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[11px] font-black uppercase tracking-wider">
-        <CheckCircle2 className="w-3.5 h-3.5" /> Healthy
+        <CheckCircle2 className="w-3.5 h-3.5" /> Sẵn sàng
       </span>
     );
   }
   if (status === "warning") {
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 text-[11px] font-black uppercase tracking-wider">
-        <AlertTriangle className="w-3.5 h-3.5" /> Warning
+        <AlertTriangle className="w-3.5 h-3.5" /> Domain chưa xác thực
       </span>
     );
   }
   if (status === "error") {
+    const isMissingApiKey = lastError && lastError.toLowerCase().includes("thiếu cấu hình");
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 text-[11px] font-black uppercase tracking-wider">
-        <XCircle className="w-3.5 h-3.5" /> Error
+        <XCircle className="w-3.5 h-3.5" /> {isMissingApiKey ? "Thiếu API Key" : "Lỗi"}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 text-[11px] font-black uppercase tracking-wider">
-      <HelpCircle className="w-3.5 h-3.5" /> Unknown
+      <HelpCircle className="w-3.5 h-3.5" /> Chưa rõ
     </span>
   );
 }
@@ -842,10 +843,10 @@ function SenderAccountsPage() {
 
         {/* ── SUMMARY STRIP ──────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <StatCard label="Business — Healthy" value={bizHealthy} color="emerald" />
-          <StatCard label="Business — Error" value={bizError} color="rose" />
-          <StatCard label="Personal — OK" value={personalHealthy} color="indigo" />
-          <StatCard label="Personal — Cần xử lý" value={personalNeeds} color="amber" />
+          <StatCard label="Tổ chức — Sẵn sàng" value={bizHealthy} color="emerald" />
+          <StatCard label="Tổ chức — Lỗi" value={bizError} color="rose" />
+          <StatCard label="Cá nhân — OK" value={personalHealthy} color="indigo" />
+          <StatCard label="Cá nhân — Cần xử lý" value={personalNeeds} color="amber" />
         </div>
 
         {/* ── ROUTING RULES READ-ONLY ─────────────────────────────────────────── */}
@@ -857,11 +858,11 @@ function SenderAccountsPage() {
                   <Info className="w-4 h-4 text-slate-500" />
                 </div>
                 <div>
-                  <CardTitle className="text-sm font-black text-slate-800">Default Routing Rules</CardTitle>
+                  <CardTitle className="text-sm font-black text-slate-800">Luồng Phân Tuyến (Routing Rules)</CardTitle>
                   <CardDescription className="text-xs">Chỉ xem — Logic phân tuyến kênh gửi mặc định</CardDescription>
                 </div>
               </div>
-              <Badge className="bg-slate-100 text-slate-500 border-none text-[10px] font-black uppercase">HARDCODED</Badge>
+              <Badge className="bg-slate-100 text-slate-500 border-none text-[10px] font-black uppercase">MẶC ĐỊNH</Badge>
             </div>
           </CardHeader>
           <CardContent className="p-4">
@@ -1185,8 +1186,11 @@ function SenderAccountsPage() {
                               </div>
                             </td>
                             <td className="px-6 py-4 text-center">
-                              <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">
-                                {s.auth_type || "api_key"}
+                              <span className="text-[10px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-1 rounded-md">
+                                {s.auth_type === "platform_secret" ? "Cấu hình hệ thống mặc định" :
+                                 s.auth_type === "api_key" ? "Khóa riêng của sender này" :
+                                 s.auth_type === "oauth" ? "OAuth (User Login)" : 
+                                 (s.auth_type || "api_key")}
                               </span>
                             </td>
                             <td className="px-6 py-4 text-center">
@@ -1209,11 +1213,33 @@ function SenderAccountsPage() {
                               </div>
                             </td>
                             <td className="px-6 py-4 text-center">
-                              <HealthBadge status={s.health_status || "unknown"} />
-                              {s.last_error && (
+                              {s.status === "archived" ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 text-[11px] font-black uppercase tracking-wider">
+                                  <Lock className="w-3.5 h-3.5" /> Sender bị khóa
+                                </span>
+                              ) : (
+                                <HealthBadge status={s.health_status || "unknown"} provider={s.provider} lastError={s.last_error} />
+                              )}
+                              
+                              {s.last_error && s.status !== "archived" && (
                                 <p className="text-[10px] text-rose-500 font-medium mt-1 max-w-[150px] mx-auto truncate" title={s.last_error}>
                                   {s.last_error}
                                 </p>
+                              )}
+                              
+                              {(s.provider === "zalo" || s.provider === "zalo_oa") && s.status !== "archived" && (
+                                <div className="mt-1.5 space-y-0.5">
+                                  {s.auth_type === "platform_secret" ? (
+                                    <p className="text-[9px] text-slate-500 font-bold leading-tight max-w-[150px] mx-auto">⚙️ Cấu hình hệ thống mặc định</p>
+                                  ) : s.auth_type === "oauth" && s.health_status === "healthy" ? (
+                                    <p className="text-[9px] text-emerald-600 font-bold leading-tight max-w-[150px] mx-auto">✅ Đã đồng bộ credential resolver</p>
+                                  ) : s.auth_type === "oauth" && s.health_status !== "healthy" ? (
+                                    <p className="text-[9px] text-rose-500 font-bold leading-tight max-w-[150px] mx-auto">⚠️ Cần kết nối OAuth</p>
+                                  ) : (
+                                    <p className="text-[9px] text-amber-600 font-bold leading-tight max-w-[150px] mx-auto">⚠️ Chưa có token OA</p>
+                                  )}
+                                  <p className="text-[9px] text-slate-500 font-bold leading-tight max-w-[150px] mx-auto">Chưa bật production</p>
+                                </div>
                               )}
                               {s.provider === "resend" && s.auth_type === "api_key" && s.health_status === "healthy" && (
                                 <p className="text-[10px] text-emerald-600 font-bold mt-1 max-w-[150px] mx-auto" title="Available for Campaigns">

@@ -145,17 +145,34 @@ serve(async (req) => {
     }
 
     if (provider === "zalo_oa") {
-      const zaloToken = Deno.env.get("ZALO_OA_ACCESS_TOKEN");
-      const missing_config = [];
-      if (!zaloToken) missing_config.push("ZALO_OA_ACCESS_TOKEN");
+      let missing_config: string[] = [];
+      let token_available = false;
+      let credential_source = "env";
+
+      try {
+        const { getSenderCredential } = await import("../_shared/sender-credentials.ts");
+        const creds = await getSenderCredential(adminClient, "zalo_oa", sender_account_id);
+        
+        token_available = !!creds.access_token;
+        credential_source = creds.credential_source || "env";
+        auth_type = creds.auth_type;
+      } catch (err: any) {
+        if (err.message.includes("MISSING")) {
+          missing_config.push("ZALO_TOKEN");
+        } else {
+          missing_config.push(`ERROR_${err.message}`);
+        }
+      }
 
       return new Response(JSON.stringify({
         success: true,
         provider: "zalo_oa",
-        auth_type: "platform_secret",
-        configured: missing_config.length === 0,
+        auth_type,
+        credential_source,
+        token_available,
+        configured: missing_config.length === 0 && token_available,
         missing_config,
-        can_send_test: missing_config.length === 0,
+        can_send_test: missing_config.length === 0 && token_available,
         message: missing_config.length > 0 ? "Thiếu cấu hình Token Zalo" : "Kết nối Zalo config ok",
         last_checked_at: new Date().toISOString()
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });

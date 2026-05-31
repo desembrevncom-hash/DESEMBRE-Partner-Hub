@@ -7,43 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ── Crypto Helpers ────────────────────────────────────────────────────────────
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
-  }
-  return bytes;
-}
-
-async function decryptToken(encrypted: string, keyHex: string): Promise<string | null> {
-  try {
-    const [ivHex, ciphertextB64] = encrypted.split(":");
-    if (!ivHex || !ciphertextB64) return null;
-    const keyBytes = hexToBytes(keyHex.padEnd(64, "0").slice(0, 64));
-    const key = await crypto.subtle.importKey(
-      "raw", keyBytes, { name: "AES-GCM" }, false, ["decrypt"],
-    );
-    const iv = hexToBytes(ivHex);
-    const ciphertext = Uint8Array.from(atob(ciphertextB64), (c) => c.charCodeAt(0));
-    const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
-    return new TextDecoder().decode(plaintext);
-  } catch {
-    return null;
-  }
-}
-
-async function encryptToken(token: string, keyHex: string): Promise<string> {
-  const keyBytes = hexToBytes(keyHex.padEnd(64, "0").slice(0, 64));
-  const key = await crypto.subtle.importKey(
-    "raw", keyBytes, { name: "AES-GCM" }, false, ["encrypt"],
-  );
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encoded = new TextEncoder().encode(token);
-  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
-  const ivHex = Array.from(iv).map((b) => b.toString(16).padStart(2, "0")).join("");
-  return ivHex + ":" + btoa(String.fromCharCode(...new Uint8Array(ciphertext)));
-}
+import { refreshZaloToken } from "../_shared/zalo-token-refresh.ts";
 
 // ── Main Handler ─────────────────────────────────────────────────────────────
 serve(async (req: Request) => {
@@ -116,215 +80,29 @@ serve(async (req: Request) => {
     });
   }
 
-  // ── Load sender + token record (service_role bypasses RLS on tokens table) ─
-  const { data: sender, error: senderErr } = await adminClient
-    .from("sender_accounts")
-    .select("id, name, provider, channel, external_app_id, is_active")
-    .eq("id", sender_account_id)
-    .maybeSingle();
-
-  if (senderErr || !sender) {
-    return new Response(JSON.stringify({ error: "Sender account not found" }), {
-      status: 404,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  if (sender.provider?.toLowerCase() !== "zalo") {
-    return new Response(JSON.stringify({ error: "Sender is not a Zalo OA account" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  const { data: tokenRow, error: tokenErr } = await adminClient
-    .from("sender_account_tokens")
-    .select("refresh_token_enc, token_expires_at")
-    .eq("sender_account_id", sender_account_id)
-    .maybeSingle();
-
-  if (tokenErr || !tokenRow?.refresh_token_enc) {
-    await adminClient.from("sender_action_logs").insert({
-      action: "zalo_connection_failed",
-      sender_id: sender_account_id,
-      sender_type: "business",
-      performed_by: callerUserId,
-      result: "error",
-      note: "Không tìm thấy refresh_token. Cần kết nối lại Zalo OA.",
-    });
-
-    // Mark sender as error
-    await adminClient.from("sender_accounts").update({
-      health_status: "error",
-      last_error: "Không tìm thấy refresh_token — cần kết nối lại OAuth",
-      last_checked_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }).eq("id", sender_account_id);
-
-    return new Response(
-      JSON.stringify({ success: false, error: "No refresh token found. Please reconnect Zalo OA." }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
-  }
-
-  // ── Giải mã refresh_token ─────────────────────────────────────────────────
-  const tokenEncKey = Deno.env.get("TOKEN_ENCRYPTION_KEY") || supabaseServiceKey;
-  const refreshToken = await decryptToken(tokenRow.refresh_token_enc, tokenEncKey);
-
-  if (!refreshToken) {
-    await adminClient.from("sender_action_logs").insert({
-      action: "zalo_connection_failed",
-      sender_id: sender_account_id,
-      sender_type: "business",
-      performed_by: callerUserId,
-      result: "error",
-      note: "Giải mã refresh_token thất bại — token có thể bị hỏng.",
-    });
-    await adminClient.from("sender_accounts").update({
-      health_status: "error",
-      last_error: "Giải mã refresh_token thất bại",
-      last_checked_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }).eq("id", sender_account_id);
-
-    return new Response(
-      JSON.stringify({ success: false, error: "Failed to decrypt refresh token. Please reconnect." }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
-  }
-
-  // ── Lấy App Secret ────────────────────────────────────────────────────────
-  const appId = sender.external_app_id || "";
-  const zaloAppSecret =
-    (appId ? Deno.env.get(`ZALO_APP_SECRET_${appId}`) : null) ||
-    Deno.env.get("ZALO_APP_SECRET") || "";
-
-  if (!zaloAppSecret) {
-    return new Response(
-      JSON.stringify({ success: false, error: `Thiếu ZALO_APP_SECRET cho App ID: ${appId}` }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
-  }
-
-  // ── Gọi Zalo API refresh token ────────────────────────────────────────────
-  // POST https://oauth.zaloapp.com/v4/oa/access_token
-  // Header: secret_key
-  // Body: app_id, grant_type=refresh_token, refresh_token
-  let newTokenData: {
-    access_token?: string;
-    refresh_token?: string;
-    expires_in?: number;
-    error?: string | number;
-    message?: string;
-  };
-
   try {
-    const refreshParams = new URLSearchParams({
-      app_id: appId,
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-    });
+    await refreshZaloToken(adminClient, sender_account_id);
+    
+    // Get updated token expiry
+    const { data: updatedToken } = await adminClient
+      .from("sender_account_tokens")
+      .select("token_expires_at")
+      .eq("sender_account_id", sender_account_id)
+      .maybeSingle();
 
-    const refreshRes = await fetch("https://oauth.zaloapp.com/v4/oa/access_token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "secret_key": zaloAppSecret,
-      },
-      body: refreshParams.toString(),
-    });
-
-    newTokenData = await refreshRes.json();
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Unknown error";
-    await adminClient.from("sender_action_logs").insert({
-      action: "zalo_connection_failed",
-      sender_id: sender_account_id,
-      sender_type: "business",
-      performed_by: callerUserId,
-      result: "error",
-      note: `Lỗi kết nối Zalo khi refresh token: ${msg}`,
-    });
-    await adminClient.from("sender_accounts").update({
-      health_status: "warning",
-      last_error: `Refresh token network error: ${msg}`,
-      last_checked_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }).eq("id", sender_account_id);
-
+    return new Response(
+      JSON.stringify({
+        success: true,
+        health_status: "healthy",
+        token_expires_at: updatedToken?.token_expires_at,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  } catch (err: any) {
+    const msg = err.message || "Unknown error";
     return new Response(
       JSON.stringify({ success: false, error: msg }),
-      { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
-
-  if (!newTokenData.access_token) {
-    const reason = newTokenData.message || String(newTokenData.error) || "unknown";
-    await adminClient.from("sender_action_logs").insert({
-      action: "zalo_connection_failed",
-      sender_id: sender_account_id,
-      sender_type: "business",
-      performed_by: callerUserId,
-      result: "error",
-      note: `Zalo từ chối refresh token: ${reason}. Cần kết nối lại OAuth.`,
-    });
-    await adminClient.from("sender_accounts").update({
-      health_status: "error",
-      last_error: `Zalo refresh failed: ${reason}`,
-      last_checked_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }).eq("id", sender_account_id);
-
-    return new Response(
-      JSON.stringify({ success: false, error: `Zalo refresh failed: ${reason}` }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
-  }
-
-  // ── Mã hóa và lưu tokens mới ─────────────────────────────────────────────
-  const newAccessEnc = await encryptToken(newTokenData.access_token, tokenEncKey);
-  // Zalo thường trả về refresh_token mới — dùng mới nếu có, giữ cũ nếu không
-  const newRefreshEnc = newTokenData.refresh_token
-    ? await encryptToken(newTokenData.refresh_token, tokenEncKey)
-    : tokenRow.refresh_token_enc;
-
-  const newExpiresAt = new Date(
-    Date.now() + (newTokenData.expires_in ?? 3600) * 1000,
-  ).toISOString();
-
-  await adminClient.from("sender_account_tokens").upsert({
-    sender_account_id,
-    access_token_enc: newAccessEnc,
-    refresh_token_enc: newRefreshEnc,
-    token_expires_at: newExpiresAt,
-    updated_at: new Date().toISOString(),
-  }, { onConflict: "sender_account_id" });
-
-  // ── Cập nhật health_status sender ────────────────────────────────────────
-  await adminClient.from("sender_accounts").update({
-    health_status: "healthy",
-    last_error: null,
-    last_checked_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }).eq("id", sender_account_id);
-
-  // ── Audit log: zalo_token_refreshed ──────────────────────────────────────
-  await adminClient.from("sender_action_logs").insert({
-    action: "zalo_token_refreshed",
-    sender_id: sender_account_id,
-    sender_type: "business",
-    performed_by: callerUserId,
-    result: "healthy",
-    note: `Token làm mới thành công cho sender: ${sender.name}. Hết hạn: ${newExpiresAt}`,
-  });
-
-  return new Response(
-    JSON.stringify({
-      success: true,
-      health_status: "healthy",
-      token_expires_at: newExpiresAt,
-      // Không trả về access_token hay refresh_token — chỉ metadata
-    }),
-    { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-  );
 });

@@ -2085,6 +2085,38 @@ function MarketingCampaignsPage() {
           <div className="grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-800 max-h-[75vh] overflow-hidden">
             {/* CỘT TRÁI: ĐIỀU KHIỂN & TIẾN ĐỘ & CONSOLE */}
             <div className="md:col-span-7 p-6 overflow-y-auto space-y-5 flex flex-col h-full">
+              
+              {/* Marketing Checklist */}
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <span className="text-[10px] font-black uppercase text-slate-400 mb-3 block tracking-wider flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-purple-500" />
+                  Marketing Checklist
+                </span>
+                <div className="grid grid-cols-2 gap-3 text-[11px] font-medium text-slate-300">
+                  <div className="flex items-center gap-2">
+                    {selectedCampaign?.sender_account_id ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <div className="w-4 h-4 rounded-full border-2 border-slate-700" />}
+                    <span className={selectedCampaign?.sender_account_id ? "text-emerald-400" : ""}>Đã chọn sender</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {selectedCampaign?.sender_accounts?.health_status === "healthy" ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <div className="w-4 h-4 rounded-full border-2 border-slate-700" />}
+                    <span className={selectedCampaign?.sender_accounts?.health_status === "healthy" ? "text-emerald-400" : ""}>Sender sẵn sàng</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {selectedCampaign?.approval_status === "approved" ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <div className="w-4 h-4 rounded-full border-2 border-slate-700" />}
+                    <span className={selectedCampaign?.approval_status === "approved" ? "text-emerald-400" : ""}>Campaign đã duyệt</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {readinessData?.approved ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <div className="w-4 h-4 rounded-full border-2 border-slate-700" />}
+                    <span className={readinessData?.approved ? "text-emerald-400" : ""}>Readiness pass</span>
+                  </div>
+                </div>
+                {!selectedCampaign?.sender_account_id && (
+                  <div className="mt-3 p-2 bg-amber-500/10 border border-amber-500/20 rounded flex gap-2">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                    <span className="text-[10px] text-amber-400">Đang dùng cấu hình hệ thống mặc định vì campaign chưa chọn sender.</span>
+                  </div>
+                )}
+              </div>
               {/* Thống kê tiến độ */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-xs">
@@ -2290,139 +2322,121 @@ function MarketingCampaignsPage() {
                 </div>
               )}
 
-              {/* Nút Điều khiển / Hành động */}
-              <div className="pt-2 border-t border-slate-800/60 flex flex-wrap gap-2 justify-end">
-                {/* Hành động 1: Request Review (Chỉ Admin/SubAdmin hoặc người tạo có quyền) */}
-                {(!selectedCampaign?.approval_status || selectedCampaign?.approval_status === "draft") && canManageCampaign(selectedCampaign) && (
-                  <Button
-                    onClick={() => handleRequestReview(selectedCampaign?.id || "")}
-                    className="h-9 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs"
-                  >
-                    🚀 Gửi Yêu cầu Phê duyệt
-                  </Button>
-                )}
+              {/* TEST CENTER (Gom nhóm các hành động) */}
+              <div className="pt-4 border-t border-slate-800/60 space-y-4">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">Test Center</span>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Nhóm Chuẩn bị */}
+                  <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
+                    <span className="text-[10px] font-bold text-slate-400 block">Nhóm Chuẩn bị</span>
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => selectedCampaign && loadSnapshots(selectedCampaign.id)}
+                        className="h-8 bg-slate-950 border-slate-800 text-[10px] text-slate-300 hover:text-white"
+                      >
+                        <RefreshCw className="w-3 h-3 mr-1" /> Check Sender
+                      </Button>
+                      
+                      {selectedCampaign?.approval_status === "approved" ? (
+                        <Button
+                          onClick={handleRunReadinessCheck}
+                          disabled={isReadinessLoading || !selectedCampaign?.sender_account_id}
+                          className="h-8 bg-orange-600 hover:bg-orange-500 text-white font-bold text-[10px]"
+                        >
+                          {isReadinessLoading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Activity className="w-3.5 h-3.5 mr-1" />} 
+                          Run Readiness Check
+                        </Button>
+                      ) : (
+                        <Button disabled className="h-8 bg-slate-800 text-slate-500 font-bold text-[10px] cursor-not-allowed">
+                          Run Readiness Check (Requires Approval)
+                        </Button>
+                      )}
+                    </div>
+                  </div>
 
-                {/* Hành động 2.6: Production Readiness Check (Khi đã Approved) */}
-                {selectedCampaign?.approval_status === "approved" ? (
-                  <Button
-                    onClick={handleRunReadinessCheck}
-                    disabled={isReadinessLoading}
-                    className="h-9 px-4 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs"
-                  >
-                    {isReadinessLoading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Activity className="w-3.5 h-3.5 mr-1" />} 
-                    Run Production Readiness Check
-                  </Button>
-                ) : (
-                  <Button
-                    disabled
-                    className="h-9 px-4 rounded-xl bg-slate-800 text-slate-500 font-bold text-xs cursor-not-allowed"
-                    title="Campaign chưa được duyệt"
-                  >
-                    <Activity className="w-3.5 h-3.5 mr-1" /> Run Production Readiness Check
-                  </Button>
-                )}
+                  {/* Nhóm Gửi thử */}
+                  <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
+                    <span className="text-[10px] font-bold text-slate-400 block">Nhóm Gửi thử</span>
+                    {(!selectedCampaign?.sender_account_id) && (
+                      <div className="bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg mb-2">
+                        <p className="text-[10px] text-amber-500 font-bold">⚠️ Vui lòng chọn Sender Account bên trái để có thể gửi thử.</p>
+                      </div>
+                    )}
+                    <div className="flex flex-col gap-2">
+                      {isAdminOrSubAdmin && (
+                        <Button
+                          onClick={() => {
+                            if (!selectedCampaign?.sender_account_id) {
+                              toast.error("Vui lòng chọn Sender Account trước khi gửi thử.");
+                              return;
+                            }
+                            if (selectedCampaign?.channel === "zalo" || selectedCampaign?.channel === "zalo_oa") {
+                              setTestZaloDialogOpen(true);
+                            } else {
+                              setTestDialogOpen(true);
+                            }
+                          }}
+                          disabled={!selectedCampaign?.sender_account_id || selectedCampaign?.sender_accounts?.status === 'archived' || selectedCampaign?.sender_accounts?.health_status !== 'healthy'}
+                          className="h-8 bg-blue-600 hover:bg-blue-500 text-white font-bold text-[10px] disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Mail className="w-3.5 h-3.5 mr-1" /> Send Test Email/Zalo
+                        </Button>
+                      )}
+                      
+                      <Button
+                        onClick={() => {
+                          if (!selectedCampaign?.sender_account_id) {
+                            toast.error("Vui lòng chọn Sender Account trước khi chạy Mock.");
+                            return;
+                          }
+                          // Mock logic here
+                        }}
+                        disabled={!readinessData?.approved || !selectedCampaign?.sender_account_id || selectedCampaign?.sender_accounts?.status === 'archived' || selectedCampaign?.sender_accounts?.health_status !== 'healthy'}
+                        className="h-8 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Play className="w-3.5 h-3.5 mr-1" /> Run Mock Send
+                      </Button>
+                    </div>
+                  </div>
+                </div>
 
-                {/* Hành động 2: Phê duyệt / Từ chối (Cho Admin) */}
-                {selectedCampaign?.approval_status === "pending_approval" && isAdminOrSubAdmin && (
-                  <>
-                    <Button
-                      onClick={() => handleApprove(selectedCampaign?.id || "")}
-                      className="h-9 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs"
-                    >
-                      ✅ Phê duyệt
-                    </Button>
-                    <Button
-                      onClick={() => handleReject(selectedCampaign?.id || "")}
-                      className="h-9 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs"
-                    >
-                      ❌ Từ chối
-                    </Button>
-                  </>
-                )}
-
-                {/* Hành động 2.5: Gửi Test Sandbox (Cho Admin) */}
-                {isAdminOrSubAdmin && (
-                  <>
-                    <Button
-                      onClick={() => {
-                        if (selectedCampaign?.channel !== "email" && selectedCampaign?.channel !== "email_campaign") {
-                          toast.error("Vui lòng chọn Chiến dịch Email để test.");
-                          return;
-                        }
-                        setTestDialogOpen(true);
-                      }}
-                      className="h-9 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs"
-                    >
-                      <Mail className="w-3.5 h-3.5 mr-1" /> Send Test Email
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        if (selectedCampaign?.channel !== "zalo" && selectedCampaign?.channel !== "zalo_oa") {
-                          toast.error("Vui lòng chọn Chiến dịch Zalo để test.");
-                          return;
-                        }
-                        setTestZaloDialogOpen(true);
-                      }}
-                      className="h-9 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs"
-                    >
-                      <Send className="w-3.5 h-3.5 mr-1" /> Send Test Zalo
-                    </Button>
-                  </>
-                )}
-
-                {/* Hành động 3: Bắt đầu Gửi / Tiếp tục gửi & Gửi thủ công (Cho Admin hoặc người tạo) */}
-                {["approved", "paused", "draft"].includes(selectedCampaign?.status || "") && canManageCampaign(selectedCampaign) && (
-                  <>
+                {/* Nhóm Pilot Nội bộ & Logs */}
+                <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-2">
                     <Button
                       disabled
-                      className="h-9 px-5 rounded-xl bg-slate-800 text-slate-500 font-black text-xs cursor-not-allowed relative group"
+                      className="h-8 px-4 bg-rose-600 text-white opacity-50 font-bold text-[10px] cursor-not-allowed"
+                      title="Tính năng Pilot cần whitelist cứng"
                     >
-                      <Lock className="w-3.5 h-3.5 mr-1 text-rose-500" /> Send to Audience (Locked)
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 p-2 bg-slate-800 text-slate-300 text-[10px] rounded shadow-xl border border-slate-700 z-50">
-                        Production sending chưa được bật. Phase hiện tại chỉ readiness/dry-run.
-                      </div>
+                      <Lock className="w-3 h-3 mr-1" /> Run Internal Pilot
                     </Button>
+                    <Button
+                      asChild
+                      variant="outline"
+                      className="h-8 bg-slate-950 border-slate-800 text-[10px] text-slate-300 hover:text-white"
+                    >
+                      <Link to="/marketing/logs" search={{ campaign_id: selectedCampaign?.id }}>
+                        <FileText className="w-3 h-3 mr-1" /> View Delivery Logs
+                      </Link>
+                    </Button>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    {/* Hành động: Phê duyệt / Request */}
+                    {(!selectedCampaign?.approval_status || selectedCampaign?.approval_status === "draft") && canManageCampaign(selectedCampaign) && (
+                      <Button onClick={() => handleRequestReview(selectedCampaign?.id || "")} className="h-8 px-3 bg-purple-600 hover:bg-purple-500 text-[10px]">
+                        Gửi Yêu cầu Duyệt
+                      </Button>
+                    )}
+                    {selectedCampaign?.approval_status === "pending_approval" && isAdminOrSubAdmin && (
+                      <Button onClick={() => handleApprove(selectedCampaign?.id || "")} className="h-8 px-3 bg-emerald-600 hover:bg-emerald-500 text-[10px]">Duyệt</Button>
+                    )}
                     
-                    <Button
-                      disabled
-                      className="h-9 px-4 rounded-xl bg-slate-800 text-slate-500 font-bold text-xs cursor-not-allowed relative group"
-                    >
-                      <Lock className="w-3.5 h-3.5 mr-1 text-rose-500" /> Run Production (Locked)
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 p-2 bg-slate-800 text-slate-300 text-[10px] rounded shadow-xl border border-slate-700 z-50">
-                        Production sending chưa được bật. Phase hiện tại chỉ readiness/dry-run.
-                      </div>
-                    </Button>
-                  </>
-                )}
-
-                {/* Hành động 4: Tạm dừng gửi */}
-                {selectedCampaign?.status === "sending" && canManageCampaign(selectedCampaign) && (
-                  <Button
-                    onClick={() => handlePauseCampaign(selectedCampaign.id)}
-                    className="h-9 px-5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black text-xs"
-                  >
-                    <Pause className="w-3.5 h-3.5 mr-1" /> Tạm dừng gửi
-                  </Button>
-                )}
-
-                {/* Hành động 5: Hủy chiến dịch (Vĩnh viễn) */}
-                {!["completed", "cancelled", "failed", "draft"].includes(selectedCampaign?.status || "") && canManageCampaign(selectedCampaign) && (
-                  <Button
-                    variant="outline"
-                    onClick={() => handleCancelCampaign(selectedCampaign.id)}
-                    className="h-9 px-4 rounded-xl bg-transparent border-slate-800 text-rose-500 hover:bg-rose-950/20 hover:text-rose-400 text-xs"
-                  >
-                    Hủy bỏ vĩnh viễn
-                  </Button>
-                )}
-
-                <Button
-                  variant="outline"
-                  onClick={() => setDetailDialogOpen(false)}
-                  className="h-9 px-4 rounded-xl bg-slate-900 border-slate-800 text-slate-400 hover:text-white text-xs"
-                >
-                  Đóng
-                </Button>
+                    <Button variant="outline" onClick={() => setDetailDialogOpen(false)} className="h-8 px-3 bg-transparent border-slate-700 text-[10px] text-slate-400">Đóng</Button>
+                  </div>
+                </div>
               </div>
             </div>
 

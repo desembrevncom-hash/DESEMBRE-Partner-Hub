@@ -197,10 +197,11 @@ function NavButton({ to, icon: Icon, label, highlight }: any) {
   return (
     <Link 
       to={to} 
-      className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all
-        ${highlight ? 'text-indigo-600 hover:bg-indigo-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}
+      className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+        highlight ? 'text-indigo-600 hover:bg-indigo-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+      }`}
       activeProps={{
-        className: highlight ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200" : "bg-slate-900 text-white shadow-lg shadow-slate-200"
+        className: highlight ? "bg-indigo-600 !text-white shadow-lg shadow-indigo-200" : "bg-slate-900 !text-white shadow-lg shadow-slate-200"
       }}
     >
       <Icon className="w-4 h-4" />
