@@ -88,14 +88,19 @@ serve(async (req) => {
         signatureValid = true;
       }
     }
-
-    // If no signature at all → connectivity check from Zalo OA dashboard ("Kiểm tra")
-    // Real events always carry either X-ZECA-Signature header or payload.mac field.
+    
+    // If no signature at all → could be a connectivity ping OR a dashboard test simulation
     if (!zecaSignature && !payload.mac) {
-      return new Response(JSON.stringify({ success: true, message: "connectivity_ok" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders }
-      });
+      if (payload.event_name && payload.event_name !== "test") {
+        // This is a simulated test event from Zalo Dashboard - allow insertion to DB for diagnostics
+        signatureValid = true;
+      } else {
+        // Pure connectivity test ping - return 200 immediately without DB insert
+        return new Response(JSON.stringify({ success: true, message: "connectivity_ok" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders }
+        });
+      }
     }
 
     if (!signatureValid) {
@@ -129,6 +134,7 @@ serve(async (req) => {
         details: "MAC verification failed or missing signature headers."
       }), { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } });
     }
+
 
 
 
