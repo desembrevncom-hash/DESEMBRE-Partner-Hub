@@ -20,6 +20,8 @@ serve(async (req) => {
 
   try {
     const zaloAppSecret = Deno.env.get("ZALO_APP_SECRET");
+    const zaloOaSecret = Deno.env.get("ZALO_OA_SECRET_KEY") || zaloAppSecret;
+
     if (!zaloAppSecret) {
       return new Response(JSON.stringify({
         success: false,
@@ -50,7 +52,6 @@ serve(async (req) => {
 
     if (zecaSignature && zecaTimestamp) {
       // ZCA Webhook MAC = sha256(appId + jsonBody + timestamp + secretKey)
-      // Usually jsonBody is payloadString
       const appId = payload.app_id || payload.appId || "";
       const expectedMac = await sha256(appId + payloadString + zecaTimestamp + zaloAppSecret);
       if (expectedMac === zecaSignature) {
@@ -58,27 +59,16 @@ serve(async (req) => {
       }
     } else if (payload.mac && payload.app_id && payload.timestamp) {
       // Zalo OA Webhook: mac = sha256(app_id + data + timestamp + secret_key)
-      // Note: "data" is the json string of the `data` field if exists, or the whole body minus mac?
-      // For safety, if we cannot accurately compute Zalo OA mac due to stringification differences,
-      // we still check it. Typically it's sha256(app_id + payloadString(without mac/timestamp) + timestamp + secret)
-      // As a fallback for this demo, if they provided mac, we assume it's Zalo OA. We will mark as valid
-      // if we can compute it.
-      
-      // We will construct the data string based on Zalo docs.
       const appIdStr = String(payload.app_id);
       const timestampStr = String(payload.timestamp);
-      // Let's assume data is the payload.data JSON string if it exists
       const dataStr = payload.data ? (typeof payload.data === 'string' ? payload.data : JSON.stringify(payload.data)) : "";
-      const computedMac = await sha256(appIdStr + dataStr + timestampStr + zaloAppSecret);
+      const computedMac = await sha256(appIdStr + dataStr + timestampStr + zaloOaSecret);
       
       if (computedMac === payload.mac) {
         signatureValid = true;
-      } else {
-        // Fallback for OA event where data is not nested
-        // This is a known issue with Zalo's documentation vs actual implementation.
-        // If it fails, we will log it as invalid but in a real scenario we'd need exact match.
       }
     }
+
 
     // If no signature at all → connectivity check from Zalo OA dashboard ("Kiểm tra")
     // Real events always carry either X-ZECA-Signature header or payload.mac field.
