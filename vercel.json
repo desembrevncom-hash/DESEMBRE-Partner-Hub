@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/zalo-webhook",
+      "destination": "https://xhfqjupiidexvlltstal.supabase.co/functions/v1/zalo-webhook"
+    },
+    {
       "source": "/((?!assets/.*).*)",
       "destination": "/index.html"
     }

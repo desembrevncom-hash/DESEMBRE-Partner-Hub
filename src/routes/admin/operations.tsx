@@ -19,11 +19,13 @@ import {
   ExternalLink,
   Loader2,
   Clock,
+  Copy,
 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/operations")({
   component: AdminOperations,
@@ -61,28 +63,35 @@ interface OpsData {
 
 /* ─── Helper components ──────────────────────────────────────────────────── */
 
-function StatusBadge({ value, trueLabel = "Enabled", falseLabel = "Disabled" }: {
+function StatusBadge({ value, trueLabel = "Đang bật", falseLabel = "Đang tắt", dangerOnTrue = false, dangerOnFalse = false, neutralOnFalse = false }: {
   value: boolean | string | null | undefined;
   trueLabel?: string;
   falseLabel?: string;
+  dangerOnTrue?: boolean;
+  dangerOnFalse?: boolean;
+  neutralOnFalse?: boolean;
 }) {
   if (value === null || value === undefined) {
     return (
       <Badge variant="outline" className="bg-slate-50 border-slate-300 text-slate-500 font-semibold gap-1 text-xs">
-        <HelpCircle className="w-3 h-3" /> Unknown
+        <HelpCircle className="w-3 h-3" /> Chưa xác minh
       </Badge>
     );
   }
   if (typeof value === "boolean") {
-    return value ? (
-      <Badge variant="outline" className="bg-emerald-50 border-emerald-300 text-emerald-700 font-bold gap-1 text-xs">
-        <CheckCircle2 className="w-3 h-3" /> {trueLabel}
-      </Badge>
-    ) : (
-      <Badge variant="outline" className="bg-rose-50 border-rose-300 text-rose-700 font-bold gap-1 text-xs">
-        <XCircle className="w-3 h-3" /> {falseLabel}
-      </Badge>
-    );
+    if (value) {
+      return (
+        <Badge variant="outline" className={`${dangerOnTrue ? "bg-rose-50 border-rose-300 text-rose-700" : "bg-emerald-50 border-emerald-300 text-emerald-700"} font-bold gap-1 text-xs`}>
+          {dangerOnTrue ? <AlertCircle className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />} {trueLabel}
+        </Badge>
+      );
+    } else {
+      return (
+        <Badge variant="outline" className={`${neutralOnFalse ? "bg-slate-50 border-slate-300 text-slate-500" : dangerOnFalse ? "bg-rose-50 border-rose-300 text-rose-700" : "bg-emerald-50 border-emerald-300 text-emerald-700"} font-bold gap-1 text-xs`}>
+          {neutralOnFalse ? <XCircle className="w-3 h-3" /> : (dangerOnFalse ? <AlertCircle className="w-3 h-3" /> : <Lock className="w-3 h-3" />)} {falseLabel}
+        </Badge>
+      );
+    }
   }
   return (
     <Badge variant="outline" className="bg-slate-50 border-slate-200 text-slate-700 font-semibold text-xs">
@@ -149,6 +158,31 @@ function AdminOperations() {
     if (isAdmin || isSubAdmin) fetchOpsStatus();
   }, [isAdmin, isSubAdmin, fetchOpsStatus]);
 
+  const handleCopyStatus = () => {
+    if (!opsData) return;
+    const { status: s, counts: c, timestamps: t } = opsData;
+    const report = `**Operations Control Diagnostic Report**
+_Generated at: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}_
+
+**1. Safety Status**
+- Marketing Production Sending: ${s.marketing_production_sending_enabled ? "ENABLED" : "LOCKED"}
+- Resend Webhook Worker: ${s.resend_worker_enabled ? "ENABLED" : "DISABLED"}
+- Cron Scheduler: ${s.cron_scheduler_status}
+- Zalo Production: ${s.zalo_production_status}
+- Provider Mode: ${s.marketing_provider_mode}
+
+**2. Workload & Health**
+- Pending Webhook Events: ${c.pending_resend_events}
+- Failed Webhook Events: ${c.failed_webhook_events}
+- Active Suppressions: ${c.active_email_suppressions}
+- Healthy Senders: ${c.healthy_sender_count}
+- Error Senders: ${c.error_sender_count}
+- Latest Webhook Received: ${t.latest_webhook_received_at || "N/A"}`;
+
+    navigator.clipboard.writeText(report);
+    toast.success("Đã copy báo cáo trạng thái", { description: "Bạn có thể dán vào ticket hoặc chat." });
+  };
+
   /* ─── Auth guard ────────────────────────────────────────────────────── */
 
   if (authLoading) return (
@@ -205,6 +239,16 @@ function AdminOperations() {
               <Button
                 variant="outline"
                 size="sm"
+                onClick={handleCopyStatus}
+                disabled={opsLoading || !opsData}
+                className="h-9 rounded-lg gap-1.5 text-slate-600"
+              >
+                <Copy className="w-4 h-4" />
+                Copy Ops Status
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={fetchOpsStatus}
                 disabled={opsLoading}
                 className="h-9 rounded-lg gap-1.5 text-slate-600"
@@ -248,77 +292,91 @@ function AdminOperations() {
           <CardContent className="pt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {/* Marketing Production Sending */}
-              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">Marketing Production Sending</div>
-                {opsLoading ? (
-                  <div className="h-6 bg-slate-200 rounded animate-pulse w-24" />
-                ) : s ? (
-                  <StatusBadge value={s.marketing_production_sending_enabled} trueLabel="Enabled" falseLabel="Locked" />
-                ) : (
-                  <StatusBadge value={null} />
-                )}
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-between">
+                <div>
+                  <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">Marketing Production Sending</div>
+                  {opsLoading ? (
+                    <div className="h-6 bg-slate-200 rounded animate-pulse w-24" />
+                  ) : s ? (
+                    <StatusBadge value={s.marketing_production_sending_enabled} trueLabel="Đang bật (Gửi thật)" falseLabel="Đang khóa an toàn" dangerOnTrue />
+                  ) : (
+                    <StatusBadge value={null} />
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">Không liên quan tới Send Test hoặc Webhook Processing.</p>
               </div>
 
               {/* Resend Worker */}
-              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">Resend Webhook Worker</div>
-                {opsLoading ? (
-                  <div className="h-6 bg-slate-200 rounded animate-pulse w-24" />
-                ) : s ? (
-                  <StatusBadge value={s.resend_worker_enabled} trueLabel="Enabled" falseLabel="Disabled (Kill Switch)" />
-                ) : (
-                  <StatusBadge value={null} />
-                )}
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-between">
+                <div>
+                  <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">Resend Webhook Worker</div>
+                  {opsLoading ? (
+                    <div className="h-6 bg-slate-200 rounded animate-pulse w-24" />
+                  ) : s ? (
+                    <StatusBadge value={s.resend_worker_enabled} trueLabel="Đang bật" falseLabel="Đang tắt (Kill Switch)" neutralOnFalse />
+                  ) : (
+                    <StatusBadge value={null} />
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">Chỉ xử lý webhook đã nhận, không gửi email.</p>
               </div>
 
               {/* Provider Mode */}
-              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">Marketing Provider Mode</div>
-                {opsLoading ? (
-                  <div className="h-6 bg-slate-200 rounded animate-pulse w-24" />
-                ) : s ? (
-                  <StatusBadge value={s.marketing_provider_mode} />
-                ) : (
-                  <StatusBadge value={null} />
-                )}
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-between">
+                <div>
+                  <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">Marketing Provider Mode</div>
+                  {opsLoading ? (
+                    <div className="h-6 bg-slate-200 rounded animate-pulse w-24" />
+                  ) : s ? (
+                    <StatusBadge value={s.marketing_provider_mode} />
+                  ) : (
+                    <StatusBadge value={null} />
+                  )}
+                </div>
               </div>
 
               {/* Zalo Production */}
-              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">Zalo Production</div>
-                {opsLoading ? (
-                  <div className="h-6 bg-slate-200 rounded animate-pulse w-24" />
-                ) : s ? (
-                  <Badge variant="outline" className="bg-rose-50 border-rose-300 text-rose-700 font-bold gap-1 text-xs">
-                    <Lock className="w-3 h-3" /> {s.zalo_production_status}
-                  </Badge>
-                ) : (
-                  <StatusBadge value={null} />
-                )}
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-between">
+                <div>
+                  <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">Zalo Production</div>
+                  {opsLoading ? (
+                    <div className="h-6 bg-slate-200 rounded animate-pulse w-24" />
+                  ) : s ? (
+                    <Badge variant="outline" className="bg-rose-50 border-rose-300 text-rose-700 font-bold gap-1 text-xs">
+                      <Lock className="w-3 h-3" /> {s.zalo_production_status === "locked" ? "Đang khóa an toàn" : s.zalo_production_status}
+                    </Badge>
+                  ) : (
+                    <StatusBadge value={null} />
+                  )}
+                </div>
               </div>
 
               {/* Cron Scheduler */}
-              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">Cron Scheduler</div>
-                {opsLoading ? (
-                  <div className="h-6 bg-slate-200 rounded animate-pulse w-24" />
-                ) : s ? (
-                  <Badge variant="outline" className="bg-sky-50 border-sky-300 text-sky-700 font-semibold gap-1 text-xs">
-                    <CheckCircle2 className="w-3 h-3" /> {s.cron_scheduler_status}
-                  </Badge>
-                ) : (
-                  <StatusBadge value={null} />
-                )}
-                <p className="text-[10px] text-slate-400 mt-1">GitHub Actions workflow configured</p>
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-between">
+                <div>
+                  <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">Cron Scheduler</div>
+                  {opsLoading ? (
+                    <div className="h-6 bg-slate-200 rounded animate-pulse w-24" />
+                  ) : s ? (
+                    <Badge variant="outline" className="bg-slate-50 border-slate-300 text-slate-600 font-semibold gap-1 text-xs">
+                      <CheckCircle2 className="w-3 h-3 text-slate-400" /> Đã kiểm chứng thủ công
+                    </Badge>
+                  ) : (
+                    <StatusBadge value={null} />
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">GitHub Actions có thể gọi định kỳ; Supabase kill switch quyết định có xử lý hay không.</p>
               </div>
 
               {/* Automation/AI */}
-              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">Automation / AI</div>
-                <Badge variant="outline" className="bg-slate-50 border-slate-300 text-slate-500 font-semibold gap-1 text-xs">
-                  <HelpCircle className="w-3 h-3" /> Unknown — Needs verification
-                </Badge>
-                <p className="text-[10px] text-slate-400 mt-1">Xem Automation Governance</p>
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-between">
+                <div>
+                  <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">Automation / AI</div>
+                  <Badge variant="outline" className="bg-slate-50 border-slate-300 text-slate-500 font-semibold gap-1 text-xs">
+                    <HelpCircle className="w-3 h-3" /> Chưa xác minh
+                  </Badge>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">Xem Automation Governance.</p>
               </div>
             </div>
           </CardContent>
@@ -446,7 +504,7 @@ function AdminOperations() {
 
 function StatCard({ label, value, loading, color = "slate" }: {
   label: string;
-  value?: number;
+  value?: number | null;
   loading?: boolean;
   color?: "slate" | "emerald" | "amber" | "rose";
 }) {
@@ -457,12 +515,14 @@ function StatCard({ label, value, loading, color = "slate" }: {
     rose: "text-rose-600",
   };
   return (
-    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-center">
       <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1">{label}</div>
       {loading ? (
         <div className="h-7 bg-slate-200 rounded animate-pulse w-12 mt-1" />
+      ) : value === 0 ? (
+        <div className="text-sm font-semibold text-slate-400 mt-1">Chưa có dữ liệu</div>
       ) : (
-        <div className={`text-2xl font-black ${textColors[color]}`}>{value ?? 0}</div>
+        <div className={`text-2xl font-black ${textColors[color]}`}>{value ?? "—"}</div>
       )}
     </div>
   );
