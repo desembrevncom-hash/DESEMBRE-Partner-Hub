@@ -89,14 +89,38 @@ serve(async (req) => {
       });
     }
 
+    // If signature is invalid → store for diagnostics (signature_valid=false) and return 200.
+    // Worker will only process events where signature_valid=true.
+    // This also allows Zalo OA "Kiểm tra" connectivity check to pass.
     if (!signatureValid) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: "invalid_signature",
-        step: "signature",
-        details: "MAC verification failed or missing signature headers."
-      }), { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } });
+      const supabaseUrl2 = Deno.env.get("SUPABASE_URL");
+      const supabaseServiceKey2 = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (supabaseUrl2 && supabaseServiceKey2) {
+        const supabaseAdmin2 = createClient(supabaseUrl2, supabaseServiceKey2);
+        const ev2 = payload.event_name || req.headers.get("X-ZECA-Event") || "unknown";
+        const mid2 = payload.message?.msg_id || payload.msg_id || payload.message_id || "";
+        const ts2 = payload.timestamp || zecaTimestamp || Date.now().toString();
+        const dedupe2 = mid2 ? `${ev2}_${mid2}_${ts2}` : await sha256(payloadString);
+        await supabaseAdmin2.from("webhook_events").insert({
+          provider: "zalo",
+          provider_event_id: mid2,
+          dedupe_key: dedupe2,
+          event_type: ev2,
+          channel: "zalo",
+          related_message_id: mid2,
+          payload,
+          headers_redacted: {},
+          signature_valid: false,
+          status: "signature_invalid",
+          received_at: new Date().toISOString()
+        }).maybeSingle();
+      }
+      return new Response(JSON.stringify({ success: true, message: "received_unverified" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders }
+      });
     }
+
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
