@@ -80,6 +80,15 @@ serve(async (req) => {
       }
     }
 
+    // If no signature at all → connectivity check from Zalo OA dashboard ("Kiểm tra")
+    // Real events always carry either X-ZECA-Signature header or payload.mac field.
+    if (!zecaSignature && !payload.mac) {
+      return new Response(JSON.stringify({ success: true, message: "connectivity_ok" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders }
+      });
+    }
+
     if (!signatureValid) {
       return new Response(JSON.stringify({
         success: false,
