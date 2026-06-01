@@ -19,18 +19,6 @@ serve(async (req) => {
   }
 
   try {
-    const zaloAppSecret = Deno.env.get("ZALO_APP_SECRET");
-    const zaloOaSecret = Deno.env.get("ZALO_OA_SECRET_KEY") || zaloAppSecret;
-
-    if (!zaloAppSecret) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: "missing_config",
-        step: "env",
-        details: "ZALO_APP_SECRET is not configured."
-      }), { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } });
-    }
-
     const payloadString = await req.text();
     let payload: any;
     try {
@@ -44,6 +32,38 @@ serve(async (req) => {
       }), { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } });
     }
 
+    const event_type = payload.event_name || req.headers.get("X-ZECA-Event") || "unknown";
+    
+    let provider = "zalo";
+    let channel = "zalo";
+    let secret: string | undefined = undefined;
+
+    if (event_type.startsWith("zns_")) {
+      provider = "zalo_zbs";
+      channel = "zalo_zbs";
+      secret = Deno.env.get("ZALO_APP_SECRET");
+      if (!secret) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "missing_config",
+          step: "env",
+          details: "ZALO_APP_SECRET is not configured for ZNS."
+        }), { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } });
+      }
+    } else {
+      provider = "zalo";
+      channel = "zalo";
+      secret = Deno.env.get("ZALO_OA_SECRET_KEY") || Deno.env.get("ZALO_APP_SECRET");
+      if (!secret) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "missing_config",
+          step: "env",
+          details: "Neither ZALO_OA_SECRET_KEY nor ZALO_APP_SECRET is configured for OA."
+        }), { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } });
+      }
+    }
+
     // Attempt to extract signature and verify
     // 1. Check for Zalo Cloud API signature (X-ZECA-Signature)
     const zecaSignature = req.headers.get("X-ZECA-Signature");
@@ -53,7 +73,7 @@ serve(async (req) => {
     if (zecaSignature && zecaTimestamp) {
       // ZCA Webhook MAC = sha256(appId + jsonBody + timestamp + secretKey)
       const appId = payload.app_id || payload.appId || "";
-      const expectedMac = await sha256(appId + payloadString + zecaTimestamp + zaloAppSecret);
+      const expectedMac = await sha256(appId + payloadString + zecaTimestamp + secret);
       if (expectedMac === zecaSignature) {
         signatureValid = true;
       }
@@ -62,13 +82,12 @@ serve(async (req) => {
       const appIdStr = String(payload.app_id);
       const timestampStr = String(payload.timestamp);
       const dataStr = payload.data ? (typeof payload.data === 'string' ? payload.data : JSON.stringify(payload.data)) : "";
-      const computedMac = await sha256(appIdStr + dataStr + timestampStr + zaloOaSecret);
+      const computedMac = await sha256(appIdStr + dataStr + timestampStr + secret);
       
       if (computedMac === payload.mac) {
         signatureValid = true;
       }
     }
-
 
     // If no signature at all → connectivity check from Zalo OA dashboard ("Kiểm tra")
     // Real events always carry either X-ZECA-Signature header or payload.mac field.
@@ -79,37 +98,15 @@ serve(async (req) => {
       });
     }
 
-    // If signature is invalid → store for diagnostics (signature_valid=false) and return 200.
-    // Worker will only process events where signature_valid=true.
-    // This also allows Zalo OA "Kiểm tra" connectivity check to pass.
     if (!signatureValid) {
-      const supabaseUrl2 = Deno.env.get("SUPABASE_URL");
-      const supabaseServiceKey2 = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-      if (supabaseUrl2 && supabaseServiceKey2) {
-        const supabaseAdmin2 = createClient(supabaseUrl2, supabaseServiceKey2);
-        const ev2 = payload.event_name || req.headers.get("X-ZECA-Event") || "unknown";
-        const mid2 = payload.message?.msg_id || payload.msg_id || payload.message_id || "";
-        const ts2 = payload.timestamp || zecaTimestamp || Date.now().toString();
-        const dedupe2 = mid2 ? `${ev2}_${mid2}_${ts2}` : await sha256(payloadString);
-        await supabaseAdmin2.from("webhook_events").insert({
-          provider: "zalo",
-          provider_event_id: mid2,
-          dedupe_key: dedupe2,
-          event_type: ev2,
-          channel: "zalo",
-          related_message_id: mid2,
-          payload,
-          headers_redacted: {},
-          signature_valid: false,
-          status: "signature_invalid",
-          received_at: new Date().toISOString()
-        }).maybeSingle();
-      }
-      return new Response(JSON.stringify({ success: true, message: "received_unverified" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders }
-      });
+      return new Response(JSON.stringify({
+        success: false,
+        error: "invalid_signature",
+        step: "signature",
+        details: "MAC verification failed or missing signature headers."
+      }), { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } });
     }
+
 
 
     // Initialize Supabase client
@@ -126,7 +123,6 @@ serve(async (req) => {
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    const event_type = payload.event_name || req.headers.get("X-ZECA-Event") || "unknown";
     const message_id = payload.message?.msg_id || payload.msg_id || payload.message_id || "";
     const timestamp = payload.timestamp || zecaTimestamp || Date.now().toString();
     
@@ -135,8 +131,6 @@ serve(async (req) => {
     if (!message_id) {
       dedupe_key = await sha256(payloadString); // Fallback dedupe
     }
-
-    const provider = event_type.startsWith("zns_") ? "zalo_zbs" : "zalo";
     
     // Extract non-sensitive headers
     const redactedHeaders: Record<string, string> = {};
@@ -152,7 +146,7 @@ serve(async (req) => {
       provider_event_id: message_id,
       dedupe_key,
       event_type,
-      channel: provider,
+      channel,
       related_message_id: message_id,
       payload,
       headers_redacted: redactedHeaders,
