@@ -129,7 +129,7 @@ serve(async (req) => {
       provider_event_id: message_id,
       dedupe_key,
       event_type,
-      channel: "zalo_zbs",
+      channel: provider,
       related_message_id: message_id,
       payload,
       headers_redacted: redactedHeaders,
