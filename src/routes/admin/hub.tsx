@@ -96,6 +96,7 @@ function AdminControlHub() {
       icon: <ShieldCheck className="w-6 h-6 text-emerald-500" />,
       description: "Quản lý bảo mật, phân quyền và triển khai tính năng",
       links: [
+        { label: "Operations Control", to: "/admin/operations", icon: <Activity className="w-4 h-4" /> },
         { label: "Production Health", to: "/admin/production-health", icon: <ShieldAlert className="w-4 h-4" /> },
         { label: "Security Audit", to: "/admin/security-audit", icon: <Lock className="w-4 h-4" /> },
         { label: "Internal Pilot Mode", to: "/admin/pilot", icon: <Wrench className="w-4 h-4" /> },
@@ -120,6 +121,7 @@ function AdminControlHub() {
       description: "Quản trị tài khoản gửi tin, health kênh và phân tuyến chiến dịch",
       links: [
         { label: "Sender Accounts", to: "/admin/sender-accounts", icon: <Radio className="w-4 h-4" /> },
+        { label: "Webhook Inbox", to: "/admin/webhooks", icon: <DatabaseZap className="w-4 h-4" /> },
       ]
     }
   ];

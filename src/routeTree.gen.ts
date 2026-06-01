@@ -37,6 +37,7 @@ import { Route as MarketingLogsRouteImport } from './routes/marketing/logs'
 import { Route as MarketingCampaignsRouteImport } from './routes/marketing/campaigns'
 import { Route as CustomersMapRouteImport } from './routes/customers/map'
 import { Route as CustomersIdRouteImport } from './routes/customers/$id'
+import { Route as AdminWebhooksRouteImport } from './routes/admin/webhooks'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminUatRouteImport } from './routes/admin/uat'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
@@ -52,6 +53,7 @@ import { Route as AdminProductImportRouteImport } from './routes/admin/product-i
 import { Route as AdminProductCopilotRouteImport } from './routes/admin/product-copilot'
 import { Route as AdminPilotObservationRouteImport } from './routes/admin/pilot-observation'
 import { Route as AdminPilotRouteImport } from './routes/admin/pilot'
+import { Route as AdminOperationsRouteImport } from './routes/admin/operations'
 import { Route as AdminLeadPerformanceRouteImport } from './routes/admin/lead-performance'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
 import { Route as AdminHubRouteImport } from './routes/admin/hub'
@@ -204,6 +206,11 @@ const CustomersIdRoute = CustomersIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => CustomersRoute,
 } as any)
+const AdminWebhooksRoute = AdminWebhooksRouteImport.update({
+  id: '/admin/webhooks',
+  path: '/admin/webhooks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
   id: '/admin/users',
   path: '/admin/users',
@@ -279,6 +286,11 @@ const AdminPilotRoute = AdminPilotRouteImport.update({
   path: '/admin/pilot',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminOperationsRoute = AdminOperationsRouteImport.update({
+  id: '/admin/operations',
+  path: '/admin/operations',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminLeadPerformanceRoute = AdminLeadPerformanceRouteImport.update({
   id: '/admin/lead-performance',
   path: '/admin/lead-performance',
@@ -351,6 +363,7 @@ export interface FileRoutesByFullPath {
   '/admin/hub': typeof AdminHubRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/lead-performance': typeof AdminLeadPerformanceRoute
+  '/admin/operations': typeof AdminOperationsRoute
   '/admin/pilot': typeof AdminPilotRoute
   '/admin/pilot-observation': typeof AdminPilotObservationRoute
   '/admin/product-copilot': typeof AdminProductCopilotRoute
@@ -366,6 +379,7 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/uat': typeof AdminUatRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/webhooks': typeof AdminWebhooksRoute
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
   '/marketing/campaigns': typeof MarketingCampaignsRoute
@@ -405,6 +419,7 @@ export interface FileRoutesByTo {
   '/admin/hub': typeof AdminHubRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/lead-performance': typeof AdminLeadPerformanceRoute
+  '/admin/operations': typeof AdminOperationsRoute
   '/admin/pilot': typeof AdminPilotRoute
   '/admin/pilot-observation': typeof AdminPilotObservationRoute
   '/admin/product-copilot': typeof AdminProductCopilotRoute
@@ -420,6 +435,7 @@ export interface FileRoutesByTo {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/uat': typeof AdminUatRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/webhooks': typeof AdminWebhooksRoute
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
   '/marketing/campaigns': typeof MarketingCampaignsRoute
@@ -461,6 +477,7 @@ export interface FileRoutesById {
   '/admin/hub': typeof AdminHubRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/lead-performance': typeof AdminLeadPerformanceRoute
+  '/admin/operations': typeof AdminOperationsRoute
   '/admin/pilot': typeof AdminPilotRoute
   '/admin/pilot-observation': typeof AdminPilotObservationRoute
   '/admin/product-copilot': typeof AdminProductCopilotRoute
@@ -476,6 +493,7 @@ export interface FileRoutesById {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/uat': typeof AdminUatRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/webhooks': typeof AdminWebhooksRoute
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
   '/marketing/campaigns': typeof MarketingCampaignsRoute
@@ -518,6 +536,7 @@ export interface FileRouteTypes {
     | '/admin/hub'
     | '/admin/inventory'
     | '/admin/lead-performance'
+    | '/admin/operations'
     | '/admin/pilot'
     | '/admin/pilot-observation'
     | '/admin/product-copilot'
@@ -533,6 +552,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/uat'
     | '/admin/users'
+    | '/admin/webhooks'
     | '/customers/$id'
     | '/customers/map'
     | '/marketing/campaigns'
@@ -572,6 +592,7 @@ export interface FileRouteTypes {
     | '/admin/hub'
     | '/admin/inventory'
     | '/admin/lead-performance'
+    | '/admin/operations'
     | '/admin/pilot'
     | '/admin/pilot-observation'
     | '/admin/product-copilot'
@@ -587,6 +608,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/uat'
     | '/admin/users'
+    | '/admin/webhooks'
     | '/customers/$id'
     | '/customers/map'
     | '/marketing/campaigns'
@@ -627,6 +649,7 @@ export interface FileRouteTypes {
     | '/admin/hub'
     | '/admin/inventory'
     | '/admin/lead-performance'
+    | '/admin/operations'
     | '/admin/pilot'
     | '/admin/pilot-observation'
     | '/admin/product-copilot'
@@ -642,6 +665,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/uat'
     | '/admin/users'
+    | '/admin/webhooks'
     | '/customers/$id'
     | '/customers/map'
     | '/marketing/campaigns'
@@ -683,6 +707,7 @@ export interface RootRouteChildren {
   AdminHubRoute: typeof AdminHubRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminLeadPerformanceRoute: typeof AdminLeadPerformanceRoute
+  AdminOperationsRoute: typeof AdminOperationsRoute
   AdminPilotRoute: typeof AdminPilotRoute
   AdminPilotObservationRoute: typeof AdminPilotObservationRoute
   AdminProductCopilotRoute: typeof AdminProductCopilotRoute
@@ -698,6 +723,7 @@ export interface RootRouteChildren {
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminUatRoute: typeof AdminUatRoute
   AdminUsersRoute: typeof AdminUsersRoute
+  AdminWebhooksRoute: typeof AdminWebhooksRoute
   MarketingCampaignsRoute: typeof MarketingCampaignsRoute
   MarketingLogsRoute: typeof MarketingLogsRoute
   MarketingReadinessRoute: typeof MarketingReadinessRoute
@@ -914,6 +940,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CustomersIdRouteImport
       parentRoute: typeof CustomersRoute
     }
+    '/admin/webhooks': {
+      id: '/admin/webhooks'
+      path: '/admin/webhooks'
+      fullPath: '/admin/webhooks'
+      preLoaderRoute: typeof AdminWebhooksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/users': {
       id: '/admin/users'
       path: '/admin/users'
@@ -1017,6 +1050,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/pilot'
       fullPath: '/admin/pilot'
       preLoaderRoute: typeof AdminPilotRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/operations': {
+      id: '/admin/operations'
+      path: '/admin/operations'
+      fullPath: '/admin/operations'
+      preLoaderRoute: typeof AdminOperationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/lead-performance': {
@@ -1128,6 +1168,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminHubRoute: AdminHubRoute,
   AdminInventoryRoute: AdminInventoryRoute,
   AdminLeadPerformanceRoute: AdminLeadPerformanceRoute,
+  AdminOperationsRoute: AdminOperationsRoute,
   AdminPilotRoute: AdminPilotRoute,
   AdminPilotObservationRoute: AdminPilotObservationRoute,
   AdminProductCopilotRoute: AdminProductCopilotRoute,
@@ -1143,6 +1184,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminSettingsRoute: AdminSettingsRoute,
   AdminUatRoute: AdminUatRoute,
   AdminUsersRoute: AdminUsersRoute,
+  AdminWebhooksRoute: AdminWebhooksRoute,
   MarketingCampaignsRoute: MarketingCampaignsRoute,
   MarketingLogsRoute: MarketingLogsRoute,
   MarketingReadinessRoute: MarketingReadinessRoute,

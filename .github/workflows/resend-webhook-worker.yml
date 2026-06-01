@@ -1,0 +1,20 @@
+name: Resend Webhook Worker Scheduler
+
+on:
+  schedule:
+    # Run every 10 minutes
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+    # Allows manual trigger from GitHub UI
+
+jobs:
+  run-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Webhook Processor Edge Function
+        run: |
+          curl -X POST "${{ secrets.RESEND_WEBHOOK_WORKER_URL }}" \
+            -H "Content-Type: application/json" \
+            -H "X-Worker-Secret: ${{ secrets.RESEND_WEBHOOK_WORKER_CRON_SECRET }}" \
+            -d '{ "confirm": "PROCESS_RESEND_WEBHOOKS" }' \
+            --fail-with-body
