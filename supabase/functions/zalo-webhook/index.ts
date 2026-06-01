@@ -99,6 +99,29 @@ serve(async (req) => {
     }
 
     if (!signatureValid) {
+      const supabaseUrl2 = Deno.env.get("SUPABASE_URL");
+      const supabaseServiceKey2 = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (supabaseUrl2 && supabaseServiceKey2) {
+        const supabaseAdmin2 = createClient(supabaseUrl2, supabaseServiceKey2);
+        const ev2 = payload.event_name || req.headers.get("X-ZECA-Event") || "unknown";
+        const mid2 = payload.message?.msg_id || payload.msg_id || payload.message_id || "";
+        const ts2 = payload.timestamp || zecaTimestamp || Date.now().toString();
+        const dedupe2 = mid2 ? `${ev2}_diagnostic_${mid2}_${ts2}` : await sha256(payloadString + "_diag");
+        await supabaseAdmin2.from("webhook_events").insert({
+          provider: "zalo_diagnostic",
+          provider_event_id: mid2,
+          dedupe_key: dedupe2,
+          event_type: ev2,
+          channel: "zalo",
+          related_message_id: mid2,
+          payload,
+          headers_redacted: {},
+          signature_valid: false,
+          status: "signature_invalid_diagnostic",
+          received_at: new Date().toISOString()
+        }).maybeSingle();
+      }
+
       return new Response(JSON.stringify({
         success: false,
         error: "invalid_signature",
@@ -106,6 +129,7 @@ serve(async (req) => {
         details: "MAC verification failed or missing signature headers."
       }), { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } });
     }
+
 
 
 
