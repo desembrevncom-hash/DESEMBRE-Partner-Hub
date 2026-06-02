@@ -1,8 +1,11 @@
-name: Zalo Webhook Worker Manual Dispatch
+name: Zalo Webhook Worker Scheduler
 
 on:
   workflow_dispatch:
-    # Allows manual trigger from GitHub UI only. No scheduled cron is configured in Phase v1.2.0I.2.
+    # Allows manual trigger from GitHub UI
+  schedule:
+    # Run every 15 minutes to reduce noise and process backlog observably
+    - cron: "*/15 * * * *"
 
 jobs:
   run-worker:
