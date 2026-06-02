@@ -1,49 +1,36 @@
-const { createClient } = require("@supabase/supabase-js");
+const fs = require('fs');
 
-const supabaseUrl = "https://xhfqjupiidexvlltstal.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhoZnFqdXBpaWRleHZsbHRzdGFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1NDMzMDAsImV4cCI6MjA5NDExOTMwMH0.UckKHrotYJwbFYpwbIfLWnCysoH3sFEAzX1O--SLR5o";
-
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-async function checkSenders() {
-  // Sign in as admin
-  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-    email: 'desembrevn.com@gmail.com',
-    password: '12345678'
-  });
-
-  if (authError) {
-    console.error("Auth error:", authError);
-    return;
-  }
-
-  console.log(`Signed in successfully as ${authData.user.email}`);
-
-  const { data, error } = await supabase
-    .from("sender_accounts")
-    .select("id, name, provider, channel, is_active, status, health_status, last_error, provider_secret");
-
-  if (error) {
-    console.error("Error fetching senders:", error);
-    return;
-  }
-
-  console.log("Sender Accounts:");
-  data.forEach(s => {
-    console.log(`- Name: ${s.name}`);
-    console.log(`  ID: ${s.id}`);
-    console.log(`  Provider: ${s.provider}`);
-    console.log(`  Channel: ${s.channel}`);
-    console.log(`  Active: ${s.is_active}`);
-    console.log(`  Status: ${s.status}`);
-    console.log(`  Health: ${s.health_status}`);
-    console.log(`  Last Error: ${s.last_error}`);
-    console.log(`  Secret Length: ${s.provider_secret ? s.provider_secret.length : 0}`);
-    if (s.provider_secret) {
-      console.log(`  Secret Preview: ${s.provider_secret.substring(0, 50)}...`);
+const env = fs.readFileSync('.env', 'utf8');
+const lines = env.split('\n');
+const vars = {};
+lines.forEach(l => {
+  const match = l.match(/^\s*([\w\.\-]+)\s*=\s*(.*)?\s*$/);
+  if (match) {
+    let key = match[1];
+    let value = match[2] || '';
+    if (value.startsWith('"') && value.endsWith('"')) {
+      value = value.substring(1, value.length - 1);
     }
-    console.log("");
-  });
+    vars[key] = value;
+  }
+});
+
+const url = vars.VITE_SUPABASE_URL;
+const key = vars.VITE_SUPABASE_ANON_KEY || vars.VITE_SUPABASE_PUBLISHABLE_KEY || vars.SUPABASE_PUBLISHABLE_KEY;
+
+async function check() {
+  try {
+    const res = await fetch(`${url}/rest/v1/sender_accounts?select=*`, {
+      headers: {
+        'apikey': key,
+        'Authorization': `Bearer ${key}`
+      }
+    });
+    const senders = await res.json();
+    console.log("Senders:", JSON.stringify(senders, null, 2));
+  } catch (err) {
+    console.error(err);
+  }
 }
 
-checkSenders();
+check();

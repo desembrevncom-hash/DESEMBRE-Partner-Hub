@@ -249,7 +249,6 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
 
   // Trích xuất Zalo OA OAuth flow
   const handleStartZaloOAuth = async () => {
-    if (!createdSenderId) return;
     setSubmitting(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -267,6 +266,7 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
             sender_name: name.trim(),
             app_id: zaloAppId.trim(),
             oa_id: zaloOaId.trim(),
+            redirect_uri: window.location.origin + "/admin/sender-accounts",
           }),
         },
       );

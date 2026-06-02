@@ -286,19 +286,31 @@ function SenderAccountsPage() {
   const [showGuideGmail, setShowGuideGmail] = useState(false);
   const [showGuideResend, setShowGuideResend] = useState(false);
 
-  // ── Handle connected= query param (Zalo OAuth callback) ───────────────
+  // ── Handle connected= and code/state query params (Zalo OAuth callback) ───────────────
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const connected = params.get("connected");
     const reason = params.get("reason");
+    const code = params.get("code");
+    const state = params.get("state");
+
+    if (code && state) {
+      toast.loading("🔄 Đang xử lý xác thực Zalo OA...", { id: "zalo-oauth-loading" });
+      const targetUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/zalo-oauth-callback?code=${code}&state=${encodeURIComponent(state)}`;
+      window.location.href = targetUrl;
+      return;
+    }
+
     if (connected === "zalo") {
       toast.success("✅ Kết nối Zalo OA thành công!", {
+        id: "zalo-oauth-loading",
         description: "Sender account đã được tạo và đánh dấu Healthy.",
       });
       // Xóa params khỏi URL
       window.history.replaceState({}, "", window.location.pathname);
     } else if (connected === "error") {
       toast.error("❌ Kết nối Zalo OA thất bại", {
+        id: "zalo-oauth-loading",
         description: reason ? `Lý do: ${reason}` : "Vui lòng kiểm tra App ID và thử lại.",
       });
       window.history.replaceState({}, "", window.location.pathname);
@@ -2284,6 +2296,7 @@ function SenderAccountsPage() {
                           body: JSON.stringify({
                             sender_name: sName,
                             app_id: appId.trim(),
+                            redirect_uri: window.location.origin + "/admin/sender-accounts",
                           }),
                         },
                       );

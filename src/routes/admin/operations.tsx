@@ -3,6 +3,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { ResendProcessorPanel } from "@/components/admin/ResendProcessorPanel";
+import { ZaloProcessorPanel } from "@/components/admin/ZaloProcessorPanel";
 import {
   Lock,
   RefreshCw,
@@ -35,6 +36,7 @@ export const Route = createFileRoute("/admin/operations")({
 
 interface OpsStatus {
   resend_worker_enabled: boolean;
+  zalo_worker_enabled: boolean;
   marketing_production_sending_enabled: boolean;
   marketing_provider_mode: string;
   zalo_production_status: string;
@@ -43,6 +45,8 @@ interface OpsStatus {
 
 interface OpsCounts {
   pending_resend_events: number;
+  pending_zalo_delivery_events: number;
+  inbound_zalo_events: number;
   failed_webhook_events: number;
   active_email_suppressions: number;
   healthy_sender_count: number;
@@ -172,12 +176,16 @@ _Generated at: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}_
 - Provider Mode: ${s.marketing_provider_mode}
 
 **2. Workload & Health**
-- Pending Webhook Events: ${c.pending_resend_events}
+- Pending Resend Webhook Events: ${c.pending_resend_events}
+- Pending Zalo Delivery Webhook Events: ${c.pending_zalo_delivery_events}
+- Inbound Zalo Events (Preserved): ${c.inbound_zalo_events}
 - Failed Webhook Events: ${c.failed_webhook_events}
 - Active Suppressions: ${c.active_email_suppressions}
 - Healthy Senders: ${c.healthy_sender_count}
 - Error Senders: ${c.error_sender_count}
-- Latest Webhook Received: ${t.latest_webhook_received_at || "N/A"}`;
+- Latest Webhook Received: ${t.latest_webhook_received_at || "N/A"}
+
+Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
 
     navigator.clipboard.writeText(report);
     toast.success("Đã copy báo cáo trạng thái", { description: "Bạn có thể dán vào ticket hoặc chat." });
@@ -335,20 +343,19 @@ _Generated at: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}_
                 </div>
               </div>
 
-              {/* Zalo Production */}
+              {/* Zalo Webhook Worker */}
               <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-between">
                 <div>
-                  <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">Zalo Production</div>
+                  <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">Zalo Webhook Worker</div>
                   {opsLoading ? (
                     <div className="h-6 bg-slate-200 rounded animate-pulse w-24" />
                   ) : s ? (
-                    <Badge variant="outline" className="bg-rose-50 border-rose-300 text-rose-700 font-bold gap-1 text-xs">
-                      <Lock className="w-3 h-3" /> {s.zalo_production_status === "locked" ? "Đang khóa an toàn" : s.zalo_production_status}
-                    </Badge>
+                    <StatusBadge value={s.zalo_worker_enabled} trueLabel="Đang bật" falseLabel="Đang tắt (Kill Switch)" neutralOnFalse />
                   ) : (
                     <StatusBadge value={null} />
                   )}
                 </div>
+                <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">Chỉ xử lý webhook đã nhận, không gửi tin nhắn.</p>
               </div>
 
               {/* Cron Scheduler */}
@@ -392,6 +399,16 @@ _Generated at: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}_
           <ResendProcessorPanel onProcessed={fetchOpsStatus} />
         </div>
 
+        {/* ── Zalo Webhook Processor ── */}
+        <div>
+          <SectionHeader
+            icon={<Zap className="w-5 h-5 text-blue-500" />}
+            title="Zalo Webhook Processor"
+            description="Chỉ xử lý trạng thái giao nhận ZNS/Zalo. Không gửi tin, không xử lý inbox, không update suppression."
+          />
+          <ZaloProcessorPanel onProcessed={fetchOpsStatus} />
+        </div>
+
         {/* ── 3. Webhook Monitoring ── */}
         <Card className="shadow-sm border-slate-200 bg-white">
           <CardHeader className="pb-3 border-b border-slate-100">
@@ -404,19 +421,21 @@ _Generated at: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}_
           <CardContent className="pt-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               <StatCard label="Pending Resend Events" value={c?.pending_resend_events} loading={opsLoading} color="amber" />
+              <StatCard label="Pending Zalo Delivery" value={c?.pending_zalo_delivery_events} loading={opsLoading} color="amber" />
+              <StatCard label="Inbound Zalo (Preserved)" value={c?.inbound_zalo_events} loading={opsLoading} color="slate" />
               <StatCard label="Failed Webhook Events" value={c?.failed_webhook_events} loading={opsLoading} color={c?.failed_webhook_events ? "rose" : "slate"} />
-              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 col-span-2">
-                <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1">Latest Webhook Received</div>
-                {opsLoading ? (
-                  <div className="h-5 bg-slate-200 rounded animate-pulse w-40 mt-1" />
-                ) : (
-                  <div className="text-sm font-semibold text-slate-800">
-                    {t?.latest_webhook_received_at
-                      ? format(new Date(t.latest_webhook_received_at), "dd/MM/yyyy HH:mm:ss")
-                      : "—"}
-                  </div>
-                )}
-              </div>
+            </div>
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 mb-4">
+              <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1">Latest Webhook Received</div>
+              {opsLoading ? (
+                <div className="h-5 bg-slate-200 rounded animate-pulse w-40 mt-1" />
+              ) : (
+                <div className="text-sm font-semibold text-slate-800">
+                  {t?.latest_webhook_received_at
+                    ? format(new Date(t.latest_webhook_received_at), "dd/MM/yyyy HH:mm:ss")
+                    : "—"}
+                </div>
+              )}
             </div>
             <Link
               to="/admin/webhooks"

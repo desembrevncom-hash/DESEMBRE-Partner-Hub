@@ -362,12 +362,13 @@ serve(async (req) => {
     }
  
     // Success
-    const msgId = znsResult.data?.message_id;
+    const msgId = znsResult.data?.message_id || znsResult.data?.msg_id;
     const { data: logData } = await adminClient.from("marketing_delivery_logs").insert({
       customer_id, sender_account_id: sender.id, zns_template_id, channel: "zns", mode: "provider_send",
       status: "sent", provider_message_id: msgId, created_by: user.id, dedupe_key: dedupeKey,
       provider_response: znsResult, delivery_metadata: { phone: formattedPhone },
     }).select("id").maybeSingle();
+
     
     await adminClient.from("customer_activities").insert({
       customer_id, activity_type: "marketing_template_used", title: "Đã gửi ZNS",

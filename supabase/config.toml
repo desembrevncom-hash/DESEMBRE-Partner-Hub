@@ -42,3 +42,17 @@ entrypoint = "./functions/test-ai-connection/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/test-ai-connection/*.html" ]
+
+[functions.zalo-oauth-callback]
+verify_jwt = false
+
+[functions.zalo-webhook]
+verify_jwt = false
+
+[functions.process-zalo-webhook-events]
+verify_jwt = false
+
+[functions.process-resend-webhook-events]
+verify_jwt = false
+
+

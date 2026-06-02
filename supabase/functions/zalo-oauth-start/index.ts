@@ -168,7 +168,7 @@ serve(async (req: Request) => {
     app_id: app_id.trim(),
     redirect_uri: callbackUrl,
     code_challenge: codeChallenge,
-    state: encodeURIComponent(encryptedState),
+    state: encryptedState,
   });
 
   const zaloOAuthUrl = `https://oauth.zaloapp.com/v4/oa/permission?${params.toString()}`;

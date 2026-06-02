@@ -118,6 +118,20 @@ serve(async (req: Request) => {
     redirect_uri: string;
   };
 
+  // Reconstruct final redirect targets using the actual callback URL from the state payload
+  const finalSuccessRedirect = redirect_uri
+    ? (redirect_uri.includes("?") ? `${redirect_uri}&connected=zalo` : `${redirect_uri}?connected=zalo`)
+    : successRedirect;
+
+  const finalFailRedirect = (reason: string) => {
+    if (redirect_uri) {
+      return redirect_uri.includes("?") 
+        ? `${redirect_uri}&connected=error&reason=${encodeURIComponent(reason)}` 
+        : `${redirect_uri}?connected=error&reason=${encodeURIComponent(reason)}`;
+    }
+    return `${failRedirect}&reason=${encodeURIComponent(reason)}`;
+  };
+
   // ── Lấy App Secret từ env ──────────────────────────────────────────────────
   // Hỗ trợ cấu hình per-app: ZALO_APP_SECRET_{APP_ID} (ưu tiên) hoặc ZALO_APP_SECRET chung
   const appSecretKey = `ZALO_APP_SECRET_${app_id}`;
@@ -133,7 +147,7 @@ serve(async (req: Request) => {
       result: "error",
       note: `Thiếu ZALO_APP_SECRET cho App ID: ${app_id}. Vui lòng cấu hình Edge Secret.`,
     });
-    return Response.redirect(`${failRedirect}&reason=missing_app_secret`, 302);
+    return Response.redirect(finalFailRedirect("missing_app_secret"), 302);
   }
 
   // ── Đổi code lấy access_token + refresh_token ──────────────────────────────
@@ -175,7 +189,7 @@ serve(async (req: Request) => {
       result: "error",
       note: `Lỗi kết nối Zalo token endpoint: ${msg}`,
     });
-    return Response.redirect(`${failRedirect}&reason=token_fetch_error`, 302);
+    return Response.redirect(finalFailRedirect("token_fetch_error"), 302);
   }
 
   if (!tokenData.access_token || !tokenData.refresh_token) {
@@ -186,7 +200,7 @@ serve(async (req: Request) => {
       result: "error",
       note: `Zalo trả về lỗi trao đổi token: ${tokenData.message || tokenData.error || "unknown"}`,
     });
-    return Response.redirect(`${failRedirect}&reason=token_exchange_failed`, 302);
+    return Response.redirect(finalFailRedirect("token_exchange_failed"), 302);
   }
 
   // ── Lấy thông tin OA (getoa) để hiển thị tên OA ───────────────────────────
@@ -275,7 +289,7 @@ serve(async (req: Request) => {
         result: "error",
         note: `Lỗi tạo sender_accounts: ${insertErr?.message}`,
       });
-      return Response.redirect(`${failRedirect}&reason=db_insert_failed`, 302);
+      return Response.redirect(finalFailRedirect("db_insert_failed"), 302);
     }
     senderAccountId = newSender.id;
   }
@@ -302,5 +316,5 @@ serve(async (req: Request) => {
   });
 
   // ── Redirect Admin về UI với thông báo thành công ─────────────────────────
-  return Response.redirect(successRedirect, 302);
+  return Response.redirect(finalSuccessRedirect, 302);
 });
