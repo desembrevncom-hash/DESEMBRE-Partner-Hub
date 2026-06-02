@@ -1,0 +1,20 @@
+name: Zalo Webhook Worker Manual Dispatch
+
+on:
+  workflow_dispatch:
+    # Allows manual trigger from GitHub UI only. No scheduled cron is configured in Phase v1.2.0I.2.
+
+jobs:
+  run-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    steps:
+      - name: Trigger Zalo Webhook Processor Edge Function
+        run: |
+          curl -X POST "${{ secrets.ZALO_WEBHOOK_WORKER_URL }}" \
+            -H "Content-Type: application/json" \
+            -H "X-Worker-Secret: ${{ secrets.ZALO_WEBHOOK_WORKER_CRON_SECRET }}" \
+            -d '{ "confirm": "PROCESS_ZALO_WEBHOOKS" }' \
+            --fail-with-body
