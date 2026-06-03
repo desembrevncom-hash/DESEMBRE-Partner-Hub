@@ -150,12 +150,12 @@ export const TimelineItem: React.FC<Props> = ({ item, onClick }) => {
               {loadingPhotos ? (
                 <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-bold">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Đang tải ảnh minh chứng...
+                  Đang tải hình ảnh...
                 </div>
               ) : photos.length > 0 ? (
                 <div className="space-y-2">
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Ảnh minh chứng ({photos.length}/2)
+                    Hình ảnh ({photos.length}/2)
                   </div>
                   <div className="grid grid-cols-2 gap-2.5 max-w-sm">
                     {photos.map((p, index) => (
@@ -202,7 +202,7 @@ export const TimelineItem: React.FC<Props> = ({ item, onClick }) => {
               >
                 <img 
                   src={selectedPhoto} 
-                  alt="Ảnh minh chứng phóng to" 
+                  alt="Hình ảnh phóng to" 
                   className="w-full h-auto max-h-[85vh] object-contain rounded-2xl" 
                 />
                 <button 

@@ -918,7 +918,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       const photoMetadataRecords: any[] = [];
 
       if (checkinPhotos.length > 0) {
-        toast.loading("Đang nén và tải lên ảnh minh chứng...", { id: toastId });
+        toast.loading("Đang nén và tải lên hình ảnh...", { id: toastId });
 
         for (let i = 0; i < checkinPhotos.length; i++) {
           const originalFile = checkinPhotos[i];
@@ -1017,7 +1017,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
         .eq("id", customer.id);
 
       toast.dismiss(toastId);
-      toast.success("Check-in và lưu ảnh minh chứng thành công!");
+      toast.success("Check-in và lưu hình ảnh thành công!");
       setShowCheckinDialog(false);
       setCurrentGps(null);
       setCheckinNote("");
@@ -2475,7 +2475,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                Ảnh minh chứng ({checkinPhotos.length}/2)
+                Hình ảnh ({checkinPhotos.length}/2)
               </Label>
               <span className="text-[9px] font-semibold text-slate-400">
                 JPEG, PNG, WebP (Tối đa 1.5MB)
@@ -2516,7 +2516,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 >
                   <Camera className="w-5 h-5 text-slate-400 group-hover:text-emerald-600 transition-colors" />
                   <span className="text-[11px] font-black text-slate-600 group-hover:text-emerald-700 transition-colors">
-                    Chụp ảnh hoặc Chọn ảnh minh chứng
+                    Chụp ảnh hoặc Chọn hình ảnh
                   </span>
                   <span className="text-[9px] font-semibold text-slate-400 leading-none">
                     Khuyến nghị: 1 ảnh storefront (mặt tiền)
