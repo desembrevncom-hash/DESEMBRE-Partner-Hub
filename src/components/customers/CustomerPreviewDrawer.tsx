@@ -20,6 +20,8 @@ import { AssignStaffDialog } from "./AssignStaffDialog";
 import { DataHealthBadge } from "@/components/customers/DataHealthBadge";
 import { getCustomerDataHealth } from "@/lib/customers/dataHealth";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { useCheckInFlow } from "@/hooks/useCheckInFlow";
+import { CheckInFlow } from "./checkin/CheckInFlow";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -146,89 +148,25 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [pinning, setPinning] = useState(false);
-  const [gpsLoading, setGpsLoading] = useState(false);
-  const [currentGps, setCurrentGps] = useState<{
-    latitude: number;
-    longitude: number;
-    accuracy: number;
-  } | null>(null);
-  const [checkinNote, setCheckinNote] = useState("");
-  const [checkinSubmitting, setCheckinSubmitting] = useState(false);
-  const [showCheckinDialog, setShowCheckinDialog] = useState(false);
-  const [checkinPhotos, setCheckinPhotos] = useState<File[]>([]);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
 
-  const isCheckinException = useMemo(() => {
-    if (!currentGps) return false;
-    const hasCoords = hasValidCoordinates(customer);
-    if (!hasCoords) return true;
-    const distance = calculateDistanceMeters(
-      currentGps.latitude,
-      currentGps.longitude,
-      Number(customer.latitude),
-      Number(customer.longitude),
-    );
-    return !isWithinRadius(distance, 200);
-  }, [currentGps, customer]);
-
-  const compressPhoto = (file: File): Promise<File> => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target?.result as string;
-        img.onload = () => {
-          const maxDim = 1280;
-          let width = img.width;
-          let height = img.height;
-
-          if (width > maxDim || height > maxDim) {
-            if (width > height) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            } else {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
-            }
-          }
-
-          const canvas = document.createElement("canvas");
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) {
-            resolve(file);
-            return;
-          }
-
-          ctx.drawImage(img, 0, 0, width, height);
-
-          canvas.toBlob(
-            (blob) => {
-              if (blob) {
-                const compressedFile = new File(
-                  [blob],
-                  `${file.name.replace(/\.[^/.]+$/, "")}.webp`,
-                  {
-                    type: "image/webp",
-                    lastModified: Date.now(),
-                  },
-                );
-                resolve(compressedFile);
-              } else {
-                resolve(file);
-              }
-            },
-            "image/webp",
-            0.75,
-          );
-        };
-        img.onerror = () => resolve(file);
-      };
-      reader.onerror = () => resolve(file);
-    });
-  };
+  const {
+    currentGps,
+    setCurrentGps,
+    gpsLoading,
+    checkinNote,
+    setCheckinNote,
+    checkinPhotos,
+    setCheckinPhotos,
+    checkinSubmitting,
+    showCheckinDialog,
+    setShowCheckinDialog,
+    handleGetGpsForCheckin,
+    handleCheckIn,
+    handleResetForm,
+  } = useCheckInFlow(user, () => {
+    fetchCustomerDetails();
+  });
 
   const [showEditLocationDialog, setShowEditLocationDialog] = useState(false);
   const [editLocationMethod, setEditLocationMethod] = useState<"gps" | "manual" | "url">("gps");
@@ -843,229 +781,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     );
   };
 
-  const handleGetGpsForCheckin = () => {
-    if (!navigator.geolocation) {
-      toast.error("Trình duyệt của bạn không hỗ trợ định vị Geolocation.");
-      return;
-    }
 
-    setGpsLoading(true);
-    const toastId = toast.loading("Đang xác định vị trí của bạn để check-in...");
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        toast.dismiss(toastId);
-        setGpsLoading(false);
-        const { latitude, longitude, accuracy } = position.coords;
-        setCurrentGps({ latitude, longitude, accuracy });
-        if (!showCheckinDialog) {
-          setCheckinNote("");
-        }
-        setShowCheckinDialog(true);
-        toast.success("Đã định vị vị trí GPS thành công!");
-      },
-      (error) => {
-        toast.dismiss(toastId);
-        setGpsLoading(false);
-        console.error("Lỗi định vị check-in:", error);
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            toast.error(
-              "Quyền vị trí bị từ chối! Vui lòng cho phép quyền truy cập Vị trí trong cài đặt trình duyệt và thử lại.",
-            );
-            break;
-          case error.POSITION_UNAVAILABLE:
-            toast.error("Không lấy được tín hiệu GPS. Vui lòng kiểm tra cài đặt định vị.");
-            break;
-          case error.TIMEOUT:
-            toast.error(
-              "Thời gian định vị GPS quá hạn. Vui lòng kiểm tra tín hiệu mạng hoặc thử lại ở khu vực thoáng hơn.",
-            );
-            break;
-          default:
-            toast.error("Không lấy được vị trí GPS hiện tại.");
-        }
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      },
-    );
-  };
-
-  const handleCheckIn = async () => {
-    if (!currentGps) {
-      toast.error("Thiếu tọa độ định vị GPS hiện tại.");
-      return;
-    }
-
-    const hasCoords = hasValidCoordinates(customer);
-    let distance: number | null = null;
-    let isValid = false;
-
-    if (hasCoords) {
-      distance = calculateDistanceMeters(
-        currentGps.latitude,
-        currentGps.longitude,
-        Number(customer.latitude),
-        Number(customer.longitude),
-      );
-      isValid = isWithinRadius(distance, 200);
-    }
-
-    // Require note for exceptions (no coordinates or out of range)
-    if (isCheckinException && !checkinNote.trim()) {
-      toast.error(
-        "Vui lòng nhập lý do check-in ngoại lệ (khoảng cách > 200m hoặc chưa định vị Spa).",
-      );
-      return;
-    }
-
-    setCheckinSubmitting(true);
-    const toastId = toast.loading("Đang ghi nhận lượt check-in...");
-
-    try {
-      // 1. Insert customer_visit_checkins and fetch created row ID
-      const { data: checkinData, error: checkinErr } = await supabase
-        .from("customer_visit_checkins")
-        .insert({
-          customer_id: customer.id,
-          checked_in_by: user?.id,
-          latitude: currentGps.latitude,
-          longitude: currentGps.longitude,
-          accuracy_meters: currentGps.accuracy,
-          customer_latitude: hasCoords ? Number(customer.latitude) : null,
-          customer_longitude: hasCoords ? Number(customer.longitude) : null,
-          distance_meters: distance,
-          is_valid_location: isValid,
-          valid_radius_meters: 200,
-          note: checkinNote,
-        })
-        .select("id")
-        .single();
-
-      if (checkinErr) throw checkinErr;
-      if (!checkinData) throw new Error("Không thể khởi tạo mã check-in.");
-
-      // 2. Upload photos if any selected
-      const uploadedPaths: string[] = [];
-      const photoMetadataRecords: any[] = [];
-
-      if (checkinPhotos.length > 0) {
-        for (let i = 0; i < checkinPhotos.length; i++) {
-          toast.loading(`Đang nén và tải lên hình ảnh (${i + 1}/${checkinPhotos.length})...`, {
-            id: toastId,
-          });
-          const originalFile = checkinPhotos[i];
-          const compressedFile = await compressPhoto(originalFile);
-
-          const photoId = crypto.randomUUID();
-          // relative path to bucket: {customer_id}/{checkin_id}/{photo_id}.webp
-          const storagePath = `${customer.id}/${checkinData.id}/${photoId}.webp`;
-
-          const { data: uploadData, error: uploadErr } = await supabase.storage
-            .from("visit-photos")
-            .upload(storagePath, compressedFile, {
-              cacheControl: "3600",
-              upsert: false,
-            });
-
-          if (uploadErr) {
-            // Rollback already uploaded files
-            for (const path of uploadedPaths) {
-              await supabase.storage.from("visit-photos").remove([path]);
-            }
-            // Cascade delete the check-in record
-            await supabase.from("customer_visit_checkins").delete().eq("id", checkinData.id);
-            throw new Error(`Lỗi tải ảnh lên Storage: ${uploadErr.message}`);
-          }
-
-          uploadedPaths.push(storagePath);
-
-          // Get image dimensions
-          const dimensions = await new Promise<{ width: number; height: number } | null>(
-            (resolve) => {
-              const r = new FileReader();
-              r.readAsDataURL(compressedFile);
-              r.onload = (e) => {
-                const im = new Image();
-                im.src = e.target?.result as string;
-                im.onload = () => resolve({ width: im.width, height: im.height });
-                im.onerror = () => resolve(null);
-              };
-              r.onerror = () => resolve(null);
-            },
-          );
-
-          photoMetadataRecords.push({
-            id: photoId,
-            checkin_id: checkinData.id,
-            customer_id: customer.id,
-            uploaded_by: user?.id,
-            storage_bucket: "visit-photos",
-            storage_path: storagePath,
-            file_name: originalFile.name,
-            mime_type: compressedFile.type,
-            file_size_bytes: compressedFile.size,
-            width: dimensions?.width || null,
-            height: dimensions?.height || null,
-            photo_type: i === 0 ? "storefront" : "other",
-          });
-        }
-
-        // Insert metadata records into public.customer_visit_photos
-        const { error: metaErr } = await supabase
-          .from("customer_visit_photos")
-          .insert(photoMetadataRecords);
-
-        if (metaErr) {
-          // Metadata fail rollback: Delete uploaded storage files
-          for (const path of uploadedPaths) {
-            await supabase.storage.from("visit-photos").remove([path]);
-          }
-          // Delete inserted check-in record to maintain transaction consistency
-          await supabase.from("customer_visit_checkins").delete().eq("id", checkinData.id);
-          throw new Error(`Lỗi lưu thông tin ảnh vào DB: ${metaErr.message}`);
-        }
-      }
-
-      // 3. Insert customer_activities (direct_visit)
-      const distanceLabel = distance !== null ? `${Math.round(distance)}m` : "Chưa xác định";
-      const statusLabel = isValid ? "Đúng vị trí (< 200m)" : "Ngoại lệ (Sai lệch hoặc chưa ghim)";
-      const { error: actErr } = await supabase.from("customer_activities").insert({
-        customer_id: customer.id,
-        created_by: user?.id,
-        activity_type: "direct_visit",
-        title: `Check-in tại khách hàng${isValid ? "" : " (Ngoại lệ)"}`,
-        content: `Nhân viên check-in: ${user?.email || "Staff"}\nKhoảng cách: ${distanceLabel}\nTrạng thái: ${statusLabel}\nSố ảnh đính kèm: ${checkinPhotos.length}\nGhi chú: ${checkinNote || "Không có"}`,
-        metadata: { checkin_id: checkinData.id },
-      });
-
-      if (actErr) throw actErr;
-
-      // 4. Update customer last interaction metadata
-      await supabase
-        .from("customers")
-        .update({
-          last_owner_activity_at: new Date().toISOString(),
-        })
-        .eq("id", customer.id);
-
-      toast.dismiss(toastId);
-      toast.success("Check-in và lưu hình ảnh thành công!");
-      setShowCheckinDialog(false);
-      setCurrentGps(null);
-      setCheckinNote("");
-      setCheckinPhotos([]); // Reset files
-      fetchCustomerDetails();
-    } catch (err: any) {
-      toast.dismiss(toastId);
-      toast.error("Không thể hoàn tất check-in: " + err.message);
-    } finally {
-      setCheckinSubmitting(false);
-    }
-  };
 
   const handleGetGpsForEdit = () => {
     if (!navigator.geolocation) {
@@ -2650,282 +2366,22 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
         }}
       />
 
-      <Dialog open={showCheckinDialog} onOpenChange={setShowCheckinDialog}>
-        <DialogContent className="max-w-md w-[calc(100%-32px)] rounded-2xl p-5 gap-4 max-h-[92vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-base font-black text-slate-900 flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-emerald-600 animate-pulse" />
-              HOÀN TẤT CHECK-IN THỰC ĐỊA
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500 font-medium">
-              Hệ thống sẽ lưu lại tọa độ thực địa của bạn để đối chiếu với địa chỉ định vị của Spa.
-            </DialogDescription>
-          </DialogHeader>
-
-          {currentGps && (
-            <div className="space-y-3.5 bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs">
-              <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-                <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">
-                  Độ chính xác GPS
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-slate-800">
-                    +/- {Math.round(currentGps.accuracy)} mét
-                  </span>
-                  <button
-                    onClick={handleGetGpsForCheckin}
-                    disabled={gpsLoading}
-                    className="text-[10px] font-bold text-primary hover:text-primary/80 flex items-center gap-1 border border-primary/20 px-2 py-0.5 rounded bg-white"
-                  >
-                    {gpsLoading ? (
-                      <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                    ) : (
-                      <Crosshair className="w-2.5 h-2.5" />
-                    )}
-                    Thử lại vị trí
-                  </button>
-                </div>
-              </div>
-              <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-                <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">
-                  Tọa độ thực tế
-                </span>
-                <span className="font-mono text-slate-800">
-                  {currentGps.latitude.toFixed(5)}, {currentGps.longitude.toFixed(5)}
-                </span>
-              </div>
-
-              {hasValidCoordinates(customer) ? (
-                <>
-                  <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-                    <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">
-                      Khoảng cách đến Spa
-                    </span>
-                    <span className="font-bold text-slate-800">
-                      {Math.round(
-                        calculateDistanceMeters(
-                          currentGps.latitude,
-                          currentGps.longitude,
-                          Number(customer.latitude),
-                          Number(customer.longitude),
-                        ),
-                      )}{" "}
-                      mét
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">
-                      Trạng thái vị trí
-                    </span>
-                    {isWithinRadius(
-                      calculateDistanceMeters(
-                        currentGps.latitude,
-                        currentGps.longitude,
-                        Number(customer.latitude),
-                        Number(customer.longitude),
-                      ),
-                      200,
-                    ) ? (
-                      <span className="inline-flex items-center gap-1 text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 text-[10px]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        Hợp lệ (&lt; 200m)
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-rose-700 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-100 text-[10px] animate-pulse">
-                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                        Ngoại lệ (&gt; 200m)
-                      </span>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">
-                    Trạng thái vị trí
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-100 text-[10px]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                    Chưa ghim Spa (Ngoại lệ)
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {currentGps && currentGps.accuracy > 150 && (
-            <div className="p-3.5 bg-amber-50/80 border border-amber-200 text-amber-900 rounded-xl text-[11px] font-bold flex items-start gap-2 leading-relaxed">
-              <AlertTriangle className="w-4.5 h-4.5 text-amber-600 shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <p className="font-extrabold uppercase tracking-wide text-amber-800 text-[10px]">
-                  Cảnh báo độ chính xác thấp
-                </p>
-                <p className="font-semibold text-slate-700 leading-snug">
-                  Độ chính xác GPS hiện tại là +/- {Math.round(currentGps.accuracy)}m (yêu cầu &lt;
-                  150m).
-                </p>
-                <p className="font-normal text-[10px] text-slate-500 leading-normal">
-                  Mẹo: Vui lòng di chuyển ra không gian thoáng, bật Wi-Fi/4G và nhấn{" "}
-                  <b>"Thử lại vị trí"</b> để cập nhật tọa độ tốt hơn.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Form ghi chú check-in */}
-          <div className="space-y-1.5">
-            <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-              Nội dung / Lý do check-in{" "}
-              {isCheckinException && (
-                <span className="text-red-500">* (Bắt buộc vì check-in ngoại lệ)</span>
-              )}
-            </Label>
-            <Textarea
-              placeholder={
-                isCheckinException
-                  ? "Nhập lý do check-in ngoại lệ (bắt buộc)..."
-                  : "Nhập ghi chú viếng thăm khách hàng..."
-              }
-              value={checkinNote}
-              onChange={(e) => setCheckinNote(e.target.value)}
-              className={`min-h-[80px] text-xs ${isCheckinException && !checkinNote.trim() ? "border-amber-500 focus-visible:ring-amber-500 bg-amber-50/10" : ""}`}
-            />
-            {isCheckinException && !checkinNote.trim() && (
-              <span className="text-[10px] text-amber-600 font-bold block mt-1 leading-normal">
-                * Đây là lượt check-in ngoại lệ. Bạn bắt buộc phải điền lý do/ghi chú viếng thăm để
-                hoàn tất.
-              </span>
-            )}
-          </div>
-
-          {/* Tải ảnh minh chứng check-in (Tối đa 2 ảnh) */}
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                Hình ảnh ({checkinPhotos.length}/2)
-              </Label>
-              <span className="text-[9px] font-semibold text-slate-400">
-                JPEG, PNG, WebP (Tối đa 1.5MB)
-              </span>
-            </div>
-
-            {checkinPhotos.length < 2 ? (
-              <div className="relative">
-                <input
-                  type="file"
-                  id="checkin-photo-upload"
-                  accept="image/jpeg,image/png,image/webp"
-                  multiple
-                  onChange={(e) => {
-                    if (e.target.files) {
-                      const selectedFiles = Array.from(e.target.files);
-                      const totalFiles = checkinPhotos.length + selectedFiles.length;
-
-                      if (totalFiles > 2) {
-                        toast.error("Mỗi lần check-in chỉ được tải tối đa 2 ảnh.");
-                        return;
-                      }
-
-                      const oversized = selectedFiles.some((f) => f.size > 1500000);
-                      if (oversized) {
-                        toast.error("File ảnh quá lớn. Dung lượng tối đa là 1.5MB.");
-                        return;
-                      }
-
-                      setCheckinPhotos((prev) => [...prev, ...selectedFiles]);
-                    }
-                  }}
-                  className="hidden"
-                />
-                <label
-                  htmlFor="checkin-photo-upload"
-                  className="flex flex-col items-center justify-center gap-1.5 py-3 px-2 rounded-xl border border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/50 hover:bg-emerald-50/10 cursor-pointer transition-all text-center group"
-                >
-                  <Camera className="w-5 h-5 text-slate-400 group-hover:text-emerald-600 transition-colors" />
-                  <span className="text-[11px] font-black text-slate-600 group-hover:text-emerald-700 transition-colors">
-                    Chụp ảnh hoặc Chọn hình ảnh
-                  </span>
-                  <span className="text-[9px] font-semibold text-slate-400 leading-none">
-                    Khuyến nghị: 1 ảnh storefront (mặt tiền)
-                  </span>
-                </label>
-              </div>
-            ) : (
-              <div className="py-2 px-3 rounded-xl bg-emerald-50/30 border border-emerald-100/50 text-[10px] font-black text-emerald-700 flex items-center gap-1.5 justify-center">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Đã chọn đủ số lượng ảnh tối đa (2/2)
-              </div>
-            )}
-
-            {/* Xem trước ảnh (Previews) */}
-            {checkinPhotos.length > 0 && (
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                {checkinPhotos.map((file, idx) => {
-                  const url = URL.createObjectURL(file);
-                  return (
-                    <div
-                      key={idx}
-                      className="relative group rounded-xl overflow-hidden border border-slate-200 aspect-video bg-slate-900 shadow-sm"
-                    >
-                      <img
-                        src={url}
-                        alt={`Preview ${idx + 1}`}
-                        className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-300"
-                        onLoad={() => URL.revokeObjectURL(url)}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end justify-between p-2">
-                        <span className="text-[9px] font-black text-white px-1.5 py-0.5 rounded bg-black/40 backdrop-blur-3xs">
-                          {idx === 0 ? "Ảnh 1 (Mặt tiền)" : "Ảnh 2 (Bổ sung)"}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCheckinPhotos((prev) => prev.filter((_, i) => i !== idx));
-                          }}
-                          className="p-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white shadow transition-all hover:scale-105"
-                          title="Xóa ảnh"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <DialogFooter className="grid grid-cols-2 gap-3.5 sm:space-x-0 pt-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowCheckinDialog(false);
-                setCurrentGps(null);
-                setCheckinNote("");
-                setCheckinPhotos([]);
-              }}
-              className="w-full text-xs font-bold h-11 md:h-10"
-            >
-              Hủy bỏ
-            </Button>
-            <Button
-              onClick={handleCheckIn}
-              disabled={
-                checkinSubmitting || !currentGps || (isCheckinException && !checkinNote.trim())
-              }
-              className="w-full text-xs font-bold h-11 md:h-10 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white"
-            >
-              {checkinSubmitting ? (
-                <>
-                  <Loader2 className="w-3 h-3 animate-spin mr-1.5" />
-                  Đang gửi...
-                </>
-              ) : (
-                "Xác nhận Check-in"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CheckInFlow
+        open={showCheckinDialog}
+        onOpenChange={setShowCheckinDialog}
+        customer={customer}
+        currentGps={currentGps}
+        setCurrentGps={setCurrentGps}
+        gpsLoading={gpsLoading}
+        checkinNote={checkinNote}
+        setCheckinNote={setCheckinNote}
+        checkinPhotos={checkinPhotos}
+        setCheckinPhotos={setCheckinPhotos}
+        checkinSubmitting={checkinSubmitting}
+        handleGetGpsForCheckin={handleGetGpsForCheckin}
+        handleCheckIn={handleCheckIn}
+        handleResetForm={handleResetForm}
+      />
 
       <Dialog open={showEditLocationDialog} onOpenChange={setShowEditLocationDialog}>
         <DialogContent className="sm:max-w-md rounded-2xl p-5">

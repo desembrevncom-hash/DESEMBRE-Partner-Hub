@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,8 +13,10 @@ import { WorkspacePriorityList } from "./WorkspacePriorityList";
 import { WorkspaceTimeline } from "./WorkspaceTimeline";
 import { WorkspaceSmartAlerts } from "./WorkspaceSmartAlerts";
 import { WorkspaceBirthdayWidget } from "./WorkspaceBirthdayWidget";
+import { QuickCheckInSheet } from "../customers/checkin/QuickCheckInSheet";
 
 import {
+  Compass,
   Phone,
   Clock,
   UserCheck,
@@ -56,11 +59,12 @@ import { TaskActionDialog } from "./TaskActionDialog";
 import { getTaskTypeLabel, getTaskStatusLabel } from "@/lib/tasks";
 
 export const SaleWorkspace: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isAdmin, isSubAdmin, isTeleLead, isTelesale, isSale } = useAuth();
   const navigate = useNavigate();
   const { data: dashData, loading: dashLoading } = useWorkspaceDashboard();
   const [personalAccounts, setPersonalAccounts] = React.useState<any[]>([]);
   const [loadingAccounts, setLoadingAccounts] = React.useState(true);
+  const [isQuickCheckinOpen, setIsQuickCheckinOpen] = useState(false);
 
   const [data, setData] = useState<any>({
     allTasks: [],
@@ -263,24 +267,40 @@ export const SaleWorkspace: React.FC = () => {
       icon={<LayoutDashboard className="w-6 h-6" />}
       loading={data.loading}
     >
-      {/* ACTIONS ROW */}
-      <div className="flex justify-stretch sm:justify-end gap-3 mb-6">
+      {/* ACTIONS GRID (2 columns on mobile, flex on desktop) */}
+      <div className="grid grid-cols-2 gap-3 mb-6 sm:flex sm:justify-end sm:items-center">
+        <Button
+          onClick={() => setIsQuickCheckinOpen(true)}
+          className="h-11 sm:h-9 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs sm:text-sm shadow-sm flex items-center justify-center"
+        >
+          <Compass className="w-4 h-4 mr-1.5 shrink-0" /> Check-in nhanh
+        </Button>
+
         <Button
           asChild
-          size="sm"
-          className="flex-1 sm:flex-initial bg-slate-900 hover:bg-primary rounded-xl font-bold px-4"
+          className="h-11 sm:h-9 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs sm:text-sm shadow-sm flex items-center justify-center"
         >
           <Link to="/orders/new">
-            <Plus className="w-4 h-4 mr-2" /> Tạo đơn mới
+            <Plus className="w-4 h-4 mr-1.5 shrink-0" /> Tạo đơn mới
           </Link>
         </Button>
+
         <Button
           variant="outline"
-          size="sm"
-          className="flex-1 sm:flex-initial bg-white border-slate-200 hover:bg-slate-50 rounded-xl font-bold px-4"
+          className="h-11 sm:h-9 bg-white border-slate-200 hover:bg-slate-50 text-slate-800 rounded-xl font-bold text-xs sm:text-sm shadow-sm flex items-center justify-center"
           onClick={() => setIsAddCustomerOpen(true)}
         >
-          <Plus className="w-4 h-4 mr-2 text-primary" /> Thêm khách nhanh
+          <Plus className="w-4 h-4 mr-1.5 text-primary shrink-0" /> Thêm khách
+        </Button>
+
+        <Button
+          asChild
+          variant="outline"
+          className="h-11 sm:h-9 bg-white border-slate-200 hover:bg-slate-50 text-slate-800 rounded-xl font-bold text-xs sm:text-sm shadow-sm flex items-center justify-center"
+        >
+          <Link to="/calendar">
+            <CalendarClock className="w-4 h-4 mr-1.5 text-indigo-500 shrink-0" /> Việc hôm nay
+          </Link>
         </Button>
       </div>
 
@@ -518,6 +538,19 @@ export const SaleWorkspace: React.FC = () => {
         taskAction={taskAction}
         onClose={() => setTaskAction(null)}
         onSuccess={handleRefresh}
+      />
+
+      <QuickCheckInSheet
+        open={isQuickCheckinOpen}
+        onOpenChange={setIsQuickCheckinOpen}
+        user={user}
+        userRoles={{
+          isAdmin,
+          isSubAdmin,
+          isTeleLead,
+          isTelesale,
+          isSale,
+        }}
       />
     </WorkspaceShell>
   );
