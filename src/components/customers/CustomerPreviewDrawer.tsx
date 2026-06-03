@@ -2367,7 +2367,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       />
 
       <Dialog open={showCheckinDialog} onOpenChange={setShowCheckinDialog}>
-        <DialogContent className="max-w-md w-[calc(100%-32px)] rounded-2xl p-5 gap-4">
+        <DialogContent className="max-w-md w-[calc(100%-32px)] rounded-2xl p-5 gap-4 max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base font-black text-slate-900 flex items-center gap-2">
               <MapPin className="w-5 h-5 text-emerald-600 animate-pulse" />
