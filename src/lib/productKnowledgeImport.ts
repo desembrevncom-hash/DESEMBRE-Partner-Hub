@@ -1,8 +1,8 @@
-import Papa from 'papaparse';
-import { supabase } from '@/integrations/supabase/client';
+import Papa from "papaparse";
+import { supabase } from "@/integrations/supabase/client";
 
-export type DuplicateAction = 'skip' | 'overwrite';
-export type SourceType = 'csv' | 'json' | 'text';
+export type DuplicateAction = "skip" | "overwrite";
+export type SourceType = "csv" | "json" | "text";
 
 export interface ImportRow {
   product_id: number;
@@ -43,14 +43,14 @@ export interface ImportResult {
 export function normalizeStringArray(val: any): string[] {
   if (val === undefined || val === null) return [];
   if (Array.isArray(val)) {
-    return val.map(v => String(v).trim()).filter(Boolean);
+    return val.map((v) => String(v).trim()).filter(Boolean);
   }
   const strVal = String(val).trim();
-  if (strVal.startsWith('[') && strVal.endsWith(']')) {
+  if (strVal.startsWith("[") && strVal.endsWith("]")) {
     try {
       const parsed = JSON.parse(strVal);
       if (Array.isArray(parsed)) {
-        return parsed.map(v => String(v).trim()).filter(Boolean);
+        return parsed.map((v) => String(v).trim()).filter(Boolean);
       }
     } catch (e) {
       // Ignore and fallback to normal string splitting
@@ -58,25 +58,23 @@ export function normalizeStringArray(val: any): string[] {
   }
   return strVal
     .split(/[,\n;|]+/)
-    .map(v => v.trim())
+    .map((v) => v.trim())
     .filter(Boolean);
 }
 
 // Helper to normalize integer arrays (e.g. from "1, 2, 3" or [1, 2])
 export function normalizeIntegerArray(val: any): number[] {
   const stringArray = normalizeStringArray(val);
-  return stringArray
-    .map(v => parseInt(v, 10))
-    .filter(v => !isNaN(v));
+  return stringArray.map((v) => parseInt(v, 10)).filter((v) => !isNaN(v));
 }
 
 // Helper to normalize pregnancy_safe and is_active to boolean/null
 export function normalizeBoolean(val: any): boolean | null {
-  if (val === undefined || val === null || val === '') return null;
-  if (typeof val === 'boolean') return val;
+  if (val === undefined || val === null || val === "") return null;
+  if (typeof val === "boolean") return val;
   const str = String(val).trim().toLowerCase();
-  if (['true', '1', 'yes', 'có', 'co', 'ok', 'active'].includes(str)) return true;
-  if (['false', '0', 'no', 'không', 'khong', 'inactive'].includes(str)) return false;
+  if (["true", "1", "yes", "có", "co", "ok", "active"].includes(str)) return true;
+  if (["false", "0", "no", "không", "khong", "inactive"].includes(str)) return false;
   return null;
 }
 
@@ -86,7 +84,7 @@ export function parseRawText(text: string): any[] {
   if (!trimmed) return [];
 
   // 1. Try JSON
-  if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+  if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
     try {
       const parsed = JSON.parse(trimmed);
       return Array.isArray(parsed) ? parsed : [parsed];
@@ -98,9 +96,9 @@ export function parseRawText(text: string): any[] {
   // 2. Try CSV/TSV
   const csvParsed = Papa.parse(trimmed, {
     header: true,
-    skipEmptyLines: 'greedy',
+    skipEmptyLines: "greedy",
   });
-  
+
   if (csvParsed.data && csvParsed.data.length > 0) {
     // If we only have 1 column and it looks like key-value pairs (contains colons), fall back to key-value
     const headers = csvParsed.meta.fields || [];
@@ -111,11 +109,11 @@ export function parseRawText(text: string): any[] {
 
   // 3. Key-Value Parser for copy-pasted blocks (e.g. single product)
   const obj: Record<string, any> = {};
-  const lines = trimmed.split('\n');
+  const lines = trimmed.split("\n");
   let hasValidKeys = false;
-  
+
   for (const line of lines) {
-    const colonIndex = line.indexOf(':');
+    const colonIndex = line.indexOf(":");
     if (colonIndex > -1) {
       const key = line.substring(0, colonIndex).trim().toLowerCase();
       const val = line.substring(colonIndex + 1).trim();
@@ -138,73 +136,79 @@ export function parseRawText(text: string): any[] {
 
 // Helper to normalize alternate column names to schema keys
 export function getNormalizedKey(key: string): string {
-  const lower = key.trim().toLowerCase().replace(/[\s_-]+/g, '');
-  
+  const lower = key
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+
   const mappings: Record<string, string> = {
-    productid: 'product_id',
-    masanpham: 'product_id',
-    masp: 'product_id',
-    id: 'product_id',
-    
-    benefits: 'benefits',
-    loiich: 'benefits',
-    
-    skinconcerns: 'skin_concerns',
-    tinhtrangda: 'skin_concerns',
-    tinh_trang_da: 'skin_concerns',
-    
-    suitablespatypes: 'suitable_spa_types',
-    loaispaphuhop: 'suitable_spa_types',
-    
-    usageinstructions: 'usage_instructions',
-    huongdansudung: 'usage_instructions',
-    hdsd: 'usage_instructions',
-    usage: 'usage_instructions',
-    
-    salespitch: 'sales_pitch',
-    loikhuyenbanhang: 'sales_pitch',
-    kichbanbanhang: 'sales_pitch',
-    pitch: 'sales_pitch',
-    
-    crosssellproducts: 'cross_sell_products',
-    sanphambancheo: 'cross_sell_products',
-    bancheo: 'cross_sell_products',
-    
-    restockcycledays: 'restock_cycle_days',
-    chukydathang: 'restock_cycle_days',
-    chuky: 'restock_cycle_days',
-    
-    warnings: 'warnings',
-    luuy: 'warnings',
-    chongchidinh: 'warnings',
-    warningscontraindications: 'warnings',
-    
-    isactive: 'is_active',
-    hoatdong: 'is_active',
-    trangthai: 'is_active',
-    
-    ingredienthighlights: 'ingredient_highlights',
-    thanhphannoibat: 'ingredient_highlights',
-    ingredients: 'ingredient_highlights',
-    
-    skintypes: 'skin_types',
-    loaida: 'skin_types',
-    suitableskintypes: 'skin_types',
-    
-    pregnancysafe: 'pregnancy_safe',
-    antoanchomebau: 'pregnancy_safe',
-    mebau: 'pregnancy_safe',
-    
-    routineposition: 'routine_position',
-    vitrichutrinh: 'routine_position',
-    routine: 'routine_position',
+    productid: "product_id",
+    masanpham: "product_id",
+    masp: "product_id",
+    id: "product_id",
+
+    benefits: "benefits",
+    loiich: "benefits",
+
+    skinconcerns: "skin_concerns",
+    tinhtrangda: "skin_concerns",
+    tinh_trang_da: "skin_concerns",
+
+    suitablespatypes: "suitable_spa_types",
+    loaispaphuhop: "suitable_spa_types",
+
+    usageinstructions: "usage_instructions",
+    huongdansudung: "usage_instructions",
+    hdsd: "usage_instructions",
+    usage: "usage_instructions",
+
+    salespitch: "sales_pitch",
+    loikhuyenbanhang: "sales_pitch",
+    kichbanbanhang: "sales_pitch",
+    pitch: "sales_pitch",
+
+    crosssellproducts: "cross_sell_products",
+    sanphambancheo: "cross_sell_products",
+    bancheo: "cross_sell_products",
+
+    restockcycledays: "restock_cycle_days",
+    chukydathang: "restock_cycle_days",
+    chuky: "restock_cycle_days",
+
+    warnings: "warnings",
+    luuy: "warnings",
+    chongchidinh: "warnings",
+    warningscontraindications: "warnings",
+
+    isactive: "is_active",
+    hoatdong: "is_active",
+    trangthai: "is_active",
+
+    ingredienthighlights: "ingredient_highlights",
+    thanhphannoibat: "ingredient_highlights",
+    ingredients: "ingredient_highlights",
+
+    skintypes: "skin_types",
+    loaida: "skin_types",
+    suitableskintypes: "skin_types",
+
+    pregnancysafe: "pregnancy_safe",
+    antoanchomebau: "pregnancy_safe",
+    mebau: "pregnancy_safe",
+
+    routineposition: "routine_position",
+    vitrichutrinh: "routine_position",
+    routine: "routine_position",
   };
 
   return mappings[lower] || key;
 }
 
 // Perform validation on a row
-export function validateRow(rawRow: any, rowNumber: number): { error?: ValidationError; parsedRow?: ImportRow } {
+export function validateRow(
+  rawRow: any,
+  rowNumber: number,
+): { error?: ValidationError; parsedRow?: ImportRow } {
   // Normalize keys first
   const normalizedRow: Record<string, any> = {};
   for (const k of Object.keys(rawRow)) {
@@ -213,12 +217,12 @@ export function validateRow(rawRow: any, rowNumber: number): { error?: Validatio
 
   // 1. Validate product_id
   const rawId = normalizedRow.product_id;
-  if (rawId === undefined || rawId === null || String(rawId).trim() === '') {
+  if (rawId === undefined || rawId === null || String(rawId).trim() === "") {
     return {
       error: {
         rowNumber,
-        field: 'product_id',
-        message: 'Trường product_id (Mã sản phẩm) là bắt buộc.',
+        field: "product_id",
+        message: "Trường product_id (Mã sản phẩm) là bắt buộc.",
         rawRow,
       },
     };
@@ -228,7 +232,7 @@ export function validateRow(rawRow: any, rowNumber: number): { error?: Validatio
     return {
       error: {
         rowNumber,
-        field: 'product_id',
+        field: "product_id",
         message: `ID sản phẩm "${rawId}" phải là số nguyên dương hợp lệ.`,
         rawRow,
       },
@@ -236,42 +240,42 @@ export function validateRow(rawRow: any, rowNumber: number): { error?: Validatio
   }
 
   // 2. Validate benefits
-  const benefits = String(normalizedRow.benefits || '').trim();
+  const benefits = String(normalizedRow.benefits || "").trim();
   if (!benefits) {
     return {
       error: {
         rowNumber,
         productId,
-        field: 'benefits',
-        message: 'Trường benefits (lợi ích) là bắt buộc và không được rỗng.',
+        field: "benefits",
+        message: "Trường benefits (lợi ích) là bắt buộc và không được rỗng.",
         rawRow,
       },
     };
   }
 
   // 3. Validate usage_instructions
-  const usageInstructions = String(normalizedRow.usage_instructions || '').trim();
+  const usageInstructions = String(normalizedRow.usage_instructions || "").trim();
   if (!usageInstructions) {
     return {
       error: {
         rowNumber,
         productId,
-        field: 'usage_instructions',
-        message: 'Trường usage_instructions (hướng dẫn sử dụng) là bắt buộc và không được rỗng.',
+        field: "usage_instructions",
+        message: "Trường usage_instructions (hướng dẫn sử dụng) là bắt buộc và không được rỗng.",
         rawRow,
       },
     };
   }
 
   // 4. Validate sales_pitch
-  const salesPitch = String(normalizedRow.sales_pitch || '').trim();
+  const salesPitch = String(normalizedRow.sales_pitch || "").trim();
   if (!salesPitch) {
     return {
       error: {
         rowNumber,
         productId,
-        field: 'sales_pitch',
-        message: 'Trường sales_pitch (lời khuyên bán hàng) là bắt buộc và không được rỗng.',
+        field: "sales_pitch",
+        message: "Trường sales_pitch (lời khuyên bán hàng) là bắt buộc và không được rỗng.",
         rawRow,
       },
     };
@@ -283,20 +287,22 @@ export function validateRow(rawRow: any, rowNumber: number): { error?: Validatio
   const crossSellProducts = normalizeIntegerArray(normalizedRow.cross_sell_products);
   const ingredientHighlights = normalizeStringArray(normalizedRow.ingredient_highlights);
   const skinTypes = normalizeStringArray(normalizedRow.skin_types);
-  
+
   const rawCycle = normalizedRow.restock_cycle_days;
-  const restockCycleDays = rawCycle !== undefined && rawCycle !== null && rawCycle !== ''
-    ? parseInt(String(rawCycle).trim(), 10)
-    : 60;
-  
-  const warnings = String(normalizedRow.warnings || '').trim();
+  const restockCycleDays =
+    rawCycle !== undefined && rawCycle !== null && rawCycle !== ""
+      ? parseInt(String(rawCycle).trim(), 10)
+      : 60;
+
+  const warnings = String(normalizedRow.warnings || "").trim();
   const rawActive = normalizedRow.is_active;
-  const isActive = rawActive !== undefined && rawActive !== null && rawActive !== ''
-    ? normalizeBoolean(rawActive) !== false
-    : true;
+  const isActive =
+    rawActive !== undefined && rawActive !== null && rawActive !== ""
+      ? normalizeBoolean(rawActive) !== false
+      : true;
 
   const pregnancySafe = normalizeBoolean(normalizedRow.pregnancy_safe);
-  const routinePosition = String(normalizedRow.routine_position || '').trim();
+  const routinePosition = String(normalizedRow.routine_position || "").trim();
 
   return {
     parsedRow: {
@@ -323,7 +329,7 @@ export async function executeImport(
   rawRows: any[],
   duplicateAction: DuplicateAction,
   sourceType: SourceType,
-  fileName?: string
+  fileName?: string,
 ): Promise<ImportResult> {
   const result: ImportResult = {
     totalRows: rawRows.length,
@@ -341,15 +347,15 @@ export async function executeImport(
   // Fetch current user
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData?.user) {
-    throw new Error('Chưa đăng nhập hoặc phiên đăng nhập hết hạn.');
+    throw new Error("Chưa đăng nhập hoặc phiên đăng nhập hết hạn.");
   }
   const userId = userData.user.id;
 
   // Fetch all existing product_ids
   const { data: existingProducts, error: existingError } = await supabase
-    .from('product_knowledge')
-    .select('id, product_id');
-  
+    .from("product_knowledge")
+    .select("id, product_id");
+
   if (existingError) {
     throw new Error(`Không thể đọc danh sách sản phẩm hiện tại: ${existingError.message}`);
   }
@@ -380,9 +386,11 @@ export async function executeImport(
     const productId = parsedRow.product_id;
 
     if (existingMap.has(productId)) {
-      if (duplicateAction === 'skip') {
+      if (duplicateAction === "skip") {
         result.warningCount++;
-        result.warnings.push(`Dòng ${rowNumber}: Sản phẩm ID ${productId} đã tồn tại trong hệ thống. Đã bỏ qua.`);
+        result.warnings.push(
+          `Dòng ${rowNumber}: Sản phẩm ID ${productId} đã tồn tại trong hệ thống. Đã bỏ qua.`,
+        );
         continue;
       } else {
         // Overwrite
@@ -396,29 +404,27 @@ export async function executeImport(
 
   // Execute inserts
   for (const item of batchInserts) {
-    const { error } = await supabase
-      .from('product_knowledge')
-      .insert({
-        product_id: item.product_id,
-        benefits: item.benefits,
-        skin_concerns: item.skin_concerns,
-        suitable_spa_types: item.suitable_spa_types,
-        usage_instructions: item.usage_instructions,
-        sales_pitch: item.sales_pitch,
-        cross_sell_products: item.cross_sell_products,
-        restock_cycle_days: item.restock_cycle_days,
-        warnings: item.warnings,
-        is_active: item.is_active,
-        ingredient_highlights: item.ingredient_highlights,
-        skin_types: item.skin_types,
-        pregnancy_safe: item.pregnancy_safe,
-        routine_position: item.routine_position,
-        qa_status: 'draft', // Always draft
-        approved_by: null,   // Always reset
-        approved_at: null,   // Always reset
-        created_by: userId,
-        updated_by: userId,
-      });
+    const { error } = await supabase.from("product_knowledge").insert({
+      product_id: item.product_id,
+      benefits: item.benefits,
+      skin_concerns: item.skin_concerns,
+      suitable_spa_types: item.suitable_spa_types,
+      usage_instructions: item.usage_instructions,
+      sales_pitch: item.sales_pitch,
+      cross_sell_products: item.cross_sell_products,
+      restock_cycle_days: item.restock_cycle_days,
+      warnings: item.warnings,
+      is_active: item.is_active,
+      ingredient_highlights: item.ingredient_highlights,
+      skin_types: item.skin_types,
+      pregnancy_safe: item.pregnancy_safe,
+      routine_position: item.routine_position,
+      qa_status: "draft", // Always draft
+      approved_by: null, // Always reset
+      approved_at: null, // Always reset
+      created_by: userId,
+      updated_by: userId,
+    });
 
     if (error) {
       result.errorCount++;
@@ -439,7 +445,7 @@ export async function executeImport(
     if (!existingUuid) continue;
 
     const { error } = await supabase
-      .from('product_knowledge')
+      .from("product_knowledge")
       .update({
         benefits: item.benefits,
         skin_concerns: item.skin_concerns,
@@ -454,16 +460,16 @@ export async function executeImport(
         skin_types: item.skin_types,
         pregnancy_safe: item.pregnancy_safe,
         routine_position: item.routine_position,
-        qa_status: 'draft', // Reset to draft
-        approved_by: null,   // Reset approved user
-        approved_at: null,   // Reset approved timestamp
-        reviewed_by: null,   // Reset reviewer user
-        reviewed_at: null,   // Reset reviewer timestamp
+        qa_status: "draft", // Reset to draft
+        approved_by: null, // Reset approved user
+        approved_at: null, // Reset approved timestamp
+        reviewed_by: null, // Reset reviewer user
+        reviewed_at: null, // Reset reviewer timestamp
         rejection_reason: null, // Reset rejection reason
         updated_by: userId,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', existingUuid);
+      .eq("id", existingUuid);
 
     if (error) {
       result.errorCount++;
@@ -481,7 +487,7 @@ export async function executeImport(
   // Write to audit log
   const warningsPreview = result.warnings.slice(0, 10);
   const { data: logData, error: logError } = await supabase
-    .from('product_knowledge_import_logs')
+    .from("product_knowledge_import_logs")
     .insert({
       uploaded_by: userId,
       source_type: sourceType,
@@ -490,7 +496,7 @@ export async function executeImport(
       error_count: result.errorCount,
       warning_count: result.warningCount,
       metadata: {
-        fileName: fileName || 'raw_text_input',
+        fileName: fileName || "raw_text_input",
         duplicateAction,
         sourceType,
         importedAt: new Date().toISOString(),
@@ -498,11 +504,11 @@ export async function executeImport(
         warningsPreview,
       },
     })
-    .select('id')
+    .select("id")
     .single();
 
   if (logError) {
-    console.error('Không thể ghi log import:', logError.message);
+    console.error("Không thể ghi log import:", logError.message);
   } else if (logData) {
     result.logId = logData.id;
   }

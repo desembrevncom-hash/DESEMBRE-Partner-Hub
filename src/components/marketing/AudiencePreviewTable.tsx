@@ -8,7 +8,11 @@ interface AudiencePreviewTableProps {
 
 export function AudiencePreviewTable({ data, audienceCount }: AudiencePreviewTableProps) {
   if (!data || data.length === 0) {
-    return <div className="p-4 text-center text-sm text-slate-500">Không có khách hàng nào trong tập này.</div>;
+    return (
+      <div className="p-4 text-center text-sm text-slate-500">
+        Không có khách hàng nào trong tập này.
+      </div>
+    );
   }
 
   return (
@@ -30,12 +34,12 @@ export function AudiencePreviewTable({ data, audienceCount }: AudiencePreviewTab
           <tbody className="divide-y divide-slate-100">
             {data.map((c, i) => (
               <tr key={c.id || i} className="hover:bg-slate-50">
-                <td className="px-4 py-2 font-medium">{c.name || 'Không rõ'}</td>
-                <td className="px-4 py-2 text-slate-600">{c.phone || '—'}</td>
-                <td className="px-4 py-2 text-slate-600">{c.email || '—'}</td>
+                <td className="px-4 py-2 font-medium">{c.name || "Không rõ"}</td>
+                <td className="px-4 py-2 text-slate-600">{c.phone || "—"}</td>
+                <td className="px-4 py-2 text-slate-600">{c.email || "—"}</td>
                 <td className="px-4 py-2 text-emerald-600">{c.reason}</td>
                 <td className="px-4 py-2 text-slate-500">
-                  {c.last_contacted_at ? format(new Date(c.last_contacted_at), "dd/MM/yyyy") : '—'}
+                  {c.last_contacted_at ? format(new Date(c.last_contacted_at), "dd/MM/yyyy") : "—"}
                 </td>
               </tr>
             ))}

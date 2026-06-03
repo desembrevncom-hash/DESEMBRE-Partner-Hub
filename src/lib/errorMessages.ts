@@ -5,24 +5,28 @@
 
 export function isPermissionError(error: any): boolean {
   if (!error) return false;
-  const msg = error.message || error.details || '';
-  return msg.includes('row-level security') || msg.includes('permission denied') || msg.includes('PGRST301');
+  const msg = error.message || error.details || "";
+  return (
+    msg.includes("row-level security") ||
+    msg.includes("permission denied") ||
+    msg.includes("PGRST301")
+  );
 }
 
 export function isNetworkError(error: any): boolean {
   if (!error) return false;
-  const msg = error.message || '';
-  return msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('timeout');
+  const msg = error.message || "";
+  return msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("timeout");
 }
 
 export function getFriendlyErrorMessage(error: any): string {
   if (!error) return "Đã xảy ra lỗi không xác định.";
 
-  if (typeof error === 'string') {
+  if (typeof error === "string") {
     return error;
   }
 
-  const msg = error.message || error.details || error.hint || '';
+  const msg = error.message || error.details || error.hint || "";
 
   // 1. Network Errors
   if (isNetworkError(error)) {
@@ -35,21 +39,26 @@ export function getFriendlyErrorMessage(error: any): string {
   }
 
   // 3. Database / SQL Errors (Hide raw details)
-  if (msg.includes('relation') || msg.includes('column') || msg.includes('syntax error') || msg.includes('Postgres')) {
+  if (
+    msg.includes("relation") ||
+    msg.includes("column") ||
+    msg.includes("syntax error") ||
+    msg.includes("Postgres")
+  ) {
     return "Lỗi tạm thời. Vui lòng thử lại sau hoặc báo cáo với quản trị viên.";
   }
-  
-  if (msg.includes('duplicate key value')) {
+
+  if (msg.includes("duplicate key value")) {
     return "Dữ liệu đã tồn tại trong hệ thống. Vui lòng kiểm tra lại.";
   }
 
   // 4. Timeout / Abort
-  if (msg.includes('abort') || msg.includes('timeout')) {
+  if (msg.includes("abort") || msg.includes("timeout")) {
     return "Yêu cầu mất quá nhiều thời gian để xử lý. Vui lòng thử lại.";
   }
 
   // Default fallback (only show if it's not a scary SQL string)
-  if (msg.length > 0 && msg.length < 100 && !msg.includes('SQL')) {
+  if (msg.length > 0 && msg.length < 100 && !msg.includes("SQL")) {
     return msg;
   }
 

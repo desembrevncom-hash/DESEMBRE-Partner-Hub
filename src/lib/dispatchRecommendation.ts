@@ -23,7 +23,7 @@ const HEALTHY_LIMIT = 30;
  * - Every overdue SLA adds 5 points (bottleneck penalty).
  */
 export function calculateDispatchLoadScore(stats: TeamStatItem): number {
-  return stats.total + (stats.hot * 2) + (stats.overdue * 5);
+  return stats.total + stats.hot * 2 + stats.overdue * 5;
 }
 
 /**
@@ -32,13 +32,13 @@ export function calculateDispatchLoadScore(stats: TeamStatItem): number {
 export function getRecommendedAssignee(
   customer: any,
   teamStats: Record<string, TeamStatItem>,
-  staffMap: StaffMap
+  staffMap: StaffMap,
 ): DispatchSuggestion | null {
   const candidates = Object.entries(teamStats).map(([id, stats]) => {
     return {
       staffId: id,
       score: calculateDispatchLoadScore(stats),
-      stats
+      stats,
     };
   });
 
@@ -49,11 +49,11 @@ export function getRecommendedAssignee(
 
   const best = candidates[0];
   const displayName = getStaffDisplayName(best.staffId, staffMap);
-  
+
   let reason = "Tải thấp nhất";
   if (best.stats.total === 0) reason = "Đang trống việc";
   else if (best.stats.overdue > 0) reason = "Chấp nhận được";
-  
+
   // Refuse recommendation if the best is already overloaded
   if (best.stats.total >= HEALTHY_LIMIT) {
     reason = "Cả team đang quá tải";
@@ -63,7 +63,7 @@ export function getRecommendedAssignee(
     staffId: best.staffId,
     displayName,
     score: best.score,
-    reason
+    reason,
   };
 }
 
@@ -73,7 +73,7 @@ export function getRecommendedAssignee(
  */
 export function distributeEvenly(
   customerIds: string[],
-  teamStats: Record<string, TeamStatItem>
+  teamStats: Record<string, TeamStatItem>,
 ): Record<string, string> {
   const result: Record<string, string> = {};
   if (customerIds.length === 0 || Object.keys(teamStats).length === 0) return result;
@@ -81,16 +81,17 @@ export function distributeEvenly(
   // Clone stats so we can simulate adding loads during distribution
   const simulatedStats = JSON.parse(JSON.stringify(teamStats)) as Record<string, TeamStatItem>;
 
-  customerIds.forEach(cid => {
+  customerIds.forEach((cid) => {
     // Re-evaluate best candidate each time
     const candidates = Object.entries(simulatedStats).map(([id, stats]) => ({
-      id, score: calculateDispatchLoadScore(stats)
+      id,
+      score: calculateDispatchLoadScore(stats),
     }));
     candidates.sort((a, b) => a.score - b.score);
-    
+
     const bestId = candidates[0].id;
     result[cid] = bestId;
-    
+
     // Increment simulated load
     simulatedStats[bestId].total += 1;
   });

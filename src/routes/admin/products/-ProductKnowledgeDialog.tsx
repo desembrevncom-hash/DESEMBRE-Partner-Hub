@@ -5,7 +5,19 @@
 
 import React, { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Select, MenuItem, TextField, Typography, Divider, Box } from "@mui/material"; // Assuming MUI is available in the project
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Select,
+  MenuItem,
+  TextField,
+  Typography,
+  Divider,
+  Box,
+} from "@mui/material"; // Assuming MUI is available in the project
 
 // Supabase client (service role for admin actions)
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
@@ -69,7 +81,7 @@ async function updateStatus(
   productId: string,
   newStatus: string,
   note: string,
-  reasonType: string
+  reasonType: string,
 ) {
   const { data, error } = await supabaseAdmin.rpc("update_product_knowledge_status", {
     pk_id: productId,
@@ -194,9 +206,14 @@ export const ProductKnowledgeDialog: React.FC<{
           {logs.map((log) => (
             <Box key={log.id} mb={1} p={1} sx={{ border: "1px solid #e0e0e0", borderRadius: 1 }}>
               <Typography variant="body2">
-                <strong>{log.from_status} → {log.to_status}</strong> bởi {log.changed_by} vào {new Date(log.created_at).toLocaleString()}
+                <strong>
+                  {log.from_status} → {log.to_status}
+                </strong>{" "}
+                bởi {log.changed_by} vào {new Date(log.created_at).toLocaleString()}
               </Typography>
-              <Typography variant="caption">Lý do: {log.status_reason_type} – {log.note}</Typography>
+              <Typography variant="caption">
+                Lý do: {log.status_reason_type} – {log.note}
+              </Typography>
             </Box>
           ))}
         </Box>
@@ -210,8 +227,12 @@ export const ProductKnowledgeDialog: React.FC<{
             {previewChunks.length === 0 && <Typography>Không có chunk nào.</Typography>}
             {previewChunks.slice(0, 5).map((c, idx) => (
               <Box key={c.id} mt={2} p={2} sx={{ background: "#f9f9f9", borderRadius: 2 }}>
-                <Typography variant="subtitle2">Chunk {idx + 1} - {c.chunk_type}</Typography>
-                <Typography variant="body2" sx={{ mt: 1 }}>{c.content}</Typography>
+                <Typography variant="subtitle2">
+                  Chunk {idx + 1} - {c.chunk_type}
+                </Typography>
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  {c.content}
+                </Typography>
               </Box>
             ))}
           </Box>
@@ -219,7 +240,9 @@ export const ProductKnowledgeDialog: React.FC<{
         {errorMsg && <Typography color="error">{errorMsg}</Typography>}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={loading}>Đóng</Button>
+        <Button onClick={onClose} disabled={loading}>
+          Đóng
+        </Button>
         <Button variant="contained" color="primary" onClick={handleSave} disabled={loading}>
           {loading ? "Saving..." : "Lưu thay đổi"}
         </Button>

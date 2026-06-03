@@ -54,18 +54,18 @@ export function buildGoogleCalendarLink(input: BuildGoogleCalendarLinkInput) {
  * ==========================================
  * VÍ DỤ KIỂM THỬ (TEST CASE MINH HỌA)
  * ==========================================
- * 
+ *
  * const sampleInput = {
  *   title: "Họp triển khai CRM",
  *   startsAt: "2026-05-15T08:30",
  *   endsAt: "2026-05-15T12:00"
  * };
- * 
+ *
  * Kết quả mong đợi cho thuộc tính dates:
  * "20260515T083000/20260515T120000"
- * 
+ *
  * URL Output sinh ra chứa tham số:
  * &dates=20260515T083000%2F20260515T120000&ctz=Asia%2FHo_Chi_Minh
- * 
+ *
  * Đảm bảo 100% không bị lùi 7 tiếng do quy đổi tự động sang mốc UTC.
  */

@@ -13,9 +13,9 @@ export async function decryptZaloToken(encrypted: string, keyHex: string): Promi
     const [ivHex, ciphertextB64] = encrypted.split(":");
     if (!ivHex || !ciphertextB64) return null;
     const keyBytes = hexToBytes(keyHex.padEnd(64, "0").slice(0, 64));
-    const key = await crypto.subtle.importKey(
-      "raw", keyBytes, { name: "AES-GCM" }, false, ["decrypt"],
-    );
+    const key = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, [
+      "decrypt",
+    ]);
     const iv = hexToBytes(ivHex);
     const ciphertext = Uint8Array.from(atob(ciphertextB64), (c) => c.charCodeAt(0));
     const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
@@ -27,13 +27,15 @@ export async function decryptZaloToken(encrypted: string, keyHex: string): Promi
 
 export async function encryptZaloToken(token: string, keyHex: string): Promise<string> {
   const keyBytes = hexToBytes(keyHex.padEnd(64, "0").slice(0, 64));
-  const key = await crypto.subtle.importKey(
-    "raw", keyBytes, { name: "AES-GCM" }, false, ["encrypt"],
-  );
+  const key = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, [
+    "encrypt",
+  ]);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(token);
   const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
-  const ivHex = Array.from(iv).map((b) => b.toString(16).padStart(2, "0")).join("");
+  const ivHex = Array.from(iv)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
   return ivHex + ":" + btoa(String.fromCharCode(...new Uint8Array(ciphertext)));
 }
 
@@ -41,7 +43,10 @@ export async function encryptZaloToken(token: string, keyHex: string): Promise<s
  * Đọc refresh_token từ DB, giải mã, gọi API Zalo để lấy access_token mới,
  * mã hoá token mới và lưu lại vào DB. Trả về access_token rõ trong RAM.
  */
-export async function refreshZaloToken(adminClient: SupabaseClient, sender_account_id: string): Promise<string> {
+export async function refreshZaloToken(
+  adminClient: SupabaseClient,
+  sender_account_id: string,
+): Promise<string> {
   const { data: sender, error: senderErr } = await adminClient
     .from("sender_accounts")
     .select("id, name, external_app_id")
@@ -62,7 +67,8 @@ export async function refreshZaloToken(adminClient: SupabaseClient, sender_accou
     throw new Error("ZALO_REFRESH_TOKEN_MISSING");
   }
 
-  const tokenEncKey = Deno.env.get("TOKEN_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  const tokenEncKey =
+    Deno.env.get("TOKEN_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   const refreshToken = await decryptZaloToken(tokenRow.refresh_token_enc, tokenEncKey);
 
   if (!refreshToken) {
@@ -70,7 +76,10 @@ export async function refreshZaloToken(adminClient: SupabaseClient, sender_accou
   }
 
   const appId = sender.external_app_id || "";
-  const zaloAppSecret = (appId ? Deno.env.get(`ZALO_APP_SECRET_${appId}`) : null) || Deno.env.get("ZALO_APP_SECRET") || "";
+  const zaloAppSecret =
+    (appId ? Deno.env.get(`ZALO_APP_SECRET_${appId}`) : null) ||
+    Deno.env.get("ZALO_APP_SECRET") ||
+    "";
 
   if (!zaloAppSecret) {
     throw new Error("ZALO_APP_SECRET_MISSING");
@@ -88,7 +97,7 @@ export async function refreshZaloToken(adminClient: SupabaseClient, sender_accou
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        "secret_key": zaloAppSecret,
+        secret_key: zaloAppSecret,
       },
       body: refreshParams.toString(),
     });
@@ -99,14 +108,17 @@ export async function refreshZaloToken(adminClient: SupabaseClient, sender_accou
 
   if (!newTokenData.access_token) {
     const reason = newTokenData.message || String(newTokenData.error) || "unknown";
-    
+
     // Update sender health status to warning/error if needed, but here we just throw
-    await adminClient.from("sender_accounts").update({
-      health_status: "error",
-      last_error: `Zalo refresh failed: ${reason}`,
-      last_checked_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }).eq("id", sender_account_id);
+    await adminClient
+      .from("sender_accounts")
+      .update({
+        health_status: "error",
+        last_error: `Zalo refresh failed: ${reason}`,
+        last_checked_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", sender_account_id);
 
     throw new Error(`ZALO_TOKEN_REFRESH_FAILED: ${reason}`);
   }
@@ -116,22 +128,30 @@ export async function refreshZaloToken(adminClient: SupabaseClient, sender_accou
     ? await encryptZaloToken(newTokenData.refresh_token, tokenEncKey)
     : tokenRow.refresh_token_enc;
 
-  const newExpiresAt = new Date(Date.now() + (newTokenData.expires_in ?? 3600) * 1000).toISOString();
+  const newExpiresAt = new Date(
+    Date.now() + (newTokenData.expires_in ?? 3600) * 1000,
+  ).toISOString();
 
-  await adminClient.from("sender_account_tokens").upsert({
-    sender_account_id,
-    access_token_enc: newAccessEnc,
-    refresh_token_enc: newRefreshEnc,
-    token_expires_at: newExpiresAt,
-    updated_at: new Date().toISOString(),
-  }, { onConflict: "sender_account_id" });
+  await adminClient.from("sender_account_tokens").upsert(
+    {
+      sender_account_id,
+      access_token_enc: newAccessEnc,
+      refresh_token_enc: newRefreshEnc,
+      token_expires_at: newExpiresAt,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "sender_account_id" },
+  );
 
-  await adminClient.from("sender_accounts").update({
-    health_status: "healthy",
-    last_error: null,
-    last_checked_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }).eq("id", sender_account_id);
+  await adminClient
+    .from("sender_accounts")
+    .update({
+      health_status: "healthy",
+      last_error: null,
+      last_checked_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", sender_account_id);
 
   // Audit log
   await adminClient.from("sender_action_logs").insert({

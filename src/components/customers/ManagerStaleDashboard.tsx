@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
-import { ShieldAlert, AlertTriangle, Ghost, Clock, Flame } from 'lucide-react';
-import { getStaleSignals, StaleSignal } from '@/lib/operationalRules';
+import React, { useMemo } from "react";
+import { ShieldAlert, AlertTriangle, Ghost, Clock, Flame } from "lucide-react";
+import { getStaleSignals, StaleSignal } from "@/lib/operationalRules";
 
 interface ManagerStaleDashboardProps {
   customers: any[];
@@ -12,17 +12,17 @@ export function ManagerStaleDashboard({ customers }: ManagerStaleDashboardProps)
     let forgotten = 0;
     let quote_ignored = 0;
     let no_touchpoint = 0;
-    
-    customers.forEach(c => {
+
+    customers.forEach((c) => {
       const signals = getStaleSignals(c);
-      signals.forEach(s => {
-        if (s.signal === 'lead_dead') lead_dead++;
-        if (s.signal === 'forgotten') forgotten++;
-        if (s.signal === 'quote_ignored') quote_ignored++;
-        if (s.signal === 'no_touchpoint') no_touchpoint++;
+      signals.forEach((s) => {
+        if (s.signal === "lead_dead") lead_dead++;
+        if (s.signal === "forgotten") forgotten++;
+        if (s.signal === "quote_ignored") quote_ignored++;
+        if (s.signal === "no_touchpoint") no_touchpoint++;
       });
     });
-    
+
     return { lead_dead, forgotten, quote_ignored, no_touchpoint };
   }, [customers]);
 
@@ -37,8 +37,12 @@ export function ManagerStaleDashboard({ customers }: ManagerStaleDashboardProps)
             <ShieldAlert className="w-4 h-4 text-rose-400" />
           </div>
           <div>
-            <p className="text-[11px] font-black uppercase tracking-widest text-rose-300">Stale Signals</p>
-            <p className="text-[9px] font-medium text-slate-400 uppercase tracking-wider">{totalStale} rủi ro</p>
+            <p className="text-[11px] font-black uppercase tracking-widest text-rose-300">
+              Stale Signals
+            </p>
+            <p className="text-[9px] font-medium text-slate-400 uppercase tracking-wider">
+              {totalStale} rủi ro
+            </p>
           </div>
         </div>
 
@@ -83,9 +87,10 @@ export function ManagerStaleDashboard({ customers }: ManagerStaleDashboardProps)
           )}
         </div>
       </div>
-      
+
       <div className="text-[10px] text-slate-400 font-medium px-4 shrink-0 text-center md:text-right hidden xl:block">
-        Tự động phát hiện các luồng <br />khách hàng có nguy cơ thất thoát.
+        Tự động phát hiện các luồng <br />
+        khách hàng có nguy cơ thất thoát.
       </div>
     </div>
   );

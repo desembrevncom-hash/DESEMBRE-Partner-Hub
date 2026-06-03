@@ -6,8 +6,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 function json(body: unknown, status = 200) {
@@ -70,10 +69,7 @@ Deno.serve(async (req) => {
     const isPrimaryAdmin = currentUser.email === "desembrevn.com@gmail.com";
 
     if (callerRoleError) {
-      return json(
-        { error: `Không kiểm tra được quyền quản trị: ${callerRoleError.message}` },
-        400
-      );
+      return json({ error: `Không kiểm tra được quyền quản trị: ${callerRoleError.message}` }, 400);
     }
 
     const callerRoleStrings = (callerRoles || []).map((r) => r.role);
@@ -147,17 +143,14 @@ Deno.serve(async (req) => {
           error:
             "Tài khoản này đã tạo đơn hàng trong hệ thống. Để bảo toàn dữ liệu đối soát, vui lòng không xóa mà hãy gỡ quyền SALE của nhân viên này.",
         },
-        400
+        400,
       );
     }
 
     const { error: deleteError } = await adminClient.auth.admin.deleteUser(userId);
 
     if (deleteError) {
-      return json(
-        { error: `Không xoá được Auth user: ${deleteError.message}` },
-        400
-      );
+      return json({ error: `Không xoá được Auth user: ${deleteError.message}` }, 400);
     }
 
     // Explicitly guarantee complete cascading sweep of metadata entries
@@ -176,7 +169,7 @@ Deno.serve(async (req) => {
       {
         error: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 });

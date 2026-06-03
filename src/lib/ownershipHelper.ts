@@ -5,14 +5,14 @@
 // 1. CÁC KIỂU DỮ LIỆU CHUẨN (TYPES / LITERAL UNIONS)
 export type CustomerChannel = "direct_sales" | "tele_sales" | "hybrid";
 
-export type CustomerDistanceType = 
+export type CustomerDistanceType =
   | "near_company"
   | "same_city"
   | "far_city"
   | "province"
   | "unknown";
 
-export type CustomerCareModel = 
+export type CustomerCareModel =
   | "sale_owned"
   | "tele_owned"
   | "sale_with_tele_support"
@@ -108,24 +108,15 @@ export const CARE_MODEL_OPTIONS = [
  * Trả về nhãn hiển thị tiếng Việt cho Kênh tiếp cận khách hàng (Customer Channel)
  */
 export function getCustomerChannelLabel(value?: string | null) {
-  return (
-    CUSTOMER_CHANNEL_OPTIONS.find((item) => item.value === value)?.label ||
-    "Chưa phân tuyến"
-  );
+  return CUSTOMER_CHANNEL_OPTIONS.find((item) => item.value === value)?.label || "Chưa phân tuyến";
 }
 
 export function getCustomerDistanceLabel(value?: string | null) {
-  return (
-    CUSTOMER_DISTANCE_OPTIONS.find((item) => item.value === value)?.label ||
-    "Chưa rõ"
-  );
+  return CUSTOMER_DISTANCE_OPTIONS.find((item) => item.value === value)?.label || "Chưa rõ";
 }
 
 export function getCareModelLabel(value?: string | null) {
-  return (
-    CARE_MODEL_OPTIONS.find((item) => item.value === value)?.label ||
-    "Chưa xác định"
-  );
+  return CARE_MODEL_OPTIONS.find((item) => item.value === value)?.label || "Chưa xác định";
 }
 
 /**

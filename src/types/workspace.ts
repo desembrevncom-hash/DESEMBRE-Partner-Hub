@@ -9,7 +9,14 @@ export interface WorkspaceCounters {
 
 export interface WorkspacePriorityItem {
   id: string;
-  type: "call_lead" | "follow_up" | "check_in" | "quotation_pending" | "draft_order" | "overdue_task" | "upcoming_event";
+  type:
+    | "call_lead"
+    | "follow_up"
+    | "check_in"
+    | "quotation_pending"
+    | "draft_order"
+    | "overdue_task"
+    | "upcoming_event";
   title: string;
   subtitle: string;
   customer_id?: string | null;

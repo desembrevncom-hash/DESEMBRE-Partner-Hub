@@ -457,7 +457,7 @@ export function CustomerContacts({ customerId }: CustomerContactsProps) {
 
       {/* ── Dialog Form ── */}
       <Dialog open={showFormDialog} onOpenChange={setShowFormDialog}>
-        <DialogContent className="max-w-md rounded-3xl p-5 gap-4">
+        <DialogContent className="max-w-md rounded-3xl p-5 md:p-6 gap-4 w-[calc(100%-32px)]">
           <DialogHeader>
             <DialogTitle className="text-base font-black text-slate-900">
               {editingContact ? "Cập nhật người liên hệ" : "Thêm người liên hệ mới"}
@@ -468,7 +468,7 @@ export function CustomerContacts({ customerId }: CustomerContactsProps) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3.5 max-h-[60vh] overflow-y-auto pr-1">
+          <div className="space-y-3.5 max-h-[calc(100dvh-12rem)] md:max-h-[60vh] overflow-y-auto pr-1">
             {/* Họ tên */}
             <div className="space-y-1">
               <Label className="text-[10px] font-black text-slate-500 uppercase">Họ và tên *</Label>
@@ -476,7 +476,7 @@ export function CustomerContacts({ customerId }: CustomerContactsProps) {
                 value={form.fullName}
                 onChange={(e) => setForm({ ...form, fullName: e.target.value })}
                 placeholder="Ví dụ: Nguyễn Thị Lan"
-                className="h-9 text-xs rounded-xl"
+                className="h-11 md:h-9 text-xs rounded-xl"
               />
             </div>
 
@@ -490,7 +490,7 @@ export function CustomerContacts({ customerId }: CustomerContactsProps) {
                   value={form.roleTitle}
                   onChange={(e) => setForm({ ...form, roleTitle: e.target.value })}
                   placeholder="Chủ Spa, Quản lý..."
-                  className="h-9 text-xs rounded-xl"
+                  className="h-11 md:h-9 text-xs rounded-xl"
                 />
               </div>
 
@@ -505,7 +505,7 @@ export function CustomerContacts({ customerId }: CustomerContactsProps) {
                     setForm({ ...form, preferredChannel: v })
                   }
                 >
-                  <SelectTrigger className="h-9 text-xs rounded-xl">
+                  <SelectTrigger className="h-11 md:h-9 text-xs rounded-xl">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -529,7 +529,7 @@ export function CustomerContacts({ customerId }: CustomerContactsProps) {
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   placeholder="09xxx..."
-                  className="h-9 text-xs rounded-xl"
+                  className="h-11 md:h-9 text-xs rounded-xl"
                 />
               </div>
 
@@ -542,7 +542,7 @@ export function CustomerContacts({ customerId }: CustomerContactsProps) {
                   value={form.zaloPhone}
                   onChange={(e) => setForm({ ...form, zaloPhone: e.target.value })}
                   placeholder="09xxx..."
-                  className="h-9 text-xs rounded-xl"
+                  className="h-11 md:h-9 text-xs rounded-xl"
                 />
               </div>
             </div>
@@ -560,10 +560,10 @@ export function CustomerContacts({ customerId }: CustomerContactsProps) {
                   value={form.bDay}
                   onChange={(e) => setForm({ ...form, bDay: e.target.value })}
                   placeholder="Ngày"
-                  className="h-9 text-xs rounded-xl text-center"
+                  className="h-11 md:h-9 text-xs rounded-xl text-center"
                 />
                 <Select value={form.bMonth} onValueChange={(v) => setForm({ ...form, bMonth: v })}>
-                  <SelectTrigger className="h-9 text-xs rounded-xl">
+                  <SelectTrigger className="h-11 md:h-9 text-xs rounded-xl px-2">
                     <SelectValue placeholder="Tháng" />
                   </SelectTrigger>
                   <SelectContent>
@@ -582,7 +582,7 @@ export function CustomerContacts({ customerId }: CustomerContactsProps) {
                   value={form.bYear}
                   onChange={(e) => setForm({ ...form, bYear: e.target.value })}
                   placeholder="Năm (Tùy chọn)"
-                  className="h-9 text-xs rounded-xl text-center"
+                  className="h-11 md:h-9 text-xs rounded-xl text-center"
                 />
               </div>
               <p className="text-[10px] text-slate-400">
@@ -593,7 +593,7 @@ export function CustomerContacts({ customerId }: CustomerContactsProps) {
             {/* Switches */}
             <div className="space-y-3.5 pt-2 border-t border-slate-100">
               {/* Nhắc nhở sinh nhật nội bộ */}
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <div className="space-y-0.5">
                   <Label className="text-xs font-bold text-slate-800">
                     Kích hoạt nhắc nhở sinh nhật
@@ -611,7 +611,7 @@ export function CustomerContacts({ customerId }: CustomerContactsProps) {
               </div>
 
               {/* Đồng ý nhận ưu đãi */}
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <div className="space-y-0.5">
                   <Label className="text-xs font-bold text-slate-800">
                     Khách đồng ý nhận ưu đãi
@@ -627,12 +627,12 @@ export function CustomerContacts({ customerId }: CustomerContactsProps) {
               </div>
 
               {/* Set as Primary Contact */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-start gap-2 pt-1">
                 <Checkbox
                   id="form-is-primary"
                   checked={form.isPrimary}
                   onCheckedChange={(checked) => setForm({ ...form, isPrimary: !!checked })}
-                  className="rounded-md border-slate-300 w-4.5 h-4.5"
+                  className="rounded-md border-slate-300 w-5 h-5 shrink-0 mt-0.5"
                 />
                 <div className="grid gap-0.5 leading-none">
                   <label
@@ -641,7 +641,7 @@ export function CustomerContacts({ customerId }: CustomerContactsProps) {
                   >
                     Đặt làm người liên hệ chính
                   </label>
-                  <p className="text-[10px] text-slate-400">
+                  <p className="text-[10px] text-slate-400 leading-normal">
                     Một Spa chỉ có tối đa một người liên hệ chính nhận thông báo mặc định.
                   </p>
                 </div>
@@ -664,14 +664,14 @@ export function CustomerContacts({ customerId }: CustomerContactsProps) {
             <Button
               variant="outline"
               onClick={() => setShowFormDialog(false)}
-              className="h-9 text-xs font-bold rounded-xl"
+              className="h-11 md:h-9 text-xs font-bold rounded-xl"
             >
               Hủy
             </Button>
             <Button
               onClick={handleSaveContact}
               disabled={saving}
-              className="h-9 text-xs font-bold rounded-xl bg-slate-900 hover:bg-primary text-white"
+              className="h-11 md:h-9 text-xs font-bold rounded-xl bg-slate-900 hover:bg-primary text-white"
             >
               {saving ? (
                 <>

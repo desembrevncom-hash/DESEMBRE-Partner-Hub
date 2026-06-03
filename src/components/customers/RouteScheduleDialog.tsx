@@ -22,7 +22,7 @@ import {
   CheckCircle2,
   AlertCircle,
   RefreshCw,
-  CalendarCheck
+  CalendarCheck,
 } from "lucide-react";
 import { calculateDistanceMeters, formatDistance, buildGoogleMapsRouteUrl } from "@/lib/geo";
 
@@ -55,7 +55,7 @@ export function RouteScheduleDialog({
 
   // Form states
   const [visitDate, setVisitDate] = useState<string>(
-    new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0] // default tomorrow
+    new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0], // default tomorrow
   );
   const [startTime, setStartTime] = useState<string>("08:30");
   const [defaultDuration, setDefaultDuration] = useState<number>(60);
@@ -99,7 +99,7 @@ export function RouteScheduleDialog({
       }
       setCheckingDuplicates(true);
       try {
-        const customerIds = orderedCustomers.map(c => c.id).filter(Boolean);
+        const customerIds = orderedCustomers.map((c) => c.id).filter(Boolean);
         if (customerIds.length === 0) {
           setDuplicateEventCustomerIds([]);
           return;
@@ -178,12 +178,8 @@ export function RouteScheduleDialog({
   // Filter profiles that have the 'sale' role or are admin/sub_admin (since they can also be assigned)
   const salesStaff = useMemo(() => {
     return staffList.filter((staff) => {
-      const staffRoles = rolesList
-        .filter((r) => r.user_id === staff.id)
-        .map((r) => r.role);
-      return staffRoles.some(
-        (role) => role === "sale" || role === "admin"
-      );
+      const staffRoles = rolesList.filter((r) => r.user_id === staff.id).map((r) => r.role);
+      return staffRoles.some((role) => role === "sale" || role === "admin");
     });
   }, [staffList, rolesList]);
 
@@ -198,9 +194,7 @@ export function RouteScheduleDialog({
 
   const handleToggleCustomer = (customerId: string) => {
     setIgnoredCustomerIds((prev) =>
-      prev.includes(customerId)
-        ? prev.filter((id) => id !== customerId)
-        : [...prev, customerId]
+      prev.includes(customerId) ? prev.filter((id) => id !== customerId) : [...prev, customerId],
     );
   };
 
@@ -210,7 +204,7 @@ export function RouteScheduleDialog({
     if (orderedCustomers.length === 0) return timeline;
 
     const activeRouteCustomers = orderedCustomers.filter(
-      (c) => c.id && c.latitude && c.longitude && !ignoredCustomerIds.includes(c.id)
+      (c) => c.id && c.latitude && c.longitude && !ignoredCustomerIds.includes(c.id),
     );
 
     let lastCoordinates = routeOrigin;
@@ -218,43 +212,43 @@ export function RouteScheduleDialog({
     orderedCustomers.forEach((customer, index) => {
       const hasCoords = !!(customer.latitude && customer.longitude && customer.id);
       const isIgnored = ignoredCustomerIds.includes(customer.id);
-      
+
       let startsAt: Date | null = null;
       let endsAt: Date | null = null;
       let duration = individualDurations[customer.id] ?? defaultDuration;
       let distanceText = "";
-      
+
       if (hasCoords && !isIgnored) {
-        const activeIdx = activeRouteCustomers.findIndex(c => c.id === customer.id);
+        const activeIdx = activeRouteCustomers.findIndex((c) => c.id === customer.id);
         if (activeIdx !== -1) {
           let tempPointer = new Date(`${visitDate}T${startTime}:00`);
           if (isNaN(tempPointer.getTime())) tempPointer = new Date();
-          
+
           let tempCoords = routeOrigin;
-          
+
           for (let i = 0; i <= activeIdx; i++) {
             const activeCust = activeRouteCustomers[i];
             const activeDuration = individualDurations[activeCust.id] ?? defaultDuration;
-            
+
             const itemStarts = new Date(tempPointer.getTime());
             const itemEnds = new Date(tempPointer.getTime() + activeDuration * 60 * 1000);
-            
+
             if (i === activeIdx) {
               startsAt = itemStarts;
               endsAt = itemEnds;
               duration = activeDuration;
-              
+
               if (tempCoords && activeCust.latitude && activeCust.longitude) {
                 const dist = calculateDistanceMeters(
                   tempCoords.latitude,
                   tempCoords.longitude,
                   Number(activeCust.latitude),
-                  Number(activeCust.longitude)
+                  Number(activeCust.longitude),
                 );
                 distanceText = formatDistance(dist);
               }
             }
-            
+
             tempCoords = {
               latitude: Number(activeCust.latitude),
               longitude: Number(activeCust.longitude),
@@ -300,7 +294,7 @@ export function RouteScheduleDialog({
     let totalMeters = 0;
     let lastCoordinates = routeOrigin;
     const activeRouteCustomers = orderedCustomers.filter(
-      (c) => c.id && c.latitude && c.longitude && !ignoredCustomerIds.includes(c.id)
+      (c) => c.id && c.latitude && c.longitude && !ignoredCustomerIds.includes(c.id),
     );
 
     activeRouteCustomers.forEach((customer) => {
@@ -309,7 +303,7 @@ export function RouteScheduleDialog({
           lastCoordinates.latitude,
           lastCoordinates.longitude,
           Number(customer.latitude),
-          Number(customer.longitude)
+          Number(customer.longitude),
         );
         totalMeters += dist;
       }
@@ -348,10 +342,10 @@ export function RouteScheduleDialog({
     }
 
     // Checking duplicates before saving
-    const duplicateStops = activeStops.filter(item => item.isDuplicate);
+    const duplicateStops = activeStops.filter((item) => item.isDuplicate);
     if (duplicateStops.length > 0) {
       const confirmSave = window.confirm(
-        `Phát hiện ${duplicateStops.length} khách hàng đã có lịch hẹn trùng ngày ${visitDate}. Bạn có muốn tiếp tục tạo lịch trùng lắp không?`
+        `Phát hiện ${duplicateStops.length} khách hàng đã có lịch hẹn trùng ngày ${visitDate}. Bạn có muốn tiếp tục tạo lịch trùng lắp không?`,
       );
       if (!confirmSave) {
         return;
@@ -377,37 +371,33 @@ export function RouteScheduleDialog({
 
       try {
         // 1. Tạo sự kiện lịch viếng thăm (calendar_events)
-        const { error: eventError } = await supabase
-          .from("calendar_events" as any)
-          .insert({
-            customer_id: customer.id,
-            title: title,
-            event_type: "direct_visit",
-            status: "pending",
-            starts_at: startsAt.toISOString(),
-            ends_at: endsAt.toISOString(),
-            assigned_sale_id: selectedSaleId,
-            created_by: currentUser?.id || selectedSaleId,
-            description: generalNote ? generalNote.trim() : null,
-          } as any);
+        const { error: eventError } = await supabase.from("calendar_events" as any).insert({
+          customer_id: customer.id,
+          title: title,
+          event_type: "direct_visit",
+          status: "pending",
+          starts_at: startsAt.toISOString(),
+          ends_at: endsAt.toISOString(),
+          assigned_sale_id: selectedSaleId,
+          created_by: currentUser?.id || selectedSaleId,
+          description: generalNote ? generalNote.trim() : null,
+        } as any);
 
         if (eventError) throw eventError;
         successEvents++;
 
         // 2. Tạo công việc đi kèm nếu được lựa chọn (customer_tasks)
         if (createTask) {
-          const { error: taskError } = await supabase
-            .from("customer_tasks" as any)
-            .insert({
-              customer_id: customer.id,
-              assigned_to: selectedSaleId,
-              assigned_by: currentUser?.id || selectedSaleId,
-              task_type: "direct_visit",
-              title: title,
-              note: generalNote ? generalNote.trim() : null,
-              status: "pending",
-              due_at: startsAt.toISOString(),
-            } as any);
+          const { error: taskError } = await supabase.from("customer_tasks" as any).insert({
+            customer_id: customer.id,
+            assigned_to: selectedSaleId,
+            assigned_by: currentUser?.id || selectedSaleId,
+            task_type: "direct_visit",
+            title: title,
+            note: generalNote ? generalNote.trim() : null,
+            status: "pending",
+            due_at: startsAt.toISOString(),
+          } as any);
 
           if (taskError) throw taskError;
           successTasks++;
@@ -472,7 +462,9 @@ export function RouteScheduleDialog({
     if (failedCount === 0) {
       toast.success(`Đã tạo thành công tuyến lịch viếng thăm cho ${succeededIds.length} khách!`);
     } else {
-      toast.warning(`Xếp lịch hoàn tất: ${succeededIds.length} chặng thành công, ${failedCount} chặng bị lỗi.`);
+      toast.warning(
+        `Xếp lịch hoàn tất: ${succeededIds.length} chặng thành công, ${failedCount} chặng bị lỗi.`,
+      );
     }
   };
 
@@ -497,7 +489,8 @@ export function RouteScheduleDialog({
             </DialogTitle>
           </DialogHeader>
           <p className="text-xs text-slate-500 font-semibold leading-relaxed max-w-xs">
-            Hãy chọn các khách hàng trên bản đồ trong chế độ **Lập tuyến đi** để lên danh sách lộ trình tối ưu và xếp lịch hàng loạt.
+            Hãy chọn các khách hàng trên bản đồ trong chế độ **Lập tuyến đi** để lên danh sách lộ
+            trình tối ưu và xếp lịch hàng loạt.
           </p>
           <DialogFooter className="w-full pt-2">
             <Button
@@ -554,24 +547,42 @@ export function RouteScheduleDialog({
               <Card className="rounded-2xl border-slate-100 shadow-2xs text-center bg-slate-50/50 p-2.5">
                 <p className="text-[9px] font-bold text-slate-400 uppercase">Lịch Sự Kiện</p>
                 <p className="text-base font-black text-indigo-650 mt-1">{summary.successEvents}</p>
-                <Badge variant="outline" className="mt-1 text-[8px] font-bold bg-white text-indigo-750 border-indigo-100">Thành công</Badge>
+                <Badge
+                  variant="outline"
+                  className="mt-1 text-[8px] font-bold bg-white text-indigo-750 border-indigo-100"
+                >
+                  Thành công
+                </Badge>
               </Card>
               <Card className="rounded-2xl border-slate-100 shadow-2xs text-center bg-slate-50/50 p-2.5">
                 <p className="text-[9px] font-bold text-slate-400 uppercase">Công Việc Giao</p>
                 <p className="text-base font-black text-indigo-650 mt-1">{summary.successTasks}</p>
-                <Badge variant="outline" className="mt-1 text-[8px] font-bold bg-white text-indigo-755 border-indigo-100">Thành công</Badge>
+                <Badge
+                  variant="outline"
+                  className="mt-1 text-[8px] font-bold bg-white text-indigo-755 border-indigo-100"
+                >
+                  Thành công
+                </Badge>
               </Card>
               <Card className="rounded-2xl border-slate-100 shadow-2xs text-center bg-slate-50/50 p-2.5">
                 <p className="text-[9px] font-bold text-slate-400 uppercase">Nhật Ký Chăm Sóc</p>
-                <p className="text-base font-black text-indigo-650 mt-1">{summary.successActivities}</p>
-                <Badge variant="outline" className="mt-1 text-[8px] font-bold bg-white text-indigo-750 border-indigo-100">Thành công</Badge>
+                <p className="text-base font-black text-indigo-650 mt-1">
+                  {summary.successActivities}
+                </p>
+                <Badge
+                  variant="outline"
+                  className="mt-1 text-[8px] font-bold bg-white text-indigo-750 border-indigo-100"
+                >
+                  Thành công
+                </Badge>
               </Card>
             </div>
 
             {summary.failedCount > 0 && (
               <div className="space-y-2">
                 <div className="text-[10px] font-black text-rose-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5" /> Khách hàng bị lỗi tạo lịch ({summary.failedCount})
+                  <AlertCircle className="w-3.5 h-3.5" /> Khách hàng bị lỗi tạo lịch (
+                  {summary.failedCount})
                 </div>
                 <div className="border border-rose-100 rounded-2xl bg-rose-50/20 p-3.5 space-y-2.5 max-h-[160px] overflow-y-auto">
                   {summary.failedList.map((err, idx) => (
@@ -581,7 +592,9 @@ export function RouteScheduleDialog({
                       </span>
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-slate-900 leading-tight">{err.name}</p>
-                        <p className="text-[10px] text-rose-600 font-semibold leading-relaxed mt-0.5">Lỗi: {err.error}</p>
+                        <p className="text-[10px] text-rose-600 font-semibold leading-relaxed mt-0.5">
+                          Lỗi: {err.error}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -636,24 +649,29 @@ export function RouteScheduleDialog({
           /* PHẦN NHẬP FORM & PREVIEW BẢNG */
           <>
             <div className="flex-1 overflow-y-auto pr-1 py-3 space-y-4">
-              
               {/* Premium Route Summary Header Card */}
               <div className="bg-indigo-50/50 rounded-2xl border border-indigo-100/40 p-3.5 grid grid-cols-3 gap-2.5 shadow-2xs">
                 <div className="space-y-0.5">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Điểm xuất phát</span>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">
+                    Điểm xuất phát
+                  </span>
                   <div className="text-[11px] font-black text-slate-800 flex items-center gap-1 mt-0.5 truncate">
                     <span className="shrink-0 w-2 h-2 rounded-full bg-rose-500 animate-ping" />
                     <span className="truncate">{routeOriginLabel || "Vị trí hiện tại (GPS)"}</span>
                   </div>
                 </div>
                 <div className="space-y-0.5">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Khách hàng lập lịch</span>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">
+                    Khách hàng lập lịch
+                  </span>
                   <p className="text-[11px] font-black text-indigo-750 mt-0.5 font-semibold">
                     {activeStops.length} / {orderedCustomers.length} chặng dừng
                   </p>
                 </div>
                 <div className="space-y-0.5">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Tổng khoảng cách</span>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">
+                    Tổng khoảng cách
+                  </span>
                   <p className="text-[11px] font-black text-rose-650 mt-0.5 font-semibold">
                     🚗 ~{formatDistance(totalRouteDistance)}
                   </p>
@@ -664,7 +682,9 @@ export function RouteScheduleDialog({
               <div className="grid grid-cols-2 gap-4">
                 {/* Chọn ngày đi */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-450 uppercase tracking-wider block">Ngày đi viếng thăm</label>
+                  <label className="text-[10px] font-black text-slate-450 uppercase tracking-wider block">
+                    Ngày đi viếng thăm
+                  </label>
                   <div className="relative">
                     <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <Input
@@ -678,7 +698,9 @@ export function RouteScheduleDialog({
 
                 {/* Chọn giờ bắt đầu */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-450 uppercase tracking-wider block">Giờ xuất phát</label>
+                  <label className="text-[10px] font-black text-slate-450 uppercase tracking-wider block">
+                    Giờ xuất phát
+                  </label>
                   <div className="relative">
                     <Clock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <Input
@@ -730,7 +752,9 @@ export function RouteScheduleDialog({
                   {loadingStaff ? (
                     <div className="h-10 border border-slate-200 rounded-xl bg-slate-50 flex items-center justify-center">
                       <RefreshCw className="h-4 w-4 animate-spin text-slate-400 mr-2" />
-                      <span className="text-[10px] font-bold text-slate-455 uppercase">Đang tải danh sách Sale...</span>
+                      <span className="text-[10px] font-bold text-slate-455 uppercase">
+                        Đang tải danh sách Sale...
+                      </span>
                     </div>
                   ) : (
                     <select
@@ -751,14 +775,19 @@ export function RouteScheduleDialog({
                 <div className="p-3 bg-slate-50/60 rounded-2xl border border-slate-100 flex items-center gap-2">
                   <User className="w-4 h-4 text-slate-400" />
                   <span className="text-[11px] font-bold text-slate-650">
-                    Người viếng thăm phụ trách: <span className="text-slate-950 font-black">Bản thân ({currentUser?.email})</span>
+                    Người viếng thăm phụ trách:{" "}
+                    <span className="text-slate-950 font-black">
+                      Bản thân ({currentUser?.email})
+                    </span>
                   </span>
                 </div>
               )}
 
               {/* Ô ghi chú chung */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-455 uppercase tracking-wider block">Ghi chú chung cho chuyến đi</label>
+                <label className="text-[10px] font-black text-slate-455 uppercase tracking-wider block">
+                  Ghi chú chung cho chuyến đi
+                </label>
                 <textarea
                   placeholder="Kế hoạch thực địa, tài liệu bàn giao, mục tiêu viếng thăm..."
                   value={generalNote}
@@ -834,9 +863,7 @@ export function RouteScheduleDialog({
                             </td>
 
                             {/* STT */}
-                            <td className="p-2 text-center font-bold text-slate-500">
-                              {idx + 1}
-                            </td>
+                            <td className="p-2 text-center font-bold text-slate-500">{idx + 1}</td>
 
                             {/* Khách hàng */}
                             <td className="p-2 min-w-[140px]">
@@ -860,7 +887,9 @@ export function RouteScheduleDialog({
                                   Thiếu SĐT
                                 </Badge>
                               ) : (
-                                <span className="font-bold text-slate-650 tracking-tight">{cust.phone}</span>
+                                <span className="font-bold text-slate-650 tracking-tight">
+                                  {cust.phone}
+                                </span>
                               )}
                             </td>
 
@@ -897,7 +926,10 @@ export function RouteScheduleDialog({
                                     min="1"
                                     value={stopDuration}
                                     onChange={(e) =>
-                                      handleIndividualDurationChange(cust.id, parseInt(e.target.value))
+                                      handleIndividualDurationChange(
+                                        cust.id,
+                                        parseInt(e.target.value),
+                                      )
                                     }
                                     className="w-10 h-6 text-[10px] font-bold px-0.5 text-center rounded border-slate-200 focus:ring-1 focus:ring-indigo-500"
                                   />

@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, X-ZECA-Signature, X-ZECA-Event",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, X-ZECA-Signature, X-ZECA-Event",
 };
 
 async function sha256(message: string) {
@@ -24,16 +25,19 @@ serve(async (req) => {
     try {
       payload = JSON.parse(payloadString);
     } catch (e) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: "invalid_json",
-        step: "parse",
-        details: "Invalid JSON payload"
-      }), { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "invalid_json",
+          step: "parse",
+          details: "Invalid JSON payload",
+        }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      );
     }
 
     const event_type = payload.event_name || req.headers.get("X-ZECA-Event") || "unknown";
-    
+
     let provider = "zalo";
     let channel = "zalo";
     let secret: string | undefined = undefined;
@@ -43,24 +47,30 @@ serve(async (req) => {
       channel = "zalo_zbs";
       secret = Deno.env.get("ZALO_APP_SECRET");
       if (!secret) {
-        return new Response(JSON.stringify({
-          success: false,
-          error: "missing_config",
-          step: "env",
-          details: "ZALO_APP_SECRET is not configured for ZNS."
-        }), { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } });
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "missing_config",
+            step: "env",
+            details: "ZALO_APP_SECRET is not configured for ZNS.",
+          }),
+          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
+        );
       }
     } else {
       provider = "zalo";
       channel = "zalo";
       secret = Deno.env.get("ZALO_OA_SECRET_KEY") || Deno.env.get("ZALO_APP_SECRET");
       if (!secret) {
-        return new Response(JSON.stringify({
-          success: false,
-          error: "missing_config",
-          step: "env",
-          details: "Neither ZALO_OA_SECRET_KEY nor ZALO_APP_SECRET is configured for OA."
-        }), { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } });
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "missing_config",
+            step: "env",
+            details: "Neither ZALO_OA_SECRET_KEY nor ZALO_APP_SECRET is configured for OA.",
+          }),
+          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
+        );
       }
     }
 
@@ -81,14 +91,18 @@ serve(async (req) => {
       // Zalo OA Webhook: mac = sha256(app_id + data + timestamp + secret_key)
       const appIdStr = String(payload.app_id);
       const timestampStr = String(payload.timestamp);
-      const dataStr = payload.data ? (typeof payload.data === 'string' ? payload.data : JSON.stringify(payload.data)) : "";
+      const dataStr = payload.data
+        ? typeof payload.data === "string"
+          ? payload.data
+          : JSON.stringify(payload.data)
+        : "";
       const computedMac = await sha256(appIdStr + dataStr + timestampStr + secret);
-      
+
       if (computedMac === payload.mac) {
         signatureValid = true;
       }
     }
-    
+
     // If no signature at all → could be a connectivity ping OR a dashboard test simulation
     if (!zecaSignature && !payload.mac) {
       if (payload.event_name && payload.event_name !== "test") {
@@ -98,47 +112,49 @@ serve(async (req) => {
         // Pure connectivity test ping - return 200 immediately without DB insert
         return new Response(JSON.stringify({ success: true, message: "connectivity_ok" }), {
           status: 200,
-          headers: { "Content-Type": "application/json", ...corsHeaders }
+          headers: { "Content-Type": "application/json", ...corsHeaders },
         });
       }
     }
 
     if (!signatureValid) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: "invalid_signature",
-        step: "signature",
-        details: "MAC verification failed or missing signature headers."
-      }), { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "invalid_signature",
+          step: "signature",
+          details: "MAC verification failed or missing signature headers.",
+        }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      );
     }
-
-
-
-
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!supabaseUrl || !supabaseServiceKey) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: "missing_config",
-        step: "env",
-        details: "Supabase ENV missing."
-      }), { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "missing_config",
+          step: "env",
+          details: "Supabase ENV missing.",
+        }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      );
     }
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     const message_id = payload.message?.msg_id || payload.msg_id || payload.message_id || "";
     const timestamp = payload.timestamp || zecaTimestamp || Date.now().toString();
-    
+
     // dedupe_key = event_name + message_id + timestamp OR hash payload
     let dedupe_key = `${event_type}_${message_id}_${timestamp}`;
     if (!message_id) {
       dedupe_key = await sha256(payloadString); // Fallback dedupe
     }
-    
+
     // Extract non-sensitive headers
     const redactedHeaders: Record<string, string> = {};
     req.headers.forEach((value, key) => {
@@ -159,39 +175,46 @@ serve(async (req) => {
       headers_redacted: redactedHeaders,
       signature_valid: true,
       status: "received",
-      received_at: new Date().toISOString()
+      received_at: new Date().toISOString(),
     };
 
-    const { error: insertError } = await supabaseAdmin
-      .from("webhook_events")
-      .insert(insertData);
+    const { error: insertError } = await supabaseAdmin.from("webhook_events").insert(insertData);
 
     if (insertError) {
-      if (insertError.code === '23505') { // Unique violation
-        return new Response(JSON.stringify({
-          success: true,
-          message: "duplicate_ignored"
-        }), { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } });
+      if (insertError.code === "23505") {
+        // Unique violation
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: "duplicate_ignored",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
+        );
       }
-      return new Response(JSON.stringify({
-        success: false,
-        error: "db_insert_failed",
-        step: "db_insert",
-        details: insertError.message
-      }), { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "db_insert_failed",
+          step: "db_insert",
+          details: insertError.message,
+        }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      );
     }
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
-      headers: { "Content-Type": "application/json", ...corsHeaders }
+      headers: { "Content-Type": "application/json", ...corsHeaders },
     });
-
   } catch (error: any) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: "internal_error",
-      step: "parse",
-      details: error.message
-    }), { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: "internal_error",
+        step: "parse",
+        details: error.message,
+      }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
+    );
   }
 });

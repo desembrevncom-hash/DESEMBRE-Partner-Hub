@@ -34,7 +34,7 @@ export function validateAndPrepareOrder(input: OrderCreationInput) {
   const subtotal = calculateOrderTotal(input.items);
   const discountRate = input.role === "sale" ? 0.4 : 0;
   const priceAfterDiscount = Math.round(subtotal * (1 - discountRate));
-  
+
   const vatRate = input.vatRate ?? 0.08;
   const vatAmount = input.includeVat ? Math.round(priceAfterDiscount * vatRate) : 0;
   const total = priceAfterDiscount + vatAmount;

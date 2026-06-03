@@ -8,8 +8,7 @@ const DEFAULT_PASSWORD = "12345678";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 function json(body: unknown, status = 200) {
@@ -71,7 +70,8 @@ Deno.serve(async (req) => {
       .in("role", ["admin", "sub_admin"]);
 
     const callerRoleStrings = (managerRoles || []).map((r) => r.role);
-    const isCallerManager = callerRoleStrings.includes("admin") || callerRoleStrings.includes("sub_admin");
+    const isCallerManager =
+      callerRoleStrings.includes("admin") || callerRoleStrings.includes("sub_admin");
 
     if (!isCallerManager) {
       return json({ error: "Yêu cầu quyền quản lý (Admin hoặc Phó Admin)" }, 403);
@@ -79,9 +79,13 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
 
-    const email = String(body.email || "").trim().toLowerCase();
+    const email = String(body.email || "")
+      .trim()
+      .toLowerCase();
     const fullName = String(body.fullName || "").trim();
-    const requestedRole = String(body.role || "sale").trim().toLowerCase();
+    const requestedRole = String(body.role || "sale")
+      .trim()
+      .toLowerCase();
 
     if (!email || !fullName) {
       return json({ error: "Email và Tên hiển thị là bắt buộc" }, 400);
@@ -90,7 +94,10 @@ Deno.serve(async (req) => {
     // 3. Validate role chỉ được là sale, tele_lead, telesale
     // 4. Không cho tạo admin/sub_admin từ function này
     if (!["sale", "tele_lead", "telesale"].includes(requestedRole)) {
-      return json({ error: "Vai trò không hợp lệ. Chỉ hỗ trợ tạo staff: sale, tele_lead, telesale." }, 400);
+      return json(
+        { error: "Vai trò không hợp lệ. Chỉ hỗ trợ tạo staff: sale, tele_lead, telesale." },
+        400,
+      );
     }
 
     const finalRole = requestedRole;
@@ -101,16 +108,15 @@ Deno.serve(async (req) => {
     // 5. Tạo Supabase Auth user bằng service_role
     // 6. password mặc định = 12345678.
     // 7. email_confirm = true.
-    const { data: createdUser, error: createUserError } =
-      await adminClient.auth.admin.createUser({
-        email,
-        password: DEFAULT_PASSWORD,
-        email_confirm: true,
-        user_metadata: {
-          display_name: fullName,
-          full_name: fullName,
-        },
-      });
+    const { data: createdUser, error: createUserError } = await adminClient.auth.admin.createUser({
+      email,
+      password: DEFAULT_PASSWORD,
+      email_confirm: true,
+      user_metadata: {
+        display_name: fullName,
+        full_name: fullName,
+      },
+    });
 
     if (createUserError || !createdUser?.user) {
       const errMsg = (createUserError?.message || "").toLowerCase();
@@ -131,7 +137,7 @@ Deno.serve(async (req) => {
           {
             error: createUserError?.message || "Không thể tạo tài khoản xác thực",
           },
-          400
+          400,
         );
       }
     } else {
@@ -148,7 +154,7 @@ Deno.serve(async (req) => {
       },
       {
         onConflict: "id",
-      }
+      },
     );
 
     if (profileError) {
@@ -160,7 +166,7 @@ Deno.serve(async (req) => {
         {
           error: `Tạo Auth user thành công nhưng ghi profiles thất bại: ${profileError.message}`,
         },
-        400
+        400,
       );
     }
 
@@ -172,7 +178,7 @@ Deno.serve(async (req) => {
       },
       {
         onConflict: "user_id,role",
-      }
+      },
     );
 
     if (roleError) {
@@ -184,13 +190,15 @@ Deno.serve(async (req) => {
         {
           error: `Tạo Auth user thành công nhưng gán role thất bại: ${roleError.message}`,
         },
-        400
+        400,
       );
     }
 
     // Gỡ các quyền dư thừa nếu đây là tài khoản được khôi phục sang vai trò mới
     if (isSelfHealed) {
-      const otherRoles = ["admin", "sub_admin", "sale", "tele_lead", "telesale"].filter((r) => r !== finalRole);
+      const otherRoles = ["admin", "sub_admin", "sale", "tele_lead", "telesale"].filter(
+        (r) => r !== finalRole,
+      );
       for (const or of otherRoles) {
         await adminClient.from("user_roles").delete().eq("user_id", newUserId).eq("role", or);
       }
@@ -213,7 +221,7 @@ Deno.serve(async (req) => {
       {
         error: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 });

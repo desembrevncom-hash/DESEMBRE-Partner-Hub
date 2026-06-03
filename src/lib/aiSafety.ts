@@ -8,7 +8,7 @@ export const BANNED_PHRASES = [
   "không tái phát",
   "hiệu quả vĩnh viễn",
   "đảm bảo hết nám",
-  "đảm bảo hết mụn"
+  "đảm bảo hết mụn",
 ];
 
 /**
@@ -18,7 +18,7 @@ export const BANNED_PHRASES = [
 export function detectBannedPhrases(text: string): string[] {
   if (!text) return [];
   const lowerText = text.toLowerCase();
-  return BANNED_PHRASES.filter(phrase => lowerText.includes(phrase.toLowerCase()));
+  return BANNED_PHRASES.filter((phrase) => lowerText.includes(phrase.toLowerCase()));
 }
 
 /**
@@ -32,16 +32,19 @@ export function sanitizeAiResponse(text: string): string {
 /**
  * Generates structured fallback messages based on safety block reason.
  */
-export function buildSafeFallback(reason: 'no_retrieval' | 'low_confidence' | 'medical_claim' | 'unsupported_product', extraInfo?: string): string {
+export function buildSafeFallback(
+  reason: "no_retrieval" | "low_confidence" | "medical_claim" | "unsupported_product",
+  extraInfo?: string,
+): string {
   switch (reason) {
-    case 'no_retrieval':
+    case "no_retrieval":
       return "Hiện chưa có đủ dữ liệu chính thức trong Cẩm nang sản phẩm để tư vấn nội dung này.";
-    case 'low_confidence':
+    case "low_confidence":
       return `Hiện chưa có đủ dữ liệu chính thức trong Cẩm nang sản phẩm để tư vấn nội dung này. (Độ tin cậy của thông tin tìm thấy không đạt yêu cầu).`;
-    case 'medical_claim':
+    case "medical_claim":
       return "Nội dung AI tạo ra có nguy cơ chứa claim y khoa nên đã được chặn. Vui lòng kiểm tra lại Product Knowledge hoặc viết lại câu hỏi.";
-    case 'unsupported_product':
-      return extraInfo 
+    case "unsupported_product":
+      return extraInfo
         ? `Phản hồi đã bị chặn do nhắc đến sản phẩm không có trong tài liệu đối chiếu: ${extraInfo}. Vui lòng viết lại câu hỏi.`
         : "Phản hồi đã bị chặn do nhắc đến sản phẩm không có trong tài liệu đối chiếu. Vui lòng viết lại câu hỏi.";
     default:

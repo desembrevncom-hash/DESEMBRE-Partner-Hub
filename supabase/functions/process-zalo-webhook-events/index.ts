@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-worker-secret",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-worker-secret",
 };
 
 const LOCK_KEY = "process_zalo_webhook_events";
@@ -11,12 +12,12 @@ const LOCK_TTL_SECONDS = 120; // 2-minute TTL
 
 // Priority values for delivery logs status
 const DELIVERY_STATUS_PRIORITY: Record<string, number> = {
-  "failed": 4,
-  "opened": 3,
-  "delivered": 2,
-  "sent": 1,
-  "test_sent": 1,
-  "prepared": 1,
+  failed: 4,
+  opened: 3,
+  delivered: 2,
+  sent: 1,
+  test_sent: 1,
+  prepared: 1,
 };
 
 serve(async (req) => {
@@ -34,7 +35,7 @@ serve(async (req) => {
     if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
       return new Response(
         JSON.stringify({ error: "missing_config", details: "Env vars missing." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -47,10 +48,10 @@ serve(async (req) => {
     if (xWorkerSecret) {
       // Path 1: Cron Secret Auth
       if (!cronSecret || xWorkerSecret !== cronSecret) {
-        return new Response(
-          JSON.stringify({ error: "Unauthorized (invalid worker secret)" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "Unauthorized (invalid worker secret)" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
       isCronAuth = true;
 
@@ -58,7 +59,7 @@ serve(async (req) => {
       if (!isWorkerEnabled) {
         return new Response(
           JSON.stringify({ success: true, skipped: true, reason: "worker_disabled" }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
     } else if (authHeader) {
@@ -73,8 +74,11 @@ serve(async (req) => {
 
       if (authError || !user) {
         return new Response(
-          JSON.stringify({ error: "Unauthorized", details: authError?.message || "Invalid token." }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({
+            error: "Unauthorized",
+            details: authError?.message || "Invalid token.",
+          }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
 
@@ -88,14 +92,14 @@ serve(async (req) => {
       if (roleError || !roleData) {
         return new Response(
           JSON.stringify({ error: "Forbidden", details: "Admins/Sub-admins only." }),
-          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
     } else {
       // No auth headers provided
       return new Response(
         JSON.stringify({ error: "Unauthorized", details: "Missing credentials." }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -116,7 +120,7 @@ serve(async (req) => {
     // ─── 3. Concurrency Lock ───────────────────────────────────────────────────
     const { data: lockAcquired, error: lockError } = await supabaseAdmin.rpc(
       "acquire_execution_lock",
-      { p_lock_key: LOCK_KEY, p_ttl_seconds: LOCK_TTL_SECONDS }
+      { p_lock_key: LOCK_KEY, p_ttl_seconds: LOCK_TTL_SECONDS },
     );
 
     if (lockError) {
@@ -127,7 +131,7 @@ serve(async (req) => {
           error: "lock_rpc_error",
           details: lockError.message,
         }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -139,7 +143,7 @@ serve(async (req) => {
           error: "already_running",
           message: "Worker is already running. Concurrent execution blocked.",
         }),
-        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -276,7 +280,7 @@ serve(async (req) => {
 
             // Check priority overwrite
             const currentPriority = DELIVERY_STATUS_PRIORITY[current_delivery_status] || 0;
-            const newPriority = would_status ? (DELIVERY_STATUS_PRIORITY[would_status] || 0) : 0;
+            const newPriority = would_status ? DELIVERY_STATUS_PRIORITY[would_status] || 0 : 0;
 
             if (current_delivery_status === "failed") {
               would_overwrite = false; // permanent failure cannot be overwritten by delivery/open
@@ -311,7 +315,10 @@ serve(async (req) => {
             if (!dLogUpdateError) {
               updated_delivery_logs++;
             } else {
-              console.error(`Error updating delivery log ${matching_delivery_log_id}:`, dLogUpdateError.message);
+              console.error(
+                `Error updating delivery log ${matching_delivery_log_id}:`,
+                dLogUpdateError.message,
+              );
             }
           }
 
@@ -397,7 +404,7 @@ serve(async (req) => {
   } catch (err: any) {
     return new Response(
       JSON.stringify({ success: false, error: "internal_error", details: err.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });

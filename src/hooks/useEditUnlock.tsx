@@ -13,14 +13,19 @@ const EditUnlockContext = createContext<Ctx | null>(null);
 
 export const EditUnlockProvider = ({ children }: { children: ReactNode }) => {
   const { isAdmin, signOut } = useAuth();
-  
-  const value = useMemo<Ctx>(() => ({
-    unlocked: isAdmin,
-    verifying: false,
-    unlock: async () => ({ ok: false, error: "Vui lòng đăng nhập tài khoản ADMIN" }),
-    lock: () => { signOut(); },
-    getPassword: () => "n/a",
-  }), [isAdmin, signOut]);
+
+  const value = useMemo<Ctx>(
+    () => ({
+      unlocked: isAdmin,
+      verifying: false,
+      unlock: async () => ({ ok: false, error: "Vui lòng đăng nhập tài khoản ADMIN" }),
+      lock: () => {
+        signOut();
+      },
+      getPassword: () => "n/a",
+    }),
+    [isAdmin, signOut],
+  );
 
   return <EditUnlockContext.Provider value={value}>{children}</EditUnlockContext.Provider>;
 };

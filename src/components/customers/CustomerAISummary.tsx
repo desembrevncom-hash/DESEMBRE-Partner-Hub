@@ -124,15 +124,12 @@ export const CustomerAISummary: React.FC<CustomerAISummaryProps> = ({
     setFeedbackSubmitted(false);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke(
-        "ai-sales-assistant",
-        {
-          body: {
-            customerId,
-            mode: "summary",
-          },
-        }
-      );
+      const { data, error: fnError } = await supabase.functions.invoke("ai-sales-assistant", {
+        body: {
+          customerId,
+          mode: "summary",
+        },
+      });
 
       if (fnError) {
         setError(fnError.message || "Không thể kết nối AI. Vui lòng thử lại.");
@@ -198,13 +195,10 @@ export const CustomerAISummary: React.FC<CustomerAISummaryProps> = ({
       }
       // thumbs_down shows textarea first
     },
-    [feedbackSubmitted, result]
+    [feedbackSubmitted, result],
   );
 
-  const submitFeedback = async (
-    type: "thumbs_up" | "thumbs_down",
-    note: string
-  ) => {
+  const submitFeedback = async (type: "thumbs_up" | "thumbs_down", note: string) => {
     setFeedbackSubmitting(true);
     try {
       const {
@@ -227,7 +221,9 @@ export const CustomerAISummary: React.FC<CustomerAISummaryProps> = ({
 
       setFeedbackSubmitted(true);
       toast.success(
-        type === "thumbs_up" ? "Cảm ơn phản hồi tích cực! 🎉" : "Đã ghi nhận phản hồi. Sẽ cải thiện sớm!"
+        type === "thumbs_up"
+          ? "Cảm ơn phản hồi tích cực! 🎉"
+          : "Đã ghi nhận phản hồi. Sẽ cải thiện sớm!",
       );
     } catch (err: any) {
       toast.error("Không thể gửi phản hồi: " + (err.message || "Lỗi không xác định."));
@@ -338,7 +334,6 @@ export const CustomerAISummary: React.FC<CustomerAISummaryProps> = ({
       {/* ── Result display ── */}
       {result && !loading && (
         <div className="space-y-3 animate-in fade-in slide-in-from-bottom-3 duration-400">
-
           {/* Summary */}
           <div className="rounded-xl bg-gradient-to-br from-slate-50 to-indigo-50/30 border border-indigo-100/70 p-3.5 space-y-2">
             <div className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest flex items-center gap-1.5">
@@ -353,7 +348,7 @@ export const CustomerAISummary: React.FC<CustomerAISummaryProps> = ({
           {result.current_status && (
             <div
               className={`rounded-xl border p-3 flex items-center gap-2.5 ${getStatusColor(
-                result.current_status
+                result.current_status,
               )}`}
             >
               <div className="w-2 h-2 rounded-full bg-current animate-pulse shrink-0" />

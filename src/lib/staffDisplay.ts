@@ -33,7 +33,7 @@ export function buildStaffMap(profiles: StaffProfile[] | null | undefined): Staf
  */
 export function getStaffDisplayName(userId?: string | null, staffMap?: StaffMap): string {
   if (!userId) return "Chưa phân công";
-  
+
   if (staffMap && staffMap[userId]) {
     const profile = staffMap[userId];
     if (profile.display_name && profile.display_name.trim() !== "") {
@@ -43,7 +43,7 @@ export function getStaffDisplayName(userId?: string | null, staffMap?: StaffMap)
       return profile.email;
     }
   }
-  
+
   // Fallback to first 6 chars of ID if no profile found
   return `Staff-${userId.slice(0, 6)}`;
 }
@@ -53,7 +53,7 @@ export function getStaffDisplayName(userId?: string | null, staffMap?: StaffMap)
  */
 export function getStaffInitials(userId?: string | null, staffMap?: StaffMap): string {
   if (!userId) return "S"; // Fallback to "S"
-  
+
   if (staffMap && staffMap[userId]) {
     const profile = staffMap[userId];
     const name = profile.display_name || profile.email;
@@ -65,6 +65,6 @@ export function getStaffInitials(userId?: string | null, staffMap?: StaffMap): s
       }
     }
   }
-  
+
   return "S";
 }

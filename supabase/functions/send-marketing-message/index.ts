@@ -15,9 +15,9 @@ interface RequestBody {
   customerId: string;
   templateId?: string;
   campaignId?: string;
-  channel: string;         // 'email' | 'zalo' | 'zalo_oa' | 'phone'
-  mode: string;            // 'copy' | 'provider_send'
-  messageMode: string;     // 'campaign' | 'sale_followup'
+  channel: string; // 'email' | 'zalo' | 'zalo_oa' | 'phone'
+  mode: string; // 'copy' | 'provider_send'
+  messageMode: string; // 'campaign' | 'sale_followup'
   ownerUserId?: string;
   overrideVariables?: Record<string, string>;
   isTest?: boolean;
@@ -45,12 +45,13 @@ serve(async (req: Request) => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) {
     return new Response(JSON.stringify({ error: "Missing authorization" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const supabaseUrl   = Deno.env.get("SUPABASE_URL")!;
-  const supabaseAnon  = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseAnon = Deno.env.get("SUPABASE_ANON_KEY")!;
   const supabaseAdmin = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
   // Verify JWT with user client
@@ -58,10 +59,14 @@ serve(async (req: Request) => {
     global: { headers: { Authorization: authHeader } },
   });
 
-  const { data: { user }, error: authErr } = await userClient.auth.getUser();
+  const {
+    data: { user },
+    error: authErr,
+  } = await userClient.auth.getUser();
   if (authErr || !user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
@@ -75,12 +80,13 @@ serve(async (req: Request) => {
 
   const role = roleRow?.role ?? "sale";
   const isAdmin = role === "admin" || role === "sub_admin";
-  const isSale  = role === "sale" || role === "tele_sale";
+  const isSale = role === "sale" || role === "tele_sale";
   const canCall = isAdmin || isSale;
 
   if (!canCall) {
     return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
-      status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
@@ -90,29 +96,34 @@ serve(async (req: Request) => {
     body = await req.json();
   } catch {
     return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
-      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const { 
-    customerId, 
-    templateId, 
-    campaignId, 
-    channel, 
-    mode, 
-    messageMode, 
+  const {
+    customerId,
+    templateId,
+    campaignId,
+    channel,
+    mode,
+    messageMode,
     ownerUserId,
     isTest,
     testRecipientEmail,
     testSenderId,
     testSenderType,
-    overrideVariables
+    overrideVariables,
   } = body;
 
   if (!customerId || !channel || !mode || !messageMode) {
-    return new Response(JSON.stringify({ error: "Missing required fields: customerId, channel, mode, messageMode" }), {
-      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: "Missing required fields: customerId, channel, mode, messageMode" }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 
   // ── Global Kill Switch for Production Sending ──
@@ -129,16 +140,20 @@ serve(async (req: Request) => {
       p_reason: "production_sending_disabled",
       p_provider_msg_id: null,
       p_created_by: user.id,
-      p_metadata: { is_test: isTest }
+      p_metadata: { is_test: isTest },
     });
 
-    return new Response(JSON.stringify({ 
-      success: false, 
-      error: "Production sending is disabled", 
-      step: "global_kill_switch" 
-    }), {
-      status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: "Production sending is disabled",
+        step: "global_kill_switch",
+      }),
+      {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 
   const logCustomerId = isTest ? null : customerId;
@@ -152,7 +167,7 @@ serve(async (req: Request) => {
       phone: null,
       marketing_opt_in: true,
       marketing_opt_out_at: null,
-      name: "Người Nhận Thử Nghiệm"
+      name: "Người Nhận Thử Nghiệm",
     };
   } else {
     const { data: dbCustomer, error: custErr } = await adminClient
@@ -163,7 +178,8 @@ serve(async (req: Request) => {
 
     if (custErr || !dbCustomer) {
       return new Response(JSON.stringify({ error: "Customer not found" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
     customer = dbCustomer;
@@ -182,11 +198,14 @@ serve(async (req: Request) => {
       p_reason: "opt_out",
     });
 
-    return new Response(JSON.stringify({
-      allowed: false,
-      reason: "Khách hàng đã Opt-out. Không thể gửi.",
-      status: "blocked",
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(
+      JSON.stringify({
+        allowed: false,
+        reason: "Khách hàng đã Opt-out. Không thể gửi.",
+        status: "blocked",
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 
   // ── Resolve sender ────────────────────────────────────────────────────────
@@ -205,25 +224,33 @@ serve(async (req: Request) => {
       .eq("is_active", true);
 
     const candidates = (bizSenders ?? []).filter((s: any) =>
-      s.channel?.toLowerCase().includes(channel.replace("zalo", "zalo_oa"))
+      s.channel?.toLowerCase().includes(channel.replace("zalo", "zalo_oa")),
     );
 
-    const goodSender = candidates.find((s: any) =>
-      s.health_status !== "error" &&
-      (s.daily_limit === 0 || (s.daily_usage ?? 0) < (s.daily_limit ?? 9999))
+    const goodSender = candidates.find(
+      (s: any) =>
+        s.health_status !== "error" &&
+        (s.daily_limit === 0 || (s.daily_usage ?? 0) < (s.daily_limit ?? 9999)),
     ) as any;
 
     if (!goodSender) {
       await adminClient.rpc("log_marketing_delivery_event", {
-        p_customer_id: customerId, p_campaign_id: campaignId ?? null, p_template_id: templateId ?? null,
-        p_channel: channel, p_mode: mode, p_status: "blocked",
+        p_customer_id: customerId,
+        p_campaign_id: campaignId ?? null,
+        p_template_id: templateId ?? null,
+        p_channel: channel,
+        p_mode: mode,
+        p_status: "blocked",
         p_reason: "no_healthy_business_sender",
       });
-      return new Response(JSON.stringify({
-        allowed: false,
-        reason: `Không có Business Sender hợp lệ cho kênh ${channel}.`,
-        status: "blocked",
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(
+        JSON.stringify({
+          allowed: false,
+          reason: `Không có Business Sender hợp lệ cho kênh ${channel}.`,
+          status: "blocked",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     resolvedSenderId = goodSender.id;
@@ -232,10 +259,11 @@ serve(async (req: Request) => {
     if (goodSender.health_status === "warning") {
       warnings.push(`Sender "${goodSender.name}" đang ở trạng thái cảnh báo.`);
     }
-    const pct = goodSender.daily_limit > 0
-      ? Math.round((goodSender.daily_usage / goodSender.daily_limit) * 100) : 0;
+    const pct =
+      goodSender.daily_limit > 0
+        ? Math.round((goodSender.daily_usage / goodSender.daily_limit) * 100)
+        : 0;
     if (pct > 80) warnings.push(`Quota sender "${goodSender.name}": ${pct}% đã dùng.`);
-
   } else if (messageMode === "sale_followup") {
     const targetUser = ownerUserId ?? user.id;
     const platform = channel === "email" ? "email" : channel.includes("zalo") ? "zalo" : "phone";
@@ -247,33 +275,48 @@ serve(async (req: Request) => {
       .eq("is_active", true);
 
     const personal = (personalSenders ?? []).find((a: any) =>
-      a.platform?.toLowerCase().includes(platform)
+      a.platform?.toLowerCase().includes(platform),
     ) as any;
 
     if (!personal) {
       await adminClient.rpc("log_marketing_delivery_event", {
-        p_customer_id: logCustomerId, p_campaign_id: campaignId ?? null, p_template_id: templateId ?? null,
-        p_channel: channel, p_mode: mode, p_status: "blocked",
+        p_customer_id: logCustomerId,
+        p_campaign_id: campaignId ?? null,
+        p_template_id: templateId ?? null,
+        p_channel: channel,
+        p_mode: mode,
+        p_status: "blocked",
         p_reason: "no_personal_sender",
       });
-      return new Response(JSON.stringify({
-        allowed: false,
-        reason: `Sale chưa cấu hình tài khoản cá nhân kênh ${channel}.`,
-        status: "blocked",
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(
+        JSON.stringify({
+          allowed: false,
+          reason: `Sale chưa cấu hình tài khoản cá nhân kênh ${channel}.`,
+          status: "blocked",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     if (personal.health_status === "error") {
       await adminClient.rpc("log_marketing_delivery_event", {
-        p_customer_id: logCustomerId, p_campaign_id: campaignId ?? null, p_template_id: templateId ?? null,
-        p_personal_sender_id: personal.id, p_channel: channel, p_mode: mode,
-        p_status: "blocked", p_reason: "personal_sender_error",
+        p_customer_id: logCustomerId,
+        p_campaign_id: campaignId ?? null,
+        p_template_id: templateId ?? null,
+        p_personal_sender_id: personal.id,
+        p_channel: channel,
+        p_mode: mode,
+        p_status: "blocked",
+        p_reason: "personal_sender_error",
       });
-      return new Response(JSON.stringify({
-        allowed: false,
-        reason: `Tài khoản cá nhân "${personal.account_name}" đang lỗi. Cần kết nối lại.`,
-        status: "blocked",
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(
+        JSON.stringify({
+          allowed: false,
+          reason: `Tài khoản cá nhân "${personal.account_name}" đang lỗi. Cần kết nối lại.`,
+          status: "blocked",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     resolvedSenderId = personal.id;
@@ -297,26 +340,33 @@ serve(async (req: Request) => {
       p_reason: null,
     });
 
-    return new Response(JSON.stringify({
-      allowed: true,
-      senderType,
-      senderId: resolvedSenderId,
-      channel,
-      mode: "copy",
-      status: "copied",
-      warnings,
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(
+      JSON.stringify({
+        allowed: true,
+        senderType,
+        senderId: resolvedSenderId,
+        channel,
+        mode: "copy",
+        status: "copied",
+        warnings,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 
   // ── Mode: provider_send ───────────────────────────────────────────────────
   if (mode === "provider_send") {
     if (!isTest && !PROVIDER_SEND_ENABLED) {
-      return new Response(JSON.stringify({
-        allowed: false,
-        reason: "Provider send is disabled (MARKETING_PROVIDER_SEND_ENABLED=false). Only copy mode is available.",
-        status: "blocked",
-        warnings,
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(
+        JSON.stringify({
+          allowed: false,
+          reason:
+            "Provider send is disabled (MARKETING_PROVIDER_SEND_ENABLED=false). Only copy mode is available.",
+          status: "blocked",
+          warnings,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     // Load template body for sending
@@ -329,9 +379,9 @@ serve(async (req: Request) => {
         .select("body_template, subject_template, channel, sample_variables")
         .eq("id", templateId)
         .single();
-      templateBody    = tpl?.body_template ?? "";
+      templateBody = tpl?.body_template ?? "";
       templateSubject = tpl?.subject_template ?? "";
-      sampleVars      = tpl?.sample_variables ?? {};
+      sampleVars = tpl?.sample_variables ?? {};
     }
 
     // Interpolate variables
@@ -339,40 +389,62 @@ serve(async (req: Request) => {
       customer_name: customer?.name || "Khách Hàng",
       customer_email: customer?.email || "",
       ...sampleVars,
-      ...(overrideVariables || {})
+      ...(overrideVariables || {}),
     };
 
     const renderedSubject = renderTemplate(templateSubject || "Thông tin từ DESEMBRE", finalVars);
-    const renderedBody = renderTemplate(templateBody || "<p>Nội dung email từ DESEMBRE.</p>", finalVars);
+    const renderedBody = renderTemplate(
+      templateBody || "<p>Nội dung email từ DESEMBRE.</p>",
+      finalVars,
+    );
 
     // ── Email via Provider (Resend or SMTP) ──────────────────────────────────
     if (channel === "email") {
       let customerEmail = customer.email;
       if (!customerEmail) {
         await adminClient.rpc("log_marketing_delivery_event", {
-          p_customer_id: logCustomerId, p_campaign_id: campaignId ?? null, p_template_id: templateId ?? null,
+          p_customer_id: logCustomerId,
+          p_campaign_id: campaignId ?? null,
+          p_template_id: templateId ?? null,
           p_sender_account_id: senderType === "business" ? resolvedSenderId : null,
           p_personal_sender_id: senderType === "personal" ? resolvedSenderId : null,
-          p_channel: channel, p_mode: "provider_send",
-          p_status: "failed", p_reason: "missing_customer_email",
+          p_channel: channel,
+          p_mode: "provider_send",
+          p_status: "failed",
+          p_reason: "missing_customer_email",
         });
-        return new Response(JSON.stringify({ allowed: false, status: "failed", reason: "Khách hàng không có email." }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({
+            allowed: false,
+            status: "failed",
+            reason: "Khách hàng không có email.",
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
 
       if (senderType === "business") {
-        const { data: senderRow } = await adminClient
+        const { data: senderRow } = (await adminClient
           .from("sender_accounts")
           .select("sender_email, name, provider_secret, provider")
           .eq("id", resolvedSenderId)
-          .single() as any;
+          .single()) as any;
 
         const provider = (senderRow?.provider || "").toLowerCase();
         if (provider !== "resend" && provider !== "email") {
-          return new Response(JSON.stringify({ allowed: false, status: "failed", reason: `Cấu hình tài khoản "${senderRow?.name}" thuộc loại "${provider}", không hỗ trợ gửi email chiến dịch. Vui lòng chọn tài khoản Resend.` }), {
-            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return new Response(
+            JSON.stringify({
+              allowed: false,
+              status: "failed",
+              reason: `Cấu hình tài khoản "${senderRow?.name}" thuộc loại "${provider}", không hỗ trợ gửi email chiến dịch. Vui lòng chọn tài khoản Resend.`,
+            }),
+            {
+              status: 400,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
         }
 
         const globalResendKey = Deno.env.get("RESEND_API_KEY");
@@ -381,23 +453,36 @@ serve(async (req: Request) => {
         if (!activeResendKey) {
           // Log and return error
           await adminClient.rpc("log_marketing_delivery_event", {
-            p_customer_id: logCustomerId, p_campaign_id: campaignId ?? null, p_template_id: templateId ?? null,
-            p_sender_account_id: resolvedSenderId, p_channel: channel, p_mode: "provider_send",
-            p_status: "failed", p_reason: "missing_resend_key",
+            p_customer_id: logCustomerId,
+            p_campaign_id: campaignId ?? null,
+            p_template_id: templateId ?? null,
+            p_sender_account_id: resolvedSenderId,
+            p_channel: channel,
+            p_mode: "provider_send",
+            p_status: "failed",
+            p_reason: "missing_resend_key",
           });
-          return new Response(JSON.stringify({ allowed: false, status: "failed", reason: "RESEND_API_KEY not configured. Vui lòng nhập API Key cho tài khoản này." }), {
-            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return new Response(
+            JSON.stringify({
+              allowed: false,
+              status: "failed",
+              reason: "RESEND_API_KEY not configured. Vui lòng nhập API Key cho tài khoản này.",
+            }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
         }
 
         const senderEmail = senderRow?.sender_email ?? "noreply@desembrevn.com";
-        const senderName  = senderRow?.name ?? "DESEMBRE";
+        const senderName = senderRow?.name ?? "DESEMBRE";
 
         try {
           const resendResp = await fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: {
-              "Authorization": `Bearer ${activeResendKey}`,
+              Authorization: `Bearer ${activeResendKey}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
@@ -408,66 +493,111 @@ serve(async (req: Request) => {
             }),
           });
 
-          const resendData = await resendResp.json() as any;
+          const resendData = (await resendResp.json()) as any;
 
           if (!resendResp.ok) {
             await adminClient.rpc("log_marketing_delivery_event", {
-              p_customer_id: logCustomerId, p_campaign_id: campaignId ?? null, p_template_id: templateId ?? null,
-              p_sender_account_id: resolvedSenderId, p_channel: channel, p_mode: "provider_send",
-              p_status: "failed", p_reason: resendData?.message ?? "Resend API error",
+              p_customer_id: logCustomerId,
+              p_campaign_id: campaignId ?? null,
+              p_template_id: templateId ?? null,
+              p_sender_account_id: resolvedSenderId,
+              p_channel: channel,
+              p_mode: "provider_send",
+              p_status: "failed",
+              p_reason: resendData?.message ?? "Resend API error",
             });
-            await adminClient.from("sender_accounts").update({
-              health_status: "error", last_error: resendData?.message ?? "Unknown Resend error",
-              last_checked_at: new Date().toISOString(),
-            }).eq("id", resolvedSenderId);
+            await adminClient
+              .from("sender_accounts")
+              .update({
+                health_status: "error",
+                last_error: resendData?.message ?? "Unknown Resend error",
+                last_checked_at: new Date().toISOString(),
+              })
+              .eq("id", resolvedSenderId);
 
-            return new Response(JSON.stringify({ allowed: false, status: "failed", reason: resendData?.message }), {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
+            return new Response(
+              JSON.stringify({ allowed: false, status: "failed", reason: resendData?.message }),
+              {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              },
+            );
           }
 
           const providerMsgId = resendData?.id ?? null;
           await adminClient.rpc("log_marketing_delivery_event", {
-            p_customer_id: logCustomerId, p_campaign_id: campaignId ?? null, p_template_id: templateId ?? null,
-            p_sender_account_id: resolvedSenderId, p_channel: channel, p_mode: "provider_send",
-            p_status: "sent", p_reason: null, p_provider_message_id: providerMsgId,
+            p_customer_id: logCustomerId,
+            p_campaign_id: campaignId ?? null,
+            p_template_id: templateId ?? null,
+            p_sender_account_id: resolvedSenderId,
+            p_channel: channel,
+            p_mode: "provider_send",
+            p_status: "sent",
+            p_reason: null,
+            p_provider_message_id: providerMsgId,
           });
           await adminClient.rpc("increment_sender_daily_usage", { p_sender_id: resolvedSenderId });
 
-          return new Response(JSON.stringify({
-            allowed: true, status: "sent", senderType, senderId: resolvedSenderId,
-            providerMessageId: providerMsgId, warnings,
-          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
+          return new Response(
+            JSON.stringify({
+              allowed: true,
+              status: "sent",
+              senderType,
+              senderId: resolvedSenderId,
+              providerMessageId: providerMsgId,
+              warnings,
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
         } catch (e: any) {
           await adminClient.rpc("log_marketing_delivery_event", {
-            p_customer_id: logCustomerId, p_campaign_id: campaignId ?? null, p_template_id: templateId ?? null,
-            p_sender_account_id: resolvedSenderId, p_channel: channel, p_mode: "provider_send",
-            p_status: "failed", p_reason: e.message,
+            p_customer_id: logCustomerId,
+            p_campaign_id: campaignId ?? null,
+            p_template_id: templateId ?? null,
+            p_sender_account_id: resolvedSenderId,
+            p_channel: channel,
+            p_mode: "provider_send",
+            p_status: "failed",
+            p_reason: e.message,
           });
-          return new Response(JSON.stringify({ allowed: false, status: "failed", reason: e.message }), {
-            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return new Response(
+            JSON.stringify({ allowed: false, status: "failed", reason: e.message }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
         }
       } else if (senderType === "personal") {
         // Gửi qua SMTP bằng Gmail cá nhân
         // Import require dynamically inside or use fetch if denomailer
         // Deno Deploy allows dynamic import of npm packages
-        const { data: personalSender } = await adminClient
+        const { data: personalSender } = (await adminClient
           .from("user_communication_accounts")
           .select("account_identifier, provider_secret, account_name")
           .eq("id", resolvedSenderId)
-          .single() as any;
+          .single()) as any;
 
         if (!personalSender?.provider_secret) {
           await adminClient.rpc("log_marketing_delivery_event", {
-            p_customer_id: logCustomerId, p_campaign_id: campaignId ?? null, p_template_id: templateId ?? null,
-            p_personal_sender_id: resolvedSenderId, p_channel: channel, p_mode: "provider_send",
-            p_status: "failed", p_reason: "Chưa cấu hình Mật khẩu ứng dụng (App Password)",
+            p_customer_id: logCustomerId,
+            p_campaign_id: campaignId ?? null,
+            p_template_id: templateId ?? null,
+            p_personal_sender_id: resolvedSenderId,
+            p_channel: channel,
+            p_mode: "provider_send",
+            p_status: "failed",
+            p_reason: "Chưa cấu hình Mật khẩu ứng dụng (App Password)",
           });
-          return new Response(JSON.stringify({ allowed: false, status: "failed", reason: "Chưa cấu hình App Password cho Gmail cá nhân." }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return new Response(
+            JSON.stringify({
+              allowed: false,
+              status: "failed",
+              reason: "Chưa cấu hình App Password cho Gmail cá nhân.",
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
         }
 
         try {
@@ -490,44 +620,73 @@ serve(async (req: Request) => {
           });
 
           await adminClient.rpc("log_marketing_delivery_event", {
-            p_customer_id: logCustomerId, p_campaign_id: campaignId ?? null, p_template_id: templateId ?? null,
-            p_personal_sender_id: resolvedSenderId, p_channel: channel, p_mode: "provider_send",
-            p_status: "sent", p_reason: null, p_provider_message_id: info.messageId,
+            p_customer_id: logCustomerId,
+            p_campaign_id: campaignId ?? null,
+            p_template_id: templateId ?? null,
+            p_personal_sender_id: resolvedSenderId,
+            p_channel: channel,
+            p_mode: "provider_send",
+            p_status: "sent",
+            p_reason: null,
+            p_provider_message_id: info.messageId,
           });
 
-          return new Response(JSON.stringify({
-            allowed: true, status: "sent", senderType, senderId: resolvedSenderId,
-            providerMessageId: info.messageId, warnings,
-          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
+          return new Response(
+            JSON.stringify({
+              allowed: true,
+              status: "sent",
+              senderType,
+              senderId: resolvedSenderId,
+              providerMessageId: info.messageId,
+              warnings,
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
         } catch (e: any) {
           await adminClient.rpc("log_marketing_delivery_event", {
-            p_customer_id: logCustomerId, p_campaign_id: campaignId ?? null, p_template_id: templateId ?? null,
-            p_personal_sender_id: resolvedSenderId, p_channel: channel, p_mode: "provider_send",
-            p_status: "failed", p_reason: e.message,
+            p_customer_id: logCustomerId,
+            p_campaign_id: campaignId ?? null,
+            p_template_id: templateId ?? null,
+            p_personal_sender_id: resolvedSenderId,
+            p_channel: channel,
+            p_mode: "provider_send",
+            p_status: "failed",
+            p_reason: e.message,
           });
-          
-          await adminClient.from("user_communication_accounts").update({
-            health_status: "error", last_error: e.message
-          }).eq("id", resolvedSenderId);
 
-          return new Response(JSON.stringify({ allowed: false, status: "failed", reason: e.message }), {
-            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          await adminClient
+            .from("user_communication_accounts")
+            .update({
+              health_status: "error",
+              last_error: e.message,
+            })
+            .eq("id", resolvedSenderId);
+
+          return new Response(
+            JSON.stringify({ allowed: false, status: "failed", reason: e.message }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
         }
       }
     }
 
     // ── Zalo / other channels → stub (disabled unless integrated) ─────────
-    return new Response(JSON.stringify({
-      allowed: false,
-      status: "blocked",
-      reason: `Provider send cho kênh ${channel} chưa được tích hợp. Chỉ dùng copy mode.`,
-      warnings,
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(
+      JSON.stringify({
+        allowed: false,
+        status: "blocked",
+        reason: `Provider send cho kênh ${channel} chưa được tích hợp. Chỉ dùng copy mode.`,
+        warnings,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 
   return new Response(JSON.stringify({ error: "Unknown mode" }), {
-    status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    status: 400,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });

@@ -1,29 +1,48 @@
-import type { 
-  CalendarEventStatus, 
-  PersonalEventType, 
+import type {
+  CalendarEventStatus,
+  PersonalEventType,
   CompanyEventType,
-  RegistrationStatus
+  RegistrationStatus,
 } from "@/types/calendar";
 
 /**
  * Trả về chuỗi hiển thị tiếng Việt và màu sắc huy hiệu tương ứng với trạng thái lịch hẹn
  */
-export function getEventStatusLabel(status: CalendarEventStatus): { label: string; colorClass: string; bgClass: string } {
+export function getEventStatusLabel(status: CalendarEventStatus): {
+  label: string;
+  colorClass: string;
+  bgClass: string;
+} {
   switch (status) {
     case "completed":
-      return { label: "Đã hoàn tất", colorClass: "text-emerald-700", bgClass: "bg-emerald-50 border-emerald-200" };
+      return {
+        label: "Đã hoàn tất",
+        colorClass: "text-emerald-700",
+        bgClass: "bg-emerald-50 border-emerald-200",
+      };
     case "cancelled":
-      return { label: "Đã hủy", colorClass: "text-rose-700", bgClass: "bg-rose-50 border-rose-200" };
+      return {
+        label: "Đã hủy",
+        colorClass: "text-rose-700",
+        bgClass: "bg-rose-50 border-rose-200",
+      };
     case "pending":
     default:
-      return { label: "Chờ xử lý", colorClass: "text-amber-700", bgClass: "bg-amber-50 border-amber-200" };
+      return {
+        label: "Chờ xử lý",
+        colorClass: "text-amber-700",
+        bgClass: "bg-amber-50 border-amber-200",
+      };
   }
 }
 
 /**
  * Trả về tên hiển thị và biểu tượng/nội dung thân thiện cho từng phân loại sự kiện (Personal)
  */
-export function getPersonalEventTypeLabel(type: PersonalEventType): { label: string; icon: string } {
+export function getPersonalEventTypeLabel(type: PersonalEventType): {
+  label: string;
+  icon: string;
+} {
   switch (type) {
     case "follow_up":
       return { label: "Follow-up KH", icon: "📞" };
@@ -86,13 +105,13 @@ export function formatCalendarTime(isoString: string): string {
   try {
     const date = new Date(isoString);
     if (isNaN(date.getTime())) return isoString;
-    
+
     const hours = String(date.getHours()).padStart(2, "0");
     const minutes = String(date.getMinutes()).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const year = date.getFullYear();
-    
+
     return `${hours}:${minutes} - ${day}/${month}/${year}`;
   } catch {
     return isoString;
@@ -116,15 +135,27 @@ export function getAttendeeStatusMeta(status: any): { label: string; badgeClass:
     case "registered":
       return { label: "📝 Đã đăng ký", badgeClass: "bg-blue-50 text-blue-700 border-blue-200" };
     case "confirmed":
-      return { label: "🤝 Đã xác nhận", badgeClass: "bg-purple-50 text-purple-700 border-purple-200" };
+      return {
+        label: "🤝 Đã xác nhận",
+        badgeClass: "bg-purple-50 text-purple-700 border-purple-200",
+      };
     case "attended":
-      return { label: "✓ Đã tham gia", badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200 font-bold" };
+      return {
+        label: "✓ Đã tham gia",
+        badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200 font-bold",
+      };
     case "no_show":
       return { label: "✕ Không tham gia", badgeClass: "bg-rose-50 text-rose-700 border-rose-200" };
     case "cancelled":
-      return { label: "🚫 Huỷ tham gia", badgeClass: "bg-orange-50 text-orange-700 border-orange-200" };
+      return {
+        label: "🚫 Huỷ tham gia",
+        badgeClass: "bg-orange-50 text-orange-700 border-orange-200",
+      };
     case "converted":
-      return { label: "💰 Đã chốt đơn", badgeClass: "bg-yellow-100 text-yellow-800 border-yellow-400 font-black" };
+      return {
+        label: "💰 Đã chốt đơn",
+        badgeClass: "bg-yellow-100 text-yellow-800 border-yellow-400 font-black",
+      };
     default:
       return { label: "Chờ xử lý", badgeClass: "bg-slate-50 text-slate-600 border-slate-200" };
   }

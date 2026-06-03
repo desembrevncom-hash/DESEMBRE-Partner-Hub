@@ -29,13 +29,10 @@ Deno.serve(async (req) => {
   }
 
   if (!EDIT_PASSWORD) {
-    return new Response(
-      JSON.stringify({ error: "Server password not configured" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
+    return new Response(JSON.stringify({ error: "Server password not configured" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   let body: unknown;
@@ -54,13 +51,10 @@ Deno.serve(async (req) => {
       : "";
 
   if (!password || password.length > 256) {
-    return new Response(
-      JSON.stringify({ valid: false, error: "Mật khẩu không hợp lệ" }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
+    return new Response(JSON.stringify({ valid: false, error: "Mật khẩu không hợp lệ" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   const valid = safeEqual(password, EDIT_PASSWORD);

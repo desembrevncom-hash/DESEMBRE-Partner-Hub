@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link } from "@tanstack/react-router";
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -104,7 +104,11 @@ export const AiSettingsPage: React.FC = () => {
   }
 
   return (
-    <WorkspaceShell title="AI Settings & Provider Control Center" icon={<BrainCircuit className="w-6 h-6" />} loading={loading}>
+    <WorkspaceShell
+      title="AI Settings & Provider Control Center"
+      icon={<BrainCircuit className="w-6 h-6" />}
+      loading={loading}
+    >
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold">Cấu hình AI</h2>
@@ -128,6 +132,6 @@ export const AiSettingsPage: React.FC = () => {
   );
 };
 
-export const Route = createFileRoute('/admin/ai-settings')({
+export const Route = createFileRoute("/admin/ai-settings")({
   component: AiSettingsPage,
 });

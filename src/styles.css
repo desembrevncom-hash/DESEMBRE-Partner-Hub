@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
@@ -134,7 +134,6 @@
 }
 
 @layer base {
-
   html {
     scroll-behavior: smooth;
   }
@@ -142,7 +141,7 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-family: "Plus Jakarta Sans", sans-serif;
     -webkit-font-smoothing: antialiased;
   }
 
@@ -194,20 +193,20 @@
   --row-hover: oklch(1 0 0 / 10%);
 }
 
-.table-wrap { 
-  overflow-x: auto; 
-  -webkit-overflow-scrolling: touch; 
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border-radius: 2rem; /* 32px */
   border: 1px solid var(--color-border);
   background: white;
-  box-shadow: 0 4px 20px -10px rgba(0,0,0,0.05);
+  box-shadow: 0 4px 20px -10px rgba(0, 0, 0, 0.05);
 }
 
-.product-table { 
-  border-collapse: separate; 
-  border-spacing: 0; 
-  width: 100%; 
-  min-width: 950px; 
+.product-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  min-width: 950px;
 }
 .product-table th {
   background: var(--header-bg);
@@ -218,7 +217,7 @@
   letter-spacing: 0.15em;
   padding: 24px 20px;
   text-align: center;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   transition: background 0.2s ease;
 }
 .product-table td {
@@ -230,7 +229,7 @@
   color: oklch(0.398 0.07 227.392); /* Slate-700 */
   transition: all 0.2s ease;
 }
-.product-table tr:hover td { 
+.product-table tr:hover td {
   background: var(--row-hover);
   color: var(--color-primary);
 }
@@ -246,27 +245,27 @@
   border-left: 4px solid var(--color-primary) !important;
 }
 
-.product-name { 
-  font-weight: 800; 
-  font-size: 15px; 
-  letter-spacing: -0.01em; 
-  margin-bottom: 4px; 
+.product-name {
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  margin-bottom: 4px;
   color: var(--color-foreground);
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.product-desc { 
-  font-size: 12px; 
+.product-desc {
+  font-size: 12px;
   color: oklch(0.554 0.046 257.417); /* Muted foreground */
-  line-height: 1.6; 
+  line-height: 1.6;
   font-weight: 500;
 }
-.price-cell { 
-  text-align: center; 
-  font-variant-numeric: tabular-nums; 
-  white-space: nowrap; 
-  font-weight: 500; 
+.price-cell {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  font-weight: 500;
 }
 
 /* Stunning custom styles for Image Cell */
@@ -318,4 +317,12 @@
   background: color-mix(in oklch, var(--color-primary) 15%, transparent);
   border-color: color-mix(in oklch, var(--color-primary) 35%, transparent);
   transform: translateY(-1px);
+}
+
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }

@@ -31,7 +31,10 @@ serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await userClient.auth.getUser();
     if (authError || !user) return json({ error: "Unauthorized" }, 401);
 
     const body = await req.json();
@@ -44,7 +47,7 @@ serve(async (req) => {
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id);
-    const isAdmin = roles?.some(r => ["admin", "sub_admin"].includes(r.role));
+    const isAdmin = roles?.some((r) => ["admin", "sub_admin"].includes(r.role));
 
     // --- ACTION: Sale rates a response ---
     if (action === "rate") {
@@ -79,7 +82,7 @@ serve(async (req) => {
         .from("ai_conversations")
         .update({
           hallucination_flag: true,
-          hallucination_note: hallucination_note || null
+          hallucination_note: hallucination_note || null,
         })
         .eq("id", conversation_id);
 
@@ -99,8 +102,10 @@ serve(async (req) => {
       return json({ success: true, message: "Đã gỡ flag ảo giác" });
     }
 
-    return json({ error: "Unknown action. Use: rate | flag_hallucination | unflag_hallucination" }, 400);
-
+    return json(
+      { error: "Unknown action. Use: rate | flag_hallucination | unflag_hallucination" },
+      400,
+    );
   } catch (err: any) {
     return json({ error: err.message || "Unknown error" }, 500);
   }

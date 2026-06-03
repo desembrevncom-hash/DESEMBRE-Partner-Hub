@@ -10,22 +10,16 @@ export function useCalendarRealtime(reloadEvents: () => void) {
     const channel = supabase
       .channel("calendar_enterprise_channel")
       // Lắng nghe Lịch cá nhân
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "calendar_events" },
-        () => reloadEvents()
+      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_events" }, () =>
+        reloadEvents(),
       )
       // Lắng nghe Sự kiện công ty
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "company_events" },
-        () => reloadEvents()
+      .on("postgres_changes", { event: "*", schema: "public", table: "company_events" }, () =>
+        reloadEvents(),
       )
       // Lắng nghe Đăng ký tham dự (để cập nhật ROI/Stats trong modal)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "event_registrations" },
-        () => reloadEvents()
+      .on("postgres_changes", { event: "*", schema: "public", table: "event_registrations" }, () =>
+        reloadEvents(),
       )
       .subscribe();
 

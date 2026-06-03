@@ -8,15 +8,26 @@ import { supabase } from "@/integrations/supabase/client";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 
 interface CreateSaleUserFormProps {
-  onSuccessOptimistic: (user: { id: string; email: string; displayName: string; role?: "sale" | "sub_admin" | "tele_lead" | "telesale" }) => void;
+  onSuccessOptimistic: (user: {
+    id: string;
+    email: string;
+    displayName: string;
+    role?: "sale" | "sub_admin" | "tele_lead" | "telesale";
+  }) => void;
   reload: () => Promise<void>;
   canCreateSubAdmin?: boolean;
 }
 
-export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAdmin }: CreateSaleUserFormProps) {
+export function CreateSaleUserForm({
+  onSuccessOptimistic,
+  reload,
+  canCreateSubAdmin,
+}: CreateSaleUserFormProps) {
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
-  const [targetRole, setTargetRole] = useState<"sale" | "sub_admin" | "tele_lead" | "telesale">("sale");
+  const [targetRole, setTargetRole] = useState<"sale" | "sub_admin" | "tele_lead" | "telesale">(
+    "sale",
+  );
   const [creating, setCreating] = useState(false);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -64,14 +75,18 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAd
       return;
     }
 
-    const roleNameDisplay = 
-      targetRole === "sub_admin" ? "PHÓ ADMIN" : 
-      targetRole === "tele_lead" ? "TRƯỞNG TELE" : 
-      targetRole === "telesale" ? "TELESALE" : "SALE";
+    const roleNameDisplay =
+      targetRole === "sub_admin"
+        ? "PHÓ ADMIN"
+        : targetRole === "tele_lead"
+          ? "TRƯỞNG TELE"
+          : targetRole === "telesale"
+            ? "TELESALE"
+            : "SALE";
 
     if (data?.user?.recoveredOrphan) {
       toast.success(
-        `Tài khoản email này đã tồn tại từ trước. Đã tự động khôi phục và liên kết chuẩn xác quyền ${roleNameDisplay}!`
+        `Tài khoản email này đã tồn tại từ trước. Đã tự động khôi phục và liên kết chuẩn xác quyền ${roleNameDisplay}!`,
       );
     } else {
       toast.success(`Đã tạo tài khoản ${roleNameDisplay}. Mật khẩu: 12345678`);
@@ -105,9 +120,7 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAd
       <div className="bg-card border border-border rounded-lg p-6 shadow-sm space-y-4">
         <div className="flex items-center gap-2 text-primary">
           <UserPlus className="w-5 h-5" />
-          <h2 className="font-bold">
-            Thêm nhân sự mới
-          </h2>
+          <h2 className="font-bold">Thêm nhân sự mới</h2>
         </div>
         <form onSubmit={handleCreate} className="space-y-4">
           <div className="space-y-2">
@@ -216,9 +229,7 @@ export function CreateSaleUserForm({ onSuccessOptimistic, reload, canCreateSubAd
 
           <div className="pt-2">
             <Button type="submit" className="w-full font-bold" disabled={creating}>
-              {creating
-                ? "Đang xử lý…"
-                : `Tạo tài khoản ${getRoleLabel()}`}
+              {creating ? "Đang xử lý…" : `Tạo tài khoản ${getRoleLabel()}`}
             </Button>
           </div>
           <p className="text-[10px] text-muted-foreground text-center italic">

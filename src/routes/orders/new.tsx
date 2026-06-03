@@ -62,7 +62,8 @@ function NewOrderPage() {
   const [busy, setBusy] = useState(!!editId || !!customerId);
   const printRef = useRef<HTMLDivElement>(null);
   const isGuest = !user;
-  const quoterName = user?.user_metadata?.display_name || user?.email?.split('@')[0] || "Admin Desembre";
+  const quoterName =
+    user?.user_metadata?.display_name || user?.email?.split("@")[0] || "Admin Desembre";
   const quoterEmail = user?.email || "contact@desembre.vn";
   const quoterPhone = user?.user_metadata?.phone || "";
   const [step, setStep] = useState<1 | 2>(1);
@@ -78,10 +79,10 @@ function NewOrderPage() {
     if (loading) return;
     // ALLOW VIEWERS: Proceed even if user is null
     (async () => {
-      let map: Record<number, OverrideRow> = {};
+      const map: Record<number, OverrideRow> = {};
       const hasMockOverrides = localStorage.getItem("mock_overrides");
       const hasMockUsers = localStorage.getItem("mock_users");
-      
+
       if (hasMockOverrides || hasMockUsers) {
         const mockData = JSON.parse(hasMockOverrides || "[]");
         for (const r of mockData) map[r.no] = r as OverrideRow;
@@ -89,7 +90,7 @@ function NewOrderPage() {
         try {
           const fetchPromise = supabase.from("product_overrides").select("*");
           const timeoutPromise = new Promise<any>((_, reject) =>
-            setTimeout(() => reject(new Error("Supabase timeout")), 3000)
+            setTimeout(() => reject(new Error("Supabase timeout")), 3000),
           );
           const { data } = await Promise.race([fetchPromise, timeoutPromise]);
           for (const r of data ?? []) map[r.no] = r as OverrideRow;
@@ -102,10 +103,18 @@ function NewOrderPage() {
       if (editId) {
         let loadedOrder = null;
         let loadedItems = [];
-        const { data: o } = await supabase.from("orders").select("*").eq("id", editId).maybeSingle();
+        const { data: o } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("id", editId)
+          .maybeSingle();
         if (o) {
           loadedOrder = o;
-          const { data: it } = await supabase.from("order_items").select("*").eq("order_id", editId).order("created_at");
+          const { data: it } = await supabase
+            .from("order_items")
+            .select("*")
+            .eq("order_id", editId)
+            .order("created_at");
           loadedItems = it ?? [];
         } else {
           const guestOrders = JSON.parse(localStorage.getItem("guest_orders") || "[]");
@@ -115,7 +124,7 @@ function NewOrderPage() {
             loadedItems = localOrder.items || [];
           }
         }
-        
+
         if (loadedOrder) {
           setSelectedCustomerId(loadedOrder.customer_id || null);
           setCustomerName(loadedOrder.customer_name || "");
@@ -123,20 +132,26 @@ function NewOrderPage() {
           setCustomerAddress(loadedOrder.customer_address || "");
           setNote(loadedOrder.note || "");
           setVatOn(Number(loadedOrder.vat_rate) > 0);
-          setItems(loadedItems.map((it: any) => ({
-            product_no: it.product_no,
-            product_name: it.product_name,
-            image_url: null,
-            size: it.size || "",
-            size_type: it.size_type,
-            unit_price: it.unit_price,
-            quantity: it.quantity,
-          })));
+          setItems(
+            loadedItems.map((it: any) => ({
+              product_no: it.product_no,
+              product_name: it.product_name,
+              image_url: null,
+              size: it.size || "",
+              size_type: it.size_type,
+              unit_price: it.unit_price,
+              quantity: it.quantity,
+            })),
+          );
         }
         setBusy(false);
       } else if (customerId) {
         try {
-          const { data: cust } = await supabase.from("customers").select("*").eq("id", customerId).maybeSingle();
+          const { data: cust } = await supabase
+            .from("customers")
+            .select("*")
+            .eq("id", customerId)
+            .maybeSingle();
           if (cust) {
             setSelectedCustomerId(cust.id);
             setCustomerName(cust.name || cust.contact_name || "");
@@ -155,7 +170,10 @@ function NewOrderPage() {
         if (localC.length > 0) {
           setCustomersList(localC);
         } else {
-          const { data: cData } = await supabase.from("customers").select("*").order("created_at", { ascending: false });
+          const { data: cData } = await supabase
+            .from("customers")
+            .select("*")
+            .order("created_at", { ascending: false });
           if (cData) setCustomersList(cData);
         }
       } catch {}
@@ -170,16 +188,18 @@ function NewOrderPage() {
         for (const pk of picks) {
           const staticP = PRODUCTS.find((p: Product) => p.id === pk.no);
           const o = map[pk.no];
-          
+
           // If it's not a static product and not a custom product, skip
           if (!staticP && (!o || !o.is_custom)) continue;
-          
+
           let productName = staticP?.name ?? o?.name ?? "(Chưa có tên)";
-          let imageUrl = o?.image_url ?? staticP?.imageUrl;
+          const imageUrl = o?.image_url ?? staticP?.imageUrl;
           let basePrice = 0;
           let size = "";
 
-          const staticVariant = staticP?.variants.find((v: ProductVariant) => v.type === pk.sizeType);
+          const staticVariant = staticP?.variants.find(
+            (v: ProductVariant) => v.type === pk.sizeType,
+          );
           basePrice = staticVariant?.price ?? 0;
           size = staticVariant?.size ?? "";
 
@@ -194,10 +214,12 @@ function NewOrderPage() {
               if (o.salon_size != null) size = o.salon_size;
             }
           }
-          
+
           if (basePrice === 0) continue;
 
-          const existing = seeded.find(it => it.product_no === pk.no && it.size_type === pk.sizeType);
+          const existing = seeded.find(
+            (it) => it.product_no === pk.no && it.size_type === pk.sizeType,
+          );
           if (existing) {
             existing.quantity += 1;
             continue;
@@ -209,24 +231,28 @@ function NewOrderPage() {
             image_url: imageUrl,
             size,
             size_type: pk.sizeType,
-            unit_price: basePrice * (isSale && !isAdmin ? (1 - defaultDiscount) : 1),
+            unit_price: basePrice * (isSale && !isAdmin ? 1 - defaultDiscount : 1),
             quantity: 1,
           });
         }
         if (seeded.length > 0) {
-          setItems(prev => {
+          setItems((prev) => {
             const merged = [...prev];
             for (const s of seeded) {
-               const idx = merged.findIndex(i => i.product_no === s.product_no && i.size_type === s.size_type);
-               if (idx >= 0) merged[idx].quantity += s.quantity;
-               else merged.push(s);
+              const idx = merged.findIndex(
+                (i) => i.product_no === s.product_no && i.size_type === s.size_type,
+              );
+              if (idx >= 0) merged[idx].quantity += s.quantity;
+              else merged.push(s);
             }
             return merged;
           });
           toast.success(`Đã thêm ${seeded.length} sản phẩm từ danh sách chọn`);
         }
         sessionStorage.removeItem("pickupCart");
-      } catch {/* ignore */}
+      } catch {
+        /* ignore */
+      }
     })();
   }, [user, isAdmin, isSale, loading, navigate]);
 
@@ -252,10 +278,28 @@ function NewOrderPage() {
         categoryId: o.section ?? "OTHER",
         imageUrl: o.image_url ?? undefined,
         variants: [
-          ...(o.retail_price != null ? [{ id: `${o.no}-retail`, type: "retail" as const, size: o.retail_size ?? "", price: o.retail_price }] : []),
-          ...(o.salon_price != null ? [{ id: `${o.no}-salon`, type: "salon" as const, size: o.salon_size ?? "", price: o.salon_price }] : []),
+          ...(o.retail_price != null
+            ? [
+                {
+                  id: `${o.no}-retail`,
+                  type: "retail" as const,
+                  size: o.retail_size ?? "",
+                  price: o.retail_price,
+                },
+              ]
+            : []),
+          ...(o.salon_price != null
+            ? [
+                {
+                  id: `${o.no}-salon`,
+                  type: "salon" as const,
+                  size: o.salon_size ?? "",
+                  price: o.salon_price,
+                },
+              ]
+            : []),
         ],
-        isCustom: true
+        isCustom: true,
       });
     }
     return list;
@@ -263,60 +307,75 @@ function NewOrderPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return merged.filter((p) => !q || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q));
+    return merged.filter(
+      (p) => !q || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q),
+    );
   }, [search, merged]);
 
-  const addLine = useCallback((product: Product, sizeType: "retail" | "salon", isGift: boolean = false) => {
-    const o = overrides[product.id];
-    const variant = product.variants.find((v: ProductVariant) => v.type === sizeType);
-    
-    let size = variant?.size ?? "";
-    let basePrice = variant?.price ?? 0;
+  const addLine = useCallback(
+    (product: Product, sizeType: "retail" | "salon", isGift: boolean = false) => {
+      const o = overrides[product.id];
+      const variant = product.variants.find((v: ProductVariant) => v.type === sizeType);
 
-    if (o) {
-      if (sizeType === "retail" && o.retail_size != null) size = o.retail_size;
-      if (sizeType === "salon" && o.salon_size != null) size = o.salon_size;
-      if (sizeType === "retail" && o.retail_price != null) basePrice = o.retail_price;
-      if (sizeType === "salon" && o.salon_price != null) basePrice = o.salon_price;
-    }
+      let size = variant?.size ?? "";
+      let basePrice = variant?.price ?? 0;
 
-    if (basePrice === 0 && !isGift) {
-      toast.error("Sản phẩm này chưa có giá. Hãy nhờ ADMIN cập nhật.");
-      return;
-    }
-
-    const discounted = isGift ? 0 : basePrice * (isSale && !isAdmin ? (1 - defaultDiscount) : 1);
-    const finalName = isGift ? `[Quà tặng] ${product.name}` : product.name;
-    
-    setItems((prev) => {
-      const idx = prev.findIndex(it => it.product_no === product.id && it.size_type === sizeType && it.unit_price === discounted);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx].quantity += 1;
-        return next;
+      if (o) {
+        if (sizeType === "retail" && o.retail_size != null) size = o.retail_size;
+        if (sizeType === "salon" && o.salon_size != null) size = o.salon_size;
+        if (sizeType === "retail" && o.retail_price != null) basePrice = o.retail_price;
+        if (sizeType === "salon" && o.salon_price != null) basePrice = o.salon_price;
       }
-      return [
-        ...prev,
-        {
-          product_no: product.id,
-          product_name: finalName,
-          image_url: o?.image_url ?? product.imageUrl,
-          size: size,
-          size_type: sizeType,
-          unit_price: discounted,
-          quantity: 1,
-        },
-      ];
-    });
-    setPickerOpen(false);
-    setSearch("");
-  }, [overrides, isSale, isAdmin]);
+
+      if (basePrice === 0 && !isGift) {
+        toast.error("Sản phẩm này chưa có giá. Hãy nhờ ADMIN cập nhật.");
+        return;
+      }
+
+      const discounted = isGift ? 0 : basePrice * (isSale && !isAdmin ? 1 - defaultDiscount : 1);
+      const finalName = isGift ? `[Quà tặng] ${product.name}` : product.name;
+
+      setItems((prev) => {
+        const idx = prev.findIndex(
+          (it) =>
+            it.product_no === product.id &&
+            it.size_type === sizeType &&
+            it.unit_price === discounted,
+        );
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx].quantity += 1;
+          return next;
+        }
+        return [
+          ...prev,
+          {
+            product_no: product.id,
+            product_name: finalName,
+            image_url: o?.image_url ?? product.imageUrl,
+            size: size,
+            size_type: sizeType,
+            unit_price: discounted,
+            quantity: 1,
+          },
+        ];
+      });
+      setPickerOpen(false);
+      setSearch("");
+    },
+    [overrides, isSale, isAdmin],
+  );
 
   const updateQty = useCallback((idx: number, qty: number) => {
-    setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, quantity: Math.max(1, qty) } : it)));
+    setItems((prev) =>
+      prev.map((it, i) => (i === idx ? { ...it, quantity: Math.max(1, qty) } : it)),
+    );
   }, []);
 
-  const removeLine = useCallback((idx: number) => setItems((prev) => prev.filter((_, i) => i !== idx)), []);
+  const removeLine = useCallback(
+    (idx: number) => setItems((prev) => prev.filter((_, i) => i !== idx)),
+    [],
+  );
 
   const save = async (status: "draft" | "confirmed") => {
     if (!customerName.trim()) return toast.error("Cần nhập tên khách hàng");
@@ -339,13 +398,13 @@ function NewOrderPage() {
             vat_rate: vatOn ? vatRate : 0,
             total,
             status,
-            items: items.map(it => ({ ...it, line_total: it.unit_price * it.quantity }))
+            items: items.map((it) => ({ ...it, line_total: it.unit_price * it.quantity })),
           };
           localStorage.setItem("guest_orders", JSON.stringify(guestOrders));
           return guestOrders[idx];
         }
       }
-      
+
       const newOrder = {
         id: crypto.randomUUID(),
         order_no: 3000 + guestOrders.length,
@@ -361,7 +420,7 @@ function NewOrderPage() {
         total,
         status,
         created_at: new Date().toISOString(),
-        items: items.map(it => ({ ...it, line_total: it.unit_price * it.quantity }))
+        items: items.map((it) => ({ ...it, line_total: it.unit_price * it.quantity })),
       };
       guestOrders.push(newOrder);
       localStorage.setItem("guest_orders", JSON.stringify(guestOrders));
@@ -372,7 +431,7 @@ function NewOrderPage() {
       const saved = updateLocalOrder();
       setBusy(false);
       toast.success(editId ? "Đã cập nhật đơn nháp (Local)" : "Đã lưu đơn (Local)");
-      navigate({ to: "/orders" }); 
+      navigate({ to: "/orders" });
       return;
     }
 
@@ -392,17 +451,30 @@ function NewOrderPage() {
         total,
         status,
       };
-      
-      let updRes = await supabase.from("orders").update(payloadWithCid).eq("id", editId).select().maybeSingle();
-      if (updRes.error && (updRes.error.code === '42703' || updRes.error.message?.includes("column"))) {
+
+      let updRes = await supabase
+        .from("orders")
+        .update(payloadWithCid)
+        .eq("id", editId)
+        .select()
+        .maybeSingle();
+      if (
+        updRes.error &&
+        (updRes.error.code === "42703" || updRes.error.message?.includes("column"))
+      ) {
         // Fallback bỏ customer_id
         const fallbackPayload = { ...payloadWithCid };
         delete (fallbackPayload as any).customer_id;
-        updRes = await supabase.from("orders").update(fallbackPayload).eq("id", editId).select().maybeSingle();
+        updRes = await supabase
+          .from("orders")
+          .update(fallbackPayload)
+          .eq("id", editId)
+          .select()
+          .maybeSingle();
       }
 
       const { error: updErr, data: updData } = updRes;
-      
+
       if (updErr) {
         if (updErr.message?.includes("row-level security")) {
           updateLocalOrder();
@@ -414,7 +486,7 @@ function NewOrderPage() {
         setBusy(false);
         return toast.error(updErr.message);
       }
-      
+
       if (!updData) {
         updateLocalOrder();
         toast.success(editId ? "Đã cập nhật đơn nháp" : "Đã lưu nháp");
@@ -422,7 +494,7 @@ function NewOrderPage() {
         setBusy(false);
         return;
       }
-      
+
       order = updData;
       await supabase.from("order_items").delete().eq("order_id", editId);
     } else {
@@ -441,14 +513,17 @@ function NewOrderPage() {
       };
 
       let insRes = await supabase.from("orders").insert(payloadWithCid).select().single();
-      if (insRes.error && (insRes.error.code === '42703' || insRes.error.message?.includes("column"))) {
+      if (
+        insRes.error &&
+        (insRes.error.code === "42703" || insRes.error.message?.includes("column"))
+      ) {
         const fallbackPayload = { ...payloadWithCid };
         delete (fallbackPayload as any).customer_id;
         insRes = await supabase.from("orders").insert(fallbackPayload).select().single();
       }
 
       const { data: insData, error } = insRes;
-      
+
       if (error || !insData) {
         if (error?.message?.includes("row-level security")) {
           updateLocalOrder();
@@ -483,21 +558,23 @@ function NewOrderPage() {
     );
     setBusy(false);
     if (itemsErr) return toast.error(itemsErr.message);
-    
+
     if (order && order.customer_id) {
       try {
-        await supabase.from("customer_activities").insert([{
-          customer_id: order.customer_id,
-          created_by: user?.id,
-          activity_type: "order_created",
-          title: `Đã tạo đơn hàng #${order.order_no || order.id.slice(0, 8)}`,
-          content: `Đơn hàng trị giá ${new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(order.total || total)}`
-        }]);
+        await supabase.from("customer_activities").insert([
+          {
+            customer_id: order.customer_id,
+            created_by: user?.id,
+            activity_type: "order_created",
+            title: `Đã tạo đơn hàng #${order.order_no || order.id.slice(0, 8)}`,
+            content: `Đơn hàng trị giá ${new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(order.total || total)}`,
+          },
+        ]);
       } catch (e) {
         console.error("Error creating customer activity for order:", e);
       }
     }
-    
+
     toast.success(editId ? "Đã cập nhật đơn" : "Đã lưu nháp");
     navigate({ to: "/orders/$id", params: { id: order.id } });
   };
@@ -511,7 +588,10 @@ function NewOrderPage() {
       <header className="border-b border-border bg-card sticky top-0 z-50">
         <div className="container mx-auto px-4 md:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link to="/" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+            <Link
+              to="/"
+              className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+            >
               <ArrowLeft className="w-4 h-4" /> Quay lại
             </Link>
             <h1 className="text-xl font-bold">
@@ -525,7 +605,9 @@ function NewOrderPage() {
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
-              <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Tổng tiền {vatOn ? "(Đã có VAT)" : ""}</div>
+              <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+                Tổng tiền {vatOn ? "(Đã có VAT)" : ""}
+              </div>
               <div className="text-lg font-bold text-primary font-mono">{fmt(total)}</div>
             </div>
             {step === 1 ? (
@@ -547,43 +629,87 @@ function NewOrderPage() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <h2 className="text-lg font-bold">Danh sách sản phẩm được chọn</h2>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => { setPickerOpen(true); setIsGiftMode(false); }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setPickerOpen(true);
+                    setIsGiftMode(false);
+                  }}
+                >
                   <Plus className="w-4 h-4 mr-2" /> Thêm sản phẩm
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => { setPickerOpen(true); setIsGiftMode(true); }} className="text-orange-600 border-orange-200 hover:bg-orange-50 hover:text-orange-700 bg-white shadow-sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setPickerOpen(true);
+                    setIsGiftMode(true);
+                  }}
+                  className="text-orange-600 border-orange-200 hover:bg-orange-50 hover:text-orange-700 bg-white shadow-sm"
+                >
                   <Plus className="w-4 h-4 mr-2" /> Thêm quà tặng
                 </Button>
               </div>
             </div>
 
             {pickerOpen && (
-              <div className={`border rounded-md p-3 shadow-lg space-y-2 mb-4 animate-in fade-in slide-in-from-top-2 ${isGiftMode ? "border-orange-200 bg-orange-50/50" : "border-border bg-card"}`}>
+              <div
+                className={`border rounded-md p-3 shadow-lg space-y-2 mb-4 animate-in fade-in slide-in-from-top-2 ${isGiftMode ? "border-orange-200 bg-orange-50/50" : "border-border bg-card"}`}
+              >
                 <div className="flex justify-between items-center pb-2 border-b border-border/50">
-                   <span className={`font-bold text-sm flex items-center gap-2 ${isGiftMode ? "text-orange-700" : ""}`}>
-                     {isGiftMode ? "🎁 Tìm quà tặng (Miễn phí)" : "Tìm thêm sản phẩm"}
-                   </span>
-                   <button onClick={() => setPickerOpen(false)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4"/></button>
+                  <span
+                    className={`font-bold text-sm flex items-center gap-2 ${isGiftMode ? "text-orange-700" : ""}`}
+                  >
+                    {isGiftMode ? "🎁 Tìm quà tặng (Miễn phí)" : "Tìm thêm sản phẩm"}
+                  </span>
+                  <button
+                    onClick={() => setPickerOpen(false)}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm kiếm…" className="pl-9 bg-white" autoFocus />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Tìm kiếm…"
+                    className="pl-9 bg-white h-11 md:h-10"
+                    autoFocus
+                  />
                 </div>
                 <div className="max-h-64 overflow-y-auto divide-y divide-border/50">
                   {filtered.slice(0, 30).map((p: Product) => (
-                    <div key={p.id} className="py-2 flex items-center justify-between gap-2 hover:bg-white/50 px-2 rounded transition-colors">
+                    <div
+                      key={p.id}
+                      className="py-2 flex items-center justify-between gap-2 hover:bg-white/50 px-2 rounded transition-colors"
+                    >
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium truncate">{p.name}</div>
-                        <div className="text-xs text-muted-foreground truncate">{p.description}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {p.description}
+                        </div>
                       </div>
                       <div className="flex gap-1">
                         {p.variants.some((v: ProductVariant) => v.type === "retail") && (
-                          <button onClick={() => addLine(p, "retail", isGiftMode)} className={`text-[10px] font-bold px-2 py-1 rounded ${isGiftMode ? "bg-orange-500 text-white" : "bg-primary text-primary-foreground"} hover:opacity-90`}>
-                            {isGiftMode ? "TẶNG" : "CHỌN"} RETAIL {p.variants.find((v: ProductVariant) => v.type === "retail")?.size ?? ""}
+                          <button
+                            onClick={() => addLine(p, "retail", isGiftMode)}
+                            className={`h-11 text-xs px-4 md:h-8 md:px-2 md:py-1 md:text-[10px] font-bold rounded ${isGiftMode ? "bg-orange-500 text-white" : "bg-primary text-primary-foreground"} hover:opacity-90 flex items-center justify-center shrink-0`}
+                          >
+                            {isGiftMode ? "TẬNG" : "CHỌN"} RETAIL{" "}
+                            {p.variants.find((v: ProductVariant) => v.type === "retail")?.size ??
+                              ""}
                           </button>
                         )}
                         {p.variants.some((v: ProductVariant) => v.type === "salon") && (
-                          <button onClick={() => addLine(p, "salon", isGiftMode)} className={`text-[10px] font-bold px-2 py-1 rounded ${isGiftMode ? "bg-orange-500 text-white" : "bg-primary text-primary-foreground"} hover:opacity-90`}>
-                            {isGiftMode ? "TẶNG" : "CHỌN"} SALON {p.variants.find((v: ProductVariant) => v.type === "salon")?.size ?? ""}
+                          <button
+                            onClick={() => addLine(p, "salon", isGiftMode)}
+                            className={`h-11 text-xs px-4 md:h-8 md:px-2 md:py-1 md:text-[10px] font-bold rounded ${isGiftMode ? "bg-orange-500 text-white" : "bg-primary text-primary-foreground"} hover:opacity-90 flex items-center justify-center shrink-0`}
+                          >
+                            {isGiftMode ? "TẶNG" : "CHỌN"} SALON{" "}
+                            {p.variants.find((v: ProductVariant) => v.type === "salon")?.size ?? ""}
                           </button>
                         )}
                       </div>
@@ -593,7 +719,8 @@ function NewOrderPage() {
               </div>
             )}
 
-            <div className="bg-card rounded-lg shadow-sm border border-border overflow-hidden">
+            {/* Desktop Table View */}
+            <div className="bg-card rounded-lg shadow-sm border border-border overflow-hidden hidden md:block">
               <div className="overflow-x-auto">
                 <table className="product-table w-full">
                   <thead>
@@ -618,24 +745,35 @@ function NewOrderPage() {
                     ) : (
                       items.map((it, i) => (
                         <tr key={`${it.product_no}-${it.size_type}`}>
-                          <td className="text-center font-semibold">{String(i + 1).padStart(2, "0")}</td>
+                          <td className="text-center font-semibold">
+                            {String(i + 1).padStart(2, "0")}
+                          </td>
                           <td>
                             <div className="w-16 h-16 rounded bg-muted overflow-hidden border border-border mx-auto">
                               {it.image_url ? (
-                                <img src={it.image_url} alt={it.product_name} className="w-full h-full object-cover" />
+                                <img
+                                  src={it.image_url}
+                                  alt={it.product_name}
+                                  className="w-full h-full object-cover"
+                                />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center text-[8px] text-muted-foreground font-bold">NO IMG</div>
+                                <div className="w-full h-full flex items-center justify-center text-[8px] text-muted-foreground font-bold">
+                                  NO IMG
+                                </div>
                               )}
                             </div>
                           </td>
                           <td>
                             <div className="product-name">{it.product_name}</div>
                             <div className="text-[10px] text-muted-foreground mt-0.5">
-                              #{it.product_no} · {it.size_type === "retail" ? "Dòng bán lẻ" : "Dòng chuyên nghiệp"}
+                              #{it.product_no} ·{" "}
+                              {it.size_type === "retail" ? "Dòng bán lẻ" : "Dòng chuyên nghiệp"}
                             </div>
                           </td>
                           <td className="text-center font-medium">
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${it.size_type === "retail" ? "bg-blue-500/10 text-blue-600" : "bg-purple-500/10 text-purple-600"}`}>
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${it.size_type === "retail" ? "bg-blue-500/10 text-blue-600" : "bg-purple-500/10 text-purple-600"}`}
+                            >
                               {it.size}
                             </span>
                           </td>
@@ -643,20 +781,35 @@ function NewOrderPage() {
                           <td>
                             <div className="flex items-center justify-center">
                               <div className="flex items-center border border-border rounded overflow-hidden bg-background">
-                                <button onClick={() => updateQty(i, it.quantity - 1)} className="w-8 h-8 flex items-center justify-center hover:bg-accent border-r border-border">-</button>
-                                <input 
-                                  type="number" 
-                                  value={it.quantity} 
+                                <button
+                                  onClick={() => updateQty(i, it.quantity - 1)}
+                                  className="w-8 h-8 flex items-center justify-center hover:bg-accent border-r border-border"
+                                >
+                                  -
+                                </button>
+                                <input
+                                  type="number"
+                                  value={it.quantity}
                                   onChange={(e) => updateQty(i, Number(e.target.value))}
                                   className="w-10 text-center text-xs font-bold bg-transparent focus:outline-none"
                                 />
-                                <button onClick={() => updateQty(i, it.quantity + 1)} className="w-8 h-8 flex items-center justify-center hover:bg-accent border-l border-border">+</button>
+                                <button
+                                  onClick={() => updateQty(i, it.quantity + 1)}
+                                  className="w-8 h-8 flex items-center justify-center hover:bg-accent border-l border-border"
+                                >
+                                  +
+                                </button>
                               </div>
                             </div>
                           </td>
-                          <td className="text-right font-mono font-bold text-primary">{fmt(it.unit_price * it.quantity)}</td>
+                          <td className="text-right font-mono font-bold text-primary">
+                            {fmt(it.unit_price * it.quantity)}
+                          </td>
                           <td className="text-center">
-                            <button onClick={() => removeLine(i)} className="text-muted-foreground hover:text-destructive p-1">
+                            <button
+                              onClick={() => removeLine(i)}
+                              className="text-muted-foreground hover:text-destructive p-1"
+                            >
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </td>
@@ -667,16 +820,25 @@ function NewOrderPage() {
                   {items.length > 0 && (
                     <tfoot className="bg-muted/30 font-bold border-t-2 border-border">
                       <tr>
-                        <td colSpan={6} className="text-right px-6 py-3 text-muted-foreground">Tạm tính (Chưa VAT)</td>
+                        <td colSpan={6} className="text-right px-6 py-3 text-muted-foreground">
+                          Tạm tính (Chưa VAT)
+                        </td>
                         <td className="text-right px-6 py-3 font-mono">{fmt(subtotal)}</td>
                         <td></td>
                       </tr>
                       <tr>
                         <td colSpan={6} className="text-right px-6 py-3">
                           <label className="inline-flex items-center gap-2 cursor-pointer group">
-                            <span className="text-muted-foreground group-hover:text-foreground transition-colors">Tính VAT ({Math.round(vatRate * 100)}%)</span>
+                            <span className="text-muted-foreground group-hover:text-foreground transition-colors">
+                              Tính VAT ({Math.round(vatRate * 100)}%)
+                            </span>
                             <div className="relative inline-flex items-center cursor-pointer">
-                              <input type="checkbox" className="sr-only peer" checked={vatOn} onChange={(e) => setVatOn(e.target.checked)} />
+                              <input
+                                type="checkbox"
+                                className="sr-only peer"
+                                checked={vatOn}
+                                onChange={(e) => setVatOn(e.target.checked)}
+                              />
                               <div className="w-9 h-5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
                             </div>
                           </label>
@@ -687,7 +849,9 @@ function NewOrderPage() {
                         <td></td>
                       </tr>
                       <tr className="bg-primary/5 text-primary">
-                        <td colSpan={6} className="text-right px-6 py-4 text-lg">TỔNG CỘNG</td>
+                        <td colSpan={6} className="text-right px-6 py-4 text-lg">
+                          TỔNG CỘNG
+                        </td>
                         <td className="text-right px-6 py-4 font-mono text-2xl">{fmt(total)}</td>
                         <td></td>
                       </tr>
@@ -696,13 +860,141 @@ function NewOrderPage() {
                 </table>
               </div>
             </div>
+
+            {/* Mobile Card List View */}
+            <div className="block md:hidden space-y-4">
+              {items.length === 0 ? (
+                <div className="py-12 bg-white rounded-lg border border-border text-center text-muted-foreground text-sm">
+                  Chưa có sản phẩm nào. Quay lại trang chủ để chọn sản phẩm.
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-3">
+                    {items.map((it, i) => (
+                      <div
+                        key={`${it.product_no}-${it.size_type}`}
+                        className="bg-white border border-border rounded-xl p-4 flex gap-3 items-start relative shadow-sm"
+                      >
+                        {/* Product Image */}
+                        <div className="w-16 h-16 rounded-lg bg-muted overflow-hidden border border-border shrink-0">
+                          {it.image_url ? (
+                            <img
+                              src={it.image_url}
+                              alt={it.product_name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-[8px] text-muted-foreground font-bold">
+                              NO IMG
+                            </div>
+                          )}
+                        </div>
+                        {/* Product Details */}
+                        <div className="flex-1 min-w-0 pr-8">
+                          <div className="text-xs font-black text-slate-800 line-clamp-2 leading-tight">
+                            {it.product_name}
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">#{it.product_no}</div>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ${it.size_type === "retail" ? "bg-blue-500/10 text-blue-600" : "bg-purple-500/10 text-purple-600"}`}
+                            >
+                              {it.size}
+                            </span>
+                            <span className="text-[9px] font-bold text-slate-500 px-1.5 py-0.5 bg-slate-100 rounded shrink-0">
+                              {it.size_type === "retail" ? "Dòng bán lẻ" : "Dòng chuyên nghiệp"}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-2.5 border-t border-slate-100 mt-2 gap-2">
+                            <div className="space-y-0.5">
+                              <div className="text-[10px] text-slate-400 font-bold uppercase">
+                                Đơn giá: {fmt(it.unit_price)}
+                              </div>
+                              <div className="text-xs font-black text-indigo-600">
+                                Thành tiền: {fmt(it.unit_price * it.quantity)}
+                              </div>
+                            </div>
+
+                            {/* Quantity Selector */}
+                            <div className="flex items-center border border-slate-200 rounded-xl overflow-hidden bg-slate-50 w-fit">
+                              <button
+                                onClick={() => updateQty(i, it.quantity - 1)}
+                                className="w-11 h-11 flex items-center justify-center hover:bg-slate-100 border-r border-slate-200 text-sm font-bold text-slate-600 shrink-0"
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                value={it.quantity}
+                                onChange={(e) => updateQty(i, Number(e.target.value))}
+                                className="w-11 h-11 text-center text-xs font-black bg-transparent focus:outline-none text-slate-800"
+                              />
+                              <button
+                                onClick={() => updateQty(i, it.quantity + 1)}
+                                className="w-11 h-11 flex items-center justify-center hover:bg-slate-100 border-l border-slate-200 text-sm font-bold text-slate-600 shrink-0"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Remove Button */}
+                        <button
+                          onClick={() => removeLine(i)}
+                          className="absolute top-3 right-3 text-slate-400 hover:text-red-500 p-2 shrink-0 rounded-full hover:bg-slate-50 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Mobile Summary Card */}
+                  <div className="bg-white border border-border rounded-2xl p-5 space-y-3.5 shadow-sm">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-500 font-medium">Tạm tính (Chưa VAT)</span>
+                      <span className="font-bold font-mono text-slate-800">{fmt(subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs py-2.5 border-y border-slate-100">
+                      <label className="inline-flex items-center gap-2 cursor-pointer group">
+                        <span className="text-slate-500 font-bold group-hover:text-slate-700 transition-colors">
+                          Tính VAT ({Math.round(vatRate * 100)}%)
+                        </span>
+                        <div className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={vatOn}
+                            onChange={(e) => setVatOn(e.target.checked)}
+                          />
+                          <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </div>
+                      </label>
+                      <span className="font-bold font-mono text-orange-600">
+                        {vatOn ? `+${fmt(vatAmount)}` : "0"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2">
+                      <span className="text-sm font-black text-slate-900">TỔNG CỘNG</span>
+                      <span className="text-xl font-mono font-black text-indigo-600">
+                        {fmt(total)}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         ) : (
           <div className="max-w-4xl mx-auto grid md:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="md:col-span-2 space-y-6">
               <div className="bg-card border border-border rounded-lg p-6 shadow-sm space-y-4">
                 <h2 className="text-lg font-bold flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs">2</div>
+                  <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs">
+                    2
+                  </div>
                   Thông tin giao hàng
                 </h2>
 
@@ -717,21 +1009,28 @@ function NewOrderPage() {
                       const cid = e.target.value;
                       setSelectedCustomerId(cid || null);
                       if (cid) {
-                        const found = customersList.find(c => c.id === cid);
+                        const found = customersList.find((c) => c.id === cid);
                         if (found) {
                           setCustomerName(found.contact_name || found.name || "");
                           setCustomerPhone(found.phone || "");
-                          setCustomerAddress([found.address, found.city || found.province].filter(Boolean).join(", "));
-                          toast.success(`Đã liên kết đơn hàng với "${found.contact_name || found.name}"`);
+                          setCustomerAddress(
+                            [found.address, found.city || found.province]
+                              .filter(Boolean)
+                              .join(", "),
+                          );
+                          toast.success(
+                            `Đã liên kết đơn hàng với "${found.contact_name || found.name}"`,
+                          );
                         }
                       }
                     }}
                     className="w-full h-9 px-3 bg-white border border-border rounded-md text-xs font-bold text-slate-800 shadow-2xs cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary"
                   >
                     <option value="">-- Chọn khách hàng có sẵn hoặc điền tự do bên dưới --</option>
-                    {customersList.map(c => (
+                    {customersList.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.contact_name || c.name} {c.facility_name ? `(${c.facility_name})` : ""} - {c.phone}
+                        {c.contact_name || c.name} {c.facility_name ? `(${c.facility_name})` : ""} -{" "}
+                        {c.phone}
                       </option>
                     ))}
                   </select>
@@ -740,53 +1039,86 @@ function NewOrderPage() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="c-name">Tên khách hàng *</Label>
-                    <Input id="c-name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Nhập họ và tên" />
+                    <Input
+                      id="c-name"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Nhập họ và tên"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="c-phone">Số điện thoại</Label>
-                    <Input id="c-phone" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="09xx..." />
+                    <Input
+                      id="c-phone"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      placeholder="09xx..."
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="c-addr">Địa chỉ nhận hàng</Label>
-                  <Input id="c-addr" value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} placeholder="Số nhà, tên đường, phường/xã..." />
+                  <Input
+                    id="c-addr"
+                    value={customerAddress}
+                    onChange={(e) => setCustomerAddress(e.target.value)}
+                    placeholder="Số nhà, tên đường, phường/xã..."
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="c-note">Ghi chú đơn hàng</Label>
-                  <Textarea id="c-note" value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="Yêu cầu đặc biệt..." />
+                  <Textarea
+                    id="c-note"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    rows={3}
+                    placeholder="Yêu cầu đặc biệt..."
+                  />
                 </div>
               </div>
 
               {/* Thông tin người báo giá (Quoter Info) */}
               <div className="bg-card border border-border rounded-lg p-6 shadow-sm space-y-4">
                 <h2 className="text-lg font-bold flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs">3</div>
+                  <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs">
+                    3
+                  </div>
                   Thông tin người lập báo giá
                 </h2>
                 <div className="grid sm:grid-cols-4 gap-4">
                   <div className="space-y-1">
-                    <Label className="text-muted-foreground text-xs uppercase tracking-wider">Họ và tên</Label>
+                    <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                      Họ và tên
+                    </Label>
                     <p className="font-bold">{quoterName}</p>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-muted-foreground text-xs uppercase tracking-wider">Số điện thoại</Label>
+                    <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                      Số điện thoại
+                    </Label>
                     <p className="font-medium">{quoterPhone || "Chưa cập nhật"}</p>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-muted-foreground text-xs uppercase tracking-wider">Email liên hệ</Label>
+                    <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                      Email liên hệ
+                    </Label>
                     <p className="font-medium">{quoterEmail}</p>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-muted-foreground text-xs uppercase tracking-wider">QR Zalo</Label>
+                    <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                      QR Zalo
+                    </Label>
                     <div>
                       {quoterPhone ? (
-                        <img 
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https://zalo.me/${quoterPhone.replace(/\D/g, '')}`} 
-                          alt="Zalo QR" 
-                          className="w-16 h-16 rounded border border-border" 
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https://zalo.me/${quoterPhone.replace(/\D/g, "")}`}
+                          alt="Zalo QR"
+                          className="w-16 h-16 rounded border border-border"
                         />
                       ) : (
-                        <p className="text-xs text-muted-foreground italic">Cập nhật SĐT để có QR</p>
+                        <p className="text-xs text-muted-foreground italic">
+                          Cập nhật SĐT để có QR
+                        </p>
                       )}
                     </div>
                   </div>
@@ -804,8 +1136,15 @@ function NewOrderPage() {
                   </div>
                   <label className="flex items-center justify-between gap-2 p-2 rounded bg-muted/50 cursor-pointer">
                     <div className="flex items-center gap-2">
-                      <input type="checkbox" checked={vatOn} onChange={(e) => setVatOn(e.target.checked)} className="w-4 h-4 accent-primary" />
-                      <span className="text-xs font-bold uppercase tracking-tight">Xuất hóa đơn VAT ({Math.round(vatRate * 100)}%)</span>
+                      <input
+                        type="checkbox"
+                        checked={vatOn}
+                        onChange={(e) => setVatOn(e.target.checked)}
+                        className="w-4 h-4 accent-primary"
+                      />
+                      <span className="text-xs font-bold uppercase tracking-tight">
+                        Xuất hóa đơn VAT ({Math.round(vatRate * 100)}%)
+                      </span>
                     </div>
                   </label>
                   {vatOn && (
@@ -833,24 +1172,26 @@ function NewOrderPage() {
                   ) : (
                     <PDFDownloadLink
                       document={
-                        <CatalogPDF 
-                          items={items} 
-                          customerName={customerName} 
-                          subtotal={subtotal} 
-                          vatAmount={vatAmount} 
-                          total={total} 
-                          orderNo={items.length > 0 ? "TEMP-" + Date.now().toString().slice(-6) : "000"} 
+                        <CatalogPDF
+                          items={items}
+                          customerName={customerName}
+                          subtotal={subtotal}
+                          vatAmount={vatAmount}
+                          total={total}
+                          orderNo={
+                            items.length > 0 ? "TEMP-" + Date.now().toString().slice(-6) : "000"
+                          }
                           quoterName={quoterName}
                           quoterEmail={quoterEmail}
                           quoterPhone={quoterPhone}
                           vatRate={vatRate}
                         />
                       }
-                      fileName={`Bao_Gia_Desembre_${customerName || 'Khach'}.pdf`}
+                      fileName={`Bao_Gia_Desembre_${customerName || "Khach"}.pdf`}
                       className="w-full inline-block cursor-pointer"
                     >
                       {({ loading: pdfLoading }) => (
-                        <div 
+                        <div
                           className={`w-full py-4 font-bold uppercase tracking-wider bg-primary text-primary-foreground hover:opacity-90 flex items-center justify-center gap-2 rounded-md transition-colors`}
                         >
                           <FileText className="w-4 h-4" />
@@ -860,10 +1201,10 @@ function NewOrderPage() {
                     </PDFDownloadLink>
                   )}
 
-                  <Button 
-                    variant="ghost" 
-                    className="w-full py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground" 
-                    onClick={() => save("draft")} 
+                  <Button
+                    variant="ghost"
+                    className="w-full py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                    onClick={() => save("draft")}
                     disabled={busy}
                   >
                     LƯU BẢN NHÁP

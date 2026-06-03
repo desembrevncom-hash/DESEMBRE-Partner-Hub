@@ -21,26 +21,39 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ success: false, error: "Missing authorization" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authErr } = await adminClient.auth.getUser(token);
-    
+    const {
+      data: { user },
+      error: authErr,
+    } = await adminClient.auth.getUser(token);
+
     if (authErr || !user) {
       return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { data: roleData } = await adminClient.from("user_roles").select("role").eq("user_id", user.id).single();
+    const { data: roleData } = await adminClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .single();
     const role = roleData?.role;
-    
+
     if (role !== "admin" && role !== "sub_admin") {
-      return new Response(JSON.stringify({ success: false, error: "Forbidden: Admin/SubAdmin only" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+      return new Response(
+        JSON.stringify({ success: false, error: "Forbidden: Admin/SubAdmin only" }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // 2. Parse Body
@@ -48,7 +61,8 @@ serve(async (req) => {
 
     if (!provider) {
       return new Response(JSON.stringify({ success: false, error: "Missing provider" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -69,7 +83,7 @@ serve(async (req) => {
         isConfigured = true;
       } catch (e: any) {
         isConfigured = false;
-        
+
         if (e.message === "RESEND_API_KEY_DECRYPTION_FAILED") {
           missing_config.push("RESEND_API_KEY_DECRYPTION_FAILED");
           message = "Lỗi giải mã API key";
@@ -92,17 +106,20 @@ serve(async (req) => {
       }
 
       if (!isConfigured || !fromEmail) {
-        return new Response(JSON.stringify({
-          success: true,
-          provider: "resend",
-          auth_type,
-          configured: false,
-          api_key_configured: false,
-          missing_config,
-          domain_status: "unknown",
-          can_send_test: false,
-          message: message || "Thiếu cấu hình Platform Secrets"
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(
+          JSON.stringify({
+            success: true,
+            provider: "resend",
+            auth_type,
+            configured: false,
+            api_key_configured: false,
+            missing_config,
+            domain_status: "unknown",
+            can_send_test: false,
+            message: message || "Thiếu cấu hình Platform Secrets",
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
       }
 
       // Check Resend Domain Status
@@ -110,10 +127,10 @@ serve(async (req) => {
       try {
         const domainParts = fromEmail.split("@");
         const domain = domainParts.length === 2 ? domainParts[1] : "";
-        
+
         if (domain) {
           const res = await fetch(`https://api.resend.com/domains`, {
-            headers: { "Authorization": `Bearer ${resendKey}` }
+            headers: { Authorization: `Bearer ${resendKey}` },
           });
           if (res.ok) {
             const data = await res.json();
@@ -129,19 +146,22 @@ serve(async (req) => {
         console.error("Resend domain check error", e);
       }
 
-      return new Response(JSON.stringify({
-        success: true,
-        provider: "resend",
-        auth_type,
-        configured: true,
-        api_key_configured: true,
-        from_email: fromEmail,
-        missing_config: [],
-        domain_status,
-        can_send_test: domain_status === "verified",
-        message: "API Key: Configured",
-        last_checked_at: new Date().toISOString()
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          provider: "resend",
+          auth_type,
+          configured: true,
+          api_key_configured: true,
+          from_email: fromEmail,
+          missing_config: [],
+          domain_status,
+          can_send_test: domain_status === "verified",
+          message: "API Key: Configured",
+          last_checked_at: new Date().toISOString(),
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     if (provider === "zalo_oa") {
@@ -152,7 +172,7 @@ serve(async (req) => {
       try {
         const { getSenderCredential } = await import("../_shared/sender-credentials.ts");
         const creds = await getSenderCredential(adminClient, "zalo_oa", sender_account_id);
-        
+
         token_available = !!creds.access_token;
         credential_source = creds.credential_source || "env";
         auth_type = creds.auth_type;
@@ -164,38 +184,46 @@ serve(async (req) => {
         }
       }
 
-      return new Response(JSON.stringify({
-        success: true,
-        provider: "zalo_oa",
-        auth_type,
-        credential_source,
-        token_available,
-        configured: missing_config.length === 0 && token_available,
-        missing_config,
-        can_send_test: missing_config.length === 0 && token_available,
-        message: missing_config.length > 0 ? "Thiếu cấu hình Token Zalo" : "Kết nối Zalo config ok",
-        last_checked_at: new Date().toISOString()
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          provider: "zalo_oa",
+          auth_type,
+          credential_source,
+          token_available,
+          configured: missing_config.length === 0 && token_available,
+          missing_config,
+          can_send_test: missing_config.length === 0 && token_available,
+          message:
+            missing_config.length > 0 ? "Thiếu cấu hình Token Zalo" : "Kết nối Zalo config ok",
+          last_checked_at: new Date().toISOString(),
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     if (provider === "gmail" || provider === "gmail/google") {
       // Just basic checking if we have the DB entry active
-      return new Response(JSON.stringify({
-        success: true,
-        provider: "gmail",
-        configured: true,
-        can_send_test: true,
-        message: "Gmail OAuth configured"
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          provider: "gmail",
+          configured: true,
+          can_send_test: true,
+          message: "Gmail OAuth configured",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     return new Response(JSON.stringify({ success: false, error: "Unsupported provider" }), {
-      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-
   } catch (err: any) {
     return new Response(JSON.stringify({ success: false, error: err.message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

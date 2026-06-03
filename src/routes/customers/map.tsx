@@ -5,17 +5,17 @@ import { useAuth } from "@/hooks/useAuth";
 import { buildStaffMap, getStaffDisplayName, StaffMap } from "@/lib/staffDisplay";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
 import { RoutingReviewDialog } from "@/components/customers/RoutingReviewDialog";
-import { 
-  MapPin, 
-  Search, 
-  Filter, 
-  Compass, 
-  User, 
-  Layers, 
-  Phone, 
-  Navigation, 
-  AlertCircle, 
-  CheckCircle2, 
+import {
+  MapPin,
+  Search,
+  Filter,
+  Compass,
+  User,
+  Layers,
+  Phone,
+  Navigation,
+  AlertCircle,
+  CheckCircle2,
   HelpCircle,
   Maximize2,
   ListFilter,
@@ -26,18 +26,10 @@ import {
   UploadCloud,
   RefreshCw,
   Check,
-  ChevronsUpDown
+  ChevronsUpDown,
 } from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  VIETNAM_PROVINCES,
-  stripAccents,
-  findProvinceByName,
-} from "@/lib/vietnamProvinces";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { VIETNAM_PROVINCES, stripAccents, findProvinceByName } from "@/lib/vietnamProvinces";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -46,14 +38,14 @@ import { toast } from "sonner";
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { 
-  optimizeRouteByNearestNeighbor, 
-  buildGoogleMapsRouteUrl, 
-  getRouteDistanceEstimate, 
-  formatDistance, 
+import {
+  optimizeRouteByNearestNeighbor,
+  buildGoogleMapsRouteUrl,
+  getRouteDistanceEstimate,
+  formatDistance,
   hasValidCoordinates,
   calculateDistanceMeters,
-  parseGoogleMapsUrlToCoordinates
+  parseGoogleMapsUrlToCoordinates,
 } from "@/lib/geo";
 import { RouteScheduleDialog } from "@/components/customers/RouteScheduleDialog";
 import {
@@ -63,7 +55,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-  DialogClose
+  DialogClose,
 } from "@/components/ui/dialog";
 
 // Fix default Leaflet icon paths
@@ -82,7 +74,7 @@ export const Route = createFileRoute("/customers/map")({
 const getMarkerIcon = (status: string, isTeleSales: boolean, isSelected: boolean = false) => {
   let color = "bg-blue-600";
   let ringColor = "ring-blue-100";
-  
+
   if (isTeleSales) {
     color = "bg-purple-600";
     ringColor = "ring-purple-100";
@@ -109,17 +101,19 @@ const getMarkerIcon = (status: string, isTeleSales: boolean, isSelected: boolean
 
   const isAtRisk = status === "at_risk";
   const sizeClasses = isSelected ? "w-10 h-10 scale-125 z-[100]" : "w-8 h-8";
-  const innerSizeClasses = isSelected ? "w-8.5 h-8.5 border-3 border-indigo-200" : "w-6.5 h-6.5 border-2 border-white";
+  const innerSizeClasses = isSelected
+    ? "w-8.5 h-8.5 border-3 border-indigo-200"
+    : "w-6.5 h-6.5 border-2 border-white";
   const selectedRing = isSelected ? "ring-indigo-400 ring-4 ring-offset-1" : `ring-4 ${ringColor}`;
-  
+
   return L.divIcon({
-    className: `custom-leaflet-marker ${isSelected ? 'z-[1000]' : ''}`,
+    className: `custom-leaflet-marker ${isSelected ? "z-[1000]" : ""}`,
     html: `
       <div class="relative flex items-center justify-center ${sizeClasses}">
-        ${isAtRisk ? `<span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-60"></span>` : ''}
-        ${isSelected ? `<span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-50"></span>` : ''}
+        ${isAtRisk ? `<span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-60"></span>` : ""}
+        ${isSelected ? `<span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-50"></span>` : ""}
         <div class="${innerSizeClasses} rounded-full ${color} shadow-lg flex items-center justify-center text-white ${selectedRing}">
-          <svg class="${isSelected ? 'w-4 h-4' : 'w-3.5 h-3.5'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <svg class="${isSelected ? "w-4 h-4" : "w-3.5 h-3.5"}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
             <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
             <circle cx="12" cy="10" r="3"/>
           </svg>
@@ -174,17 +168,22 @@ const getOfficeIcon = () => {
   });
 };
 
-
 // Map controller to fit bounds
-function MapController({ customers, selectedCustomer }: { customers: any[]; selectedCustomer: any | null }) {
+function MapController({
+  customers,
+  selectedCustomer,
+}: {
+  customers: any[];
+  selectedCustomer: any | null;
+}) {
   const map = useMap();
-  
+
   // Center on selected customer
   useEffect(() => {
     if (selectedCustomer && selectedCustomer.latitude && selectedCustomer.longitude) {
       map.setView([Number(selectedCustomer.latitude), Number(selectedCustomer.longitude)], 15, {
         animate: true,
-        duration: 1.5
+        duration: 1.5,
       });
     }
   }, [selectedCustomer, map]);
@@ -192,17 +191,17 @@ function MapController({ customers, selectedCustomer }: { customers: any[]; sele
   // Fit bounds when all customers load
   useEffect(() => {
     if (customers.length === 0) return;
-    
+
     const validCoords = customers
-      .filter(c => c.latitude && c.longitude)
-      .map(c => [Number(c.latitude), Number(c.longitude)] as [number, number]);
-      
+      .filter((c) => c.latitude && c.longitude)
+      .map((c) => [Number(c.latitude), Number(c.longitude)] as [number, number]);
+
     if (validCoords.length > 0) {
       const bounds = L.latLngBounds(validCoords);
       map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
     }
   }, [customers, map]);
-  
+
   return null;
 }
 
@@ -210,8 +209,8 @@ function CustomerMapPage() {
   const { user, isAdmin, isSubAdmin, isTeleLead, isTelesale, isSale } = useAuth();
   const isManager = isAdmin || isSubAdmin;
   const canRoute = isSale || isAdmin || isSubAdmin;
-  
-  const [mobileView, setMobileView] = useState<'map' | 'list'>('map');
+
+  const [mobileView, setMobileView] = useState<"map" | "list">("map");
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<any[]>([]);
   const [staffMap, setStaffMap] = useState<StaffMap>({});
@@ -229,7 +228,9 @@ function CustomerMapPage() {
   // States cho tính năng Lập tuyến đi
   const [routeMode, setRouteMode] = useState(false);
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
-  const [routeOrigin, setRouteOrigin] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [routeOrigin, setRouteOrigin] = useState<{ latitude: number; longitude: number } | null>(
+    null,
+  );
   const [gettingLocation, setGettingLocation] = useState(false);
   const [returnToOrigin, setReturnToOrigin] = useState(false);
 
@@ -265,10 +266,9 @@ function CustomerMapPage() {
     fetchDefaultLocation();
   }, []);
 
-
   // States cho tính năng Lập tuyến đi nâng cấp (Phase 4 & Phase 5)
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
-  const [startPointType, setStartPointType] = useState<'office' | 'current' | 'manual'>('office');
+  const [startPointType, setStartPointType] = useState<"office" | "current" | "manual">("office");
   const [routeOriginLabel, setRouteOriginLabel] = useState<string | null>(null);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const [manualLat, setManualLat] = useState<string>("");
@@ -298,7 +298,7 @@ function CustomerMapPage() {
 
         if (accuracy > 1000) {
           const confirmUse = window.confirm(
-            `Vị trí hiện tại có độ chính xác rất thấp (sai số khoảng ${Math.round(accuracy)}m > 1000m). Bạn có chắc chắn muốn dùng tọa độ này để lập tuyến không?`
+            `Vị trí hiện tại có độ chính xác rất thấp (sai số khoảng ${Math.round(accuracy)}m > 1000m). Bạn có chắc chắn muốn dùng tọa độ này để lập tuyến không?`,
           );
           if (confirmUse) {
             applyGps();
@@ -306,7 +306,7 @@ function CustomerMapPage() {
             setGettingLocation(false);
             // Quay về văn phòng mặc định nếu có
             if (defaultLocation?.latitude && defaultLocation?.longitude) {
-              handleStartPointTypeChange('office');
+              handleStartPointTypeChange("office");
             } else {
               setRouteOrigin(null);
               setRouteOriginLabel(null);
@@ -322,22 +322,22 @@ function CustomerMapPage() {
         toast.warning("Không thể truy cập định vị vị trí GPS của bạn.");
         // Quay về văn phòng mặc định nếu có
         if (defaultLocation?.latitude && defaultLocation?.longitude) {
-          handleStartPointTypeChange('office');
+          handleStartPointTypeChange("office");
         }
       },
-      { enableHighAccuracy: true, timeout: 8000 }
+      { enableHighAccuracy: true, timeout: 8000 },
     );
   };
 
-  const handleStartPointTypeChange = (type: 'office' | 'current' | 'manual') => {
+  const handleStartPointTypeChange = (type: "office" | "current" | "manual") => {
     setStartPointType(type);
     setGpsAccuracy(null);
 
-    if (type === 'office') {
+    if (type === "office") {
       if (defaultLocation && defaultLocation.latitude && defaultLocation.longitude) {
         setRouteOrigin({
           latitude: Number(defaultLocation.latitude),
-          longitude: Number(defaultLocation.longitude)
+          longitude: Number(defaultLocation.longitude),
         });
         setRouteOriginLabel(defaultLocation.name);
       } else {
@@ -345,9 +345,9 @@ function CustomerMapPage() {
         setRouteOrigin(null);
         setRouteOriginLabel(null);
       }
-    } else if (type === 'current') {
+    } else if (type === "current") {
       getCurrentLocation();
-    } else if (type === 'manual') {
+    } else if (type === "manual") {
       setRouteOrigin(null);
       setRouteOriginLabel(null);
       setManualLat("");
@@ -366,9 +366,11 @@ function CustomerMapPage() {
       setManualLng(parsed.longitude.toString());
       setRouteOrigin({
         latitude: parsed.latitude,
-        longitude: parsed.longitude
+        longitude: parsed.longitude,
       });
-      setRouteOriginLabel(`Tọa độ thủ công: ${parsed.latitude.toFixed(6)}, ${parsed.longitude.toFixed(6)}`);
+      setRouteOriginLabel(
+        `Tọa độ thủ công: ${parsed.latitude.toFixed(6)}, ${parsed.longitude.toFixed(6)}`,
+      );
       toast.success("Đã phân tích tọa độ thành công!");
     } else {
       const parts = val.split(/[\s,]+/);
@@ -421,24 +423,26 @@ function CustomerMapPage() {
         setRouteMode(false);
         return;
       }
-      
+
       if (defaultLocation && defaultLocation.latitude && defaultLocation.longitude) {
-        setStartPointType('office');
+        setStartPointType("office");
         setRouteOrigin({
           latitude: Number(defaultLocation.latitude),
-          longitude: Number(defaultLocation.longitude)
+          longitude: Number(defaultLocation.longitude),
         });
         setRouteOriginLabel(defaultLocation.name);
       } else {
-        setStartPointType('current');
+        setStartPointType("current");
         getCurrentLocation();
-        toast.warning("Không tìm thấy văn phòng mặc định. Hệ thống tự động chuyển sang Vị trí hiện tại.");
+        toast.warning(
+          "Không tìm thấy văn phòng mặc định. Hệ thống tự động chuyển sang Vị trí hiện tại.",
+        );
       }
     } else {
       setRouteOrigin(null);
       setRouteOriginLabel(null);
       setSelectedCustomerIds([]);
-      setStartPointType('office');
+      setStartPointType("office");
       setGpsAccuracy(null);
       setManualLat("");
       setManualLng("");
@@ -448,7 +452,7 @@ function CustomerMapPage() {
 
   // Lấy các khách hàng được chọn
   const selectedCustomers = useMemo(() => {
-    return customers.filter(c => selectedCustomerIds.includes(c.id));
+    return customers.filter((c) => selectedCustomerIds.includes(c.id));
   }, [customers, selectedCustomerIds]);
 
   // Sắp xếp danh sách khách hàng được chọn theo láng giềng gần nhất nếu có origin
@@ -456,7 +460,7 @@ function CustomerMapPage() {
     if (routeOrigin) {
       return optimizeRouteByNearestNeighbor(routeOrigin, selectedCustomers);
     }
-    return selectedCustomers.filter(c => hasValidCoordinates(c));
+    return selectedCustomers.filter((c) => hasValidCoordinates(c));
   }, [routeOrigin, selectedCustomers]);
 
   // Tính tổng quãng đường tuyến đường
@@ -491,17 +495,21 @@ function CustomerMapPage() {
         "Customer_Channel",
         "Care_Model",
         "Total_Order_Amount",
-        "CRM_Link"
+        "CRM_Link",
       ].join(",");
 
-      const csvRows = mapCustomers.map(c => {
+      const csvRows = mapCustomers.map((c) => {
         const saleName = getStaffDisplayName(c.owner_sale_id, staffMap);
         const teleName = getStaffDisplayName(c.owner_tele_id, staffMap);
-        const ownerName = (saleName !== "Chưa phân công" ? saleName : "") || (teleName !== "Chưa phân công" ? teleName : "") || "Chưa phân công";
+        const ownerName =
+          (saleName !== "Chưa phân công" ? saleName : "") ||
+          (teleName !== "Chưa phân công" ? teleName : "") ||
+          "Chưa phân công";
         const crmLink = `${window.location.origin}/customers/${c.id}`;
-        
-        const totalOrderAmount = c.orders?.reduce((sum: number, o: any) => sum + (o.total || 0), 0) || 0;
-        
+
+        const totalOrderAmount =
+          c.orders?.reduce((sum: number, o: any) => sum + (o.total || 0), 0) || 0;
+
         return [
           escapeCSV(c.id),
           escapeCSV(c.name),
@@ -515,7 +523,7 @@ function CustomerMapPage() {
           escapeCSV(c.customer_channel),
           escapeCSV(c.care_model),
           escapeCSV(totalOrderAmount),
-          escapeCSV(crmLink)
+          escapeCSV(crmLink),
         ].join(",");
       });
 
@@ -524,11 +532,14 @@ function CustomerMapPage() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.setAttribute("href", url);
-      link.setAttribute("download", `DESEMBRE_MyMaps_Export_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.setAttribute(
+        "download",
+        `DESEMBRE_MyMaps_Export_${new Date().toISOString().slice(0, 10)}.csv`,
+      );
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       setIsGuideOpen(true);
       toast.success(`Đã xuất thành công ${mapCustomers.length} khách hàng!`);
     } catch (err: any) {
@@ -543,10 +554,15 @@ function CustomerMapPage() {
       setLoading(true);
       try {
         // Query active customers with orders
-        let query = supabase.from("customers").select("id, created_at, name, facility_name, phone, city, address, owner_sale_id, owner_tele_id, lifecycle_stage, ownership_status, customer_channel, customer_distance_type, next_follow_up_at, last_contacted_at, latitude, longitude, orders(id, total, status)").is("deleted_at", null);
-        
+        let query = supabase
+          .from("customers")
+          .select(
+            "id, created_at, name, facility_name, phone, city, address, owner_sale_id, owner_tele_id, lifecycle_stage, ownership_status, customer_channel, customer_distance_type, next_follow_up_at, last_contacted_at, latitude, longitude, orders(id, total, status)",
+          )
+          .is("deleted_at", null);
+
         // Load assigned tasks to evaluate visibility for Telesales
-        let assignedCustomerIds = new Set<string>();
+        const assignedCustomerIds = new Set<string>();
         if (isTelesale && user) {
           const { data: tasks } = await supabase
             .from("customer_tasks")
@@ -558,30 +574,30 @@ function CustomerMapPage() {
             });
           }
         }
-        
+
         // Áp dụng Logic bảo mật phân quyền trực tiếp trên DB (RLS Bypass fix)
         if (!isAdmin && user) {
           if (isSale) {
             query = query.or(`owner_sale_id.eq.${user.id},ownership_status.eq.free_pool`);
           } else if (isTeleLead) {
-            query = query.eq('owner_tele_id', user.id);
+            query = query.eq("owner_tele_id", user.id);
           } else if (isTelesale) {
             // Đối với Telesale, query cần lấy owner_tele_id = user.id hoặc trong danh sách assigned
             if (assignedCustomerIds.size > 0) {
-              const idsArr = Array.from(assignedCustomerIds).join(',');
+              const idsArr = Array.from(assignedCustomerIds).join(",");
               query = query.or(`owner_tele_id.eq.${user.id},id.in.(${idsArr})`);
             } else {
-              query = query.eq('owner_tele_id', user.id);
+              query = query.eq("owner_tele_id", user.id);
             }
           }
         }
-        
+
         const { data, error } = await query;
         if (error) throw error;
 
         const customerList = data || [];
         setCustomers(customerList);
-        
+
         // Fetch user profiles to build staffMap
         const userIds = new Set<string>();
         customerList.forEach((c: any) => {
@@ -612,16 +628,16 @@ function CustomerMapPage() {
 
   // Compute filtered customers based on selected filter and search query
   const filteredCustomers = useMemo(() => {
-    return customers.filter(c => {
+    return customers.filter((c) => {
       // 1. Search Query
       const searchLower = searchQuery.toLowerCase();
-      const matchSearch = 
+      const matchSearch =
         (c.facility_name || "").toLowerCase().includes(searchLower) ||
         (c.name || "").toLowerCase().includes(searchLower) ||
         (c.phone || "").toLowerCase().includes(searchLower) ||
         (c.address || "").toLowerCase().includes(searchLower);
 
-        (c.address || "").toLowerCase().includes(searchLower);
+      (c.address || "").toLowerCase().includes(searchLower);
 
       if (!matchSearch) return false;
       if (cityFilter !== "all" && c.city !== cityFilter) return false;
@@ -642,7 +658,8 @@ function CustomerMapPage() {
           return c.customer_channel === "tele_sales";
         case "route_priority":
           const isDirect = c.customer_channel === "direct_sales";
-          const isNear = c.customer_distance_type === "near_company" || c.customer_distance_type === "same_city";
+          const isNear =
+            c.customer_distance_type === "near_company" || c.customer_distance_type === "same_city";
           const isMine = isSale && user ? c.owner_sale_id === user.id : true;
           return isDirect && isNear && isMine;
         case "no_geo":
@@ -655,18 +672,18 @@ function CustomerMapPage() {
 
   // Split filtered customers into geo (has coordinates) and non-geo (lacks coordinates)
   const mapCustomers = useMemo(() => {
-    return filteredCustomers.filter(c => c.latitude && c.longitude);
+    return filteredCustomers.filter((c) => c.latitude && c.longitude);
   }, [filteredCustomers]);
 
   const unlocatedCustomers = useMemo(() => {
-    return filteredCustomers.filter(c => !c.latitude || !c.longitude);
+    return filteredCustomers.filter((c) => !c.latitude || !c.longitude);
   }, [filteredCustomers]);
 
   // Danh sách hiển thị ở Sidebar (Lập tuyến đưa các điểm tối ưu lên trước)
   const sidebarCustomers = useMemo(() => {
     if (!routeMode) return filteredCustomers;
-    const orderedIds = orderedRouteCustomers.map(c => c.id);
-    const remaining = filteredCustomers.filter(c => !orderedIds.includes(c.id));
+    const orderedIds = orderedRouteCustomers.map((c) => c.id);
+    const remaining = filteredCustomers.filter((c) => !orderedIds.includes(c.id));
     return [...orderedRouteCustomers, ...remaining];
   }, [routeMode, filteredCustomers, orderedRouteCustomers]);
 
@@ -676,9 +693,9 @@ function CustomerMapPage() {
       toast.error("Khách hàng chưa có tọa độ, hãy ghim vị trí trong chi tiết trước!");
       return;
     }
-    setSelectedCustomerIds(prev => {
+    setSelectedCustomerIds((prev) => {
       if (prev.includes(customer.id)) {
-        return prev.filter(id => id !== customer.id);
+        return prev.filter((id) => id !== customer.id);
       } else {
         if (prev.length >= 10) {
           toast.warning("Tối đa 10 khách / một tuyến đường ở giai đoạn này.");
@@ -699,7 +716,9 @@ function CustomerMapPage() {
       } else {
         // Open preview drawer directly if they have no coordinates so they can pin it
         setPreviewCustomer(customer);
-        toast.info(`Khách hàng "${customer.facility_name || customer.name}" chưa có vị trí bản đồ. Hãy ghim vị trí ở bảng điều khiển.`);
+        toast.info(
+          `Khách hàng "${customer.facility_name || customer.name}" chưa có vị trí bản đồ. Hãy ghim vị trí ở bảng điều khiển.`,
+        );
       }
     }
   };
@@ -707,18 +726,37 @@ function CustomerMapPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "at_risk":
-        return <Badge className="bg-amber-100 text-amber-700 border-none font-bold text-[9px] uppercase">At Risk</Badge>;
+        return (
+          <Badge className="bg-amber-100 text-amber-700 border-none font-bold text-[9px] uppercase">
+            At Risk
+          </Badge>
+        );
       case "reclaimable":
-        return <Badge className="bg-rose-100 text-rose-700 border-none font-bold text-[9px] uppercase">Reclaimable</Badge>;
+        return (
+          <Badge className="bg-rose-100 text-rose-700 border-none font-bold text-[9px] uppercase">
+            Reclaimable
+          </Badge>
+        );
       case "free_pool":
-        return <Badge className="bg-emerald-100 text-emerald-700 border-none font-bold text-[9px] uppercase">Tự do</Badge>;
+        return (
+          <Badge className="bg-emerald-100 text-emerald-700 border-none font-bold text-[9px] uppercase">
+            Tự do
+          </Badge>
+        );
       default:
-        return <Badge className="bg-blue-100 text-blue-700 border-none font-bold text-[9px] uppercase">Assigned</Badge>;
+        return (
+          <Badge className="bg-blue-100 text-blue-700 border-none font-bold text-[9px] uppercase">
+            Assigned
+          </Badge>
+        );
     }
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#f8fafc] font-sans antialiased overflow-hidden">
+    <div
+      id="customer-map-page-wrapper"
+      className="flex flex-col h-[calc(100dvh-5rem-4rem-env(safe-area-inset-bottom))] lg:h-[calc(100vh-5rem)] bg-[#f8fafc] font-sans antialiased overflow-hidden"
+    >
       {/* HEADER */}
       <header className="bg-white border-b border-slate-200 h-auto md:h-16 py-3.5 md:py-0 flex flex-col md:flex-row items-center justify-between px-4 sm:px-6 shrink-0 z-30 shadow-xs gap-3">
         <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
@@ -736,9 +774,12 @@ function CustomerMapPage() {
             </div>
           </div>
         </div>
-        
+
         <div className="flex flex-wrap items-center justify-center md:justify-end gap-2 sm:gap-3 w-full md:w-auto">
-          <Badge variant="outline" className="border-slate-200 bg-slate-50 text-[10px] font-bold px-2.5 py-1">
+          <Badge
+            variant="outline"
+            className="border-slate-200 bg-slate-50 text-[10px] font-bold px-2.5 py-1"
+          >
             Đang lọc: {filteredCustomers.length} / {customers.length} KH
           </Badge>
           {canRoute && (
@@ -750,9 +791,9 @@ function CustomerMapPage() {
                 if (newMode) setActiveFilter("route_priority");
                 else setActiveFilter("all");
               }}
-              className={`rounded-xl font-black text-[10px] uppercase h-10 px-4 shadow-sm transition-all flex items-center gap-1.5 ${
-                routeMode 
-                  ? "bg-indigo-650 hover:bg-indigo-700 text-white border-transparent" 
+              className={`rounded-xl font-black text-[10px] uppercase h-11 md:h-10 px-4 shadow-sm transition-all flex items-center gap-1.5 ${
+                routeMode
+                  ? "bg-indigo-650 hover:bg-indigo-700 text-white border-transparent"
                   : "border-slate-200 bg-white hover:bg-slate-50 text-slate-800"
               }`}
             >
@@ -763,7 +804,7 @@ function CustomerMapPage() {
             <Button
               variant="outline"
               onClick={() => setIsReviewModalOpen(true)}
-              className="rounded-xl border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 font-black text-[10px] uppercase h-10 px-4 shadow-sm transition-all flex items-center gap-1.5"
+              className="rounded-xl border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 font-black text-[10px] uppercase h-11 md:h-10 px-4 shadow-sm transition-all flex items-center gap-1.5"
             >
               <RefreshCw className="w-4 h-4" /> Rà soát tuyến
             </Button>
@@ -771,7 +812,7 @@ function CustomerMapPage() {
           <Button
             variant="outline"
             onClick={handleExportGoogleMyMapsCSV}
-            className="rounded-xl border-slate-200 font-black text-[10px] uppercase h-10 px-4 shadow-sm bg-white hover:bg-slate-50 transition-all flex items-center gap-1.5"
+            className="rounded-xl border-slate-200 font-black text-[10px] uppercase h-11 md:h-10 px-4 shadow-sm bg-white hover:bg-slate-50 transition-all flex items-center gap-1.5"
           >
             <Download className="w-4 h-4 text-slate-550" /> Export My Maps CSV
           </Button>
@@ -781,15 +822,19 @@ function CustomerMapPage() {
       {/* WORKSPACE CONTENT */}
       <div className="flex flex-1 overflow-hidden relative">
         {/* SIDEBAR */}
-        <aside className={`${
-          mobileView === 'list' ? 'flex w-full' : 'hidden'
-        } md:flex w-80 sm:w-96 bg-white border-r border-slate-200 flex-col shrink-0 z-20 shadow-lg`}>
+        <aside
+          className={`${
+            mobileView === "list" ? "flex w-full" : "hidden"
+          } md:flex w-80 sm:w-96 bg-white border-r border-slate-200 flex-col shrink-0 z-20 shadow-lg`}
+        >
           {/* LANDMARK OFFICE BANNER */}
           <div className="p-4 border-b border-slate-100 bg-slate-50/30">
             {loadingLocation ? (
               <div className="py-2 flex items-center justify-center">
                 <RefreshCw className="h-4 w-4 animate-spin text-slate-400 mr-2" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">Đang tải mốc định vị...</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">
+                  Đang tải mốc định vị...
+                </span>
               </div>
             ) : defaultLocation ? (
               <div className="p-3 bg-rose-50/70 border border-rose-100 rounded-2xl flex items-center gap-2.5 shadow-2xs">
@@ -797,15 +842,21 @@ function CustomerMapPage() {
                   <MapPin className="w-4.5 h-4.5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-black text-rose-750 uppercase tracking-wider">Mốc định vị đang dùng</p>
-                  <p className="text-xs font-bold text-slate-900 truncate mt-0.5">Mốc: {defaultLocation.name}</p>
+                  <p className="text-[10px] font-black text-rose-750 uppercase tracking-wider">
+                    Mốc định vị đang dùng
+                  </p>
+                  <p className="text-xs font-bold text-slate-900 truncate mt-0.5">
+                    Mốc: {defaultLocation.name}
+                  </p>
                 </div>
               </div>
             ) : (
               <div className="p-3 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-2.5">
                 <AlertCircle className="w-5 h-5 shrink-0 text-amber-600 mt-0.5" />
                 <div className="space-y-1">
-                  <p className="text-xs font-bold text-amber-900 leading-tight">Chưa cấu hình văn phòng mặc định.</p>
+                  <p className="text-xs font-bold text-amber-900 leading-tight">
+                    Chưa cấu hình văn phòng mặc định.
+                  </p>
                   <p className="text-[9px] text-amber-600 font-bold uppercase tracking-wide">
                     Hãy cập nhật trong Cấu hình hệ thống.
                   </p>
@@ -821,115 +872,131 @@ function CustomerMapPage() {
               <Input
                 placeholder="Tìm Spa, chủ spa, SĐT, địa chỉ..."
                 value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 h-10 rounded-xl border-slate-200 bg-slate-50 shadow-inner focus:ring-2 focus:ring-slate-900"
               />
             </div>
 
             <div className="relative w-full z-50">
-             <Popover open={cityOpen} onOpenChange={(o) => { setCityOpen(o); if (!o) setCitySearch(""); }}>
-               <PopoverTrigger asChild>
-                 <button
-                   type="button"
-                   role="combobox"
-                   aria-expanded={cityOpen}
-                   className="w-full text-sm h-10 rounded-xl border border-slate-200 bg-slate-50 shadow-inner px-3 flex items-center justify-between gap-2 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all"
-                 >
-                   <div className="flex items-center gap-2 overflow-hidden">
-                     <Map className="w-4 h-4 text-slate-400 shrink-0" />
-                     <span className={cityFilter !== "all" ? "text-slate-800 font-medium truncate" : "text-slate-400 truncate"}>
-                       {cityFilter === "all" ? "Tất cả tỉnh/thành" : cityFilter}
-                     </span>
-                   </div>
-                   <ChevronsUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                 </button>
-               </PopoverTrigger>
-               <PopoverContent
-                 className="p-0 rounded-2xl shadow-xl border border-slate-100 overflow-hidden"
-                 style={{ width: "var(--radix-popover-trigger-width)", zIndex: 9999 }}
-                 align="start"
-                 sideOffset={4}
-               >
-                 <div className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-100 bg-slate-50/80">
-                   <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                   <input
-                     autoFocus
-                     value={citySearch}
-                     onChange={(e) => setCitySearch(e.target.value)}
-                     placeholder="Gõ tìm tỉnh/thành..."
-                     className="flex-1 text-sm bg-transparent outline-none placeholder:text-slate-300 text-slate-800"
-                   />
-                   {citySearch && (
-                     <button
-                       type="button"
-                       onClick={() => setCitySearch("")}
-                       className="text-slate-300 hover:text-slate-500 text-xs font-bold"
-                     >
-                       ✕
-                     </button>
-                   )}
-                 </div>
-                 <div className="max-h-52 overflow-y-auto">
-                   <button
-                     type="button"
-                     onClick={() => {
-                       setCityFilter("all");
-                       setCitySearch("");
-                       setCityOpen(false);
-                     }}
-                     className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-slate-50 transition-colors"
-                   >
-                     <Check
-                       className={`w-3.5 h-3.5 shrink-0 transition-opacity ${
-                         cityFilter === "all" ? "opacity-100 text-slate-900" : "opacity-0"
-                       }`}
-                     />
-                     <span className={`font-medium ${cityFilter === "all" ? "text-slate-900" : "text-slate-600"}`}>
-                       Tất cả tỉnh/thành
-                     </span>
-                   </button>
-                   {(() => {
-                     const q = stripAccents(citySearch);
-                     const matched = VIETNAM_PROVINCES.filter((p) => {
-                       if (!q) return true;
-                       const alias = findProvinceByName(citySearch);
-                       if (alias === p) return true;
-                       return stripAccents(p).includes(q);
-                     });
-                     if (matched.length === 0) {
-                       return (
-                         <div className="py-4 text-center text-xs text-slate-400 font-semibold">
-                           Không tìm thấy.
-                         </div>
-                       );
-                     }
-                     return matched.map((province) => (
-                       <button
-                         key={province}
-                         type="button"
-                         onClick={() => {
-                           setCityFilter(province);
-                           setCitySearch("");
-                           setCityOpen(false);
-                         }}
-                         className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-slate-50 transition-colors"
-                       >
-                         <Check
-                           className={`w-3.5 h-3.5 shrink-0 transition-opacity ${
-                             cityFilter === province ? "opacity-100 text-slate-900" : "opacity-0"
-                           }`}
-                         />
-                         <span className={`font-medium ${
-                           cityFilter === province ? "text-slate-900" : "text-slate-600"
-                         }`}>
-                           {province}
-                         </span>
-                       </button>
-                     ));
-                   })()}
-                 </div>
-               </PopoverContent>
-             </Popover>
+              <Popover
+                open={cityOpen}
+                onOpenChange={(o) => {
+                  setCityOpen(o);
+                  if (!o) setCitySearch("");
+                }}
+              >
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    role="combobox"
+                    aria-expanded={cityOpen}
+                    className="w-full text-sm h-10 rounded-xl border border-slate-200 bg-slate-50 shadow-inner px-3 flex items-center justify-between gap-2 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all"
+                  >
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <Map className="w-4 h-4 text-slate-400 shrink-0" />
+                      <span
+                        className={
+                          cityFilter !== "all"
+                            ? "text-slate-800 font-medium truncate"
+                            : "text-slate-400 truncate"
+                        }
+                      >
+                        {cityFilter === "all" ? "Tất cả tỉnh/thành" : cityFilter}
+                      </span>
+                    </div>
+                    <ChevronsUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="p-0 rounded-2xl shadow-xl border border-slate-100 overflow-hidden"
+                  style={{ width: "var(--radix-popover-trigger-width)", zIndex: 9999 }}
+                  align="start"
+                  sideOffset={4}
+                >
+                  <div className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-100 bg-slate-50/80">
+                    <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <input
+                      autoFocus
+                      value={citySearch}
+                      onChange={(e) => setCitySearch(e.target.value)}
+                      placeholder="Gõ tìm tỉnh/thành..."
+                      className="flex-1 text-sm bg-transparent outline-none placeholder:text-slate-300 text-slate-800"
+                    />
+                    {citySearch && (
+                      <button
+                        type="button"
+                        onClick={() => setCitySearch("")}
+                        className="text-slate-300 hover:text-slate-500 text-xs font-bold"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-52 overflow-y-auto">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCityFilter("all");
+                        setCitySearch("");
+                        setCityOpen(false);
+                      }}
+                      className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-slate-50 transition-colors"
+                    >
+                      <Check
+                        className={`w-3.5 h-3.5 shrink-0 transition-opacity ${
+                          cityFilter === "all" ? "opacity-100 text-slate-900" : "opacity-0"
+                        }`}
+                      />
+                      <span
+                        className={`font-medium ${cityFilter === "all" ? "text-slate-900" : "text-slate-600"}`}
+                      >
+                        Tất cả tỉnh/thành
+                      </span>
+                    </button>
+                    {(() => {
+                      const q = stripAccents(citySearch);
+                      const matched = VIETNAM_PROVINCES.filter((p) => {
+                        if (!q) return true;
+                        const alias = findProvinceByName(citySearch);
+                        if (alias === p) return true;
+                        return stripAccents(p).includes(q);
+                      });
+                      if (matched.length === 0) {
+                        return (
+                          <div className="py-4 text-center text-xs text-slate-400 font-semibold">
+                            Không tìm thấy.
+                          </div>
+                        );
+                      }
+                      return matched.map((province) => (
+                        <button
+                          key={province}
+                          type="button"
+                          onClick={() => {
+                            setCityFilter(province);
+                            setCitySearch("");
+                            setCityOpen(false);
+                          }}
+                          className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-slate-50 transition-colors"
+                        >
+                          <Check
+                            className={`w-3.5 h-3.5 shrink-0 transition-opacity ${
+                              cityFilter === province ? "opacity-100 text-slate-900" : "opacity-0"
+                            }`}
+                          />
+                          <span
+                            className={`font-medium ${
+                              cityFilter === province ? "text-slate-900" : "text-slate-600"
+                            }`}
+                          >
+                            {province}
+                          </span>
+                        </button>
+                      ));
+                    })()}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* QUICK FILTERS LIST */}
@@ -942,75 +1009,112 @@ function CustomerMapPage() {
                   variant={activeFilter === "all" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setActiveFilter("all")}
-                  className="rounded-lg text-[10px] font-black h-8 text-left justify-start px-2.5"
+                  className="rounded-lg text-[10px] font-black h-11 md:h-8 text-left justify-start px-2.5 w-full overflow-hidden flex items-center"
                 >
-                  🌐 Tất cả ({customers.length})
+                  <span className="truncate">🌐 Tất cả ({customers.length})</span>
                 </Button>
                 <Button
                   variant={activeFilter === "my_customers" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setActiveFilter("my_customers")}
-                  className="rounded-lg text-[10px] font-black h-8 text-left justify-start px-2.5"
+                  className="rounded-lg text-[10px] font-black h-11 md:h-8 text-left justify-start px-2.5 w-full overflow-hidden flex items-center"
                 >
-                  👤 Khách của tôi ({customers.filter(c => c.owner_sale_id === user?.id || c.owner_tele_id === user?.id).length})
+                  <span className="truncate">
+                    👤 Khách của tôi (
+                    {
+                      customers.filter(
+                        (c) => c.owner_sale_id === user?.id || c.owner_tele_id === user?.id,
+                      ).length
+                    }
+                    )
+                  </span>
                 </Button>
                 <Button
                   variant={activeFilter === "free_pool" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setActiveFilter("free_pool")}
-                  className="rounded-lg text-[10px] font-black h-8 text-left justify-start px-2.5"
+                  className="rounded-lg text-[10px] font-black h-11 md:h-8 text-left justify-start px-2.5 w-full overflow-hidden flex items-center"
                 >
-                  🟢 Khách tự do ({customers.filter(c => c.ownership_status === "free_pool").length})
+                  <span className="truncate">
+                    🟢 Khách tự do (
+                    {customers.filter((c) => c.ownership_status === "free_pool").length})
+                  </span>
                 </Button>
                 <Button
                   variant={activeFilter === "at_risk" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setActiveFilter("at_risk")}
-                  className="rounded-lg text-[10px] font-black h-8 text-left justify-start px-2.5"
+                  className="rounded-lg text-[10px] font-black h-11 md:h-8 text-left justify-start px-2.5 w-full overflow-hidden flex items-center"
                 >
-                  🟡 At Risk ({customers.filter(c => c.ownership_status === "at_risk").length})
+                  <span className="truncate">
+                    🟡 At Risk ({customers.filter((c) => c.ownership_status === "at_risk").length})
+                  </span>
                 </Button>
                 <Button
                   variant={activeFilter === "reclaimable" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setActiveFilter("reclaimable")}
-                  className="rounded-lg text-[10px] font-black h-8 text-left justify-start px-2.5"
+                  className="rounded-lg text-[10px] font-black h-11 md:h-8 text-left justify-start px-2.5 w-full overflow-hidden flex items-center"
                 >
-                  🔴 Cần thu hồi ({customers.filter(c => c.ownership_status === "reclaimable").length})
+                  <span className="truncate">
+                    🔴 Cần thu hồi (
+                    {customers.filter((c) => c.ownership_status === "reclaimable").length})
+                  </span>
                 </Button>
                 <Button
                   variant={activeFilter === "direct_sales" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setActiveFilter("direct_sales")}
-                  className="rounded-lg text-[10px] font-black h-8 text-left justify-start px-2.5"
+                  className="rounded-lg text-[10px] font-black h-11 md:h-8 text-left justify-start px-2.5 w-full overflow-hidden flex items-center"
                 >
-                  🔵 Sale trực tiếp ({customers.filter(c => c.customer_channel === "direct_sales").length})
+                  <span className="truncate">
+                    🔵 Sale trực tiếp (
+                    {customers.filter((c) => c.customer_channel === "direct_sales").length})
+                  </span>
                 </Button>
                 <Button
                   variant={activeFilter === "tele_sales" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setActiveFilter("tele_sales")}
-                  className="rounded-lg text-[10px] font-black h-8 text-left justify-start px-2.5 col-span-2"
+                  className="rounded-lg text-[10px] font-black h-11 md:h-8 text-left justify-start px-2.5 col-span-2 w-full overflow-hidden flex items-center"
                 >
-                  🟣 Tuyến Tele/Online ({customers.filter(c => c.customer_channel === "tele_sales").length})
+                  <span className="truncate">
+                    🟣 Tuyến Tele/Online (
+                    {customers.filter((c) => c.customer_channel === "tele_sales").length})
+                  </span>
                 </Button>
                 {canRoute && (
                   <Button
                     variant={activeFilter === "route_priority" ? "default" : "outline"}
                     size="sm"
                     onClick={() => setActiveFilter("route_priority")}
-                    className="rounded-lg text-[10px] font-black h-8 text-left justify-start px-2.5 col-span-2 border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+                    className="rounded-lg text-[10px] font-black h-11 md:h-8 text-left justify-start px-2.5 col-span-2 border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 w-full overflow-hidden flex items-center"
                   >
-                    🔥 Ưu tiên đi tuyến ({customers.filter(c => c.customer_channel === "direct_sales" && (c.customer_distance_type === "near_company" || c.customer_distance_type === "same_city") && (isSale && user ? c.owner_sale_id === user.id : true)).length})
+                    <span className="truncate">
+                      🔥 Ưu tiên đi tuyến (
+                      {
+                        customers.filter(
+                          (c) =>
+                            c.customer_channel === "direct_sales" &&
+                            (c.customer_distance_type === "near_company" ||
+                              c.customer_distance_type === "same_city") &&
+                            (isSale && user ? c.owner_sale_id === user.id : true),
+                        ).length
+                      }
+                      )
+                    </span>
                   </Button>
                 )}
                 <Button
                   variant={activeFilter === "no_geo" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setActiveFilter("no_geo")}
-                  className="rounded-lg text-[10px] font-black h-8 text-left justify-start px-2.5 col-span-2 border-dashed border-rose-300 hover:bg-rose-50 text-rose-700"
+                  className="rounded-lg text-[10px] font-black h-11 md:h-8 text-left justify-start px-2.5 col-span-2 border-dashed border-rose-300 hover:bg-rose-50 text-rose-700 w-full overflow-hidden flex items-center"
                 >
-                  ⚠️ Chưa có tọa độ ({customers.filter(c => !c.latitude || !c.longitude).length})
+                  <span className="truncate">
+                    ⚠️ Chưa có tọa độ ({customers.filter((c) => !c.latitude || !c.longitude).length}
+                    )
+                  </span>
                 </Button>
               </div>
             </div>
@@ -1021,7 +1125,8 @@ function CustomerMapPage() {
             <div className="p-4 border-b border-slate-200 bg-indigo-50/40 space-y-3 shrink-0">
               <div className="flex justify-between items-center">
                 <div className="text-[10px] font-black text-indigo-750 uppercase tracking-widest flex items-center gap-1.5">
-                  <Navigation className="w-3.5 h-3.5 text-indigo-600 animate-pulse" /> Lộ trình tối ưu
+                  <Navigation className="w-3.5 h-3.5 text-indigo-600 animate-pulse" /> Lộ trình tối
+                  ưu
                 </div>
                 <Badge className="bg-indigo-650 text-white font-black text-[9px] px-2 py-0.5 rounded-md">
                   Đang chọn {selectedCustomerIds.length} khách
@@ -1045,7 +1150,7 @@ function CustomerMapPage() {
                   <option value="manual">🌐 Nhập tọa độ thủ công</option>
                 </select>
 
-                {startPointType === 'manual' && (
+                {startPointType === "manual" && (
                   <div className="space-y-2 mt-2 pt-2 border-t border-slate-100">
                     <Input
                       placeholder="Dán tọa độ / URL Google Maps..."
@@ -1070,14 +1175,16 @@ function CustomerMapPage() {
                   </div>
                 )}
 
-                {startPointType === 'current' && gpsAccuracy !== null && (
-                  <div className={`px-2 py-1 rounded-lg text-[9px] font-bold mt-1.5 ${
-                    gpsAccuracy > 1000 
-                      ? 'bg-rose-50 text-rose-700 border border-rose-100' 
-                      : gpsAccuracy > 200 
-                        ? 'bg-amber-50 text-amber-700 border border-amber-100' 
-                        : 'bg-emerald-50 text-emerald-750'
-                  }`}>
+                {startPointType === "current" && gpsAccuracy !== null && (
+                  <div
+                    className={`px-2 py-1 rounded-lg text-[9px] font-bold mt-1.5 ${
+                      gpsAccuracy > 1000
+                        ? "bg-rose-50 text-rose-700 border border-rose-100"
+                        : gpsAccuracy > 200
+                          ? "bg-amber-50 text-amber-700 border border-amber-100"
+                          : "bg-emerald-50 text-emerald-750"
+                    }`}
+                  >
                     Sai số GPS: {Math.round(gpsAccuracy)}m
                     {gpsAccuracy > 1000 && " (Rất thấp - Cảnh báo)"}
                     {gpsAccuracy > 200 && gpsAccuracy <= 1000 && " (Trung bình)"}
@@ -1115,7 +1222,9 @@ function CustomerMapPage() {
                     </div>
                     <div className="flex justify-between items-center">
                       <span>Tổng số khách đã chọn:</span>
-                      <span className="text-slate-900 font-black">{selectedCustomerIds.length} khách</span>
+                      <span className="text-slate-900 font-black">
+                        {selectedCustomerIds.length} khách
+                      </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span>Tổng khoảng cách ước tính:</span>
@@ -1135,7 +1244,10 @@ function CustomerMapPage() {
                         onChange={(e) => setReturnToOrigin(e.target.checked)}
                         className="rounded border-slate-300 text-indigo-650 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer"
                       />
-                      <label htmlFor="returnToOriginCheck" className="text-[9px] text-slate-500 font-black uppercase tracking-wider cursor-pointer select-none">
+                      <label
+                        htmlFor="returnToOriginCheck"
+                        className="text-[9px] text-slate-500 font-black uppercase tracking-wider cursor-pointer select-none"
+                      >
                         Quay lại điểm xuất phát (Khứ hồi)
                       </label>
                     </div>
@@ -1145,16 +1257,14 @@ function CustomerMapPage() {
                     <Button
                       onClick={() => {
                         if (!routeOrigin) return;
-                        const url = buildGoogleMapsRouteUrl(
-                          routeOrigin,
-                          orderedRouteCustomers,
-                          { returnToOrigin }
-                        );
+                        const url = buildGoogleMapsRouteUrl(routeOrigin, orderedRouteCustomers, {
+                          returnToOrigin,
+                        });
                         if (url) window.open(url, "_blank");
                         else toast.error("Không thể tạo liên kết chỉ đường.");
                       }}
                       disabled={!routeOrigin}
-                      className="w-full rounded-xl bg-indigo-650 hover:bg-indigo-700 disabled:bg-slate-100 disabled:text-slate-400 text-white font-black text-[10px] uppercase h-10 px-4 flex items-center justify-center gap-1.5 shadow-md transition-all disabled:cursor-not-allowed"
+                      className="w-full rounded-xl bg-indigo-650 hover:bg-indigo-700 disabled:bg-slate-100 disabled:text-slate-400 text-white font-black text-[10px] uppercase h-11 md:h-10 px-4 flex items-center justify-center gap-1.5 shadow-md transition-all disabled:cursor-not-allowed"
                     >
                       <Navigation className="w-4 h-4" /> Mở Google Maps
                     </Button>
@@ -1162,11 +1272,11 @@ function CustomerMapPage() {
                     <Button
                       onClick={() => setIsScheduleModalOpen(true)}
                       variant="outline"
-                      className="w-full rounded-xl border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-750 font-black text-[10px] uppercase h-10 px-4 flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                      className="w-full rounded-xl border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-750 font-black text-[10px] uppercase h-11 md:h-10 px-4 flex items-center justify-center gap-1.5 shadow-sm transition-all"
                     >
                       <PlusCircle className="w-4 h-4" /> Lên lịch viếng thăm
                     </Button>
-                    
+
                     {!routeOrigin && (
                       <p className="text-[9.5px] text-amber-700 font-bold text-center mt-1 leading-normal">
                         ⚠️ Yêu cầu lấy vị trí hiện tại để kích hoạt chỉ đường.
@@ -1189,12 +1299,16 @@ function CustomerMapPage() {
             {loading ? (
               <div className="h-40 flex flex-col items-center justify-center text-slate-400 gap-2">
                 <Compass className="w-8 h-8 animate-spin text-slate-350" />
-                <p className="text-[10px] font-bold uppercase tracking-widest animate-pulse">Đang tải khách hàng...</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest animate-pulse">
+                  Đang tải khách hàng...
+                </p>
               </div>
             ) : sidebarCustomers.length === 0 ? (
               <div className="h-40 flex flex-col items-center justify-center text-slate-400 gap-2 border-2 border-dashed border-slate-200 rounded-2xl">
                 <HelpCircle className="w-8 h-8 text-slate-300" />
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Không tìm thấy khách hàng nào</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  Không tìm thấy khách hàng nào
+                </p>
               </div>
             ) : (
               <>
@@ -1204,9 +1318,9 @@ function CustomerMapPage() {
                   <span>{sidebarCustomers.length} KẾT QUẢ</span>
                 </div>
 
-                {sidebarCustomers.map(customer => {
+                {sidebarCustomers.map((customer) => {
                   const hasCoords = customer.latitude && customer.longitude;
-                  const routeIndex = orderedRouteCustomers.findIndex(c => c.id === customer.id);
+                  const routeIndex = orderedRouteCustomers.findIndex((c) => c.id === customer.id);
                   const isSelectedInRoute = routeIndex !== -1;
 
                   return (
@@ -1214,10 +1328,10 @@ function CustomerMapPage() {
                       key={customer.id}
                       onClick={() => handleSelectCustomer(customer)}
                       className={`rounded-2xl border border-slate-100 hover:border-slate-350 shadow-2xs hover:shadow-md transition-all cursor-pointer bg-white group overflow-hidden ${
-                        isSelectedInRoute 
-                          ? "ring-2 ring-indigo-650 border-transparent bg-indigo-50/20" 
-                          : focusCustomer?.id === customer.id 
-                            ? "ring-2 ring-slate-900 border-transparent bg-slate-50" 
+                        isSelectedInRoute
+                          ? "ring-2 ring-indigo-650 border-transparent bg-indigo-50/20"
+                          : focusCustomer?.id === customer.id
+                            ? "ring-2 ring-slate-900 border-transparent bg-slate-50"
                             : ""
                       } ${routeMode && !hasCoords ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
@@ -1230,7 +1344,7 @@ function CustomerMapPage() {
                                 checked={isSelectedInRoute}
                                 disabled={!hasCoords}
                                 onChange={() => handleSelectCustomer(customer)}
-                                onClick={e => e.stopPropagation()}
+                                onClick={(e) => e.stopPropagation()}
                                 className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4 shrink-0 transition-all cursor-pointer disabled:cursor-not-allowed"
                               />
                             )}
@@ -1238,7 +1352,9 @@ function CustomerMapPage() {
                               <h4 className="text-xs font-black text-slate-900 group-hover:text-indigo-600 transition-colors leading-tight">
                                 {customer.facility_name || customer.name}
                               </h4>
-                              <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">{customer.city || "Toàn quốc"}</p>
+                              <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">
+                                {customer.city || "Toàn quốc"}
+                              </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
@@ -1248,18 +1364,32 @@ function CustomerMapPage() {
 
                         {/* Details */}
                         <div className="space-y-1 text-[10px] text-slate-500 font-bold">
-                          <p className="flex items-center gap-1"><User className="w-3.5 h-3.5 text-slate-400" /> {customer.contact_name || customer.name}</p>
-                          {customer.phone && <p className="flex items-center gap-1"><Phone className="w-3.5 h-3.5 text-slate-400" /> {customer.phone}</p>}
-                          {customer.address && <p className="line-clamp-2 leading-relaxed"><MapPin className="w-3.5 h-3.5 inline text-slate-400 mr-0.5" /> {customer.address}</p>}
+                          <p className="flex items-center gap-1">
+                            <User className="w-3.5 h-3.5 text-slate-400" />{" "}
+                            {customer.contact_name || customer.name}
+                          </p>
+                          {customer.phone && (
+                            <p className="flex items-center gap-1">
+                              <Phone className="w-3.5 h-3.5 text-slate-400" /> {customer.phone}
+                            </p>
+                          )}
+                          {customer.address && (
+                            <p className="line-clamp-2 leading-relaxed">
+                              <MapPin className="w-3.5 h-3.5 inline text-slate-400 mr-0.5" />{" "}
+                              {customer.address}
+                            </p>
+                          )}
                         </div>
 
                         <div className="flex items-center justify-between pt-1 border-t border-slate-50">
                           <div className="flex gap-1.5">
-                            <Badge 
-                              variant="outline" 
+                            <Badge
+                              variant="outline"
                               className={`text-[8px] font-bold ${hasCoords ? "bg-indigo-50 border-indigo-150 text-indigo-750" : "bg-rose-50 border-rose-150 text-rose-700 border-dashed"}`}
                             >
-                              {hasCoords ? "📍 Đã định vị" : "⚠️ Chưa có tọa độ — hãy ghim vị trí trước"}
+                              {hasCoords
+                                ? "📍 Đã định vị"
+                                : "⚠️ Chưa có tọa độ — hãy ghim vị trí trước"}
                             </Badge>
                             {routeMode && isSelectedInRoute && (
                               <Badge className="bg-indigo-600 text-white border-none font-bold text-[8px] uppercase">
@@ -1290,11 +1420,13 @@ function CustomerMapPage() {
         </aside>
 
         {/* MAP PANEL */}
-        <main className={`${
-          mobileView === 'map' ? 'block' : 'hidden'
-        } md:block flex-1 h-full relative z-10`}>
+        <main
+          className={`${
+            mobileView === "map" ? "block" : "hidden"
+          } md:block flex-1 h-full relative z-10`}
+        >
           <MapContainer
-            center={[16.047079, 108.206230]}
+            center={[16.047079, 108.20623]}
             zoom={6}
             style={{ width: "100%", height: "100%" }}
           >
@@ -1302,7 +1434,7 @@ function CustomerMapPage() {
               attribution='&copy; <a href="https://carto.com/">CartoDB</a> contributors'
               url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
             />
-            
+
             {/* Marker văn phòng / mốc mặc định */}
             {defaultLocation && defaultLocation.latitude && defaultLocation.longitude && (
               <Marker
@@ -1321,19 +1453,20 @@ function CustomerMapPage() {
                         {defaultLocation.name}
                       </h4>
                       {defaultLocation.code && (
-                        <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">Mã: {defaultLocation.code}</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">
+                          Mã: {defaultLocation.code}
+                        </p>
                       )}
                     </div>
 
                     <div className="space-y-1 text-[9px] text-slate-500 font-bold">
                       {defaultLocation.address && (
-                        <p className="line-clamp-2 leading-relaxed">
-                          📍 {defaultLocation.address}
-                        </p>
+                        <p className="line-clamp-2 leading-relaxed">📍 {defaultLocation.address}</p>
                       )}
                       {(defaultLocation.district || defaultLocation.city) && (
                         <p>
-                          🏙️ {defaultLocation.district ? `${defaultLocation.district}, ` : ""}{defaultLocation.city || ""}
+                          🏙️ {defaultLocation.district ? `${defaultLocation.district}, ` : ""}
+                          {defaultLocation.city || ""}
                         </p>
                       )}
                       <p className="text-[8px] text-slate-400">
@@ -1369,20 +1502,30 @@ function CustomerMapPage() {
               </Marker>
             )}
 
-            {mapCustomers.map(customer => {
+            {mapCustomers.map((customer) => {
               const isTeleSales = customer.customer_channel === "tele_sales";
               const isFilterTeleActive = activeFilter === "tele_sales";
               const isSelected = selectedCustomerIds.includes(customer.id);
-              const icon = getMarkerIcon(customer.ownership_status, isTeleSales || isFilterTeleActive, isSelected);
-              
+              const icon = getMarkerIcon(
+                customer.ownership_status,
+                isTeleSales || isFilterTeleActive,
+                isSelected,
+              );
+
               // Tính khoảng cách đến văn phòng mặc định
               let distanceText = "";
-              if (defaultLocation && defaultLocation.latitude && defaultLocation.longitude && customer.latitude && customer.longitude) {
+              if (
+                defaultLocation &&
+                defaultLocation.latitude &&
+                defaultLocation.longitude &&
+                customer.latitude &&
+                customer.longitude
+              ) {
                 const distMeters = calculateDistanceMeters(
                   Number(customer.latitude),
                   Number(customer.longitude),
                   Number(defaultLocation.latitude),
-                  Number(defaultLocation.longitude)
+                  Number(defaultLocation.longitude),
                 );
                 distanceText = formatDistance(distMeters);
               }
@@ -1399,13 +1542,17 @@ function CustomerMapPage() {
                         <h4 className="font-black text-xs text-slate-900 leading-tight">
                           {customer.facility_name || customer.name}
                         </h4>
-                        <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">{customer.city || "Toàn quốc"}</p>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">
+                          {customer.city || "Toàn quốc"}
+                        </p>
                       </div>
 
                       <div className="space-y-1 text-[9px] text-slate-500 font-bold">
                         <p>👤 {customer.contact_name || customer.name}</p>
                         {customer.phone && <p>📞 {customer.phone}</p>}
-                        {customer.address && <p className="line-clamp-2 leading-relaxed">📍 {customer.address}</p>}
+                        {customer.address && (
+                          <p className="line-clamp-2 leading-relaxed">📍 {customer.address}</p>
+                        )}
                         {distanceText && (
                           <div className="mt-1">
                             <span className="text-[9px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md inline-block">
@@ -1452,9 +1599,13 @@ function CustomerMapPage() {
                   routeOrigin
                     ? [
                         [routeOrigin.latitude, routeOrigin.longitude] as [number, number],
-                        ...orderedRouteCustomers.map(c => [Number(c.latitude), Number(c.longitude)] as [number, number])
+                        ...orderedRouteCustomers.map(
+                          (c) => [Number(c.latitude), Number(c.longitude)] as [number, number],
+                        ),
                       ]
-                    : orderedRouteCustomers.map(c => [Number(c.latitude), Number(c.longitude)] as [number, number])
+                    : orderedRouteCustomers.map(
+                        (c) => [Number(c.latitude), Number(c.longitude)] as [number, number],
+                      )
                 }
                 color="#4f46e5"
                 weight={4}
@@ -1475,20 +1626,17 @@ function CustomerMapPage() {
               </Marker>
             )}
 
-            <MapController
-              customers={mapCustomers}
-              selectedCustomer={focusCustomer}
-            />
+            <MapController customers={mapCustomers} selectedCustomer={focusCustomer} />
           </MapContainer>
         </main>
 
         {/* FLOATING TOGGLE BUTTON FOR MOBILE */}
-        <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[1000] shadow-xl">
+        <div className="md:hidden fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-[1000] shadow-xl">
           <Button
-            onClick={() => setMobileView(mobileView === 'map' ? 'list' : 'map')}
+            onClick={() => setMobileView(mobileView === "map" ? "list" : "map")}
             className="rounded-full bg-slate-900 hover:bg-slate-850 text-white font-black text-xs uppercase px-5 py-2.5 h-11 flex items-center gap-2 border border-slate-850 tracking-wider shadow-lg active:scale-95 transition-all"
           >
-            {mobileView === 'map' ? (
+            {mobileView === "map" ? (
               <>
                 <ListFilter className="w-4 h-4" /> Danh sách ({filteredCustomers.length})
               </>
@@ -1499,7 +1647,6 @@ function CustomerMapPage() {
             )}
           </Button>
         </div>
-
       </div>
 
       {/* PREVIEW CUSTOMER DRAWER */}
@@ -1511,18 +1658,23 @@ function CustomerMapPage() {
             if (!open) {
               setPreviewCustomer(null);
               // Refresh customers in map to get coordinates updates if the user pinned them inside the drawer
-              supabase.from("customers").select("*, orders(id, total, status)").is("deleted_at", null).then(({ data }: any) => {
-                if (data) {
-                  // Re-apply same role visibility filters
-                  const filteredByRole = data.filter((c: any) => {
-                    if (isManager) return true;
-                    if (isTeleLead && user) return c.owner_tele_id === user.id;
-                    if (isSale && user) return c.owner_sale_id === user.id || c.ownership_status === 'free_pool';
-                    return false;
-                  });
-                  setCustomers(filteredByRole);
-                }
-              });
+              supabase
+                .from("customers")
+                .select("*, orders(id, total, status)")
+                .is("deleted_at", null)
+                .then(({ data }: any) => {
+                  if (data) {
+                    // Re-apply same role visibility filters
+                    const filteredByRole = data.filter((c: any) => {
+                      if (isManager) return true;
+                      if (isTeleLead && user) return c.owner_tele_id === user.id;
+                      if (isSale && user)
+                        return c.owner_sale_id === user.id || c.ownership_status === "free_pool";
+                      return false;
+                    });
+                    setCustomers(filteredByRole);
+                  }
+                });
             }
           }}
           staffMap={staffMap}
@@ -1530,10 +1682,10 @@ function CustomerMapPage() {
       )}
 
       {isManager && (
-        <RoutingReviewDialog 
-          open={isReviewModalOpen} 
-          onOpenChange={setIsReviewModalOpen} 
-          user={user} 
+        <RoutingReviewDialog
+          open={isReviewModalOpen}
+          onOpenChange={setIsReviewModalOpen}
+          user={user}
         />
       )}
 
@@ -1554,7 +1706,8 @@ function CustomerMapPage() {
 
           <div className="space-y-4 py-3">
             <p className="text-xs text-slate-600 leading-relaxed font-semibold">
-              Tệp CSV chứa thông tin tọa độ khách hàng đã được tải xuống thiết bị của bạn. Để hiển thị các điểm này trên Google My Maps, hãy làm theo các bước sau:
+              Tệp CSV chứa thông tin tọa độ khách hàng đã được tải xuống thiết bị của bạn. Để hiển
+              thị các điểm này trên Google My Maps, hãy làm theo các bước sau:
             </p>
 
             <div className="space-y-3">
@@ -1566,7 +1719,16 @@ function CustomerMapPage() {
                 <div className="space-y-0.5">
                   <p className="text-xs font-bold text-slate-900">Truy cập Google My Maps</p>
                   <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
-                    Mở trình duyệt và truy cập trang web <a href="https://mymaps.google.com" target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline font-bold">Google My Maps</a>.
+                    Mở trình duyệt và truy cập trang web{" "}
+                    <a
+                      href="https://mymaps.google.com"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-indigo-600 hover:underline font-bold"
+                    >
+                      Google My Maps
+                    </a>
+                    .
                   </p>
                 </div>
               </div>
@@ -1579,7 +1741,11 @@ function CustomerMapPage() {
                 <div className="space-y-0.5">
                   <p className="text-xs font-bold text-slate-900">Tạo bản đồ mới</p>
                   <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
-                    Nhấp vào nút <span className="font-bold text-slate-800">Tạo bản đồ mới (Create a new map)</span> ở góc trên bên trái.
+                    Nhấp vào nút{" "}
+                    <span className="font-bold text-slate-800">
+                      Tạo bản đồ mới (Create a new map)
+                    </span>{" "}
+                    ở góc trên bên trái.
                   </p>
                 </div>
               </div>
@@ -1592,7 +1758,9 @@ function CustomerMapPage() {
                 <div className="space-y-0.5">
                   <p className="text-xs font-bold text-slate-900">Nhập dữ liệu CSV</p>
                   <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
-                    Trong bảng điều khiển bên trái, tại phần lớp chưa có tiêu đề, bấm nút <span className="font-bold text-slate-800">Nhập (Import)</span> và chọn tệp CSV vừa tải xuống.
+                    Trong bảng điều khiển bên trái, tại phần lớp chưa có tiêu đề, bấm nút{" "}
+                    <span className="font-bold text-slate-800">Nhập (Import)</span> và chọn tệp CSV
+                    vừa tải xuống.
                   </p>
                 </div>
               </div>
@@ -1605,7 +1773,9 @@ function CustomerMapPage() {
                 <div className="space-y-0.5">
                   <p className="text-xs font-bold text-slate-900">Chọn cột định vị</p>
                   <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
-                    Đánh dấu chọn cột <span className="font-bold text-slate-800">Latitude</span> và <span className="font-bold text-slate-800">Longitude</span> để xác định vị trí các điểm trên bản đồ.
+                    Đánh dấu chọn cột <span className="font-bold text-slate-800">Latitude</span> và{" "}
+                    <span className="font-bold text-slate-800">Longitude</span> để xác định vị trí
+                    các điểm trên bản đồ.
                   </p>
                 </div>
               </div>
@@ -1618,7 +1788,9 @@ function CustomerMapPage() {
                 <div className="space-y-0.5">
                   <p className="text-xs font-bold text-slate-900">Chọn cột tiêu đề</p>
                   <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
-                    Chọn cột <span className="font-bold text-slate-800">Facility_Name</span> (Tên cơ sở Spa) hoặc <span className="font-bold text-slate-800">Name</span> để làm nhãn hiển thị cho các marker.
+                    Chọn cột <span className="font-bold text-slate-800">Facility_Name</span> (Tên cơ
+                    sở Spa) hoặc <span className="font-bold text-slate-800">Name</span> để làm nhãn
+                    hiển thị cho các marker.
                   </p>
                 </div>
               </div>
@@ -1645,7 +1817,7 @@ function CustomerMapPage() {
         currentUser={user}
         isAdminOrSubAdmin={isAdmin || isSubAdmin}
         onSuccess={(succeededIds) => {
-          setSelectedCustomerIds(prev => prev.filter(id => !succeededIds.includes(id)));
+          setSelectedCustomerIds((prev) => prev.filter((id) => !succeededIds.includes(id)));
         }}
       />
     </div>

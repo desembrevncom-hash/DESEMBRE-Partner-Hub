@@ -20,7 +20,11 @@ export function AdminProductCopilot() {
   const [settings, setSettings] = useState<any>(null);
   const [quickReplies, setQuickReplies] = useState<any[]>([]);
   const [stats, setStats] = useState<any>({
-    ask: 0, copy: 0, copy_zalo: 0, save_note: 0, create_template: 0
+    ask: 0,
+    copy: 0,
+    copy_zalo: 0,
+    save_note: 0,
+    create_template: 0,
   });
   const [knowledgeCount, setKnowledgeCount] = useState(0);
 
@@ -29,38 +33,38 @@ export function AdminProductCopilot() {
     setLoading(true);
     try {
       // 1. Fetch Settings
-      const { data: aiSettings } = await supabase.rpc('get_ai_settings_masked');
+      const { data: aiSettings } = await supabase.rpc("get_ai_settings_masked");
       setSettings(aiSettings);
 
       // 2. Fetch Quick Replies
       const { data: qrData } = await supabase
-        .from('product_copilot_quick_replies')
-        .select('*')
-        .order('sort_order', { ascending: true });
+        .from("product_copilot_quick_replies")
+        .select("*")
+        .order("sort_order", { ascending: true });
       if (qrData) setQuickReplies(qrData);
 
       // 3. Fetch Knowledge Chunks Count
       const { count } = await supabase
-        .from('product_knowledge_chunks')
-        .select('*', { count: 'exact', head: true });
+        .from("product_knowledge_chunks")
+        .select("*", { count: "exact", head: true });
       setKnowledgeCount(count || 0);
 
       // 4. Fetch Usage (Today)
       const today = new Date();
-      today.setHours(0,0,0,0);
+      today.setHours(0, 0, 0, 0);
       const { data: metrics } = await supabase
-        .from('pilot_usage_metrics')
-        .select('action_key')
-        .gte('created_at', today.toISOString());
-        
+        .from("pilot_usage_metrics")
+        .select("action_key")
+        .gte("created_at", today.toISOString());
+
       if (metrics) {
         const s = { ask: 0, copy: 0, copy_zalo: 0, save_note: 0, create_template: 0 };
         metrics.forEach((m: any) => {
-          if (m.action_key === 'product_copilot_ask') s.ask++;
-          if (m.action_key === 'product_copilot_copy') s.copy++;
-          if (m.action_key === 'product_copilot_copy_zalo') s.copy_zalo++;
-          if (m.action_key === 'product_copilot_save_note') s.save_note++;
-          if (m.action_key === 'product_copilot_create_template') s.create_template++;
+          if (m.action_key === "product_copilot_ask") s.ask++;
+          if (m.action_key === "product_copilot_copy") s.copy++;
+          if (m.action_key === "product_copilot_copy_zalo") s.copy_zalo++;
+          if (m.action_key === "product_copilot_save_note") s.save_note++;
+          if (m.action_key === "product_copilot_create_template") s.create_template++;
         });
         setStats(s);
       }
@@ -78,9 +82,9 @@ export function AdminProductCopilot() {
   const updateSetting = async (key: string, value: any) => {
     try {
       const { error } = await supabase
-        .from('ai_settings')
+        .from("ai_settings")
         .update({ [key]: value })
-        .eq('id', 'default');
+        .eq("id", "default");
       if (error) throw error;
       setSettings((prev: any) => ({ ...prev, [key]: value }));
       toast.success("Đã cập nhật cài đặt");
@@ -92,11 +96,11 @@ export function AdminProductCopilot() {
   const toggleQuickReply = async (id: string, current: boolean) => {
     try {
       const { error } = await supabase
-        .from('product_copilot_quick_replies')
+        .from("product_copilot_quick_replies")
         .update({ is_active: !current })
-        .eq('id', id);
+        .eq("id", id);
       if (error) throw error;
-      setQuickReplies(prev => prev.map(q => q.id === id ? { ...q, is_active: !current } : q));
+      setQuickReplies((prev) => prev.map((q) => (q.id === id ? { ...q, is_active: !current } : q)));
       toast.success("Đã cập nhật Quick Reply");
     } catch (err) {
       toast.error("Cập nhật thất bại");
@@ -113,10 +117,12 @@ export function AdminProductCopilot() {
             <Bot className="w-6 h-6 text-indigo-600" />
             Product Copilot Control
           </h1>
-          <p className="text-slate-500 mt-1">Quản lý trợ lý AI, nguồn kiến thức và phân quyền truy cập</p>
+          <p className="text-slate-500 mt-1">
+            Quản lý trợ lý AI, nguồn kiến thức và phân quyền truy cập
+          </p>
         </div>
         <Button variant="outline" onClick={fetchAll} disabled={loading}>
-          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
           Làm mới
         </Button>
       </div>
@@ -172,9 +178,9 @@ export function AdminProductCopilot() {
                   <span className="font-semibold">Bật Product Copilot</span>
                   <span className="text-xs text-slate-500">Master switch cho toàn hệ thống</span>
                 </Label>
-                <Switch 
-                  checked={settings?.product_copilot_enabled ?? true} 
-                  onCheckedChange={(v) => updateSetting('product_copilot_enabled', v)}
+                <Switch
+                  checked={settings?.product_copilot_enabled ?? true}
+                  onCheckedChange={(v) => updateSetting("product_copilot_enabled", v)}
                 />
               </div>
               <div className="flex items-center justify-between">
@@ -182,9 +188,9 @@ export function AdminProductCopilot() {
                   <span className="font-semibold">Bật cho Sale</span>
                   <span className="text-xs text-slate-500">Cho phép Sale/Tele sử dụng</span>
                 </Label>
-                <Switch 
-                  checked={settings?.product_copilot_sale_enabled ?? true} 
-                  onCheckedChange={(v) => updateSetting('product_copilot_sale_enabled', v)}
+                <Switch
+                  checked={settings?.product_copilot_sale_enabled ?? true}
+                  onCheckedChange={(v) => updateSetting("product_copilot_sale_enabled", v)}
                 />
               </div>
               <div className="flex items-center justify-between">
@@ -192,30 +198,46 @@ export function AdminProductCopilot() {
                   <span className="font-semibold">Bật cho Admin</span>
                   <span className="text-xs text-slate-500">Cho phép Admin/SubAdmin sử dụng</span>
                 </Label>
-                <Switch 
-                  checked={settings?.product_copilot_admin_enabled ?? true} 
-                  onCheckedChange={(v) => updateSetting('product_copilot_admin_enabled', v)}
+                <Switch
+                  checked={settings?.product_copilot_admin_enabled ?? true}
+                  onCheckedChange={(v) => updateSetting("product_copilot_admin_enabled", v)}
                 />
               </div>
               <div className="flex items-center justify-between">
                 <Label className="flex flex-col gap-1 cursor-pointer">
                   <span className="font-semibold">Bắt buộc có Context</span>
-                  <span className="text-xs text-slate-500">Chỉ hiện Copilot trong trang khách hàng</span>
+                  <span className="text-xs text-slate-500">
+                    Chỉ hiện Copilot trong trang khách hàng
+                  </span>
                 </Label>
-                <Switch 
-                  checked={settings?.product_copilot_require_context ?? false} 
-                  onCheckedChange={(v) => updateSetting('product_copilot_require_context', v)}
+                <Switch
+                  checked={settings?.product_copilot_require_context ?? false}
+                  onCheckedChange={(v) => updateSetting("product_copilot_require_context", v)}
                 />
               </div>
               <div className="space-y-2">
                 <Label className="font-semibold">Giới hạn câu hỏi hàng ngày / user</Label>
                 <div className="flex gap-2">
-                  <Input 
-                    type="number" 
-                    value={settings?.product_copilot_daily_limit ?? 50} 
-                    onChange={(e) => setSettings({...settings, product_copilot_daily_limit: parseInt(e.target.value)})}
+                  <Input
+                    type="number"
+                    value={settings?.product_copilot_daily_limit ?? 50}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        product_copilot_daily_limit: parseInt(e.target.value),
+                      })
+                    }
                   />
-                  <Button onClick={() => updateSetting('product_copilot_daily_limit', settings?.product_copilot_daily_limit)}>Lưu</Button>
+                  <Button
+                    onClick={() =>
+                      updateSetting(
+                        "product_copilot_daily_limit",
+                        settings?.product_copilot_daily_limit,
+                      )
+                    }
+                  >
+                    Lưu
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -241,7 +263,10 @@ export function AdminProductCopilot() {
                 <span className="text-sm font-medium">Last Indexed</span>
                 <span className="text-sm text-slate-500">Hôm nay</span>
               </div>
-              <Button variant="outline" className="w-full text-indigo-600 border-indigo-200 hover:bg-indigo-50">
+              <Button
+                variant="outline"
+                className="w-full text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+              >
                 Xem RAG Audit Logs
               </Button>
             </CardContent>
@@ -255,12 +280,17 @@ export function AdminProductCopilot() {
                 <MessageSquare className="w-5 h-5 text-indigo-500" />
                 Quản lý Quick Replies
               </CardTitle>
-              <CardDescription>Các câu hỏi gợi ý hiển thị mặc định trên Product Copilot</CardDescription>
+              <CardDescription>
+                Các câu hỏi gợi ý hiển thị mặc định trên Product Copilot
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {quickReplies.map((qr) => (
-                  <div key={qr.id} className="flex items-center justify-between p-3 border rounded-lg bg-slate-50/50">
+                  <div
+                    key={qr.id}
+                    className="flex items-center justify-between p-3 border rounded-lg bg-slate-50/50"
+                  >
                     <div className="space-y-1">
                       <div className="font-semibold text-sm flex items-center gap-2">
                         {qr.title}
@@ -273,9 +303,11 @@ export function AdminProductCopilot() {
                       <div className="text-xs text-slate-500 truncate max-w-sm">{qr.prompt}</div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-xs font-medium text-slate-400">Order: {qr.sort_order}</span>
-                      <Switch 
-                        checked={qr.is_active} 
+                      <span className="text-xs font-medium text-slate-400">
+                        Order: {qr.sort_order}
+                      </span>
+                      <Switch
+                        checked={qr.is_active}
                         onCheckedChange={() => toggleQuickReply(qr.id, qr.is_active)}
                       />
                     </div>

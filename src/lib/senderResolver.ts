@@ -8,14 +8,14 @@
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export type SenderChannel = 'email' | 'zalo' | 'zalo_oa' | 'phone' | 'sms';
-export type MessageMode   = 'campaign' | 'sale_followup';
-export type SenderType    = 'business' | 'personal' | 'none';
+export type SenderChannel = "email" | "zalo" | "zalo_oa" | "phone" | "sms";
+export type MessageMode = "campaign" | "sale_followup";
+export type SenderType = "business" | "personal" | "none";
 
 export interface SenderAccount {
   id: string;
   name: string;
-  channel: string;        // 'email' | 'zalo_oa' | 'sms' ...
+  channel: string; // 'email' | 'zalo_oa' | 'sms' ...
   is_active: boolean;
   health_status?: string; // 'healthy' | 'warning' | 'error' | 'unknown'
   daily_usage?: number;
@@ -25,7 +25,7 @@ export interface SenderAccount {
 export interface PersonalSenderAccount {
   id: string;
   user_id: string;
-  platform: string;       // 'zalo' | 'email' | 'phone' ...
+  platform: string; // 'zalo' | 'email' | 'phone' ...
   account_name?: string;
   is_active: boolean;
   health_status?: string;
@@ -67,11 +67,11 @@ export interface ResolverResult {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function isHealthBlocked(health?: string): boolean {
-  return health === 'error';
+  return health === "error";
 }
 
 function isHealthWarning(health?: string): boolean {
-  return health === 'warning';
+  return health === "warning";
 }
 
 function isQuotaExceeded(sender: SenderAccount): boolean {
@@ -82,18 +82,18 @@ function isQuotaExceeded(sender: SenderAccount): boolean {
 
 /** Normalize channel name for matching business sender channel field */
 function normalizeBizChannel(ch: SenderChannel): string {
-  if (ch === 'zalo_oa') return 'zalo_oa';
-  if (ch === 'zalo')    return 'zalo_oa'; // zalo follow-up should prefer personal, but campaign = zalo_oa
-  if (ch === 'email')   return 'email';
-  if (ch === 'sms')     return 'sms';
+  if (ch === "zalo_oa") return "zalo_oa";
+  if (ch === "zalo") return "zalo_oa"; // zalo follow-up should prefer personal, but campaign = zalo_oa
+  if (ch === "email") return "email";
+  if (ch === "sms") return "sms";
   return ch;
 }
 
 /** Normalize personal sender platform field */
 function normalizePersonalPlatform(ch: SenderChannel): string {
-  if (ch === 'zalo' || ch === 'zalo_oa') return 'zalo';
-  if (ch === 'email') return 'email';
-  if (ch === 'phone' || ch === 'sms')   return 'phone';
+  if (ch === "zalo" || ch === "zalo_oa") return "zalo";
+  if (ch === "email") return "email";
+  if (ch === "phone" || ch === "sms") return "phone";
   return ch;
 }
 
@@ -112,34 +112,42 @@ function normalizePersonalPlatform(ch: SenderChannel): string {
  * 7. No matching sender found → blocked
  */
 export function resolveSenderForMessage(input: ResolverInput): ResolverResult {
-  const { channel, mode, customer, businessSenders = [], personalSenders = [], ownerUserId } = input;
+  const {
+    channel,
+    mode,
+    customer,
+    businessSenders = [],
+    personalSenders = [],
+    ownerUserId,
+  } = input;
   const warnings: string[] = [];
 
   // ── Rule 1: Opt-out check ─────────────────────────────────────────────────
   if (customer.marketing_opt_out_at) {
     return {
       allowed: false,
-      senderType: 'none',
+      senderType: "none",
       senderId: null,
       channel,
-      reason: 'Khách hàng đã từ chối nhận tin Marketing (Opt-out). Không thể gửi.',
+      reason: "Khách hàng đã từ chối nhận tin Marketing (Opt-out). Không thể gửi.",
       warnings: [],
     };
   }
 
   // ── Rule 2-3: Campaign mode — use business sender ─────────────────────────
-  if (mode === 'campaign') {
+  if (mode === "campaign") {
     const bizChannel = normalizeBizChannel(channel);
 
     // Find first active business sender matching channel
     const candidates = businessSenders.filter(
-      s => s.is_active && (s.channel === bizChannel || s.channel?.toLowerCase().includes(bizChannel))
+      (s) =>
+        s.is_active && (s.channel === bizChannel || s.channel?.toLowerCase().includes(bizChannel)),
     );
 
     if (candidates.length === 0) {
       return {
         allowed: false,
-        senderType: 'none',
+        senderType: "none",
         senderId: null,
         channel,
         reason: `Không tìm thấy Business Sender đang hoạt động cho kênh ${channel}. Vui lòng cấu hình trong Admin › Sender Accounts.`,
@@ -148,15 +156,16 @@ export function resolveSenderForMessage(input: ResolverInput): ResolverResult {
     }
 
     // Pick the healthiest sender (prefer healthy, then warning, avoid error)
-    const sender = candidates.find(s => !isHealthBlocked(s.health_status) && !isQuotaExceeded(s))
-      ?? candidates.find(s => !isHealthBlocked(s.health_status))
-      ?? candidates[0];
+    const sender =
+      candidates.find((s) => !isHealthBlocked(s.health_status) && !isQuotaExceeded(s)) ??
+      candidates.find((s) => !isHealthBlocked(s.health_status)) ??
+      candidates[0];
 
     // Rule 5: Quota exceeded
     if (isQuotaExceeded(sender)) {
       return {
         allowed: false,
-        senderType: 'business',
+        senderType: "business",
         senderId: sender.id,
         channel,
         reason: `Sender "${sender.name}" đã vượt quota ngày (${sender.daily_usage}/${sender.daily_limit}). Không thể gửi thêm.`,
@@ -168,7 +177,7 @@ export function resolveSenderForMessage(input: ResolverInput): ResolverResult {
     if (isHealthBlocked(sender.health_status)) {
       return {
         allowed: false,
-        senderType: 'business',
+        senderType: "business",
         senderId: sender.id,
         channel,
         reason: `Sender "${sender.name}" đang lỗi (health = error). Không thể gửi chiến dịch.`,
@@ -178,20 +187,23 @@ export function resolveSenderForMessage(input: ResolverInput): ResolverResult {
 
     // Rule 6b: Health warning → allowed with warning
     if (isHealthWarning(sender.health_status)) {
-      warnings.push(`Sender "${sender.name}" đang ở trạng thái cảnh báo. Nên kiểm tra lại trong Admin.`);
+      warnings.push(
+        `Sender "${sender.name}" đang ở trạng thái cảnh báo. Nên kiểm tra lại trong Admin.`,
+      );
     }
 
     // Quota near limit warning
-    const usagePct = (sender.daily_limit ?? 0) > 0
-      ? ((sender.daily_usage ?? 0) / sender.daily_limit!) * 100
-      : 0;
+    const usagePct =
+      (sender.daily_limit ?? 0) > 0 ? ((sender.daily_usage ?? 0) / sender.daily_limit!) * 100 : 0;
     if (usagePct > 80) {
-      warnings.push(`Quota sender "${sender.name}" gần đầy: ${sender.daily_usage}/${sender.daily_limit} (${Math.round(usagePct)}%).`);
+      warnings.push(
+        `Quota sender "${sender.name}" gần đầy: ${sender.daily_usage}/${sender.daily_limit} (${Math.round(usagePct)}%).`,
+      );
     }
 
     return {
       allowed: true,
-      senderType: 'business',
+      senderType: "business",
       senderId: sender.id,
       channel,
       reason: undefined,
@@ -200,29 +212,28 @@ export function resolveSenderForMessage(input: ResolverInput): ResolverResult {
   }
 
   // ── Rule 4: Sale follow-up mode — use personal sender ─────────────────────
-  if (mode === 'sale_followup') {
+  if (mode === "sale_followup") {
     if (!ownerUserId) {
       return {
         allowed: false,
-        senderType: 'none',
+        senderType: "none",
         senderId: null,
         channel,
-        reason: 'Không xác định được Sale owner. Không thể chọn sender cá nhân.',
+        reason: "Không xác định được Sale owner. Không thể chọn sender cá nhân.",
         warnings: [],
       };
     }
 
     const platform = normalizePersonalPlatform(channel);
     const personalCandidate = personalSenders.find(
-      a => a.user_id === ownerUserId &&
-           a.platform?.toLowerCase().includes(platform) &&
-           a.is_active
+      (a) =>
+        a.user_id === ownerUserId && a.platform?.toLowerCase().includes(platform) && a.is_active,
     );
 
     if (!personalCandidate) {
       return {
         allowed: false,
-        senderType: 'none',
+        senderType: "none",
         senderId: null,
         channel,
         reason: `Sale chưa cấu hình tài khoản cá nhân cho kênh ${channel}. Liên hệ Admin để thiết lập.`,
@@ -234,7 +245,7 @@ export function resolveSenderForMessage(input: ResolverInput): ResolverResult {
     if (isHealthBlocked(personalCandidate.health_status)) {
       return {
         allowed: false,
-        senderType: 'personal',
+        senderType: "personal",
         senderId: personalCandidate.id,
         channel,
         reason: `Tài khoản cá nhân "${personalCandidate.account_name}" đang lỗi. Cần kết nối lại.`,
@@ -243,12 +254,14 @@ export function resolveSenderForMessage(input: ResolverInput): ResolverResult {
     }
 
     if (isHealthWarning(personalCandidate.health_status)) {
-      warnings.push(`Tài khoản cá nhân "${personalCandidate.account_name}" đang cảnh báo. Nên kiểm tra lại.`);
+      warnings.push(
+        `Tài khoản cá nhân "${personalCandidate.account_name}" đang cảnh báo. Nên kiểm tra lại.`,
+      );
     }
 
     return {
       allowed: true,
-      senderType: 'personal',
+      senderType: "personal",
       senderId: personalCandidate.id,
       channel,
       reason: undefined,
@@ -259,10 +272,10 @@ export function resolveSenderForMessage(input: ResolverInput): ResolverResult {
   // Fallback — unknown mode
   return {
     allowed: false,
-    senderType: 'none',
+    senderType: "none",
     senderId: null,
     channel,
-    reason: 'Mode không hợp lệ.',
+    reason: "Mode không hợp lệ.",
     warnings: [],
   };
 }

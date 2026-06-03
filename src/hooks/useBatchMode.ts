@@ -1,10 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback } from "react";
 
 export function useBatchMode(items: any[]) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const toggleSelection = useCallback((id: string) => {
-    setSelectedIds(prev => {
+    setSelectedIds((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(id)) {
         newSet.delete(id);
@@ -16,7 +16,7 @@ export function useBatchMode(items: any[]) {
   }, []);
 
   const selectAll = useCallback(() => {
-    setSelectedIds(new Set(items.map(i => i.id)));
+    setSelectedIds(new Set(items.map((i) => i.id)));
   }, [items]);
 
   const clearSelection = useCallback(() => {
@@ -34,6 +34,6 @@ export function useBatchMode(items: any[]) {
     clearSelection,
     isSelected,
     isAllSelected,
-    selectedCount: selectedIds.size
+    selectedCount: selectedIds.size,
   };
 }

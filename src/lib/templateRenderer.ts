@@ -5,7 +5,7 @@
 
 export function renderTemplate(
   template: string,
-  variables: Record<string, string | number | null | undefined>
+  variables: Record<string, string | number | null | undefined>,
 ): string {
   if (!template) return "";
 

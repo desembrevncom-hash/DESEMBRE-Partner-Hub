@@ -1,7 +1,7 @@
 export type NotificationPriority = "low" | "normal" | "high" | "urgent";
 export type NotificationStatus = "unread" | "read" | "dismissed";
 
-export type NotificationType = 
+export type NotificationType =
   | "lead_assigned"
   | "followup_due"
   | "followup_overdue"

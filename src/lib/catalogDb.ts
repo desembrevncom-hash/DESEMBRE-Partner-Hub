@@ -13,10 +13,12 @@ export async function getDbCatalog(): Promise<{ categories: Category[]; products
   // Query DB products with variants
   const { data: prodData, error: prodErr } = await supabase
     .from("products")
-    .select(`
+    .select(
+      `
       *,
       variants:product_variants(*)
-    `)
+    `,
+    )
     .order("id", { ascending: true });
 
   // If DB query fails or returns empty (not seeded yet), fallback to initial seed catalog seamlessly
@@ -63,7 +65,9 @@ export async function getDbCatalog(): Promise<{ categories: Category[]; products
   return { categories, products };
 }
 
-export async function saveDbProduct(p: Partial<Product> & { id: number; variants?: ProductVariant[] }) {
+export async function saveDbProduct(
+  p: Partial<Product> & { id: number; variants?: ProductVariant[] },
+) {
   const isDevMock = import.meta.env.DEV && import.meta.env.VITE_ENABLE_MOCK_AUTH === "true";
   if (isDevMock && localStorage.getItem("mock_session")) {
     return { ok: true };
@@ -71,10 +75,14 @@ export async function saveDbProduct(p: Partial<Product> & { id: number; variants
 
   // Ensure category exists if customizing
   if (p.categoryId) {
-    await supabase.from("categories").upsert({
-      id: p.categoryId,
-      name: p.categoryId,
-    }).select().maybeSingle();
+    await supabase
+      .from("categories")
+      .upsert({
+        id: p.categoryId,
+        name: p.categoryId,
+      })
+      .select()
+      .maybeSingle();
   }
 
   // 1. Upsert product record

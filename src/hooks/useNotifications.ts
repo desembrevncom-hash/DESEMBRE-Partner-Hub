@@ -13,12 +13,12 @@ export function useNotifications(pollIntervalMs = 30000) {
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
-    
+
     try {
       // setLoading(true); // Don't show loading on background polls
       const { data, error: rpcError } = await supabase.rpc("get_my_notifications", {
         p_limit: 30,
-        p_status: null
+        p_status: null,
       });
 
       if (rpcError) throw rpcError;
@@ -50,14 +50,18 @@ export function useNotifications(pollIntervalMs = 30000) {
   // Actions
   const markAsRead = async (notificationId: string) => {
     try {
-      const { error } = await supabase.rpc("mark_notification_read", { p_notification_id: notificationId });
+      const { error } = await supabase.rpc("mark_notification_read", {
+        p_notification_id: notificationId,
+      });
       if (error) throw error;
-      
+
       // Optimistic update
-      setNotifications(prev => prev.map(n => 
-        n.id === notificationId ? { ...n, status: 'read', read_at: new Date().toISOString() } : n
-      ));
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.id === notificationId ? { ...n, status: "read", read_at: new Date().toISOString() } : n,
+        ),
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (err: any) {
       toast.error("Lỗi cập nhật thông báo");
     }
@@ -67,13 +71,15 @@ export function useNotifications(pollIntervalMs = 30000) {
     try {
       const { error } = await supabase.rpc("mark_all_notifications_read");
       if (error) throw error;
-      
+
       // Optimistic update
-      setNotifications(prev => prev.map(n => ({ 
-        ...n, 
-        status: n.status === 'unread' ? 'read' : n.status,
-        read_at: n.status === 'unread' ? new Date().toISOString() : n.read_at
-      })));
+      setNotifications((prev) =>
+        prev.map((n) => ({
+          ...n,
+          status: n.status === "unread" ? "read" : n.status,
+          read_at: n.status === "unread" ? new Date().toISOString() : n.read_at,
+        })),
+      );
       setUnreadCount(0);
       toast.success("Đã đánh dấu đọc tất cả");
     } catch (err: any) {
@@ -83,11 +89,13 @@ export function useNotifications(pollIntervalMs = 30000) {
 
   const dismissNotification = async (notificationId: string) => {
     try {
-      const { error } = await supabase.rpc("dismiss_notification", { p_notification_id: notificationId });
+      const { error } = await supabase.rpc("dismiss_notification", {
+        p_notification_id: notificationId,
+      });
       if (error) throw error;
-      
+
       // Optimistic update
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
       fetchNotifications(); // Refresh count properly
     } catch (err: any) {
       toast.error("Lỗi ẩn thông báo");
@@ -102,6 +110,6 @@ export function useNotifications(pollIntervalMs = 30000) {
     fetchNotifications,
     markAsRead,
     markAllAsRead,
-    dismissNotification
+    dismissNotification,
   };
 }

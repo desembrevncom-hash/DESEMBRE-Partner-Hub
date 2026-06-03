@@ -9,12 +9,14 @@ type Props = {
   productNo: number;
   src?: string;
   onChange: (src: string | undefined) => void;
+  isReadOnly?: boolean;
 };
 
 const MAX_BYTES = 1.5 * 1024 * 1024; // 1.5MB
 
-const ProductImageCell = ({ productNo, src, onChange }: Props) => {
-  const { unlocked, getPassword } = useEditUnlock();
+const ProductImageCell = ({ productNo, src, onChange, isReadOnly = false }: Props) => {
+  const { unlocked: editUnlocked, getPassword } = useEditUnlock();
+  const unlocked = isReadOnly ? false : editUnlocked;
   const [open, setOpen] = useState(false);
   const [askUnlock, setAskUnlock] = useState(false);
   const [urlInput, setUrlInput] = useState("");
@@ -23,6 +25,7 @@ const ProductImageCell = ({ productNo, src, onChange }: Props) => {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const requestOpen = () => {
+    if (isReadOnly) return;
     if (!unlocked) {
       setAskUnlock(true);
       return;
@@ -30,7 +33,10 @@ const ProductImageCell = ({ productNo, src, onChange }: Props) => {
     setOpen((v) => !v);
   };
 
-  const persist = async (payload: { image_data_url?: string | null; image_url?: string | null }) => {
+  const persist = async (payload: {
+    image_data_url?: string | null;
+    image_url?: string | null;
+  }) => {
     const password = getPassword();
     if (!password) {
       toast.error("Cần mở khoá KEY trước khi lưu");
@@ -94,11 +100,7 @@ const ProductImageCell = ({ productNo, src, onChange }: Props) => {
     <div className="relative inline-block group">
       <div className="product-img-box overflow-hidden">
         {src ? (
-          <img
-            src={src}
-            alt={`Sản phẩm ${productNo}`}
-            className="w-full h-full object-cover"
-          />
+          <img src={src} alt={`Sản phẩm ${productNo}`} className="w-full h-full object-cover" />
         ) : (
           <Sparkles className="w-7 h-7 text-primary/40" strokeWidth={1.25} />
         )}
@@ -127,11 +129,7 @@ const ProductImageCell = ({ productNo, src, onChange }: Props) => {
         </button>
       )}
 
-      <UnlockDialog
-        open={askUnlock}
-        onOpenChange={setAskUnlock}
-        onUnlocked={() => setOpen(true)}
-      />
+      <UnlockDialog open={askUnlock} onOpenChange={setAskUnlock} onUnlocked={() => setOpen(true)} />
 
       {open && unlocked && (
         <div className="absolute z-30 top-full left-1/2 -translate-x-1/2 mt-2 w-72 bg-card border border-border rounded-md shadow-xl p-3 text-left">
@@ -152,8 +150,8 @@ const ProductImageCell = ({ productNo, src, onChange }: Props) => {
           />
           <button
             type="button"
-              onClick={() => fileRef.current?.click()}
-              disabled={saving}
+            onClick={() => fileRef.current?.click()}
+            disabled={saving}
             className="w-full h-9 rounded-md bg-primary text-primary-foreground text-xs font-semibold inline-flex items-center justify-center gap-2 hover:opacity-90 transition mb-2"
           >
             <Upload className="w-3.5 h-3.5" /> Tải ảnh từ máy
@@ -198,7 +196,9 @@ const ProductImageCell = ({ productNo, src, onChange }: Props) => {
               >
                 {saving ? "Đang lưu…" : "Xoá ảnh"}
               </button>
-            ) : <span />}
+            ) : (
+              <span />
+            )}
             <button
               type="button"
               onClick={() => setOpen(false)}

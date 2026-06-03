@@ -3,7 +3,13 @@ import React from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 
 interface Settings {
@@ -58,7 +64,7 @@ export const BehaviorLimitsCard: React.FC<Props> = ({
             value={settings.max_tokens ?? ""}
             disabled={disabled || loading}
             className="w-[120px]"
-            onChange={e =>
+            onChange={(e) =>
               updateField("max_tokens", e.target.value === "" ? null : Number(e.target.value))
             }
           />
@@ -76,7 +82,7 @@ export const BehaviorLimitsCard: React.FC<Props> = ({
               step={0.01}
               value={[settings.temperature ?? 0]}
               disabled={disabled || loading}
-              onValueChange={vals => updateField("temperature", vals[0])}
+              onValueChange={(vals) => updateField("temperature", vals[0])}
               className="flex-1"
             />
             <Input
@@ -87,7 +93,7 @@ export const BehaviorLimitsCard: React.FC<Props> = ({
               value={settings.temperature ?? ""}
               disabled={disabled || loading}
               className="w-[80px]"
-              onChange={e => {
+              onChange={(e) => {
                 const val = e.target.value === "" ? null : Number(e.target.value);
                 if (val === null || (val >= 0 && val <= 1)) {
                   updateField("temperature", val);
@@ -109,10 +115,10 @@ export const BehaviorLimitsCard: React.FC<Props> = ({
             disabled={disabled || loading}
             className="w-[120px]"
             placeholder="optional"
-            onChange={e =>
+            onChange={(e) =>
               updateField(
                 "daily_token_limit",
-                e.target.value === "" ? null : Number(e.target.value)
+                e.target.value === "" ? null : Number(e.target.value),
               )
             }
           />
@@ -130,10 +136,10 @@ export const BehaviorLimitsCard: React.FC<Props> = ({
             disabled={disabled || loading}
             className="w-[120px]"
             placeholder="optional"
-            onChange={e =>
+            onChange={(e) =>
               updateField(
                 "monthly_cost_limit",
-                e.target.value === "" ? null : Number(e.target.value)
+                e.target.value === "" ? null : Number(e.target.value),
               )
             }
           />
@@ -146,13 +152,13 @@ export const BehaviorLimitsCard: React.FC<Props> = ({
           <Select
             value={settings.system_tone}
             disabled={disabled || loading}
-            onValueChange={value => updateField("system_tone", value)}
+            onValueChange={(value) => updateField("system_tone", value)}
           >
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Select tone" />
             </SelectTrigger>
             <SelectContent>
-              {toneOptions.map(opt => (
+              {toneOptions.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
                   {opt.label}
                 </SelectItem>

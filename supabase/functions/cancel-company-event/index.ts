@@ -12,8 +12,9 @@ serve(async (req) => {
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "";
-  
+  const supabaseServiceKey =
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "";
+
   // Khởi tạo Supabase client quyền Admin để đảm bảo thao tác CSDL an toàn
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -43,7 +44,9 @@ serve(async (req) => {
       const calendarId = Deno.env.get("GOOGLE_CALENDAR_ID") || "primary";
 
       if (!serviceAccountStr) {
-        throw new Error("Hệ thống chưa được cấu hình khóa GOOGLE_SERVICE_ACCOUNT trong Vault Secrets");
+        throw new Error(
+          "Hệ thống chưa được cấu hình khóa GOOGLE_SERVICE_ACCOUNT trong Vault Secrets",
+        );
       }
 
       const serviceAccount = JSON.parse(serviceAccountStr);
@@ -60,7 +63,9 @@ serve(async (req) => {
 
       const tokenData = await tokenRes.json();
       if (!tokenRes.ok) {
-        throw new Error(`Lỗi xác thực Google Service Account: ${tokenData.error_description || tokenData.error}`);
+        throw new Error(
+          `Lỗi xác thực Google Service Account: ${tokenData.error_description || tokenData.error}`,
+        );
       }
 
       const accessToken = tokenData.access_token;
@@ -70,7 +75,7 @@ serve(async (req) => {
       const deleteRes = await fetch(deleteUrl, {
         method: "DELETE",
         headers: {
-          "Authorization": `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 
@@ -103,7 +108,7 @@ serve(async (req) => {
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
     );
   } catch (err: any) {
     const errorMsg = err.message || "Lỗi nội bộ không xác định khi hủy sự kiện";
@@ -117,7 +122,7 @@ serve(async (req) => {
       {
         status: 400, // Trả về HTTP 400 để Supabase JS Client tự động kích hoạt ném FunctionsHttpError hỗ trợ bóc tách qua error.context.json()
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
     );
   }
 });
@@ -135,30 +140,38 @@ async function generateJwtAssertion(credentials: any) {
     iat,
   };
 
-  const base64Header = btoa(JSON.stringify(header)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-  const base64Payload = btoa(JSON.stringify(payload)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const base64Header = btoa(JSON.stringify(header))
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+  const base64Payload = btoa(JSON.stringify(payload))
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
   const signatureInput = `${base64Header}.${base64Payload}`;
 
   const pemHeader = "-----BEGIN PRIVATE KEY-----";
   const pemFooter = "-----END PRIVATE KEY-----";
-  const pemContents = credentials.private_key.substring(
-    credentials.private_key.indexOf(pemHeader) + pemHeader.length,
-    credentials.private_key.indexOf(pemFooter)
-  ).replace(/\s/g, "");
-  
+  const pemContents = credentials.private_key
+    .substring(
+      credentials.private_key.indexOf(pemHeader) + pemHeader.length,
+      credentials.private_key.indexOf(pemFooter),
+    )
+    .replace(/\s/g, "");
+
   const binaryDer = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0));
   const cryptoKey = await crypto.subtle.importKey(
     "pkcs8",
     binaryDer.buffer,
     { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
     false,
-    ["sign"]
+    ["sign"],
   );
 
   const signatureBytes = await crypto.subtle.sign(
     "RSASSA-PKCS1-v1_5",
     cryptoKey,
-    new TextEncoder().encode(signatureInput)
+    new TextEncoder().encode(signatureInput),
   );
 
   const base64Signature = btoa(String.fromCharCode(...new Uint8Array(signatureBytes)))

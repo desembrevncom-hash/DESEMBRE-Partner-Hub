@@ -19,7 +19,7 @@ const VALID_SOURCES = [
   "referral",
   "event",
   "walk_in",
-  "other"
+  "other",
 ];
 
 /**
@@ -33,7 +33,7 @@ export function getCustomerDataHealth(customer: any): DataHealthResult {
       label: "Bình thường",
       reasons: [],
       primaryReason: null,
-      badgeClassName: "bg-slate-100 text-slate-600 border-slate-200"
+      badgeClassName: "bg-slate-100 text-slate-600 border-slate-200",
     };
   }
 
@@ -41,7 +41,12 @@ export function getCustomerDataHealth(customer: any): DataHealthResult {
   let severity: DataHealthSeverity = "ok";
 
   // 1. Kiểm tra Name (Danger)
-  const hasName = !!(customer.name || customer.business_name || customer.facility_name || customer.contact_name);
+  const hasName = !!(
+    customer.name ||
+    customer.business_name ||
+    customer.facility_name ||
+    customer.contact_name
+  );
   if (!hasName) {
     severity = "danger";
     reasons.push("Thiếu tên khách hàng");
@@ -73,8 +78,13 @@ export function getCustomerDataHealth(customer: any): DataHealthResult {
 
   // 4. Kiểm tra Source
   const displaySource = customer.customer_channel || customer.source || "unknown";
-  const normalizedSource = typeof displaySource === 'string' ? displaySource.toLowerCase().trim() : 'unknown';
-  if (normalizedSource === "unknown" || !displaySource || !VALID_SOURCES.includes(normalizedSource)) {
+  const normalizedSource =
+    typeof displaySource === "string" ? displaySource.toLowerCase().trim() : "unknown";
+  if (
+    normalizedSource === "unknown" ||
+    !displaySource ||
+    !VALID_SOURCES.includes(normalizedSource)
+  ) {
     if (severity !== "danger") severity = "warning";
     reasons.push(`Nguồn không chuẩn (${displaySource})`);
   }
@@ -82,7 +92,7 @@ export function getCustomerDataHealth(customer: any): DataHealthResult {
   // 5. Kiểm tra tương tác (chỉ báo nếu active)
   const mappedStage = mapLegacyStageToNew(customer.lifecycle_stage || customer.status);
   const isClosedOrLost = ["purchased", "lost", "inactive", "blocked"].includes(mappedStage);
-  
+
   if (!isClosedOrLost) {
     const lastContact = customer.last_contacted_at || customer.last_activity_at;
     if (!lastContact) {
@@ -116,6 +126,6 @@ export function getCustomerDataHealth(customer: any): DataHealthResult {
     label,
     reasons,
     primaryReason,
-    badgeClassName
+    badgeClassName,
   };
 }

@@ -34,7 +34,12 @@ type AuthCtx = {
   signOut: () => Promise<void>;
   changePassword: (newPassword: string) => Promise<{ error?: string }>;
   refreshRoles: () => Promise<void>;
-  updateProfile: (data: { email?: string; display_name?: string; phone?: string; avatar_url?: string }) => Promise<{ error?: string }>;
+  updateProfile: (data: {
+    email?: string;
+    display_name?: string;
+    phone?: string;
+    avatar_url?: string;
+  }) => Promise<{ error?: string }>;
 };
 
 const Ctx = createContext<AuthCtx | null>(null);
@@ -74,11 +79,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setRoles(dbRoles);
     await checkProfilePasswordFlag(uid);
-    
+
     // Load Pilot Data
     const [pilotMods, pilotUser] = await Promise.all([
       supabase.from("pilot_modules").select("*"),
-      supabase.from("pilot_users").select("user_id").eq("user_id", uid).maybeSingle()
+      supabase.from("pilot_users").select("user_id").eq("user_id", uid).maybeSingle(),
     ]);
     if (pilotMods.data) setPilotModules(pilotMods.data);
     setIsPilotUser(!!pilotUser.data);
@@ -93,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     Promise.race([
       supabase.auth.getSession(),
-      new Promise<any>((_, reject) => setTimeout(() => reject(new Error("Auth timeout")), 2000))
+      new Promise<any>((_, reject) => setTimeout(() => reject(new Error("Auth timeout")), 2000)),
     ])
       .then(({ data: { session: sess } }) => {
         setSession(sess);
@@ -154,14 +159,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
   };
 
-  const updateProfile = async (updates: { email?: string; display_name?: string; phone?: string; avatar_url?: string }) => {
+  const updateProfile = async (updates: {
+    email?: string;
+    display_name?: string;
+    phone?: string;
+    avatar_url?: string;
+  }) => {
     const { data, error } = await supabase.auth.updateUser({
       email: updates.email,
       data: {
         display_name: updates.display_name,
         phone: updates.phone,
         avatar_url: updates.avatar_url,
-      }
+      },
     });
 
     if (error) return { error: error.message };
@@ -172,17 +182,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const hasPilotAccess = (moduleKey: string) => {
-    const mod = pilotModules.find(m => m.module_key === moduleKey);
-    if (!mod || mod.rollout_state === 'off') return false;
-    if (mod.rollout_state === 'on') return true;
-    
+    const mod = pilotModules.find((m) => m.module_key === moduleKey);
+    if (!mod || mod.rollout_state === "off") return false;
+    if (mod.rollout_state === "on") return true;
+
     const isAdmin = roles.includes("admin");
     const isSubAdmin = roles.includes("sub_admin");
     if (isAdmin || isSubAdmin) return true;
-    
-    if (mod.rollout_state === 'admin_only') return false;
-    if (mod.rollout_state === 'pilot_only') return isPilotUser;
-    
+
+    if (mod.rollout_state === "admin_only") return false;
+    if (mod.rollout_state === "pilot_only") return isPilotUser;
+
     return false;
   };
 
@@ -231,11 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [user, session, roles, loading, mustChangePassword, pilotModules, isPilotUser]);
 
-  return (
-    <Ctx.Provider value={contextValue}>
-      {children}
-    </Ctx.Provider>
-  );
+  return <Ctx.Provider value={contextValue}>{children}</Ctx.Provider>;
 }
 
 export function useAuth() {
@@ -246,11 +252,17 @@ export function useAuth() {
 
 export function getRoleLabel(role: AppRole): string {
   switch (role) {
-    case "admin": return "ADMIN";
-    case "sub_admin": return "PHÓ ADMIN";
-    case "sale": return "SALE";
-    case "tele_lead": return "TRƯỞNG TELE";
-    case "telesale": return "TELESALE";
-    default: return role;
+    case "admin":
+      return "ADMIN";
+    case "sub_admin":
+      return "PHÓ ADMIN";
+    case "sale":
+      return "SALE";
+    case "tele_lead":
+      return "TRƯỞNG TELE";
+    case "telesale":
+      return "TELESALE";
+    default:
+      return role;
   }
 }

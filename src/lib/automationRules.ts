@@ -49,7 +49,7 @@ export async function getAutomationRuleConfig(ruleId: string) {
     return {
       threshold_value: rule.threshold_value,
       threshold_unit: rule.threshold_unit,
-      metadata: rule.metadata
+      metadata: rule.metadata,
     };
   } catch (err) {
     console.error(`Error getting config for rule ${ruleId}:`, err);
@@ -70,7 +70,7 @@ interface ParsedThreshold {
 export async function getParsedThreshold(
   ruleId: string,
   defaultValue: number,
-  defaultUnit: "hours" | "days"
+  defaultUnit: "hours" | "days",
 ): Promise<ParsedThreshold> {
   try {
     const config = await getAutomationRuleConfig(ruleId);
@@ -81,11 +81,11 @@ export async function getParsedThreshold(
         return {
           value: val,
           unit: unit as "hours" | "days",
-          source: "config"
+          source: "config",
         };
       }
       console.warn(
-        `[AutomationConfig] Invalid threshold config for rule '${ruleId}': value=${config.threshold_value}, unit=${config.threshold_unit}. Using fallback: ${defaultValue} ${defaultUnit}.`
+        `[AutomationConfig] Invalid threshold config for rule '${ruleId}': value=${config.threshold_value}, unit=${config.threshold_unit}. Using fallback: ${defaultValue} ${defaultUnit}.`,
       );
     }
   } catch (err) {
@@ -94,6 +94,6 @@ export async function getParsedThreshold(
   return {
     value: defaultValue,
     unit: defaultUnit,
-    source: "fallback"
+    source: "fallback",
   };
 }

@@ -22,40 +22,42 @@ export const getDaysSinceLastInteraction = (customer: any): number => {
 /**
  * Phân nhóm quy tắc tương ứng dựa trên lifecycle_stage và đặc thù khách hàng.
  */
-export const getCustomerReclaimCategory = (customer: any): 'new_lead' | 'consulting' | 'proposal' | 'won_active' | 'vip_loyal' => {
+export const getCustomerReclaimCategory = (
+  customer: any,
+): "new_lead" | "consulting" | "proposal" | "won_active" | "vip_loyal" => {
   const stage = (customer.lifecycle_stage || "").toLowerCase();
-  
+
   // 1. Khách VIP/Loyal
   if (
-    stage === "loyal_customer" || 
-    stage === "loyal" || 
-    stage === "vip" || 
+    stage === "loyal_customer" ||
+    stage === "loyal" ||
+    stage === "vip" ||
     Number(customer.total_order_amount || 0) >= 50000000
   ) {
     return "vip_loyal";
   }
-  
+
   // 2. Lead nóng / new_lead
   if (stage === "new_lead" || stage === "lead" || stage === "") {
     return "new_lead";
   }
-  
+
   // 3. Đã báo giá / proposal
   if (stage === "proposal" || stage === "quoted") {
     return "proposal";
   }
-  
+
   // 4. Khách đã mua / won / active
   if (
-    stage === "ordered" || 
-    stage === "won" || 
-    stage === "active" || 
-    stage === "active_customer" || 
+    stage === "ordered" ||
+    stage === "won" ||
+    stage === "active" ||
+    stage === "active_customer" ||
     Number(customer.total_orders_count || 0) > 0
   ) {
     return "won_active";
   }
-  
+
   // 5. Đang tư vấn / consulting (Mặc định cho các trường hợp còn lại)
   return "consulting";
 };
@@ -64,7 +66,7 @@ export const getCustomerReclaimCategory = (customer: any): 'new_lead' | 'consult
  * 1. getCustomerReclaimStage(customer)
  * Trả về trạng thái thu hồi hiện tại: 'assigned' | 'at_risk' | 'reclaimable'
  */
-export const getCustomerReclaimStage = (customer: any): 'assigned' | 'at_risk' | 'reclaimable' => {
+export const getCustomerReclaimStage = (customer: any): "assigned" | "at_risk" | "reclaimable" => {
   // Nếu đã ở Free Pool hoặc đã bị xóa mềm, giữ nguyên hoặc bỏ qua
   if (customer.ownership_status === "free_pool" || customer.deleted_at) {
     return customer.ownership_status || "assigned";
@@ -131,12 +133,10 @@ export const getCustomerReclaimReason = (customer: any): string => {
     consulting: "Đang tư vấn",
     proposal: "Đã báo giá",
     won_active: "Khách đã mua",
-    vip_loyal: "Khách VIP/Thân thiết"
+    vip_loyal: "Khách VIP/Thân thiết",
   }[category];
 
-  const timeText = category === "new_lead" 
-    ? `${Math.floor(hours)} giờ` 
-    : `${days} ngày`;
+  const timeText = category === "new_lead" ? `${Math.floor(hours)} giờ` : `${days} ngày`;
 
   return `${categoryLabel} quá hạn không tương tác chăm sóc (${timeText})`;
 };
@@ -145,7 +145,9 @@ export const getCustomerReclaimReason = (customer: any): string => {
  * 5. getReclaimDeadlineLabel(customer)
  * Trả về thông tin hạn chót đếm ngược hỗ trợ hiển thị trên UI
  */
-export const getReclaimDeadlineLabel = (customer: any): { text: string; hoursLeft: number; variant: 'normal' | 'warning' | 'danger' } => {
+export const getReclaimDeadlineLabel = (
+  customer: any,
+): { text: string; hoursLeft: number; variant: "normal" | "warning" | "danger" } => {
   const stage = getCustomerReclaimStage(customer);
   const category = getCustomerReclaimCategory(customer);
   const hoursSince = getHoursSinceLastInteraction(customer);
@@ -176,28 +178,30 @@ export const getReclaimDeadlineLabel = (customer: any): { text: string; hoursLef
     return {
       text: "Đủ điều kiện thu hồi",
       hoursLeft: 0,
-      variant: "danger"
+      variant: "danger",
     };
   }
 
   if (stage === "at_risk") {
-    const text = category === "new_lead"
-      ? `Sắp bị thu hồi: Còn ${Math.floor(hoursLeft)} giờ`
-      : `Sắp bị thu hồi: Còn ${daysLeft} ngày`;
+    const text =
+      category === "new_lead"
+        ? `Sắp bị thu hồi: Còn ${Math.floor(hoursLeft)} giờ`
+        : `Sắp bị thu hồi: Còn ${daysLeft} ngày`;
     return {
       text,
       hoursLeft,
-      variant: "warning"
+      variant: "warning",
     };
   }
 
-  const text = category === "new_lead"
-    ? `An toàn: Còn ${Math.floor(hoursLeft)} giờ`
-    : `An toàn: Còn ${daysLeft} ngày`;
+  const text =
+    category === "new_lead"
+      ? `An toàn: Còn ${Math.floor(hoursLeft)} giờ`
+      : `An toàn: Còn ${daysLeft} ngày`;
 
   return {
     text,
     hoursLeft,
-    variant: "normal"
+    variant: "normal",
   };
 };

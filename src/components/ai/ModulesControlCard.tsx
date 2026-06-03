@@ -23,10 +23,26 @@ export const ModulesControlCard: React.FC<Props> = ({ settings, onChange }) => {
   };
 
   const modules: { key: keyof ModuleSettings; label: string; description: string }[] = [
-    { key: "module_product_tutor", label: "Product Tutor", description: "AI training & product knowledge embedding" },
-    { key: "module_rewrite", label: "Rewrite Suggestions", description: "AI rewrites sales suggestions" },
-    { key: "module_customer_summary", label: "Customer Summary", description: "AI generates customer overview" },
-    { key: "module_sales_assistant", label: "Sales Assistant", description: "AI sales assistant full pipeline" },
+    {
+      key: "module_product_tutor",
+      label: "Product Tutor",
+      description: "AI training & product knowledge embedding",
+    },
+    {
+      key: "module_rewrite",
+      label: "Rewrite Suggestions",
+      description: "AI rewrites sales suggestions",
+    },
+    {
+      key: "module_customer_summary",
+      label: "Customer Summary",
+      description: "AI generates customer overview",
+    },
+    {
+      key: "module_sales_assistant",
+      label: "Sales Assistant",
+      description: "AI sales assistant full pipeline",
+    },
   ];
 
   return (
@@ -41,10 +57,7 @@ export const ModulesControlCard: React.FC<Props> = ({ settings, onChange }) => {
               <span className="text-sm font-medium text-slate-700">{mod.label}</span>
               <p className="text-xs text-slate-400">{mod.description}</p>
             </div>
-            <Switch
-              checked={settings[mod.key]}
-              onCheckedChange={() => toggle(mod.key)}
-            />
+            <Switch checked={settings[mod.key]} onCheckedChange={() => toggle(mod.key)} />
           </div>
         ))}
       </CardContent>

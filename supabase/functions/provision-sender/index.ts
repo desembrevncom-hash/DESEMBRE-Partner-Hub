@@ -19,17 +19,20 @@ serve(async (req) => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) {
     return new Response(JSON.stringify({ error: "Missing authorization header" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser(
-    authHeader.replace("Bearer ", "")
-  );
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
 
   if (authError || !user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
@@ -43,30 +46,32 @@ serve(async (req) => {
 
   if (!roleData) {
     return new Response(JSON.stringify({ error: "Forbidden: Admin or SubAdmin required" }), {
-      status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
   // ─── Parse payload ──────────────────────────────────────────────────────────
   try {
-    const { 
-      provider, 
-      channel, 
-      name, 
-      sender_email, 
-      sender_name, 
+    const {
+      provider,
+      channel,
+      name,
+      sender_email,
+      sender_name,
       auth_type,
       status,
       health_status,
       last_error,
       domain,
       secret_prefix,
-      provider_secret
+      provider_secret,
     } = await req.json();
 
     if (!provider || !name) {
       return new Response(JSON.stringify({ error: "provider and name are required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -88,15 +93,16 @@ serve(async (req) => {
           daily_usage: 0,
           domain: domain || null,
           secret_prefix: secret_prefix || "GOOGLE_DEFAULT",
-          provider_secret: provider_secret || null
-        }
+          provider_secret: provider_secret || null,
+        },
       ])
       .select()
       .single();
 
     if (insertError) {
       return new Response(JSON.stringify({ error: insertError.message }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -110,13 +116,15 @@ serve(async (req) => {
       note: `Created sender account: ${name} (${provider})`,
     });
 
-    return new Response(JSON.stringify({
-      success: true,
-      data: inserted
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
-
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: inserted,
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,

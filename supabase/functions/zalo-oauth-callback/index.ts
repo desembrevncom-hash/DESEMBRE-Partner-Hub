@@ -20,19 +20,18 @@ function hexToBytes(hex: string): Uint8Array {
  * Giải mã state AES-GCM đã được mã hóa bởi zalo-oauth-start.
  * Format: ivHex:ciphertextB64
  */
-async function decryptState(encrypted: string, keyHex: string): Promise<Record<string, unknown> | null> {
+async function decryptState(
+  encrypted: string,
+  keyHex: string,
+): Promise<Record<string, unknown> | null> {
   try {
     const [ivHex, ciphertextB64] = encrypted.split(":");
     if (!ivHex || !ciphertextB64) return null;
 
     const keyBytes = hexToBytes(keyHex.padEnd(64, "0").slice(0, 64));
-    const key = await crypto.subtle.importKey(
-      "raw",
-      keyBytes,
-      { name: "AES-GCM" },
-      false,
-      ["decrypt"],
-    );
+    const key = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, [
+      "decrypt",
+    ]);
 
     const iv = hexToBytes(ivHex);
     const ciphertext = Uint8Array.from(atob(ciphertextB64), (c) => c.charCodeAt(0));
@@ -49,17 +48,15 @@ async function decryptState(encrypted: string, keyHex: string): Promise<Record<s
  */
 async function encryptToken(token: string, keyHex: string): Promise<string> {
   const keyBytes = hexToBytes(keyHex.padEnd(64, "0").slice(0, 64));
-  const key = await crypto.subtle.importKey(
-    "raw",
-    keyBytes,
-    { name: "AES-GCM" },
-    false,
-    ["encrypt"],
-  );
+  const key = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, [
+    "encrypt",
+  ]);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(token);
   const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
-  const ivHex = Array.from(iv).map((b) => b.toString(16).padStart(2, "0")).join("");
+  const ivHex = Array.from(iv)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
   return ivHex + ":" + btoa(String.fromCharCode(...new Uint8Array(ciphertext)));
 }
 
@@ -93,7 +90,10 @@ serve(async (req: Request) => {
       result: "error",
       note: `Zalo OAuth callback lỗi hoặc người dùng hủy — error: ${errorParam || "missing code/state"}`,
     });
-    return Response.redirect(`${failRedirect}&reason=${encodeURIComponent(errorParam || "cancelled")}`, 302);
+    return Response.redirect(
+      `${failRedirect}&reason=${encodeURIComponent(errorParam || "cancelled")}`,
+      302,
+    );
   }
 
   // ── Giải mã và xác thực state ─────────────────────────────────────────────
@@ -120,13 +120,15 @@ serve(async (req: Request) => {
 
   // Reconstruct final redirect targets using the actual callback URL from the state payload
   const finalSuccessRedirect = redirect_uri
-    ? (redirect_uri.includes("?") ? `${redirect_uri}&connected=zalo` : `${redirect_uri}?connected=zalo`)
+    ? redirect_uri.includes("?")
+      ? `${redirect_uri}&connected=zalo`
+      : `${redirect_uri}?connected=zalo`
     : successRedirect;
 
   const finalFailRedirect = (reason: string) => {
     if (redirect_uri) {
-      return redirect_uri.includes("?") 
-        ? `${redirect_uri}&connected=error&reason=${encodeURIComponent(reason)}` 
+      return redirect_uri.includes("?")
+        ? `${redirect_uri}&connected=error&reason=${encodeURIComponent(reason)}`
         : `${redirect_uri}?connected=error&reason=${encodeURIComponent(reason)}`;
     }
     return `${failRedirect}&reason=${encodeURIComponent(reason)}`;
@@ -135,8 +137,7 @@ serve(async (req: Request) => {
   // ── Lấy App Secret từ env ──────────────────────────────────────────────────
   // Hỗ trợ cấu hình per-app: ZALO_APP_SECRET_{APP_ID} (ưu tiên) hoặc ZALO_APP_SECRET chung
   const appSecretKey = `ZALO_APP_SECRET_${app_id}`;
-  const zaloAppSecret =
-    Deno.env.get(appSecretKey) || Deno.env.get("ZALO_APP_SECRET") || "";
+  const zaloAppSecret = Deno.env.get(appSecretKey) || Deno.env.get("ZALO_APP_SECRET") || "";
 
   if (!zaloAppSecret) {
     await adminClient.from("sender_action_logs").insert({
@@ -174,7 +175,7 @@ serve(async (req: Request) => {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        "secret_key": zaloAppSecret,
+        secret_key: zaloAppSecret,
       },
       body: tokenParams.toString(),
     });
@@ -208,9 +209,9 @@ serve(async (req: Request) => {
   let resolvedOaId = oa_id || "";
   try {
     const oaRes = await fetch("https://openapi.zalo.me/v3.0/oa/getoa", {
-      headers: { "access_token": tokenData.access_token },
+      headers: { access_token: tokenData.access_token },
     });
-    const oaData = await oaRes.json() as { data?: { oa_id?: string; name?: string } };
+    const oaData = (await oaRes.json()) as { data?: { oa_id?: string; name?: string } };
     if (oaData?.data?.name) oaDisplayName = oaData.data.name;
     if (oaData?.data?.oa_id) resolvedOaId = oaData.data.oa_id;
   } catch {
@@ -222,9 +223,7 @@ serve(async (req: Request) => {
   const accessTokenEnc = await encryptToken(tokenData.access_token, tokenEncKey);
   const refreshTokenEnc = await encryptToken(tokenData.refresh_token, tokenEncKey);
 
-  const expiresAt = new Date(
-    Date.now() + (tokenData.expires_in ?? 3600) * 1000,
-  ).toISOString();
+  const expiresAt = new Date(Date.now() + (tokenData.expires_in ?? 3600) * 1000).toISOString();
 
   // ── Tạo hoặc cập nhật sender_accounts ────────────────────────────────────
   // Tìm xem đã có sender với external_account_id này chưa
@@ -238,21 +237,24 @@ serve(async (req: Request) => {
 
   if (existing?.id) {
     // Cập nhật sender hiện có
-    await adminClient.from("sender_accounts").update({
-      name: oaDisplayName,
-      display_name: oaDisplayName,
-      provider: "zalo",
-      channel: "zalo_oa",
-      auth_type: "oauth",
-      external_app_id: app_id,
-      external_account_id: resolvedOaId || app_id,
-      health_status: "healthy",
-      last_error: null,
-      last_checked_at: new Date().toISOString(),
-      is_active: true,
-      status: "active",
-      updated_at: new Date().toISOString(),
-    }).eq("id", existing.id);
+    await adminClient
+      .from("sender_accounts")
+      .update({
+        name: oaDisplayName,
+        display_name: oaDisplayName,
+        provider: "zalo",
+        channel: "zalo_oa",
+        auth_type: "oauth",
+        external_app_id: app_id,
+        external_account_id: resolvedOaId || app_id,
+        health_status: "healthy",
+        last_error: null,
+        last_checked_at: new Date().toISOString(),
+        is_active: true,
+        status: "active",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id);
     senderAccountId = existing.id;
   } else {
     // Tạo sender mới
@@ -261,7 +263,7 @@ serve(async (req: Request) => {
       .insert({
         name: oaDisplayName,
         display_name: oaDisplayName,
-        sender_email: `zalo-oa@${app_id}`,  // placeholder không dùng gửi thật
+        sender_email: `zalo-oa@${app_id}`, // placeholder không dùng gửi thật
         sender_name: oaDisplayName,
         provider: "zalo",
         channel: "zalo_oa",
@@ -296,14 +298,17 @@ serve(async (req: Request) => {
 
   // ── Lưu/cập nhật tokens vào bảng bảo mật sender_account_tokens ───────────
   // Dùng upsert — chỉ service_role mới có quyền write vào bảng này
-  await adminClient.from("sender_account_tokens").upsert({
-    sender_account_id: senderAccountId,
-    access_token_enc: accessTokenEnc,
-    refresh_token_enc: refreshTokenEnc,
-    token_expires_at: expiresAt,
-    token_scope: [],
-    updated_at: new Date().toISOString(),
-  }, { onConflict: "sender_account_id" });
+  await adminClient.from("sender_account_tokens").upsert(
+    {
+      sender_account_id: senderAccountId,
+      access_token_enc: accessTokenEnc,
+      refresh_token_enc: refreshTokenEnc,
+      token_expires_at: expiresAt,
+      token_scope: [],
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "sender_account_id" },
+  );
 
   // ── Ghi Audit Log: zalo_oauth_connected ────────────────────────────────────
   await adminClient.from("sender_action_logs").insert({

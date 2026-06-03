@@ -1,22 +1,22 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogFooter 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, Calendar, ClipboardList, AlertCircle } from "lucide-react";
@@ -72,33 +72,37 @@ export function AddTaskDialog({ isOpen, onClose, customer, onSuccess }: AddTaskD
   const fetchStaff = async () => {
     if (!isManager) {
       // Nếu là Staff, họ chỉ có quyền giao việc cho chính mình. Tránh gọi API profiles gây lỗi RLS.
-      setStaffList([{
-        id: user?.id,
-        name: user?.user_metadata?.display_name || user?.email?.split("@")[0] || "Tôi"
-      }]);
+      setStaffList([
+        {
+          id: user?.id,
+          name: user?.user_metadata?.display_name || user?.email?.split("@")[0] || "Tôi",
+        },
+      ]);
       return;
     }
 
     setLoadingStaff(true);
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, display_name, email");
-      
+      const { data, error } = await supabase.from("profiles").select("id, display_name, email");
+
       if (error) throw error;
       if (data) {
-        setStaffList(data.map((p: any) => ({
-          id: p.id,
-          name: p.display_name || p.email?.split("@")[0] || "Chưa đặt tên"
-        })));
+        setStaffList(
+          data.map((p: any) => ({
+            id: p.id,
+            name: p.display_name || p.email?.split("@")[0] || "Chưa đặt tên",
+          })),
+        );
       }
     } catch (e: any) {
       console.error("Error fetching staff:", e);
       // Fallback cho local demo hoặc khi lỗi mạng/RLS
-      setStaffList([{
-        id: user?.id,
-        name: user?.user_metadata?.display_name || user?.email?.split("@")[0] || "Tôi"
-      }]);
+      setStaffList([
+        {
+          id: user?.id,
+          name: user?.user_metadata?.display_name || user?.email?.split("@")[0] || "Tôi",
+        },
+      ]);
     } finally {
       setLoadingStaff(false);
     }
@@ -145,38 +149,48 @@ export function AddTaskDialog({ isOpen, onClose, customer, onSuccess }: AddTaskD
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3 text-lg font-black text-slate-900 uppercase tracking-tight">
             <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white">
-               <ClipboardList className="w-5 h-5 text-indigo-400" />
+              <ClipboardList className="w-5 h-5 text-indigo-400" />
             </div>
             Thêm việc cần làm
           </DialogTitle>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] pt-2">
-            Khách hàng: <span className="text-slate-900">{customer?.facility_name || customer?.name}</span>
+            Khách hàng:{" "}
+            <span className="text-slate-900">{customer?.facility_name || customer?.name}</span>
           </p>
         </DialogHeader>
 
         <div className="py-4 space-y-4">
           {/* Tiêu đề */}
           <div className="space-y-2">
-            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tiêu đề công việc <span className="text-red-500">*</span></Label>
-            <Input 
+            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              Tiêu đề công việc <span className="text-red-500">*</span>
+            </Label>
+            <Input
               placeholder="Ví dụ: Gọi điện báo giá bộ Nám, gửi thiệp mời sự kiện..."
               className="rounded-xl border-slate-100 bg-slate-50 focus:bg-white text-sm font-medium h-11"
               value={form.title}
-              onChange={e => setForm({ ...form, title: e.target.value })}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             {/* Loại hình */}
             <div className="space-y-2">
-              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Loại hình</Label>
-              <Select value={form.task_type} onValueChange={val => setForm({ ...form, task_type: val })}>
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                Loại hình
+              </Label>
+              <Select
+                value={form.task_type}
+                onValueChange={(val) => setForm({ ...form, task_type: val })}
+              >
                 <SelectTrigger className="rounded-xl border-slate-100 bg-slate-50 h-11 text-sm font-medium">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  {TASK_TYPE_OPTIONS.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value} className="text-xs font-semibold">{opt.label}</SelectItem>
+                  {TASK_TYPE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} className="text-xs font-semibold">
+                      {opt.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -184,15 +198,26 @@ export function AddTaskDialog({ isOpen, onClose, customer, onSuccess }: AddTaskD
 
             {/* Độ ưu tiên */}
             <div className="space-y-2">
-              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Độ ưu tiên</Label>
-              <Select value={form.priority} onValueChange={val => setForm({ ...form, priority: val })}>
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                Độ ưu tiên
+              </Label>
+              <Select
+                value={form.priority}
+                onValueChange={(val) => setForm({ ...form, priority: val })}
+              >
                 <SelectTrigger className="rounded-xl border-slate-100 bg-slate-50 h-11 text-sm font-medium">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  <SelectItem value="high" className="text-xs font-bold text-red-600">🔴 Cao</SelectItem>
-                  <SelectItem value="normal" className="text-xs font-semibold text-slate-700">🔵 Bình thường</SelectItem>
-                  <SelectItem value="low" className="text-xs font-medium text-slate-400">⚪ Thấp</SelectItem>
+                  <SelectItem value="high" className="text-xs font-bold text-red-600">
+                    🔴 Cao
+                  </SelectItem>
+                  <SelectItem value="normal" className="text-xs font-semibold text-slate-700">
+                    🔵 Bình thường
+                  </SelectItem>
+                  <SelectItem value="low" className="text-xs font-medium text-slate-400">
+                    ⚪ Thấp
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -200,10 +225,12 @@ export function AddTaskDialog({ isOpen, onClose, customer, onSuccess }: AddTaskD
 
           {/* Người thực hiện */}
           <div className="space-y-2">
-            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Người thực hiện</Label>
-            <Select 
-              value={form.assigned_to} 
-              onValueChange={val => setForm({ ...form, assigned_to: val })}
+            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              Người thực hiện
+            </Label>
+            <Select
+              value={form.assigned_to}
+              onValueChange={(val) => setForm({ ...form, assigned_to: val })}
               disabled={!isManager}
             >
               <SelectTrigger className="rounded-xl border-slate-100 bg-slate-50 h-11 text-sm font-medium">
@@ -213,7 +240,7 @@ export function AddTaskDialog({ isOpen, onClose, customer, onSuccess }: AddTaskD
                 {loadingStaff ? (
                   <div className="p-4 text-center text-xs text-slate-400">Đang tải...</div>
                 ) : (
-                  staffList.map(s => (
+                  staffList.map((s) => (
                     <SelectItem key={s.id} value={s.id} className="text-xs font-semibold">
                       👤 {s.name}
                     </SelectItem>
@@ -225,38 +252,46 @@ export function AddTaskDialog({ isOpen, onClose, customer, onSuccess }: AddTaskD
 
           {/* Hạn chót */}
           <div className="space-y-2">
-            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hạn chót (Due date)</Label>
+            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              Hạn chót (Due date)
+            </Label>
             <div className="relative">
-              <Input 
+              <Input
                 type="datetime-local"
                 className="rounded-xl border-slate-100 bg-slate-50 focus:bg-white text-sm font-medium h-11 pr-10"
                 value={form.due_at}
-                onChange={e => setForm({ ...form, due_at: e.target.value })}
+                onChange={(e) => setForm({ ...form, due_at: e.target.value })}
               />
             </div>
           </div>
 
           {/* Ghi chú hướng dẫn */}
           <div className="space-y-2">
-            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ghi chú hướng dẫn</Label>
-            <Textarea 
-              placeholder="VD: Nhớ đề xuất chương trình khuyến mãi tháng này..." 
+            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              Ghi chú hướng dẫn
+            </Label>
+            <Textarea
+              placeholder="VD: Nhớ đề xuất chương trình khuyến mãi tháng này..."
               className="min-h-[80px] rounded-2xl border-slate-100 bg-slate-50 focus:bg-white text-sm font-medium resize-none"
               value={form.note}
-              onChange={e => setForm({ ...form, note: e.target.value })}
+              onChange={(e) => setForm({ ...form, note: e.target.value })}
             />
           </div>
         </div>
 
         <DialogFooter className="gap-3">
-          <Button variant="ghost" onClick={onClose} className="rounded-xl font-bold text-slate-400">Hủy</Button>
-          <Button 
+          <Button variant="ghost" onClick={onClose} className="rounded-xl font-bold text-slate-400">
+            Hủy
+          </Button>
+          <Button
             disabled={saving}
             onClick={handleSave}
             className="rounded-xl bg-slate-900 hover:bg-black font-black px-8 h-12 shadow-lg shadow-slate-200"
           >
             {saving ? (
-              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang thêm...</>
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang thêm...
+              </>
             ) : (
               "Thêm việc cần làm"
             )}

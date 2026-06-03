@@ -6,8 +6,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 function json(body: unknown, status = 200) {
@@ -34,7 +33,11 @@ interface AIConfig {
   geminiKey: string;
 }
 
-async function callOpenAI(prompt: string, systemPrompt: string, config: AIConfig): Promise<AIResponse> {
+async function callOpenAI(
+  prompt: string,
+  systemPrompt: string,
+  config: AIConfig,
+): Promise<AIResponse> {
   const apiKey = config.openAiKey;
   const model = config.chatModel;
   if (!apiKey) throw new Error("Chưa cấu hình AI provider. Thiếu OPENAI_API_KEY.");
@@ -42,7 +45,7 @@ async function callOpenAI(prompt: string, systemPrompt: string, config: AIConfig
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${apiKey}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -70,7 +73,11 @@ async function callOpenAI(prompt: string, systemPrompt: string, config: AIConfig
   };
 }
 
-async function callGemini(prompt: string, systemPrompt: string, config: AIConfig): Promise<AIResponse> {
+async function callGemini(
+  prompt: string,
+  systemPrompt: string,
+  config: AIConfig,
+): Promise<AIResponse> {
   const apiKey = config.geminiKey;
   const model = config.chatModel;
   if (!apiKey) throw new Error("Chưa cấu hình AI provider. Thiếu GEMINI_API_KEY.");
@@ -114,11 +121,17 @@ async function callAI(prompt: string, systemPrompt: string, config: AIConfig): P
   const provider = config.provider.toLowerCase();
   if (provider === "openai") return callOpenAI(prompt, systemPrompt, config);
   if (provider === "gemini") return callGemini(prompt, systemPrompt, config);
-  throw new Error(`Chưa cấu hình AI provider. Vui lòng chọn OpenAI hoặc Gemini. Hiện tại đang chọn: ${provider}`);
+  throw new Error(
+    `Chưa cấu hình AI provider. Vui lòng chọn OpenAI hoặc Gemini. Hiện tại đang chọn: ${provider}`,
+  );
 }
 
 // ---------- RAG Helpers ----------
-async function generateEmbedding(text: string, adminClient: any, config: AIConfig): Promise<number[]> {
+async function generateEmbedding(
+  text: string,
+  adminClient: any,
+  config: AIConfig,
+): Promise<number[]> {
   // --- PHASE 7.5: Cache Layer for Embeddings (TTL: forever) ---
   const cacheKey = `emb:${await hashText(text)}`;
   const { data: cached } = await adminClient
@@ -128,7 +141,10 @@ async function generateEmbedding(text: string, adminClient: any, config: AIConfi
     .single();
   if (cached?.payload?.embedding) {
     // Increment hit count async (fire & forget)
-    adminClient.from("ai_cache").update({ hit_count: cached.payload.hit_count + 1 }).eq("cache_key", cacheKey);
+    adminClient
+      .from("ai_cache")
+      .update({ hit_count: cached.payload.hit_count + 1 })
+      .eq("cache_key", cacheKey);
     return cached.payload.embedding;
   }
 
@@ -136,7 +152,7 @@ async function generateEmbedding(text: string, adminClient: any, config: AIConfi
   if (!apiKey) throw new Error("Chưa cấu hình OpenAI API Key để tạo embedding.");
   const res = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
-    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({ input: text, model: config.embeddingModel }),
   });
   if (!res.ok) throw new Error(`Embedding failed: ${await res.text()}`);
@@ -144,12 +160,15 @@ async function generateEmbedding(text: string, adminClient: any, config: AIConfi
   const embedding = data.data[0].embedding;
 
   // Store in cache (no expiry for embeddings)
-  await adminClient.from("ai_cache").upsert({
-    cache_key: cacheKey,
-    cache_type: "embedding",
-    payload: { embedding, hit_count: 0 },
-    expires_at: null
-  }, { onConflict: "cache_key" });
+  await adminClient.from("ai_cache").upsert(
+    {
+      cache_key: cacheKey,
+      cache_type: "embedding",
+      payload: { embedding, hit_count: 0 },
+      expires_at: null,
+    },
+    { onConflict: "cache_key" },
+  );
 
   return embedding;
 }
@@ -159,7 +178,7 @@ async function hashText(text: string): Promise<string> {
   const encoded = new TextEncoder().encode(text);
   const hashBuffer = await crypto.subtle.digest("SHA-256", encoded);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 // Helper to truncate long strings for preview (max 500 chars)
@@ -179,24 +198,30 @@ const BANNED_MEDICAL_PHRASES = [
   "không tái phát",
   "hiệu quả vĩnh viễn",
   "đảm bảo hết nám",
-  "đảm bảo hết mụn"
+  "đảm bảo hết mụn",
 ];
 
 function detectBannedPhrases(text: string): string[] {
   if (!text) return [];
   const lowerText = text.toLowerCase();
-  return BANNED_MEDICAL_PHRASES.filter(phrase => lowerText.includes(phrase.toLowerCase()));
+  return BANNED_MEDICAL_PHRASES.filter((phrase) => lowerText.includes(phrase.toLowerCase()));
 }
 
-function detectUnsupportedProductMentions(text: string, retrievedChunks: any[], allProducts: any[]): string[] {
+function detectUnsupportedProductMentions(
+  text: string,
+  retrievedChunks: any[],
+  allProducts: any[],
+): string[] {
   const lowerText = text.toLowerCase();
-  const allowedProducts = new Set(retrievedChunks.map(c => c.product_name?.toLowerCase()).filter(Boolean));
-  
+  const allowedProducts = new Set(
+    retrievedChunks.map((c) => c.product_name?.toLowerCase()).filter(Boolean),
+  );
+
   const violations: string[] = [];
   for (const p of allProducts) {
     const pNameLower = p.name?.toLowerCase();
     if (!pNameLower || pNameLower.length < 3) continue;
-    
+
     // Check if response mentions product, but it's not in the retrieved chunks context
     if (lowerText.includes(pNameLower) && !allowedProducts.has(pNameLower)) {
       violations.push(p.name);
@@ -205,15 +230,18 @@ function detectUnsupportedProductMentions(text: string, retrievedChunks: any[], 
   return violations;
 }
 
-async function logSafetyEvent(adminClient: any, params: {
-  requestId: string;
-  userId: string;
-  customerId?: string;
-  eventType: string;
-  phrase: string;
-  severity: string;
-  originalResponse?: string;
-}) {
+async function logSafetyEvent(
+  adminClient: any,
+  params: {
+    requestId: string;
+    userId: string;
+    customerId?: string;
+    eventType: string;
+    phrase: string;
+    severity: string;
+    originalResponse?: string;
+  },
+) {
   try {
     await adminClient.from("ai_safety_events").insert({
       request_id: params.requestId,
@@ -222,8 +250,10 @@ async function logSafetyEvent(adminClient: any, params: {
       event_type: params.eventType,
       phrase: params.phrase || "N/A",
       severity: params.severity,
-      original_response_preview: params.originalResponse ? truncateString(params.originalResponse, 500) : null,
-      handled: false
+      original_response_preview: params.originalResponse
+        ? truncateString(params.originalResponse, 500)
+        : null,
+      handled: false,
     });
   } catch (e) {
     console.error("Failed to log safety event:", e);
@@ -239,14 +269,24 @@ interface HallucinationResult {
 
 async function validateAIOutput(
   responseText: string,
-  adminClient: any
+  adminClient: any,
 ): Promise<HallucinationResult> {
   // Load banned phrases from DB (or use hardcoded fallback if DB fails)
   const DEFAULT_BANNED = [
-    "trị dứt điểm", "chữa khỏi", "chữa hoàn toàn", "cam kết hiệu quả",
-    "đảm bảo 100%", "hiệu quả 100%", "tuyệt đối an toàn", "không tác dụng phụ",
-    "điều trị y khoa", "kê đơn", "thuốc đặc trị", "trị nám dứt điểm",
-    "xóa sẹo hoàn toàn", "thần kỳ"
+    "trị dứt điểm",
+    "chữa khỏi",
+    "chữa hoàn toàn",
+    "cam kết hiệu quả",
+    "đảm bảo 100%",
+    "hiệu quả 100%",
+    "tuyệt đối an toàn",
+    "không tác dụng phụ",
+    "điều trị y khoa",
+    "kê đơn",
+    "thuốc đặc trị",
+    "trị nám dứt điểm",
+    "xóa sẹo hoàn toàn",
+    "thần kỳ",
   ];
 
   let bannedPhrases = DEFAULT_BANNED;
@@ -258,16 +298,19 @@ async function validateAIOutput(
     if (data && data.length > 0) {
       bannedPhrases = data.map((r: any) => r.phrase);
     }
-  } catch (_) { /* fallback to default */ }
+  } catch (_) {
+    /* fallback to default */
+  }
 
   const lowerResponse = responseText.toLowerCase();
-  const detected = bannedPhrases.filter(phrase => lowerResponse.includes(phrase.toLowerCase()));
+  const detected = bannedPhrases.filter((phrase) => lowerResponse.includes(phrase.toLowerCase()));
 
   if (detected.length > 0) {
     return {
       blocked: true,
       detectedPhrases: detected,
-      safeResponse: "⚠️ Phản hồi này đã bị chặn vì chứa nội dung không phù hợp (cam kết y khoa). Vui lòng tư vấn dựa trên dữ liệu trong Cẩm nang sản phẩm."
+      safeResponse:
+        "⚠️ Phản hồi này đã bị chặn vì chứa nội dung không phù hợp (cam kết y khoa). Vui lòng tư vấn dựa trên dữ liệu trong Cẩm nang sản phẩm.",
     };
   }
 
@@ -279,29 +322,33 @@ async function validateAIOutput(
 // P4: Dynamic cost per 1M tokens by model
 function estimateCost(promptTokens: number, completionTokens: number, model: string): number {
   const pricing: Record<string, [number, number]> = {
-    'gpt-4o-mini':        [0.15,  0.60],
-    'gpt-4o':             [2.50, 10.00],
-    'gpt-4o-2024-11-20':  [2.50, 10.00],
-    'gpt-4o-2024-05-13':  [5.00, 15.00],
-    'gpt-4-turbo':        [10.0, 30.00],
-    'gemini-1.5-flash':   [0.075, 0.30],
-    'gemini-1.5-pro':     [1.25,  5.00],
+    "gpt-4o-mini": [0.15, 0.6],
+    "gpt-4o": [2.5, 10.0],
+    "gpt-4o-2024-11-20": [2.5, 10.0],
+    "gpt-4o-2024-05-13": [5.0, 15.0],
+    "gpt-4-turbo": [10.0, 30.0],
+    "gemini-1.5-flash": [0.075, 0.3],
+    "gemini-1.5-pro": [1.25, 5.0],
   };
-  const [inPrice, outPrice] = pricing[model] ?? [0.15, 0.60];
+  const [inPrice, outPrice] = pricing[model] ?? [0.15, 0.6];
   return (promptTokens / 1_000_000) * inPrice + (completionTokens / 1_000_000) * outPrice;
 }
 
-async function logUsage(adminClient: any, config: AIConfig, params: {
-  userId: string;
-  customerId?: string;
-  mode: string;
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-  cacheHit?: boolean;
-  latencyMs?: number;
-  modelOverride?: string;
-}) {
+async function logUsage(
+  adminClient: any,
+  config: AIConfig,
+  params: {
+    userId: string;
+    customerId?: string;
+    mode: string;
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+    cacheHit?: boolean;
+    latencyMs?: number;
+    modelOverride?: string;
+  },
+) {
   const model = params.modelOverride ?? config.chatModel;
   const totalCost = estimateCost(params.promptTokens, params.completionTokens, model);
   const provider = config.provider.toLowerCase();
@@ -329,20 +376,25 @@ async function logUsage(adminClient: any, config: AIConfig, params: {
 
 // Trim long chunk content to max characters (preserves safety quality)
 function trimChunk(content: string, maxLen = 400): string {
-  if (!content) return '';
-  return content.length > maxLen ? content.slice(0, maxLen) + '…' : content;
+  if (!content) return "";
+  return content.length > maxLen ? content.slice(0, maxLen) + "…" : content;
 }
 
 // Model routing: rewrite_suggestions always use gpt-4o-mini (simple task)
 function resolveModel(mode: string, config: AIConfig): string {
-  if (mode === 'rewrite_suggestions') return 'gpt-4o-mini';
+  if (mode === "rewrite_suggestions") return "gpt-4o-mini";
   return config.chatModel;
 }
 
 // SHA-256 hash for cache keys using Web Crypto (available in Deno)
 async function hashCacheKey(input: string): Promise<string> {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
-  return 'res:' + Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return (
+    "res:" +
+    Array.from(new Uint8Array(buf))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("")
+  );
 }
 
 // Generic cache get-or-set for response caching
@@ -351,45 +403,52 @@ async function getOrSetCache<T>(
   key: string,
   cacheType: string,
   ttlMinutes: number,
-  fn: () => Promise<T>
+  fn: () => Promise<T>,
 ): Promise<{ result: T; cacheHit: boolean }> {
   try {
     const { data: cached } = await adminClient
-      .from('ai_cache')
-      .select('payload, expires_at, hit_count')
-      .eq('cache_key', key)
+      .from("ai_cache")
+      .select("payload, expires_at, hit_count")
+      .eq("cache_key", key)
       .maybeSingle();
 
     if (cached && (!cached.expires_at || new Date(cached.expires_at) > new Date())) {
       // Cache HIT — update hit_count asynchronously (fire-and-forget)
-      adminClient.from('ai_cache')
+      adminClient
+        .from("ai_cache")
         .update({ hit_count: (cached.hit_count ?? 0) + 1, updated_at: new Date().toISOString() })
-        .eq('cache_key', key)
+        .eq("cache_key", key)
         .then(() => {})
         .catch(() => {});
       return { result: cached.payload.data as T, cacheHit: true };
     }
-  } catch (_) { /* cache unavailable — proceed to fn */ }
+  } catch (_) {
+    /* cache unavailable — proceed to fn */
+  }
 
   // Cache MISS — execute function
   const result = await fn();
   const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000).toISOString();
   try {
-    await adminClient.from('ai_cache').upsert({
-      cache_key: key,
-      cache_type: cacheType,
-      payload: { data: result },
-      expires_at: expiresAt,
-      hit_count: 0,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'cache_key' });
-  } catch (_) { /* non-fatal: cache write failure */ }
+    await adminClient.from("ai_cache").upsert(
+      {
+        cache_key: key,
+        cache_type: cacheType,
+        payload: { data: result },
+        expires_at: expiresAt,
+        hit_count: 0,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "cache_key" },
+    );
+  } catch (_) {
+    /* non-fatal: cache write failure */
+  }
 
   return { result, cacheHit: false };
 }
 
 // ---------- Main Handler ----------
-
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -415,25 +474,28 @@ Deno.serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await userClient.auth.getUser();
     if (authError || !user) {
       return json({ error: "Unauthorized" }, 401);
     }
 
     // --- Phase I: Load AI settings and check module toggle ---
     const { data: aiSettings, error: aiError } = await adminClient
-      .from('ai_settings')
-      .select('*')
-      .eq('id', 'default')
+      .from("ai_settings")
+      .select("*")
+      .eq("id", "default")
       .single();
     if (aiError || !aiSettings) {
-      return json({ error: 'Failed to load AI settings' }, 500);
+      return json({ error: "Failed to load AI settings" }, 500);
     }
     // Check module toggle: sales assistant must be enabled
     if (!aiSettings.module_sales_assistant) {
       return json({ error: "AI module này đang bị Admin tắt." }, 403);
     }
-    
+
     const aiConfig: AIConfig = {
       provider: aiSettings.provider || Deno.env.get("AI_PROVIDER") || "openai",
       chatModel: aiSettings.chat_model || "gpt-4o-mini",
@@ -447,8 +509,19 @@ Deno.serve(async (req) => {
     const { customerId, mode, taskId, debugQuery } = body;
     const requestId = crypto.randomUUID();
 
-    if (mode !== "summary" && mode !== "rewrite_suggestions" && mode !== "debug_rag" && mode !== "rag_audit") {
-      return json({ error: "Only mode='summary', 'rewrite_suggestions', 'debug_rag', and 'rag_audit' are supported" }, 400);
+    if (
+      mode !== "summary" &&
+      mode !== "rewrite_suggestions" &&
+      mode !== "debug_rag" &&
+      mode !== "rag_audit"
+    ) {
+      return json(
+        {
+          error:
+            "Only mode='summary', 'rewrite_suggestions', 'debug_rag', and 'rag_audit' are supported",
+        },
+        400,
+      );
     }
 
     if (mode !== "debug_rag" && mode !== "rag_audit" && !customerId) {
@@ -464,24 +537,30 @@ Deno.serve(async (req) => {
     if (mode === "debug_rag") {
       if (!debugQuery) return json({ error: "debugQuery is required" }, 400);
       // Phase P3: debug_rag requires Admin or Sub Admin
-      const { data: isAdminDebug, error: roleDebugError } = await adminClient.rpc("is_admin_or_sub_admin", {
-        user_id: user.id
-      });
+      const { data: isAdminDebug, error: roleDebugError } = await adminClient.rpc(
+        "is_admin_or_sub_admin",
+        {
+          user_id: user.id,
+        },
+      );
       if (roleDebugError || !isAdminDebug) {
-        return json({ error: "Access denied. Only Admin or Sub Admin can use debug_rag mode." }, 403);
+        return json(
+          { error: "Access denied. Only Admin or Sub Admin can use debug_rag mode." },
+          403,
+        );
       }
       try {
         const queryEmbedding = await generateEmbedding(debugQuery, adminClient, aiConfig);
         const { data: chunksData } = await adminClient.rpc("match_product_chunks", {
           query_embedding: queryEmbedding,
           match_threshold: 0.3,
-          match_count: 5
+          match_count: 5,
         });
 
         const retrievedChunks = chunksData || [];
         const systemPrompt = `[AI SAFETY LAYER]: Tuyệt đối không bịa thông tin sản phẩm. Chỉ sử dụng kiến thức từ mục <KNOWLEDGE_CHUNKS> bên dưới.`;
-        const userPrompt = `=== KNOWLEDGE_CHUNKS ===\n${retrievedChunks.map((c: any, i: number) => `[Chunk ${i+1}] ${c.content}`).join('\\n')}\n\n=== CÂU HỎI ===\n${debugQuery}`;
-        
+        const userPrompt = `=== KNOWLEDGE_CHUNKS ===\n${retrievedChunks.map((c: any, i: number) => `[Chunk ${i + 1}] ${c.content}`).join("\\n")}\n\n=== CÂU HỎI ===\n${debugQuery}`;
+
         // Simulate prompt (don't actually call AI to save token unless strictly requested, but we'll return the prompt structure)
         return json({
           query_generated: debugQuery,
@@ -490,10 +569,10 @@ Deno.serve(async (req) => {
             product_id: c.product_id,
             chunk_type: c.chunk_type,
             score: c.similarity,
-            content: c.content
+            content: c.content,
           })),
           final_prompt_preview: `SYSTEM: ${systemPrompt}\n\nUSER: ${userPrompt}`,
-          ai_response_preview: "Simulation mode (no tokens used)"
+          ai_response_preview: "Simulation mode (no tokens used)",
         });
       } catch (err: any) {
         return json({ error: err.message }, 500);
@@ -508,16 +587,19 @@ Deno.serve(async (req) => {
 
       // Verify that calling user is admin or sub_admin
       const { data: isAdmin, error: roleError } = await adminClient.rpc("is_admin_or_sub_admin", {
-        user_id: user.id
+        user_id: user.id,
       });
-      
-      const isProductCopilotAllowedForSale = 
-        auditMode === "product_tutor" && 
-        aiSettings.product_copilot_enabled && 
+
+      const isProductCopilotAllowedForSale =
+        auditMode === "product_tutor" &&
+        aiSettings.product_copilot_enabled &&
         aiSettings.product_copilot_sale_enabled;
 
       if ((roleError || !isAdmin) && !isProductCopilotAllowedForSale) {
-        return json({ error: "Access denied. Only Admin or Sub Admin can perform RAG audits." }, 403);
+        return json(
+          { error: "Access denied. Only Admin or Sub Admin can perform RAG audits." },
+          403,
+        );
       }
 
       const auditStartTime = Date.now(); // P4: latency tracking
@@ -528,28 +610,34 @@ Deno.serve(async (req) => {
 
         // 2. Search chunks in DB using match_product_chunks
         // We query with a lower threshold (0.1) to allow detecting if there is any retrieval context at all
-        const parsedThreshold = (threshold !== undefined && threshold !== null) ? parseFloat(threshold) : 0.7;
-        const { data: chunksData, error: matchError } = await adminClient.rpc("match_product_chunks", {
-          query_embedding: queryEmbedding,
-          match_threshold: 0.1,
-          match_count: 5
-        });
+        const parsedThreshold =
+          threshold !== undefined && threshold !== null ? parseFloat(threshold) : 0.7;
+        const { data: chunksData, error: matchError } = await adminClient.rpc(
+          "match_product_chunks",
+          {
+            query_embedding: queryEmbedding,
+            match_threshold: 0.1,
+            match_count: 5,
+          },
+        );
 
         if (matchError) throw matchError;
 
         const rawChunks = chunksData || [];
 
         // Determine if no retrieval at all
-        const topScore = rawChunks.length > 0 ? Math.max(...rawChunks.map((c: any) => c.similarity ?? 0)) : 0;
+        const topScore =
+          rawChunks.length > 0 ? Math.max(...rawChunks.map((c: any) => c.similarity ?? 0)) : 0;
 
         if (rawChunks.length === 0) {
-          const fallbackText = "Hiện chưa có đủ dữ liệu chính thức trong Cẩm nang sản phẩm để tư vấn nội dung này.";
+          const fallbackText =
+            "Hiện chưa có đủ dữ liệu chính thức trong Cẩm nang sản phẩm để tư vấn nội dung này.";
           await logSafetyEvent(adminClient, {
             requestId: requestId,
             userId: user.id,
             eventType: "no_retrieval",
             phrase: "N/A",
-            severity: "medium"
+            severity: "medium",
           });
           return json({
             retrieved_chunks: [],
@@ -558,7 +646,7 @@ Deno.serve(async (req) => {
             completion_tokens: 0,
             total_tokens: 0,
             model_used: aiConfig.chatModel,
-            provider: aiConfig.provider
+            provider: aiConfig.provider,
           });
         }
 
@@ -611,19 +699,20 @@ Deno.serve(async (req) => {
             knowledge_version: dbChunk.knowledge_version || c.metadata?.knowledge_version || 1,
             content: c.content,
             qa_status: pk.qa_status || "approved",
-            is_active: dbChunk.is_active !== undefined ? dbChunk.is_active : true
+            is_active: dbChunk.is_active !== undefined ? dbChunk.is_active : true,
           });
         }
 
         // Check if top score fails threshold (Low Confidence Guard)
         if (topScore < parsedThreshold) {
-          const fallbackText = "Hiện chưa có đủ dữ liệu chính thức trong Cẩm nang sản phẩm để tư vấn nội dung này. (Độ tin cậy của thông tin tìm thấy không đạt yêu cầu).";
+          const fallbackText =
+            "Hiện chưa có đủ dữ liệu chính thức trong Cẩm nang sản phẩm để tư vấn nội dung này. (Độ tin cậy của thông tin tìm thấy không đạt yêu cầu).";
           await logSafetyEvent(adminClient, {
             requestId: requestId,
             userId: user.id,
             eventType: "low_confidence_retrieval",
             phrase: `Top score: ${topScore.toFixed(4)}`,
-            severity: "medium"
+            severity: "medium",
           });
           return json({
             retrieved_chunks: retrievedChunks,
@@ -632,12 +721,12 @@ Deno.serve(async (req) => {
             completion_tokens: 0,
             total_tokens: 0,
             model_used: aiConfig.chatModel,
-            provider: aiConfig.provider
+            provider: aiConfig.provider,
           });
         }
 
         // Only keep chunks passing threshold for LLM prompt context
-        const promptChunks = retrievedChunks.filter(c => c.similarity_score >= parsedThreshold);
+        const promptChunks = retrievedChunks.filter((c) => c.similarity_score >= parsedThreshold);
 
         // 4. Construct prompts based on auditMode
         let systemPrompt = "";
@@ -678,22 +767,31 @@ Yêu cầu:
 }`;
 
         // P4: trim chunk content, apply cache key for rag_audit
-        const auditCacheKey = await hashCacheKey(`rag_audit:${auditMode}:${auditQuery}:${parsedThreshold}`);
+        const auditCacheKey = await hashCacheKey(
+          `rag_audit:${auditMode}:${auditQuery}:${parsedThreshold}`,
+        );
 
-        const userPrompt = `=== KNOWLEDGE_CHUNKS ===\n${promptChunks.length > 0
-          ? promptChunks.map((c: any, i: number) => `[Chunk ${i+1}] (Sản phẩm: ${c.product_name}): ${trimChunk(c.content)}`).join('\n')
-          : 'Không tìm thấy chunks nào.'}\n\n=== CÂU HỎI CỦA SALES ===\n${auditQuery}`;
+        const userPrompt = `=== KNOWLEDGE_CHUNKS ===\n${
+          promptChunks.length > 0
+            ? promptChunks
+                .map(
+                  (c: any, i: number) =>
+                    `[Chunk ${i + 1}] (Sản phẩm: ${c.product_name}): ${trimChunk(c.content)}`,
+                )
+                .join("\n")
+            : "Không tìm thấy chunks nào."
+        }\n\n=== CÂU HỎI CỦA SALES ===\n${auditQuery}`;
 
         // 5. Call AI (with 30-min cache for rag_audit repeated queries)
         const { result: auditAiResult, cacheHit: auditCacheHit } = await getOrSetCache(
           adminClient,
           auditCacheKey,
-          'rag_audit',
+          "rag_audit",
           30, // 30 minutes TTL
           async () => {
             const resp = await callAI(userPrompt, systemPrompt, aiConfig);
             return resp;
-          }
+          },
         );
         const aiResponse = auditAiResult as any;
 
@@ -708,19 +806,24 @@ Yêu cầu:
         // Post-processing safety checks
         const medicalViolations = detectBannedPhrases(finalAnswer);
         if (medicalViolations.length > 0) {
-          finalAnswer = "Nội dung AI tạo ra có nguy cơ chứa claim y khoa nên đã được chặn. Vui lòng kiểm tra lại Product Knowledge hoặc viết lại câu hỏi.";
+          finalAnswer =
+            "Nội dung AI tạo ra có nguy cơ chứa claim y khoa nên đã được chặn. Vui lòng kiểm tra lại Product Knowledge hoặc viết lại câu hỏi.";
           await logSafetyEvent(adminClient, {
             requestId: requestId,
             userId: user.id,
             eventType: "medical_claim_blocked",
             phrase: medicalViolations.join(", "),
             severity: "high",
-            originalResponse: aiResponse.content
+            originalResponse: aiResponse.content,
           });
         } else {
           const { data: allProductsData } = await adminClient.from("products").select("name");
           const allProducts = allProductsData || [];
-          const productViolations = detectUnsupportedProductMentions(finalAnswer, promptChunks, allProducts);
+          const productViolations = detectUnsupportedProductMentions(
+            finalAnswer,
+            promptChunks,
+            allProducts,
+          );
           if (productViolations.length > 0) {
             finalAnswer = `Phản hồi đã bị chặn do nhắc đến sản phẩm không có trong tài liệu đối chiếu: ${productViolations.join(", ")}. Vui lòng viết lại câu hỏi.`;
             await logSafetyEvent(adminClient, {
@@ -729,7 +832,7 @@ Yêu cầu:
               eventType: "unsupported_product_mention",
               phrase: productViolations.join(", "),
               severity: "medium",
-              originalResponse: aiResponse.content
+              originalResponse: aiResponse.content,
             });
           }
         }
@@ -739,7 +842,7 @@ Yêu cầu:
         await logUsage(adminClient, aiConfig, {
           userId: user.id,
           customerId: undefined,
-          mode: 'rag_audit',
+          mode: "rag_audit",
           promptTokens: auditCacheHit ? 0 : (aiResponse.prompt_tokens ?? 0),
           completionTokens: auditCacheHit ? 0 : (aiResponse.completion_tokens ?? 0),
           totalTokens: auditCacheHit ? 0 : (aiResponse.total_tokens ?? 0),
@@ -757,7 +860,6 @@ Yêu cầu:
           provider: aiConfig.provider,
           cache_hit: auditCacheHit,
         });
-
       } catch (err: any) {
         return json({ error: err.message }, 500);
       }
@@ -772,7 +874,10 @@ Yêu cầu:
       .single();
 
     if (customerError || !customerData) {
-      return json({ error: "Không có quyền xem khách hàng này hoặc khách hàng không tồn tại." }, 403);
+      return json(
+        { error: "Không có quyền xem khách hàng này hoặc khách hàng không tồn tại." },
+        403,
+      );
     }
 
     // 4. Load related data using adminClient for completeness
@@ -782,19 +887,19 @@ Yêu cầu:
         .select("*")
         .eq("customer_id", customerId)
         .order("created_at", { ascending: false })
-        .limit(5),  // P4: reduced from 10 → 5
+        .limit(5), // P4: reduced from 10 → 5
       adminClient
         .from("orders")
         .select("*")
         .eq("customer_id", customerId)
         .order("created_at", { ascending: false })
-        .limit(3),  // P4: reduced from 5 → 3
+        .limit(3), // P4: reduced from 5 → 3
       adminClient
         .from("customer_tasks")
         .select("*")
         .eq("customer_id", customerId)
         .order("created_at", { ascending: false })
-        .limit(3)   // P4: reduced from 5 → 3
+        .limit(3), // P4: reduced from 5 → 3
     ]);
 
     const activities = activitiesResult.data || [];
@@ -811,11 +916,13 @@ Yêu cầu:
       const { data: chunksData } = await adminClient.rpc("match_product_chunks", {
         query_embedding: queryEmbedding,
         match_threshold: 0.3,
-        match_count: 3  // P4: reduced from 5 → 3 (top 3 most relevant chunks sufficient for summary)
+        match_count: 3, // P4: reduced from 5 → 3 (top 3 most relevant chunks sufficient for summary)
       });
       productChunks = chunksData || [];
       if (productChunks.length > 0) {
-        activeKnowledgeVersion = Math.max(...productChunks.map((c: any) => c.knowledge_version || 1));
+        activeKnowledgeVersion = Math.max(
+          ...productChunks.map((c: any) => c.knowledge_version || 1),
+        );
       }
     } catch (e) {
       console.error("RAG Search Error:", e);
@@ -849,19 +956,19 @@ Hãy viết lại theo format JSON.`;
       try {
         // P4: Cache rewrite results for 1 hour (same customer + same suggestions)
         const rewriteCacheKey = await hashCacheKey(
-          `rewrite:${customerId}:${JSON.stringify(suggestions.map((s: any) => s.id).sort())}`
+          `rewrite:${customerId}:${JSON.stringify(suggestions.map((s: any) => s.id).sort())}`,
         );
 
         const { result: rewriteCacheResult, cacheHit: rewriteCacheHit } = await getOrSetCache(
           adminClient,
           rewriteCacheKey,
-          'rewrite',
+          "rewrite",
           60, // 1 hour TTL
           async () => {
             // P4: model routing — rewrite always uses gpt-4o-mini
             const resp = await callAI(rewriteUserPrompt, rewriteSystemPrompt, aiConfigForMode);
             return resp;
-          }
+          },
         );
         const rewriteResponse = rewriteCacheResult as any;
         const rewriteLatencyMs = Date.now() - rewriteStartTime;
@@ -889,7 +996,7 @@ Hãy viết lại theo format JSON.`;
         await logUsage(adminClient, aiConfig, {
           userId: user.id,
           customerId,
-          mode: 'rewrite_suggestions',
+          mode: "rewrite_suggestions",
           promptTokens: rewriteCacheHit ? 0 : (rewriteResponse.prompt_tokens ?? 0),
           completionTokens: rewriteCacheHit ? 0 : (rewriteResponse.completion_tokens ?? 0),
           totalTokens: rewriteCacheHit ? 0 : (rewriteResponse.total_tokens ?? 0),
@@ -908,32 +1015,37 @@ Hãy viết lại theo format JSON.`;
     // --- PHASE P2: RAG Guards in Summary Mode ---
     // A. Low Retrieval Guard (0 chunks fetched from match_product_chunks)
     if (productChunks.length === 0) {
-      const fallbackText = "Hiện chưa có đủ dữ liệu chính thức trong Cẩm nang sản phẩm để tư vấn nội dung này.";
+      const fallbackText =
+        "Hiện chưa có đủ dữ liệu chính thức trong Cẩm nang sản phẩm để tư vấn nội dung này.";
       await logSafetyEvent(adminClient, {
         requestId,
         userId: user.id,
         customerId,
         eventType: "no_retrieval",
         phrase: "N/A",
-        severity: "medium"
+        severity: "medium",
       });
 
-      const { data: convRow } = await adminClient.from("ai_conversation_logs").insert({
-        request_id: requestId,
-        user_id: user.id,
-        customer_id: customerId,
-        task_id: taskId || null,
-        mode: "summary",
-        request_preview: "Summary mode: no retrieval",
-        response_preview: fallbackText,
-        retrieved_chunks: "[]",
-        prompt_tokens: 0,
-        completion_tokens: 0,
-        total_tokens: 0,
-        estimated_cost_usd: 0,
-        status: "success",
-        error_message: null,
-      }).select('id').single();
+      const { data: convRow } = await adminClient
+        .from("ai_conversation_logs")
+        .insert({
+          request_id: requestId,
+          user_id: user.id,
+          customer_id: customerId,
+          task_id: taskId || null,
+          mode: "summary",
+          request_preview: "Summary mode: no retrieval",
+          response_preview: fallbackText,
+          retrieved_chunks: "[]",
+          prompt_tokens: 0,
+          completion_tokens: 0,
+          total_tokens: 0,
+          estimated_cost_usd: 0,
+          status: "success",
+          error_message: null,
+        })
+        .select("id")
+        .single();
 
       return json({
         conversation_id: convRow?.id || null,
@@ -949,32 +1061,44 @@ Hãy viết lại theo format JSON.`;
     // B. Low Confidence Guard (< 0.7 Score)
     const topScore = Math.max(...productChunks.map((c: any) => c.similarity ?? 0));
     if (topScore < 0.7) {
-      const fallbackText = "Hiện chưa có đủ dữ liệu chính thức trong Cẩm nang sản phẩm để tư vấn nội dung này. (Độ tin cậy của thông tin tìm thấy không đạt yêu cầu).";
+      const fallbackText =
+        "Hiện chưa có đủ dữ liệu chính thức trong Cẩm nang sản phẩm để tư vấn nội dung này. (Độ tin cậy của thông tin tìm thấy không đạt yêu cầu).";
       await logSafetyEvent(adminClient, {
         requestId,
         userId: user.id,
         customerId,
         eventType: "low_confidence_retrieval",
         phrase: `Top score: ${topScore.toFixed(4)}`,
-        severity: "medium"
+        severity: "medium",
       });
 
-      const { data: convRow } = await adminClient.from("ai_conversation_logs").insert({
-        request_id: requestId,
-        user_id: user.id,
-        customer_id: customerId,
-        task_id: taskId || null,
-        mode: "summary",
-        request_preview: "Summary mode: low confidence retrieval",
-        response_preview: fallbackText,
-        retrieved_chunks: JSON.stringify(productChunks.map(c => ({ chunk_id: c.id, product_id: c.product_id, chunk_type: c.chunk_type, score: c.similarity }))),
-        prompt_tokens: 0,
-        completion_tokens: 0,
-        total_tokens: 0,
-        estimated_cost_usd: 0,
-        status: "success",
-        error_message: null,
-      }).select('id').single();
+      const { data: convRow } = await adminClient
+        .from("ai_conversation_logs")
+        .insert({
+          request_id: requestId,
+          user_id: user.id,
+          customer_id: customerId,
+          task_id: taskId || null,
+          mode: "summary",
+          request_preview: "Summary mode: low confidence retrieval",
+          response_preview: fallbackText,
+          retrieved_chunks: JSON.stringify(
+            productChunks.map((c) => ({
+              chunk_id: c.id,
+              product_id: c.product_id,
+              chunk_type: c.chunk_type,
+              score: c.similarity,
+            })),
+          ),
+          prompt_tokens: 0,
+          completion_tokens: 0,
+          total_tokens: 0,
+          estimated_cost_usd: 0,
+          status: "success",
+          error_message: null,
+        })
+        .select("id")
+        .single();
 
       return json({
         conversation_id: convRow?.id || null,
@@ -988,7 +1112,7 @@ Hãy viết lại theo format JSON.`;
     }
 
     // Keep only chunks passing threshold for LLM prompt context
-    const promptChunks = productChunks.filter(c => (c.similarity ?? 0) >= 0.7);
+    const promptChunks = productChunks.filter((c) => (c.similarity ?? 0) >= 0.7);
 
     // 5. Build prompt for SUMMARY mode
     // P4: merged duplicate safety blocks (NGUYÊN TẮC + AI SAFETY LAYER) into one
@@ -1023,33 +1147,53 @@ Skin concern focus: ${customerData.skin_concern_focus || "Không rõ"}
 Ngày tạo: ${customerData.created_at || "N/A"}
 
 === HOẠT ĐỘNG CHĂM SÓC GẦN ĐÂY (${activities.length} hoạt động) ===
-${activities.length > 0
-  ? activities.map((a: any, i: number) => 
-      `${i + 1}. [${a.activity_type || "note"}] ${a.title || ""} - ${a.content || ""} (${a.created_at})`
-    ).join("\n")
-  : "Chưa có hoạt động nào."}
+${
+  activities.length > 0
+    ? activities
+        .map(
+          (a: any, i: number) =>
+            `${i + 1}. [${a.activity_type || "note"}] ${a.title || ""} - ${a.content || ""} (${a.created_at})`,
+        )
+        .join("\n")
+    : "Chưa có hoạt động nào."
+}
 
 === ĐƠN HÀNG GẦN ĐÂY (${orders.length} đơn) ===
-${orders.length > 0
-  ? orders.map((o: any, i: number) =>
-      `${i + 1}. Đơn #${o.id?.slice(0, 8)} - Tổng: ${o.total?.toLocaleString() || 0}đ - Trạng thái: ${o.status || "N/A"} (${o.created_at})`
-    ).join("\n")
-  : "Chưa có đơn hàng."}
+${
+  orders.length > 0
+    ? orders
+        .map(
+          (o: any, i: number) =>
+            `${i + 1}. Đơn #${o.id?.slice(0, 8)} - Tổng: ${o.total?.toLocaleString() || 0}đ - Trạng thái: ${o.status || "N/A"} (${o.created_at})`,
+        )
+        .join("\n")
+    : "Chưa có đơn hàng."
+}
 
 === TASK/CÔNG VIỆC GẦN ĐÂY (${tasks.length} task) ===
-${tasks.length > 0
-  ? tasks.map((t: any, i: number) =>
-      `${i + 1}. [${t.status || "pending"}] ${t.title || ""} - Ưu tiên: ${t.priority || "normal"} - Hạn: ${t.due_at || "Không có"} (${t.created_at})`
-    ).join("\n")
-  : "Chưa có task."}
+${
+  tasks.length > 0
+    ? tasks
+        .map(
+          (t: any, i: number) =>
+            `${i + 1}. [${t.status || "pending"}] ${t.title || ""} - Ưu tiên: ${t.priority || "normal"} - Hạn: ${t.due_at || "Không có"} (${t.created_at})`,
+        )
+        .join("\n")
+    : "Chưa có task."
+}
 
 
 <KNOWLEDGE_CHUNKS> (${promptChunks.length} chunks)
-${promptChunks.length > 0
-  ? promptChunks.map((chunk: any, i: number) =>
-      `[Chunk ${i + 1}] Product ID ${chunk.product_id} (${chunk.chunk_type}): ${trimChunk(chunk.content)}`
-    ).join("\n")
-  : "Không tìm thấy dữ liệu sản phẩm liên quan."}
+${
+  promptChunks.length > 0
+    ? promptChunks
+        .map(
+          (chunk: any, i: number) =>
+            `[Chunk ${i + 1}] Product ID ${chunk.product_id} (${chunk.chunk_type}): ${trimChunk(chunk.content)}`,
+        )
+        .join("\n")
+    : "Không tìm thấy dữ liệu sản phẩm liên quan."
+}
 </KNOWLEDGE_CHUNKS>
 
 Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
@@ -1064,7 +1208,7 @@ Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
         customer_id: customerId,
         mode: "summary",
         prompt: userPrompt,
-        retrieved_chunks: productChunks.map(c => ({ chunk_id: c.id, score: c.similarity })),
+        retrieved_chunks: productChunks.map((c) => ({ chunk_id: c.id, score: c.similarity })),
         knowledge_version: activeKnowledgeVersion,
         status: "error",
         error_message: aiError.message || "Unknown AI error",
@@ -1094,20 +1238,22 @@ Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
     let finalStatus = parsed.current_status || "";
     let finalInsights = Array.isArray(parsed.key_insights) ? parsed.key_insights : [];
     let finalRisks = Array.isArray(parsed.risks) ? parsed.risks : [];
-    let finalActions = Array.isArray(parsed.suggested_next_actions) ? parsed.suggested_next_actions : [];
+    let finalActions = Array.isArray(parsed.suggested_next_actions)
+      ? parsed.suggested_next_actions
+      : [];
 
     // 1. Check Medical Claims (both hardcoded list and DB active banned phrases list)
     const medicalViolations = detectBannedPhrases(aiResponse.content);
     // Also validate against DB banned phrases
     const dbBannedCheck = await validateAIOutput(aiResponse.content, adminClient);
     if (medicalViolations.length > 0 || dbBannedCheck.blocked) {
-      const matchedPhrases = Array.from(new Set([
-        ...medicalViolations,
-        ...(dbBannedCheck.detectedPhrases || [])
-      ]));
-      
+      const matchedPhrases = Array.from(
+        new Set([...medicalViolations, ...(dbBannedCheck.detectedPhrases || [])]),
+      );
+
       hallucinationBlocked = true;
-      finalSummary = "Nội dung AI tạo ra có nguy cơ chứa claim y khoa nên đã được chặn. Vui lòng kiểm tra lại Product Knowledge hoặc viết lại câu hỏi.";
+      finalSummary =
+        "Nội dung AI tạo ra có nguy cơ chứa claim y khoa nên đã được chặn. Vui lòng kiểm tra lại Product Knowledge hoặc viết lại câu hỏi.";
       finalStatus = "Blocked";
       finalInsights = [];
       finalRisks = [];
@@ -1119,13 +1265,17 @@ Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
         eventType: "medical_claim_blocked",
         phrase: matchedPhrases.join(", "),
         severity: "high",
-        originalResponse: aiResponse.content
+        originalResponse: aiResponse.content,
       });
     } else {
       // 2. Check Unsupported Products
       const { data: allProductsData } = await adminClient.from("products").select("name");
       const allProducts = allProductsData || [];
-      const productViolations = detectUnsupportedProductMentions(aiResponse.content, promptChunks, allProducts);
+      const productViolations = detectUnsupportedProductMentions(
+        aiResponse.content,
+        promptChunks,
+        allProducts,
+      );
       if (productViolations.length > 0) {
         hallucinationBlocked = true;
         finalSummary = `Phản hồi đã bị chặn do nhắc đến sản phẩm không có trong tài liệu đối chiếu: ${productViolations.join(", ")}. Vui lòng viết lại câu hỏi.`;
@@ -1140,7 +1290,7 @@ Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
           eventType: "unsupported_product_mention",
           phrase: productViolations.join(", "),
           severity: "medium",
-          originalResponse: aiResponse.content
+          originalResponse: aiResponse.content,
         });
       }
     }
@@ -1150,22 +1300,33 @@ Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
     const outputCost = (aiResponse.completion_tokens / 1_000_000) * 0.6;
     const estimatedCostUsd = inputCost + outputCost;
 
-    const { data: convRow } = await adminClient.from("ai_conversation_logs").insert({
-      request_id: requestId,
-      user_id: user.id,
-      customer_id: customerId,
-      task_id: taskId || null,
-      mode: "summary",
-      request_preview: truncateString(userPrompt),
-      response_preview: truncateString(aiResponse.content),
-      retrieved_chunks: JSON.stringify(productChunks.map(c => ({ chunk_id: c.id, product_id: c.product_id, chunk_type: c.chunk_type, score: c.similarity }))),
-      prompt_tokens: aiResponse.prompt_tokens,
-      completion_tokens: aiResponse.completion_tokens,
-      total_tokens: aiResponse.total_tokens,
-      estimated_cost_usd: estimatedCostUsd,
-      status: "success",
-      error_message: null,
-    }).select('id').single();
+    const { data: convRow } = await adminClient
+      .from("ai_conversation_logs")
+      .insert({
+        request_id: requestId,
+        user_id: user.id,
+        customer_id: customerId,
+        task_id: taskId || null,
+        mode: "summary",
+        request_preview: truncateString(userPrompt),
+        response_preview: truncateString(aiResponse.content),
+        retrieved_chunks: JSON.stringify(
+          productChunks.map((c) => ({
+            chunk_id: c.id,
+            product_id: c.product_id,
+            chunk_type: c.chunk_type,
+            score: c.similarity,
+          })),
+        ),
+        prompt_tokens: aiResponse.prompt_tokens,
+        completion_tokens: aiResponse.completion_tokens,
+        total_tokens: aiResponse.total_tokens,
+        estimated_cost_usd: estimatedCostUsd,
+        status: "success",
+        error_message: null,
+      })
+      .select("id")
+      .single();
 
     const conversationId = convRow?.id || null;
 
@@ -1190,11 +1351,7 @@ Hãy tóm tắt tổng quan khách hàng này cho nhân viên bán hàng.`;
       risks: finalRisks,
       suggested_next_actions: finalActions,
     });
-
   } catch (error) {
-    return json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      500
-    );
+    return json({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });

@@ -1,11 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type NotificationType = 
-  | "lead_assigned" 
-  | "customer_assigned" 
-  | "task_assigned" 
-  | "follow_up_reminder" 
-  | "marketing_update" 
+export type NotificationType =
+  | "lead_assigned"
+  | "customer_assigned"
+  | "task_assigned"
+  | "follow_up_reminder"
+  | "marketing_update"
   | "handoff_ready"
   | "system_alert";
 

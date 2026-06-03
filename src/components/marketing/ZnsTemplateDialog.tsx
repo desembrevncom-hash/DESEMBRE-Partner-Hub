@@ -1,11 +1,24 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Plus, X, CheckCircle2, AlertTriangle, MessageSquare } from "lucide-react";
@@ -29,7 +42,13 @@ interface ZnsTemplateDialogProps {
   onSuccess: () => void;
 }
 
-export function ZnsTemplateDialog({ open, onOpenChange, templateToEdit, businessSenders, onSuccess }: ZnsTemplateDialogProps) {
+export function ZnsTemplateDialog({
+  open,
+  onOpenChange,
+  templateToEdit,
+  businessSenders,
+  onSuccess,
+}: ZnsTemplateDialogProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     sender_account_id: "",
@@ -42,7 +61,11 @@ export function ZnsTemplateDialog({ open, onOpenChange, templateToEdit, business
     is_active: true,
   });
 
-  const [validationResult, setValidationResult] = useState<{ isValid: boolean; missingParams: string[]; error?: string } | null>(null);
+  const [validationResult, setValidationResult] = useState<{
+    isValid: boolean;
+    missingParams: string[];
+    error?: string;
+  } | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -53,13 +76,17 @@ export function ZnsTemplateDialog({ open, onOpenChange, templateToEdit, business
           template_name: templateToEdit.template_name,
           purpose: templateToEdit.purpose || "",
           category: templateToEdit.category || "",
-          required_params: templateToEdit.required_params ? templateToEdit.required_params.join(", ") : "",
+          required_params: templateToEdit.required_params
+            ? templateToEdit.required_params.join(", ")
+            : "",
           sample_payload: JSON.stringify(templateToEdit.sample_payload, null, 2),
           is_active: templateToEdit.is_active,
         });
       } else {
         // Find default Zalo OA sender
-        const defaultZaloSender = businessSenders.find(s => s.channel === "zalo_oa" && s.health_status === "healthy");
+        const defaultZaloSender = businessSenders.find(
+          (s) => s.channel === "zalo_oa" && s.health_status === "healthy",
+        );
         setFormData({
           sender_account_id: defaultZaloSender ? defaultZaloSender.id : "",
           zalo_template_id: "",
@@ -79,7 +106,7 @@ export function ZnsTemplateDialog({ open, onOpenChange, templateToEdit, business
     try {
       const payloadObj = JSON.parse(formData.sample_payload);
       const paramsArray = normalizeZnsParams(formData.required_params);
-      
+
       const mockTemplate: ZnsTemplate = {
         id: "mock",
         sender_account_id: formData.sender_account_id,
@@ -93,14 +120,18 @@ export function ZnsTemplateDialog({ open, onOpenChange, templateToEdit, business
 
       const result = validateZnsTemplatePayload(mockTemplate, payloadObj);
       setValidationResult(result);
-      
+
       if (result.isValid) {
         toast.success("Validation thành công: Sample payload hợp lệ.");
       } else {
         toast.error(`Validation lỗi: ${result.error}`);
       }
     } catch (e) {
-      setValidationResult({ isValid: false, missingParams: [], error: "JSON Sample Payload không hợp lệ" });
+      setValidationResult({
+        isValid: false,
+        missingParams: [],
+        error: "JSON Sample Payload không hợp lệ",
+      });
       toast.error("JSON không hợp lệ. Vui lòng kiểm tra lại cấu trúc.");
     }
   };
@@ -109,7 +140,7 @@ export function ZnsTemplateDialog({ open, onOpenChange, templateToEdit, business
     if (!formData.sender_account_id) return toast.error("Vui lòng chọn Zalo OA Sender");
     if (!formData.zalo_template_id.trim()) return toast.error("Vui lòng nhập Zalo Template ID");
     if (!formData.template_name.trim()) return toast.error("Vui lòng nhập Tên Template");
-    
+
     let parsedPayload = {};
     try {
       parsedPayload = JSON.parse(formData.sample_payload);
@@ -138,14 +169,12 @@ export function ZnsTemplateDialog({ open, onOpenChange, templateToEdit, business
           .from("zns_templates")
           .update(payloadToSave)
           .eq("id", templateToEdit.id);
-        
+
         if (error) throw error;
         toast.success("Đã cập nhật template thành công");
       } else {
-        const { error } = await supabase
-          .from("zns_templates")
-          .insert(payloadToSave);
-        
+        const { error } = await supabase.from("zns_templates").insert(payloadToSave);
+
         if (error) {
           if (error.code === "23505") {
             throw new Error("Template ID này đã tồn tại cho Zalo OA Sender đã chọn");
@@ -154,7 +183,7 @@ export function ZnsTemplateDialog({ open, onOpenChange, templateToEdit, business
         }
         toast.success("Đã thêm template mới thành công");
       }
-      
+
       onSuccess();
       onOpenChange(false);
     } catch (e: any) {
@@ -164,7 +193,9 @@ export function ZnsTemplateDialog({ open, onOpenChange, templateToEdit, business
     }
   };
 
-  const zaloSenders = businessSenders.filter(s => s.channel === "zalo_oa" || s.channel === "zalo");
+  const zaloSenders = businessSenders.filter(
+    (s) => s.channel === "zalo_oa" || s.channel === "zalo",
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -187,9 +218,11 @@ export function ZnsTemplateDialog({ open, onOpenChange, templateToEdit, business
 
         <div className="grid gap-5 py-4">
           <div className="space-y-1.5">
-            <Label className="text-xs font-bold text-slate-700">Liên kết Zalo OA Sender <span className="text-rose-500">*</span></Label>
-            <Select 
-              value={formData.sender_account_id} 
+            <Label className="text-xs font-bold text-slate-700">
+              Liên kết Zalo OA Sender <span className="text-rose-500">*</span>
+            </Label>
+            <Select
+              value={formData.sender_account_id}
               onValueChange={(val) => setFormData({ ...formData, sender_account_id: val })}
               disabled={!!templateToEdit} // Do not allow changing sender after creation
             >
@@ -197,13 +230,15 @@ export function ZnsTemplateDialog({ open, onOpenChange, templateToEdit, business
                 <SelectValue placeholder="Chọn Zalo OA Sender..." />
               </SelectTrigger>
               <SelectContent>
-                {zaloSenders.map(s => (
+                {zaloSenders.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name} {s.health_status === "healthy" ? "(Healthy)" : "(Lỗi)"}
                   </SelectItem>
                 ))}
                 {zaloSenders.length === 0 && (
-                  <SelectItem value="none" disabled>Không có Zalo OA Sender nào</SelectItem>
+                  <SelectItem value="none" disabled>
+                    Không có Zalo OA Sender nào
+                  </SelectItem>
                 )}
               </SelectContent>
             </Select>
@@ -211,7 +246,9 @@ export function ZnsTemplateDialog({ open, onOpenChange, templateToEdit, business
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">Zalo Template ID <span className="text-rose-500">*</span></Label>
+              <Label className="text-xs font-bold text-slate-700">
+                Zalo Template ID <span className="text-rose-500">*</span>
+              </Label>
               <Input
                 value={formData.zalo_template_id}
                 onChange={(e) => setFormData({ ...formData, zalo_template_id: e.target.value })}
@@ -223,7 +260,9 @@ export function ZnsTemplateDialog({ open, onOpenChange, templateToEdit, business
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">Tên Template hiển thị <span className="text-rose-500">*</span></Label>
+              <Label className="text-xs font-bold text-slate-700">
+                Tên Template hiển thị <span className="text-rose-500">*</span>
+              </Label>
               <Input
                 value={formData.template_name}
                 onChange={(e) => setFormData({ ...formData, template_name: e.target.value })}
@@ -236,7 +275,10 @@ export function ZnsTemplateDialog({ open, onOpenChange, templateToEdit, business
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-700">Purpose</Label>
-              <Select value={formData.purpose} onValueChange={(val) => setFormData({ ...formData, purpose: val })}>
+              <Select
+                value={formData.purpose}
+                onValueChange={(val) => setFormData({ ...formData, purpose: val })}
+              >
                 <SelectTrigger className="h-10 rounded-xl border-slate-200">
                   <SelectValue placeholder="Mục đích..." />
                 </SelectTrigger>
@@ -261,7 +303,9 @@ export function ZnsTemplateDialog({ open, onOpenChange, templateToEdit, business
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-bold text-slate-700">Required Parameters <span className="text-rose-500">*</span></Label>
+            <Label className="text-xs font-bold text-slate-700">
+              Required Parameters <span className="text-rose-500">*</span>
+            </Label>
             <Input
               value={formData.required_params}
               onChange={(e) => setFormData({ ...formData, required_params: e.target.value })}
@@ -269,8 +313,12 @@ export function ZnsTemplateDialog({ open, onOpenChange, templateToEdit, business
               className="h-10 rounded-xl border-slate-200 font-mono text-xs"
             />
             <div className="flex gap-1 flex-wrap mt-1">
-              {normalizeZnsParams(formData.required_params).map(p => (
-                <Badge key={p} variant="secondary" className="text-[10px] bg-slate-100 text-slate-600 font-mono">
+              {normalizeZnsParams(formData.required_params).map((p) => (
+                <Badge
+                  key={p}
+                  variant="secondary"
+                  className="text-[10px] bg-slate-100 text-slate-600 font-mono"
+                >
                   {p}
                 </Badge>
               ))}
@@ -279,8 +327,16 @@ export function ZnsTemplateDialog({ open, onOpenChange, templateToEdit, business
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label className="text-xs font-bold text-slate-700">Sample Payload (JSON format)</Label>
-              <Button type="button" variant="ghost" size="sm" onClick={validateSamplePayload} className="h-6 text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2 rounded-lg">
+              <Label className="text-xs font-bold text-slate-700">
+                Sample Payload (JSON format)
+              </Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={validateSamplePayload}
+                className="h-6 text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2 rounded-lg"
+              >
                 <CheckCircle2 className="w-3 h-3 mr-1" /> Validate
               </Button>
             </div>
@@ -291,14 +347,18 @@ export function ZnsTemplateDialog({ open, onOpenChange, templateToEdit, business
                 setValidationResult(null);
               }}
               placeholder='{\n  "customer_name": "A",\n  "order_code": "123"\n}'
-              className={`font-mono text-xs h-32 rounded-xl resize-none ${validationResult?.isValid === false ? 'border-rose-300 focus-visible:ring-rose-200' : 'border-slate-200'}`}
+              className={`font-mono text-xs h-32 rounded-xl resize-none ${validationResult?.isValid === false ? "border-rose-300 focus-visible:ring-rose-200" : "border-slate-200"}`}
             />
             {validationResult && (
-              <div className={`mt-2 text-[11px] p-2 rounded-lg flex items-start gap-1.5 ${validationResult.isValid ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+              <div
+                className={`mt-2 text-[11px] p-2 rounded-lg flex items-start gap-1.5 ${validationResult.isValid ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}
+              >
                 {validationResult.isValid ? (
                   <>
                     <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                    <span className="font-medium">Payload hợp lệ. Tất cả các tham số bắt buộc đã được cung cấp.</span>
+                    <span className="font-medium">
+                      Payload hợp lệ. Tất cả các tham số bắt buộc đã được cung cấp.
+                    </span>
                   </>
                 ) : (
                   <>
@@ -313,17 +373,31 @@ export function ZnsTemplateDialog({ open, onOpenChange, templateToEdit, business
           <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
             <div>
               <p className="text-sm font-bold text-slate-800">Kích hoạt Template</p>
-              <p className="text-[11px] text-slate-500">Chỉ template Active mới có thể gửi tin nhắn.</p>
+              <p className="text-[11px] text-slate-500">
+                Chỉ template Active mới có thể gửi tin nhắn.
+              </p>
             </div>
-            <Switch checked={formData.is_active} onCheckedChange={(c) => setFormData({ ...formData, is_active: c })} />
+            <Switch
+              checked={formData.is_active}
+              onCheckedChange={(c) => setFormData({ ...formData, is_active: c })}
+            />
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl h-10 font-bold" disabled={loading}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="rounded-xl h-10 font-bold"
+            disabled={loading}
+          >
             Hủy
           </Button>
-          <Button onClick={handleSubmit} className="rounded-xl h-10 font-bold bg-slate-900 text-white" disabled={loading}>
+          <Button
+            onClick={handleSubmit}
+            className="rounded-xl h-10 font-bold bg-slate-900 text-white"
+            disabled={loading}
+          >
             {loading ? "Đang lưu..." : "Lưu Template"}
           </Button>
         </DialogFooter>

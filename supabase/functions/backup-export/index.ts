@@ -6,8 +6,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 function json(body: unknown, status = 200) {
@@ -16,7 +15,7 @@ function json(body: unknown, status = 200) {
     headers: {
       ...corsHeaders,
       "Content-Type": "application/json",
-      "Content-Disposition": `attachment; filename="desembre_backup_${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 16)}.json"`
+      "Content-Disposition": `attachment; filename="desembre_backup_${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 16)}.json"`,
     },
   });
 }
@@ -70,7 +69,8 @@ Deno.serve(async (req) => {
       .in("role", ["admin", "sub_admin"]);
 
     const callerRoleStrings = (managerRoles || []).map((r) => r.role);
-    const isCallerManager = callerRoleStrings.includes("admin") || callerRoleStrings.includes("sub_admin");
+    const isCallerManager =
+      callerRoleStrings.includes("admin") || callerRoleStrings.includes("sub_admin");
 
     if (!isCallerManager) {
       return json({ error: "Yêu cầu quyền quản lý (Admin hoặc Phó Admin) để export backup" }, 403);
@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
       "ai_settings",
       "system_settings",
       "pilot_modules",
-      "product_copilot_quick_replies"
+      "product_copilot_quick_replies",
     ];
 
     const tablesData: Record<string, any[]> = {};
@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
     const backupJson = {
       version: "v0.9.0-pre-pilot",
       created_at: new Date().toISOString(),
-      tables: tablesData
+      tables: tablesData,
     };
 
     return json(backupJson);
@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
       {
         error: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 });

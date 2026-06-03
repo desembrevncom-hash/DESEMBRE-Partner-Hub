@@ -9,16 +9,16 @@ interface UserStatsProps {
 export function UserStats({ profiles, roles }: UserStatsProps) {
   const totalUsers = profiles.length;
   const adminCount = profiles.filter((p) =>
-    roles.some((r) => r.user_id === p.id && r.role === "admin")
+    roles.some((r) => r.user_id === p.id && r.role === "admin"),
   ).length;
   const subAdminCount = profiles.filter((p) =>
-    roles.some((r) => r.user_id === p.id && r.role === "sub_admin")
+    roles.some((r) => r.user_id === p.id && r.role === "sub_admin"),
   ).length;
   const saleCount = profiles.filter((p) =>
-    roles.some((r) => r.user_id === p.id && r.role === "sale")
+    roles.some((r) => r.user_id === p.id && r.role === "sale"),
   ).length;
   const telesaleCount = profiles.filter((p) =>
-    roles.some((r) => r.user_id === p.id && r.role === "telesale")
+    roles.some((r) => r.user_id === p.id && r.role === "telesale"),
   ).length;
 
   return (

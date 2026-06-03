@@ -1,16 +1,17 @@
+/* eslint-disable */
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { 
-  AlertCircle, 
-  Ban, 
-  CheckCircle2, 
-  Eye, 
-  Loader2, 
-  Lock, 
-  Play, 
+import {
+  AlertCircle,
+  Ban,
+  CheckCircle2,
+  Eye,
+  Loader2,
+  Lock,
+  Play,
   Zap,
   MessageSquare,
-  ArrowRightLeft
+  ArrowRightLeft,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -94,7 +95,12 @@ export function ZaloProcessorPanel({ onProcessed }: { onProcessed?: () => void }
         .in("provider", ["zalo", "zalo_zbs"])
         .eq("signature_valid", true)
         .eq("status", "received")
-        .in("event_type", ["user_received_message", "zns_delivered", "zns_failed", "user_seen_message"]);
+        .in("event_type", [
+          "user_received_message",
+          "zns_delivered",
+          "zns_failed",
+          "user_seen_message",
+        ]);
 
       if (!dError) setPendingCount(dCount ?? 0);
 
@@ -105,7 +111,11 @@ export function ZaloProcessorPanel({ onProcessed }: { onProcessed?: () => void }
         .in("provider", ["zalo", "zalo_zbs"])
         .eq("signature_valid", true)
         .eq("status", "received")
-        .not("event_type", "in", '("user_received_message","zns_delivered","zns_failed","user_seen_message")');
+        .not(
+          "event_type",
+          "in",
+          '("user_received_message","zns_delivered","zns_failed","user_seen_message")',
+        );
 
       if (!iError) setInboundCount(iCount ?? 0);
     } catch {
@@ -144,13 +154,21 @@ export function ZaloProcessorPanel({ onProcessed }: { onProcessed?: () => void }
       const data = await res.json();
 
       if (res.status === 409) {
-        setResult({ error: "already_running", message: data.message || "Worker đang chạy bởi một request khác." });
-        toast.warning("Worker đang chạy", { description: "Một phiên xử lý khác đang hoạt động. Vui lòng thử lại sau." });
+        setResult({
+          error: "already_running",
+          message: data.message || "Worker đang chạy bởi một request khác.",
+        });
+        toast.warning("Worker đang chạy", {
+          description: "Một phiên xử lý khác đang hoạt động. Vui lòng thử lại sau.",
+        });
         return;
       }
 
       if (!res.ok) {
-        setResult({ error: data.error || "unknown_error", message: data.details || data.message || res.statusText });
+        setResult({
+          error: data.error || "unknown_error",
+          message: data.details || data.message || res.statusText,
+        });
         toast.error("Lỗi Worker", { description: data.error || res.statusText });
         return;
       }
@@ -163,7 +181,9 @@ export function ZaloProcessorPanel({ onProcessed }: { onProcessed?: () => void }
         onProcessed?.();
         fetchPendingCounts();
       } else if (!confirm && data.success) {
-        toast.info("Dry-run hoàn tất", { description: `Quét ${data.scanned} events. Không ghi DB.` });
+        toast.info("Dry-run hoàn tất", {
+          description: `Quét ${data.scanned} events. Không ghi DB.`,
+        });
       }
     } catch (err: any) {
       setResult({ error: err.message });
@@ -189,9 +209,12 @@ export function ZaloProcessorPanel({ onProcessed }: { onProcessed?: () => void }
               <Zap className="w-4 h-4 text-blue-600" />
             </div>
             <div>
-              <CardTitle className="text-base font-bold text-slate-900">Zalo Webhook Processor</CardTitle>
+              <CardTitle className="text-base font-bold text-slate-900">
+                Zalo Webhook Processor
+              </CardTitle>
               <CardDescription className="text-xs text-slate-500">
-                Xử lý thủ công Zalo webhook events → Delivery Logs. Chỉ xử lý trạng thái giao nhận ZNS/Zalo.
+                Xử lý thủ công Zalo webhook events → Delivery Logs. Chỉ xử lý trạng thái giao nhận
+                ZNS/Zalo.
               </CardDescription>
             </div>
           </div>
@@ -225,17 +248,20 @@ export function ZaloProcessorPanel({ onProcessed }: { onProcessed?: () => void }
           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <div className="text-amber-700 space-y-1.5 leading-relaxed">
             <div>
-              <strong>Chỉ xử lý trạng thái giao nhận ZNS/Zalo.</strong> Không gửi tin nhắn. Không xử lý inbox/hội thoại. Không update suppression.
+              <strong>Chỉ xử lý trạng thái giao nhận ZNS/Zalo.</strong> Không gửi tin nhắn. Không xử
+              lý inbox/hội thoại. Không update suppression.
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2 pt-2 border-t border-amber-200/50">
               <div>
                 <span className="font-bold">Dry-run:</span> “Chạy thử, không ghi DB.”
               </div>
               <div>
-                <span className="font-bold">Confirm:</span> “Có thể cập nhật Delivery Logs và trạng thái webhook delivery events. Không gửi tin nhắn.”
+                <span className="font-bold">Confirm:</span> “Có thể cập nhật Delivery Logs và trạng
+                thái webhook delivery events. Không gửi tin nhắn.”
               </div>
               <div>
-                <span className="font-bold">Non-delivery:</span> “Tin nhắn khách gửi vào OA sẽ không bị xử lý bởi worker này.”
+                <span className="font-bold">Non-delivery:</span> “Tin nhắn khách gửi vào OA sẽ không
+                bị xử lý bởi worker này.”
               </div>
             </div>
           </div>
@@ -251,7 +277,11 @@ export function ZaloProcessorPanel({ onProcessed }: { onProcessed?: () => void }
             onClick={() => callWorker(false)}
             className="h-9 rounded-lg border-slate-300 bg-white hover:bg-slate-50 font-semibold text-slate-700 gap-1.5"
           >
-            {runLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+            {runLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Play className="w-4 h-4" />
+            )}
             Run Dry-run
           </Button>
 
@@ -274,7 +304,7 @@ export function ZaloProcessorPanel({ onProcessed }: { onProcessed?: () => void }
                 placeholder={`Gõ "${CONFIRM_STRING}" để xác nhận`}
                 value={confirmPhrase}
                 onChange={(e) => setConfirmPhrase(e.target.value)}
-                className="h-9 w-72 text-sm font-mono rounded-lg border-rose-200 focus:ring-rose-300"
+                className="h-9 w-full sm:w-72 text-sm font-mono rounded-lg border-rose-200 focus:ring-rose-300"
                 disabled={runLoading}
                 autoFocus
               />
@@ -290,7 +320,11 @@ export function ZaloProcessorPanel({ onProcessed }: { onProcessed?: () => void }
                     : "bg-slate-200 text-slate-400 cursor-not-allowed"
                 }`}
               >
-                {runLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                {runLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Zap className="w-4 h-4" />
+                )}
                 Xác nhận xử lý
               </Button>
               <Button
@@ -316,8 +350,8 @@ export function ZaloProcessorPanel({ onProcessed }: { onProcessed?: () => void }
               result.error
                 ? "bg-rose-50 border-rose-200"
                 : result.dry_run
-                ? "bg-sky-50 border-sky-200"
-                : "bg-emerald-50 border-emerald-200"
+                  ? "bg-sky-50 border-sky-200"
+                  : "bg-emerald-50 border-emerald-200"
             }`}
           >
             <div className="flex items-center gap-2 font-bold">
@@ -325,20 +359,26 @@ export function ZaloProcessorPanel({ onProcessed }: { onProcessed?: () => void }
                 <>
                   <Ban className="w-4 h-4 text-rose-600" />
                   <span className="text-rose-700">
-                    {result.error === "already_running" ? "Worker đang chạy" : `Lỗi: ${result.error}`}
+                    {result.error === "already_running"
+                      ? "Worker đang chạy"
+                      : `Lỗi: ${result.error}`}
                   </span>
                 </>
               ) : result.dry_run ? (
                 <>
                   <Eye className="w-4 h-4 text-sky-600" />
                   <span className="text-sky-700">Zalo Dry-run Result</span>
-                  <Badge className="bg-sky-100 text-sky-700 border-sky-300 text-[10px]">PREVIEW</Badge>
+                  <Badge className="bg-sky-100 text-sky-700 border-sky-300 text-[10px]">
+                    PREVIEW
+                  </Badge>
                 </>
               ) : (
                 <>
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   <span className="text-emerald-700">Zalo Confirm Run Result</span>
-                  <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300 text-[10px]">EXECUTED</Badge>
+                  <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300 text-[10px]">
+                    EXECUTED
+                  </Badge>
                 </>
               )}
             </div>
@@ -350,23 +390,45 @@ export function ZaloProcessorPanel({ onProcessed }: { onProcessed?: () => void }
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <ZaloResultStat label="Scanned" value={result.scanned} />
                   {result.dry_run ? (
-                    <ZaloResultStat label="Would Update Logs" value={result.would_update_delivery_logs} highlight="sky" />
+                    <ZaloResultStat
+                      label="Would Update Logs"
+                      value={result.would_update_delivery_logs}
+                      highlight="sky"
+                    />
                   ) : (
-                    <ZaloResultStat label="Updated Logs" value={result.updated_delivery_logs} highlight="emerald" />
+                    <ZaloResultStat
+                      label="Updated Logs"
+                      value={result.updated_delivery_logs}
+                      highlight="emerald"
+                    />
                   )}
                   <ZaloResultStat label="Processed" value={result.processed} highlight="emerald" />
-                  <ZaloResultStat label="Skipped Non-Delivery" value={result.skipped_non_delivery} highlight="amber" />
-                  <ZaloResultStat label="Failed" value={result.failed} highlight={result.failed ? "rose" : undefined} />
+                  <ZaloResultStat
+                    label="Skipped Non-Delivery"
+                    value={result.skipped_non_delivery}
+                    highlight="amber"
+                  />
+                  <ZaloResultStat
+                    label="Failed"
+                    value={result.failed}
+                    highlight={result.failed ? "rose" : undefined}
+                  />
                   <ZaloResultStat label="Log Found" value={result.delivery_log_found} />
                   <ZaloResultStat label="Log Not Found" value={result.delivery_log_not_found} />
-                  <ZaloResultStat label="Missing ID" value={result.missing_related_message_id} highlight={result.missing_related_message_id ? "rose" : undefined} />
+                  <ZaloResultStat
+                    label="Missing ID"
+                    value={result.missing_related_message_id}
+                    highlight={result.missing_related_message_id ? "rose" : undefined}
+                  />
                 </div>
 
                 {/* Preservation note for inbound events */}
                 {result.skipped_non_delivery !== undefined && result.skipped_non_delivery > 0 && (
                   <div className="bg-blue-50/50 border border-blue-200/50 rounded-lg p-2.5 text-xs text-blue-700 flex items-center gap-1.5">
                     <ArrowRightLeft className="w-3.5 h-3.5" />
-                    <span>Các event inbound được giữ nguyên để phục vụ Inbox/Automation sau này.</span>
+                    <span>
+                      Các event inbound được giữ nguyên để phục vụ Inbox/Automation sau này.
+                    </span>
                   </div>
                 )}
               </div>

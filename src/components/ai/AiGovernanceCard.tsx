@@ -20,7 +20,9 @@ export default function AiGovernanceCard({ settings, onChange }: AiGovernanceCar
           <ShieldAlert className="w-5 h-5 text-rose-600" />
           <div>
             <CardTitle className="text-rose-900">AI Governance & Safety</CardTitle>
-            <CardDescription className="text-rose-700">Kiểm soát các công tắc an toàn trước khi mở public</CardDescription>
+            <CardDescription className="text-rose-700">
+              Kiểm soát các công tắc an toàn trước khi mở public
+            </CardDescription>
           </div>
         </div>
       </CardHeader>
@@ -28,7 +30,9 @@ export default function AiGovernanceCard({ settings, onChange }: AiGovernanceCar
         <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
           <div className="space-y-0.5">
             <Label className="text-base font-bold text-slate-900">Global AI Enable</Label>
-            <p className="text-xs text-slate-500">Bật/tắt toàn bộ tính năng AI trên toàn hệ thống (Master Switch).</p>
+            <p className="text-xs text-slate-500">
+              Bật/tắt toàn bộ tính năng AI trên toàn hệ thống (Master Switch).
+            </p>
           </div>
           <Switch
             checked={settings.ai_enabled || false}
@@ -88,7 +92,9 @@ export default function AiGovernanceCard({ settings, onChange }: AiGovernanceCar
               onChange={(e) => onChange({ ai_daily_limit: parseInt(e.target.value) || 0 })}
               className="w-full"
             />
-            <p className="text-[10px] text-slate-500">Số lần gọi AI tối đa mỗi ngày toàn hệ thống</p>
+            <p className="text-[10px] text-slate-500">
+              Số lần gọi AI tối đa mỗi ngày toàn hệ thống
+            </p>
           </div>
           <div className="space-y-2">
             <Label>Cache Duration (Minutes)</Label>

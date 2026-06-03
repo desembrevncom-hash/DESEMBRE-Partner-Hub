@@ -16,18 +16,34 @@ serve(async (req) => {
   // 1. Auth + Role Verification
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) {
-    return new Response(JSON.stringify({ success: false, error: "Thiếu Authorization" }), { status: 401, headers: corsHeaders });
+    return new Response(JSON.stringify({ success: false, error: "Thiếu Authorization" }), {
+      status: 401,
+      headers: corsHeaders,
+    });
   }
 
-  const { data: { user }, error: authErr } = await adminClient.auth.getUser(authHeader.replace("Bearer ", ""));
+  const {
+    data: { user },
+    error: authErr,
+  } = await adminClient.auth.getUser(authHeader.replace("Bearer ", ""));
   if (authErr || !user) {
-    return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+    return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
+      status: 401,
+      headers: corsHeaders,
+    });
   }
 
-  const { data: roleData } = await adminClient.from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
+  const { data: roleData } = await adminClient
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", user.id)
+    .maybeSingle();
   const isAdminOrSubAdmin = roleData?.role === "admin" || roleData?.role === "sub_admin";
   if (!isAdminOrSubAdmin) {
-    return new Response(JSON.stringify({ success: false, error: "Chỉ Admin/SubAdmin mới được phép gửi chiến dịch" }), { status: 403, headers: corsHeaders });
+    return new Response(
+      JSON.stringify({ success: false, error: "Chỉ Admin/SubAdmin mới được phép gửi chiến dịch" }),
+      { status: 403, headers: corsHeaders },
+    );
   }
 
   // 2. Parse request body
@@ -35,12 +51,18 @@ serve(async (req) => {
   try {
     body = await req.json();
   } catch {
-    return new Response(JSON.stringify({ success: false, error: "Invalid JSON body" }), { status: 400, headers: corsHeaders });
+    return new Response(JSON.stringify({ success: false, error: "Invalid JSON body" }), {
+      status: 400,
+      headers: corsHeaders,
+    });
   }
 
   const { campaign_id, batch_size = 30 } = body;
   if (!campaign_id) {
-    return new Response(JSON.stringify({ success: false, error: "Tham số campaign_id là bắt buộc" }), { status: 400, headers: corsHeaders });
+    return new Response(
+      JSON.stringify({ success: false, error: "Tham số campaign_id là bắt buộc" }),
+      { status: 400, headers: corsHeaders },
+    );
   }
 
   try {
@@ -56,11 +78,14 @@ serve(async (req) => {
     }
 
     if (["completed", "cancelled", "failed"].includes(campaign.status)) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: `Chiến dịch đã ở trạng thái kết thúc (${campaign.status}) và không thể gửi tiếp.`,
-        campaign_status: campaign.status
-      }), { status: 400, headers: corsHeaders });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Chiến dịch đã ở trạng thái kết thúc (${campaign.status}) và không thể gửi tiếp.`,
+          campaign_status: campaign.status,
+        }),
+        { status: 400, headers: corsHeaders },
+      );
     }
 
     const sender = campaign.sender_accounts;
@@ -72,18 +97,24 @@ serve(async (req) => {
     // Protection A: Sender Degradation check
     if (!sender.is_active || sender.health_status === "degraded") {
       const reason = `Tài khoản gửi đang bị lỗi hoặc hạn chế (Trạng thái: ${sender.health_status})`;
-      await adminClient.from("marketing_campaigns").update({
-        status: "paused",
-        paused_at: new Date().toISOString(),
-        failure_reason: reason
-      }).eq("id", campaign_id);
+      await adminClient
+        .from("marketing_campaigns")
+        .update({
+          status: "paused",
+          paused_at: new Date().toISOString(),
+          failure_reason: reason,
+        })
+        .eq("id", campaign_id);
 
-      return new Response(JSON.stringify({
-        success: false,
-        paused: true,
-        error: reason,
-        campaign_status: "paused"
-      }), { headers: corsHeaders });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          paused: true,
+          error: reason,
+          campaign_status: "paused",
+        }),
+        { headers: corsHeaders },
+      );
     }
 
     // Protection B: Daily limit usage > 90% check
@@ -91,18 +122,24 @@ serve(async (req) => {
     const dailyUsage = sender.daily_usage || 0;
     if (dailyUsage >= dailyLimit * 0.9) {
       const reason = `Hạn ngạch ngày của tài khoản gửi vượt quá 90% (${dailyUsage}/${dailyLimit})`;
-      await adminClient.from("marketing_campaigns").update({
-        status: "paused",
-        paused_at: new Date().toISOString(),
-        failure_reason: reason
-      }).eq("id", campaign_id);
+      await adminClient
+        .from("marketing_campaigns")
+        .update({
+          status: "paused",
+          paused_at: new Date().toISOString(),
+          failure_reason: reason,
+        })
+        .eq("id", campaign_id);
 
-      return new Response(JSON.stringify({
-        success: false,
-        paused: true,
-        error: reason,
-        campaign_status: "paused"
-      }), { headers: corsHeaders });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          paused: true,
+          error: reason,
+          campaign_status: "paused",
+        }),
+        { headers: corsHeaders },
+      );
     }
 
     // Protection C: Retry queue pressure check (> 50 pending retries for this sender)
@@ -114,25 +151,31 @@ serve(async (req) => {
 
     if (!retryCountErr && pendingRetryCount !== null && pendingRetryCount > 50) {
       const reason = `Hàng đợi thử lại quá tải (${pendingRetryCount} tin nhắn pending)`;
-      await adminClient.from("marketing_campaigns").update({
-        status: "paused",
-        paused_at: new Date().toISOString(),
-        failure_reason: reason
-      }).eq("id", campaign_id);
+      await adminClient
+        .from("marketing_campaigns")
+        .update({
+          status: "paused",
+          paused_at: new Date().toISOString(),
+          failure_reason: reason,
+        })
+        .eq("id", campaign_id);
 
-      return new Response(JSON.stringify({
-        success: false,
-        paused: true,
-        error: reason,
-        campaign_status: "paused"
-      }), { headers: corsHeaders });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          paused: true,
+          error: reason,
+          campaign_status: "paused",
+        }),
+        { headers: corsHeaders },
+      );
     }
 
     // 5. Update campaign status to 'sending' if it was queued, approved, or paused
     if (["approved", "queued", "paused"].includes(campaign.status)) {
       const updates: Record<string, any> = {
         status: "sending",
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
       if (!campaign.started_at) {
         updates.started_at = new Date().toISOString();
@@ -148,10 +191,14 @@ serve(async (req) => {
 
     if (countErr) throw countErr;
     if (totalSnapshots === 0 || totalSnapshots === null) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: "Chiến dịch chưa được đóng băng danh sách người nhận (snapshot). Vui lòng phê duyệt chiến dịch để tạo snapshot trước khi gửi."
-      }), { status: 400, headers: corsHeaders });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error:
+            "Chiến dịch chưa được đóng băng danh sách người nhận (snapshot). Vui lòng phê duyệt chiến dịch để tạo snapshot trước khi gửi.",
+        }),
+        { status: 400, headers: corsHeaders },
+      );
     }
 
     // 6. Query Snapshot Recipients
@@ -175,27 +222,36 @@ serve(async (req) => {
 
       if (remainingQueued === 0) {
         // Complete the campaign
-        await adminClient.from("marketing_campaigns").update({
-          status: "completed",
-          completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }).eq("id", campaign_id);
+        await adminClient
+          .from("marketing_campaigns")
+          .update({
+            status: "completed",
+            completed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", campaign_id);
 
-        return new Response(JSON.stringify({
-          success: true,
-          finished: true,
-          message: "Chiến dịch đã hoàn thành gửi toàn bộ người nhận.",
-          campaign_status: "completed"
-        }), { headers: corsHeaders });
+        return new Response(
+          JSON.stringify({
+            success: true,
+            finished: true,
+            message: "Chiến dịch đã hoàn thành gửi toàn bộ người nhận.",
+            campaign_status: "completed",
+          }),
+          { headers: corsHeaders },
+        );
       }
 
-      return new Response(JSON.stringify({
-        success: true,
-        finished: false,
-        processed: 0,
-        message: "Không tìm thấy người nhận trong lô này nhưng vẫn còn hàng đợi.",
-        campaign_status: "sending"
-      }), { headers: corsHeaders });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          finished: false,
+          processed: 0,
+          message: "Không tìm thấy người nhận trong lô này nhưng vẫn còn hàng đợi.",
+          campaign_status: "sending",
+        }),
+        { headers: corsHeaders },
+      );
     }
 
     // 7. Process batch of recipients
@@ -225,14 +281,14 @@ serve(async (req) => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": authHeader
+            Authorization: authHeader,
           },
           body: JSON.stringify({
             customer_id: snap.customer_id,
             zns_template_id: snap.zns_template_id,
             template_data: snap.payload_preview,
-            mode: "provider_send"
-          })
+            mode: "provider_send",
+          }),
         });
 
         const sendResult = await sendRes.json();
@@ -246,14 +302,19 @@ serve(async (req) => {
               status: "sent",
               delivery_log_id: sendResult.delivery_log_id || null,
               processed_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
+              updated_at: new Date().toISOString(),
             })
             .eq("id", snap.id);
         } else {
           // Failed or Blocked
           const reasonCode = sendResult.reason_code || "";
-          const isBlocked = ["OPT_OUT_BLOCKED", "MISSING_PHONE", "INVALID_PHONE", "DUPLICATE_BLOCKED"].includes(reasonCode);
-          
+          const isBlocked = [
+            "OPT_OUT_BLOCKED",
+            "MISSING_PHONE",
+            "INVALID_PHONE",
+            "DUPLICATE_BLOCKED",
+          ].includes(reasonCode);
+
           if (isBlocked) {
             batchBlocked++;
           } else {
@@ -267,7 +328,7 @@ serve(async (req) => {
               delivery_log_id: sendResult.delivery_log_id || null,
               failure_reason: sendResult.reason || "Bị từ chối gửi",
               processed_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
+              updated_at: new Date().toISOString(),
             })
             .eq("id", snap.id);
 
@@ -286,7 +347,7 @@ serve(async (req) => {
             status: "failed",
             failure_reason: `Lỗi kết nối Edge Function: ${err.message}`,
             processed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
           })
           .eq("id", snap.id);
       }
@@ -299,28 +360,34 @@ serve(async (req) => {
       p_campaign_id: campaign_id,
       p_processed: processedThisBatch,
       p_successful: batchSuccessful,
-      p_failed: batchFailed + batchBlocked
+      p_failed: batchFailed + batchBlocked,
     });
 
     // 9. If circuit breaker tripped, force pause campaign
     if (circuitTripped) {
-      await adminClient.from("marketing_campaigns").update({
-        status: "paused",
-        paused_at: new Date().toISOString(),
-        failure_reason: `Gửi tin thất bại hàng loạt: ${tripReason}`
-      }).eq("id", campaign_id);
+      await adminClient
+        .from("marketing_campaigns")
+        .update({
+          status: "paused",
+          paused_at: new Date().toISOString(),
+          failure_reason: `Gửi tin thất bại hàng loạt: ${tripReason}`,
+        })
+        .eq("id", campaign_id);
 
-      return new Response(JSON.stringify({
-        success: true,
-        finished: false,
-        processed: processedThisBatch,
-        successful: batchSuccessful,
-        failed: batchFailed,
-        blocked: batchBlocked,
-        paused: true,
-        error: `Tài khoản gửi bị ngắt mạch (Circuit Breaker). Chiến dịch tự động tạm dừng.`,
-        campaign_status: "paused"
-      }), { headers: corsHeaders });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          finished: false,
+          processed: processedThisBatch,
+          successful: batchSuccessful,
+          failed: batchFailed,
+          blocked: batchBlocked,
+          paused: true,
+          error: `Tài khoản gửi bị ngắt mạch (Circuit Breaker). Chiến dịch tự động tạm dừng.`,
+          campaign_status: "paused",
+        }),
+        { headers: corsHeaders },
+      );
     }
 
     // 10. Check if completely finished
@@ -333,24 +400,29 @@ serve(async (req) => {
     let finalStatus = "sending";
     if (remainingQueuedCount === 0) {
       finalStatus = "completed";
-      await adminClient.from("marketing_campaigns").update({
-        status: "completed",
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }).eq("id", campaign_id);
+      await adminClient
+        .from("marketing_campaigns")
+        .update({
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", campaign_id);
     }
 
-    return new Response(JSON.stringify({
-      success: true,
-      finished: finalStatus === "completed",
-      processed: processedThisBatch,
-      successful: batchSuccessful,
-      failed: batchFailed,
-      blocked: batchBlocked,
-      campaign_status: finalStatus,
-      remaining: remainingQueuedCount || 0
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
+    return new Response(
+      JSON.stringify({
+        success: true,
+        finished: finalStatus === "completed",
+        processed: processedThisBatch,
+        successful: batchSuccessful,
+        failed: batchFailed,
+        blocked: batchBlocked,
+        campaign_status: finalStatus,
+        remaining: remainingQueuedCount || 0,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (err: any) {
     return new Response(JSON.stringify({ success: false, error: err.message }), {
       status: 500,

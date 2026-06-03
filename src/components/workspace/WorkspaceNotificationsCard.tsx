@@ -13,10 +13,10 @@ interface WorkspaceNotificationsCardProps {
   onRefresh?: () => void;
 }
 
-export const WorkspaceNotificationsCard: React.FC<WorkspaceNotificationsCardProps> = ({ 
-  notifications, 
+export const WorkspaceNotificationsCard: React.FC<WorkspaceNotificationsCardProps> = ({
+  notifications,
   emptyMessage = "Chưa có thông báo mới.",
-  onRefresh
+  onRefresh,
 }) => {
   const navigate = useNavigate();
   const [previewCustomer, setPreviewCustomer] = useState<any | null>(null);
@@ -71,29 +71,35 @@ export const WorkspaceNotificationsCard: React.FC<WorkspaceNotificationsCardProp
       </div>
       <div className="flex-1 overflow-y-auto max-h-[300px] divide-y divide-slate-50">
         {notifications.length > 0 ? (
-          notifications.map(n => (
-            <div 
-              key={n.id} 
+          notifications.map((n) => (
+            <div
+              key={n.id}
               onClick={() => handleNotificationClick(n)}
               className={`p-4 hover:bg-slate-50 transition-colors cursor-pointer border-l-4 ${!n.read_at ? "border-l-purple-500 bg-purple-50/10" : "border-l-transparent"}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <h4 className={`text-[12px] leading-tight mb-1 ${!n.read_at ? "font-bold text-slate-900" : "font-medium text-slate-600"}`}>
+                  <h4
+                    className={`text-[12px] leading-tight mb-1 ${!n.read_at ? "font-bold text-slate-900" : "font-medium text-slate-600"}`}
+                  >
                     {n.title}
                   </h4>
                   <span className="text-[10px] font-medium text-slate-400">
                     {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: vi })}
                   </span>
                 </div>
-                {!n.read_at && <div className="w-1.5 h-1.5 rounded-full bg-purple-500 mt-1 shrink-0" />}
+                {!n.read_at && (
+                  <div className="w-1.5 h-1.5 rounded-full bg-purple-500 mt-1 shrink-0" />
+                )}
               </div>
             </div>
           ))
         ) : (
           <div className="py-12 text-center">
             <Bell className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{emptyMessage}</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              {emptyMessage}
+            </p>
           </div>
         )}
       </div>
@@ -102,7 +108,6 @@ export const WorkspaceNotificationsCard: React.FC<WorkspaceNotificationsCardProp
         customer={previewCustomer}
         open={!!previewCustomer}
         onOpenChange={(open) => !open && setPreviewCustomer(null)}
-
       />
     </div>
   );

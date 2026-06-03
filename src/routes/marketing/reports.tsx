@@ -25,7 +25,7 @@ import {
   Users,
   ShieldCheck,
   RotateCcw,
-  Loader2
+  Loader2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/marketing/reports")({
@@ -74,7 +74,7 @@ function MarketingReportsPage() {
       opened: 116,
       clicked: 58,
       opt_outs: 1,
-      created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString()
+      created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
     },
     {
       id: "c2",
@@ -85,7 +85,7 @@ function MarketingReportsPage() {
       opened: 168,
       clicked: 102,
       opt_outs: 0,
-      created_at: new Date(Date.now() - 12 * 24 * 3600 * 1000).toISOString()
+      created_at: new Date(Date.now() - 12 * 24 * 3600 * 1000).toISOString(),
     },
     {
       id: "c3",
@@ -96,7 +96,7 @@ function MarketingReportsPage() {
       opened: 88,
       clicked: 42,
       opt_outs: 2,
-      created_at: new Date(Date.now() - 20 * 24 * 3600 * 1000).toISOString()
+      created_at: new Date(Date.now() - 20 * 24 * 3600 * 1000).toISOString(),
     },
     {
       id: "c4",
@@ -107,8 +107,8 @@ function MarketingReportsPage() {
       opened: 32,
       clicked: 14,
       opt_outs: 0,
-      created_at: new Date(Date.now() - 28 * 24 * 3600 * 1000).toISOString()
-    }
+      created_at: new Date(Date.now() - 28 * 24 * 3600 * 1000).toISOString(),
+    },
   ];
 
   const baselineOptOuts: OptOutRecord[] = [
@@ -117,22 +117,22 @@ function MarketingReportsPage() {
       email: "thuy_linh_spa@gmail.com",
       facility_name: "Linh Premium Skincare",
       opt_out_at: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
-      reason: "Đã chuyển đổi sang mô hình Gội đầu dưỡng sinh, không tập trung phác đồ điều trị."
+      reason: "Đã chuyển đổi sang mô hình Gội đầu dưỡng sinh, không tập trung phác đồ điều trị.",
     },
     {
       id: "cust-opt-2",
       email: "hoang_anh_clinic@yahoo.com",
       facility_name: "Viện Thẩm Mỹ Hoàng Anh",
       opt_out_at: new Date(Date.now() - 15 * 24 * 3600 * 1000).toISOString(),
-      reason: "Tạm ngưng hoạt động kinh doanh do chuyển mặt bằng."
+      reason: "Tạm ngưng hoạt động kinh doanh do chuyển mặt bằng.",
     },
     {
       id: "cust-opt-3",
       email: "ngoc_beauty_99@gmail.com",
       facility_name: "Ngọc Beauty Center",
       opt_out_at: new Date(Date.now() - 22 * 24 * 3600 * 1000).toISOString(),
-      reason: "Nhận thông báo lịch hội thảo quá dày đặc."
-    }
+      reason: "Nhận thông báo lịch hội thảo quá dày đặc.",
+    },
   ];
 
   const isMock = !!localStorage.getItem("mock_marketing_session");
@@ -144,12 +144,14 @@ function MarketingReportsPage() {
     if (useLocalFallback) {
       setTimeout(() => {
         setTopCampaigns([...baselineCampaigns]);
-        
+
         // Nạp danh sách Opt-out từ localStorage hoặc dùng mẫu
         let localOptOuts = JSON.parse(localStorage.getItem("mock_opt_outs") || "[]");
         if (localOptOuts.length === 0) {
           localOptOuts = [...baselineOptOuts];
-          try { localStorage.setItem("mock_opt_outs", JSON.stringify(localOptOuts)); } catch {}
+          try {
+            localStorage.setItem("mock_opt_outs", JSON.stringify(localOptOuts));
+          } catch {}
         }
         setOptOutList(localOptOuts);
         setLoading(false);
@@ -190,7 +192,7 @@ function MarketingReportsPage() {
             opened: Math.min(effOpened, effSent),
             clicked: Math.min(effClicked, effOpened),
             opt_outs: Math.random() > 0.7 ? 1 : 0,
-            created_at: c.created_at
+            created_at: c.created_at,
           };
         });
         setTopCampaigns(mappedCamps);
@@ -212,20 +214,24 @@ function MarketingReportsPage() {
       const { data: custData, error: errCust } = await queryCusts;
 
       if (!errCust && custData && custData.length > 0) {
-        setOptOutList(custData.map((c: any) => ({
-          id: c.id,
-          email: c.email || `${c.id}@local`,
-          phone: c.phone,
-          facility_name: c.facility_name,
-          opt_out_at: c.marketing_opt_out_at,
-          reason: c.opt_out_reason || "Từ chối nhận tin nhắn tự động từ link Unsubscribe Footer."
-        })));
+        setOptOutList(
+          custData.map((c: any) => ({
+            id: c.id,
+            email: c.email || `${c.id}@local`,
+            phone: c.phone,
+            facility_name: c.facility_name,
+            opt_out_at: c.marketing_opt_out_at,
+            reason: c.opt_out_reason || "Từ chối nhận tin nhắn tự động từ link Unsubscribe Footer.",
+          })),
+        );
       } else {
         setOptOutList([...baselineOptOuts]);
       }
-
     } catch (err: any) {
-      console.warn("Chưa đồng bộ dữ liệu báo cáo Cloud, fallback nạp dữ liệu B2B mẫu:", err.message);
+      console.warn(
+        "Chưa đồng bộ dữ liệu báo cáo Cloud, fallback nạp dữ liệu B2B mẫu:",
+        err.message,
+      );
       setUseLocalFallback(true);
       setTopCampaigns([...baselineCampaigns]);
       setOptOutList([...baselineOptOuts]);
@@ -240,7 +246,7 @@ function MarketingReportsPage() {
 
   // Bộ lọc theo kênh
   const filteredCampaigns = useMemo(() => {
-    return topCampaigns.filter(c => {
+    return topCampaigns.filter((c) => {
       if (selectedChannel === "all") return true;
       return c.channel.toLowerCase().includes(selectedChannel.toLowerCase());
     });
@@ -253,7 +259,7 @@ function MarketingReportsPage() {
     let totalClicked = 0;
     let totalOptOuts = optOutList.length;
 
-    filteredCampaigns.forEach(c => {
+    filteredCampaigns.forEach((c) => {
       totalSent += c.sent;
       totalOpened += c.opened;
       totalClicked += c.clicked;
@@ -268,14 +274,21 @@ function MarketingReportsPage() {
 
   // Khôi phục Opt-in (Re-opt-in)
   const handleRestoreOptIn = async (record: OptOutRecord) => {
-    if (!confirm(`Bạn có chắc chắn muốn khôi phục quyền gửi tin tiếp thị cho đối tác ${record.email}?`)) return;
+    if (
+      !confirm(
+        `Bạn có chắc chắn muốn khôi phục quyền gửi tin tiếp thị cho đối tác ${record.email}?`,
+      )
+    )
+      return;
 
     if (useLocalFallback) {
       let currentList = [...optOutList];
-      currentList = currentList.filter(o => o.id !== record.id);
+      currentList = currentList.filter((o) => o.id !== record.id);
       setOptOutList(currentList);
       localStorage.setItem("mock_opt_outs", JSON.stringify(currentList));
-      toast.success(`Đã khôi phục trạng thái Opt-in thành công cho đối tác ${record.facility_name || record.email}`);
+      toast.success(
+        `Đã khôi phục trạng thái Opt-in thành công cho đối tác ${record.facility_name || record.email}`,
+      );
       return;
     }
 
@@ -285,7 +298,7 @@ function MarketingReportsPage() {
         .update({
           marketing_opt_in: true,
           marketing_opt_out_at: null,
-          opt_out_reason: null
+          opt_out_reason: null,
         })
         .eq("id", record.id);
 
@@ -300,8 +313,18 @@ function MarketingReportsPage() {
 
   // Xuất file Báo cáo CSV
   const handleExportReportCsv = () => {
-    const headers = ["Chiến dịch định danh", "Kênh", "Phân loại", "Đã gửi", "Đã mở", "Tỷ lệ Mở (%)", "Đã Click CTA", "Tỷ lệ Click (%)", "Ngày phát hành"];
-    const rows = filteredCampaigns.map(c => {
+    const headers = [
+      "Chiến dịch định danh",
+      "Kênh",
+      "Phân loại",
+      "Đã gửi",
+      "Đã mở",
+      "Tỷ lệ Mở (%)",
+      "Đã Click CTA",
+      "Tỷ lệ Click (%)",
+      "Ngày phát hành",
+    ];
+    const rows = filteredCampaigns.map((c) => {
       const oRate = c.sent > 0 ? ((c.opened / c.sent) * 100).toFixed(1) : "0";
       const cRate = c.opened > 0 ? ((c.clicked / c.opened) * 100).toFixed(1) : "0";
       return [
@@ -313,7 +336,7 @@ function MarketingReportsPage() {
         oRate,
         c.clicked,
         cRate,
-        c.created_at.slice(0, 10)
+        c.created_at.slice(0, 10),
       ].join(",");
     });
 
@@ -322,7 +345,10 @@ function MarketingReportsPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `marketing_performance_report_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute(
+      "download",
+      `marketing_performance_report_${new Date().toISOString().slice(0, 10)}.csv`,
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -336,7 +362,10 @@ function MarketingReportsPage() {
       <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-xl sticky top-0 z-30">
         <div className="container mx-auto px-4 md:px-6 h-20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <div className="flex items-center gap-3">
-            <Link to="/marketing/campaigns" className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-all">
+            <Link
+              to="/marketing/campaigns"
+              className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
+            >
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div>
@@ -347,7 +376,8 @@ function MarketingReportsPage() {
                 <span className="text-xs text-slate-500 font-mono">Real-time Telemetry</span>
               </div>
               <h1 className="text-xl font-black tracking-tight text-white flex items-center gap-2 mt-0.5">
-                Bảng Phân tích & Báo cáo Tương tác <span className="text-purple-400">(Analytics Dashboard)</span>
+                Bảng Phân tích & Báo cáo Tương tác{" "}
+                <span className="text-purple-400">(Analytics Dashboard)</span>
               </h1>
             </div>
           </div>
@@ -359,8 +389,8 @@ function MarketingReportsPage() {
                 { label: "7 ngày", value: "7d" },
                 { label: "30 ngày", value: "30d" },
                 { label: "90 ngày", value: "90d" },
-                { label: "Tất cả", value: "all" }
-              ].map(t => (
+                { label: "Tất cả", value: "all" },
+              ].map((t) => (
                 <button
                   key={t.value}
                   onClick={() => setTimeRange(t.value as any)}
@@ -404,8 +434,8 @@ function MarketingReportsPage() {
             { label: "Tất cả các kênh", value: "all" },
             { label: "Email Marketing", value: "email" },
             { label: "Zalo ZNS / OA", value: "zalo" },
-            { label: "SMS Tin nhắn", value: "sms" }
-          ].map(ch => (
+            { label: "SMS Tin nhắn", value: "sms" },
+          ].map((ch) => (
             <button
               key={ch.value}
               onClick={() => setSelectedChannel(ch.value)}
@@ -425,13 +455,17 @@ function MarketingReportsPage() {
           <div className="p-5 rounded-3xl bg-slate-900/60 border border-slate-800/80 relative overflow-hidden group hover:border-slate-700 transition-all">
             <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-2xl group-hover:bg-purple-500/10 transition-all" />
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng Tiếp Cận Đích</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Tổng Tiếp Cận Đích
+              </span>
               <span className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
                 <Users className="w-4 h-4" />
               </span>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-4xl font-black tracking-tight text-white">{metrics.totalSent}</span>
+              <span className="text-4xl font-black tracking-tight text-white">
+                {metrics.totalSent}
+              </span>
               <span className="text-xs font-medium text-slate-500">lượt bắn</span>
             </div>
             <div className="mt-2 text-[11px] text-emerald-400 flex items-center gap-1 font-medium">
@@ -442,31 +476,44 @@ function MarketingReportsPage() {
           <div className="p-5 rounded-3xl bg-slate-900/60 border border-slate-800/80 relative overflow-hidden group hover:border-slate-700 transition-all">
             <div className="absolute top-0 right-0 w-32 h-32 bg-pink-500/5 rounded-full blur-2xl group-hover:bg-pink-500/10 transition-all" />
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tỷ lệ Mở Thư (Open Rate)</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Tỷ lệ Mở Thư (Open Rate)
+              </span>
               <span className="p-2 rounded-xl bg-pink-500/10 text-pink-400">
                 <MailOpen className="w-4 h-4" />
               </span>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-4xl font-black tracking-tight text-pink-400">{metrics.openRate}%</span>
-              <span className="text-xs font-medium text-slate-500">({metrics.totalOpened} Spa)</span>
+              <span className="text-4xl font-black tracking-tight text-pink-400">
+                {metrics.openRate}%
+              </span>
+              <span className="text-xs font-medium text-slate-500">
+                ({metrics.totalOpened} Spa)
+              </span>
             </div>
             <div className="mt-2 text-[11px] text-slate-400 flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Ngưỡng xuất sắc của ngành B2B Skincare
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Ngưỡng xuất sắc của ngành B2B
+              Skincare
             </div>
           </div>
 
           <div className="p-5 rounded-3xl bg-slate-900/60 border border-slate-800/80 relative overflow-hidden group hover:border-slate-700 transition-all">
             <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl group-hover:bg-indigo-500/10 transition-all" />
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tỷ lệ Nhấp CTA (CTR)</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Tỷ lệ Nhấp CTA (CTR)
+              </span>
               <span className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
                 <MousePointerClick className="w-4 h-4" />
               </span>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-4xl font-black tracking-tight text-indigo-400">{metrics.clickRate}%</span>
-              <span className="text-xs font-medium text-slate-500">({metrics.totalClicked} Lượt)</span>
+              <span className="text-4xl font-black tracking-tight text-indigo-400">
+                {metrics.clickRate}%
+              </span>
+              <span className="text-xs font-medium text-slate-500">
+                ({metrics.totalClicked} Lượt)
+              </span>
             </div>
             <div className="mt-2 text-[11px] text-indigo-400 flex items-center gap-1 font-medium">
               <TrendingUp className="w-3.5 h-3.5" /> Đăng ký sự kiện & Nhận phác đồ
@@ -476,14 +523,20 @@ function MarketingReportsPage() {
           <div className="p-5 rounded-3xl bg-slate-900/60 border border-slate-800/80 relative overflow-hidden group hover:border-slate-700 transition-all">
             <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-2xl group-hover:bg-rose-500/10 transition-all" />
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tỷ lệ Hủy Đăng ký (Opt-out)</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Tỷ lệ Hủy Đăng ký (Opt-out)
+              </span>
               <span className="p-2 rounded-xl bg-rose-500/10 text-rose-400">
                 <UserMinus className="w-4 h-4" />
               </span>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-4xl font-black tracking-tight text-rose-400">{metrics.optOutRate}%</span>
-              <span className="text-xs font-medium text-slate-500">({metrics.totalOptOuts} Spa)</span>
+              <span className="text-4xl font-black tracking-tight text-rose-400">
+                {metrics.optOutRate}%
+              </span>
+              <span className="text-xs font-medium text-slate-500">
+                ({metrics.totalOptOuts} Spa)
+              </span>
             </div>
             <div className="mt-2 text-[11px] text-emerald-400 flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5" /> Tỷ lệ cực thấp (&lt; 2%) - Uy tín an toàn
@@ -496,9 +549,12 @@ function MarketingReportsPage() {
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-purple-400" /> Phễu Chuyển đổi Tương tác (Engagement Conversion Funnel)
+                <BarChart3 className="w-4 h-4 text-purple-400" /> Phễu Chuyển đổi Tương tác
+                (Engagement Conversion Funnel)
               </h3>
-              <p className="text-xs text-slate-400">Đo lường tỷ lệ hao hụt qua các tầng tiếp xúc truyền thông với Chủ Spa</p>
+              <p className="text-xs text-slate-400">
+                Đo lường tỷ lệ hao hụt qua các tầng tiếp xúc truyền thông với Chủ Spa
+              </p>
             </div>
             <span className="text-[11px] font-mono text-purple-400 bg-purple-500/10 px-2.5 py-1 rounded-lg border border-purple-500/20">
               Phễu CSS Thuần túy
@@ -507,10 +563,37 @@ function MarketingReportsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4">
             {[
-              { phase: "1. Đẩy vào luồng", count: metrics.totalSent, percent: 100, color: "bg-slate-700", text: "text-slate-300" },
-              { phase: "2. Gửi thành công", count: Math.round(metrics.totalSent * 0.984), percent: 98.4, color: "bg-purple-600", text: "text-purple-300" },
-              { phase: "3. Đã mở thư xem", count: metrics.totalOpened, percent: parseFloat(metrics.openRate) || 0, color: "bg-pink-600", text: "text-pink-300" },
-              { phase: "4. Nhấp Link CTA", count: metrics.totalClicked, percent: parseFloat(metrics.openRate) > 0 ? Math.round((metrics.totalClicked / metrics.totalSent) * 100) : 0, color: "bg-indigo-600", text: "text-indigo-300" }
+              {
+                phase: "1. Đẩy vào luồng",
+                count: metrics.totalSent,
+                percent: 100,
+                color: "bg-slate-700",
+                text: "text-slate-300",
+              },
+              {
+                phase: "2. Gửi thành công",
+                count: Math.round(metrics.totalSent * 0.984),
+                percent: 98.4,
+                color: "bg-purple-600",
+                text: "text-purple-300",
+              },
+              {
+                phase: "3. Đã mở thư xem",
+                count: metrics.totalOpened,
+                percent: parseFloat(metrics.openRate) || 0,
+                color: "bg-pink-600",
+                text: "text-pink-300",
+              },
+              {
+                phase: "4. Nhấp Link CTA",
+                count: metrics.totalClicked,
+                percent:
+                  parseFloat(metrics.openRate) > 0
+                    ? Math.round((metrics.totalClicked / metrics.totalSent) * 100)
+                    : 0,
+                color: "bg-indigo-600",
+                text: "text-indigo-300",
+              },
             ].map((f, i) => (
               <div key={i} className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
@@ -538,7 +621,8 @@ function MarketingReportsPage() {
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <FileSpreadsheet className="w-4 h-4 text-emerald-400" /> Bảng Xếp Hạng Hiệu Quả Chiến Dịch (Top Campaigns)
+                <FileSpreadsheet className="w-4 h-4 text-emerald-400" /> Bảng Xếp Hạng Hiệu Quả
+                Chiến Dịch (Top Campaigns)
               </h3>
               <span className="text-xs text-slate-500">Sắp xếp theo lượt gửi</span>
             </div>
@@ -560,7 +644,10 @@ function MarketingReportsPage() {
                     const clickPct = c.opened > 0 ? Math.round((c.clicked / c.opened) * 100) : 0;
 
                     return (
-                      <div key={c.id} className="p-4 hover:bg-slate-900/80 transition-all space-y-3">
+                      <div
+                        key={c.id}
+                        className="p-4 hover:bg-slate-900/80 transition-all space-y-3"
+                      >
                         <div className="flex items-start justify-between gap-2">
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
@@ -586,21 +673,31 @@ function MarketingReportsPage() {
                         <div className="grid grid-cols-2 gap-4 pt-1">
                           <div className="space-y-1">
                             <div className="flex justify-between text-[10px]">
-                              <span className="text-slate-500">Mở thư: <strong className="text-pink-400">{c.opened}</strong></span>
+                              <span className="text-slate-500">
+                                Mở thư: <strong className="text-pink-400">{c.opened}</strong>
+                              </span>
                               <span className="font-mono text-slate-400">{openPct}%</span>
                             </div>
                             <div className="w-full h-1 bg-slate-950 rounded-full overflow-hidden">
-                              <div className="h-full bg-pink-500 rounded-full" style={{ width: `${openPct}%` }} />
+                              <div
+                                className="h-full bg-pink-500 rounded-full"
+                                style={{ width: `${openPct}%` }}
+                              />
                             </div>
                           </div>
 
                           <div className="space-y-1">
                             <div className="flex justify-between text-[10px]">
-                              <span className="text-slate-500">Nhấp CTA: <strong className="text-indigo-400">{c.clicked}</strong></span>
+                              <span className="text-slate-500">
+                                Nhấp CTA: <strong className="text-indigo-400">{c.clicked}</strong>
+                              </span>
                               <span className="font-mono text-slate-400">{clickPct}%</span>
                             </div>
                             <div className="w-full h-1 bg-slate-950 rounded-full overflow-hidden">
-                              <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${clickPct}%` }} />
+                              <div
+                                className="h-full bg-indigo-500 rounded-full"
+                                style={{ width: `${clickPct}%` }}
+                              />
                             </div>
                           </div>
                         </div>
@@ -625,7 +722,9 @@ function MarketingReportsPage() {
 
             <div className="rounded-3xl border border-slate-800 bg-slate-900/40 p-4 space-y-3">
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                Danh sách các đối tác đã nhấp vào đường dẫn <strong>Hủy đăng ký (Unsubscribe)</strong>. Hệ thống ngầm chặn gửi các dải email tiếp thị tiếp theo để duy trì chuẩn tuân thủ.
+                Danh sách các đối tác đã nhấp vào đường dẫn{" "}
+                <strong>Hủy đăng ký (Unsubscribe)</strong>. Hệ thống ngầm chặn gửi các dải email
+                tiếp thị tiếp theo để duy trì chuẩn tuân thủ.
               </p>
 
               <div className="space-y-2.5 max-h-[400px] overflow-y-auto pr-1">
@@ -634,12 +733,19 @@ function MarketingReportsPage() {
                     Danh sách hoàn toàn trống. Chúc mừng bạn duy trì dải nội dung tuyệt vời!
                   </div>
                 ) : (
-                  optOutList.map(o => (
-                    <div key={o.id} className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 space-y-2 text-xs">
+                  optOutList.map((o) => (
+                    <div
+                      key={o.id}
+                      className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 space-y-2 text-xs"
+                    >
                       <div className="flex items-start justify-between gap-2">
                         <div className="overflow-hidden">
-                          <strong className="text-slate-200 block truncate">{o.facility_name || "Spa Không Tên"}</strong>
-                          <span className="text-[10px] font-mono text-slate-500 block truncate">{o.email}</span>
+                          <strong className="text-slate-200 block truncate">
+                            {o.facility_name || "Spa Không Tên"}
+                          </strong>
+                          <span className="text-[10px] font-mono text-slate-500 block truncate">
+                            {o.email}
+                          </span>
                         </div>
 
                         <button

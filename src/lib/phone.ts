@@ -6,10 +6,10 @@
  */
 export const normalizePhone = (phone?: string | null): string => {
   if (!phone) return "";
-  
+
   // 1. Loại bỏ khoảng trắng và các ký tự phân cách phổ biến
   let cleaned = phone.replace(/[\s\.\-\(\)]/g, "");
-  
+
   // 2. Xử lý mã quốc gia Việt Nam (+84 hoặc 84) chuyển về đầu 0
   if (cleaned.startsWith("+84")) {
     cleaned = "0" + cleaned.substring(3);
@@ -17,10 +17,10 @@ export const normalizePhone = (phone?: string | null): string => {
     // Chỉ thay thế nếu độ dài > 9 để tránh nhầm lẫn với số nội bộ hoặc số ngắn khác
     cleaned = "0" + cleaned.substring(2);
   }
-  
+
   // 3. Chỉ giữ lại chữ số (loại bỏ các ký tự lạ khác nếu còn)
   cleaned = cleaned.replace(/[^0-9]/g, "");
-  
+
   return cleaned;
 };
 

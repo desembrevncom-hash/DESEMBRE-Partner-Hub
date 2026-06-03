@@ -20,7 +20,9 @@ function WorkspacePage() {
           <div className="w-16 h-16 rounded-3xl bg-slate-900 flex items-center justify-center shadow-2xl shadow-slate-200">
             <Loader2 className="w-8 h-8 text-white animate-spin" />
           </div>
-          <p className="text-sm font-bold text-slate-400 animate-pulse uppercase tracking-widest">Đang khởi tạo CRM OS...</p>
+          <p className="text-sm font-bold text-slate-400 animate-pulse uppercase tracking-widest">
+            Đang khởi tạo CRM OS...
+          </p>
         </div>
       </div>
     );
@@ -29,6 +31,6 @@ function WorkspacePage() {
   if (isAdmin || isSubAdmin) return <ManagerWorkspace />;
   if (isTeleLead) return <TeleLeadWorkspace />;
   if (isSale) return <SaleWorkspace />;
-  
+
   return <TelesaleWorkspace />;
 }

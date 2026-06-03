@@ -9,7 +9,7 @@ export function calculateDistanceMeters(
   lat1: number,
   lon1: number,
   lat2: number,
-  lon2: number
+  lon2: number,
 ): number {
   const R = 6371e3; // Bán kính Trái Đất (mét)
   const phi1 = (lat1 * Math.PI) / 180;
@@ -19,10 +19,7 @@ export function calculateDistanceMeters(
 
   const a =
     Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-    Math.cos(phi1) *
-      Math.cos(phi2) *
-      Math.sin(deltaLambda / 2) *
-      Math.sin(deltaLambda / 2);
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   return R * c; // mét
@@ -31,10 +28,7 @@ export function calculateDistanceMeters(
 /**
  * Kiểm tra khoảng cách có nằm trong bán kính quy định không
  */
-export function isWithinRadius(
-  distanceMeters: number,
-  radiusMeters: number
-): boolean {
+export function isWithinRadius(distanceMeters: number, radiusMeters: number): boolean {
   return distanceMeters <= radiusMeters;
 }
 
@@ -106,9 +100,7 @@ export function buildGoogleMapsSearchUrl(customer: {
   }
 
   const query = queryParts.join(", ");
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-    query
-  )}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
 /**
@@ -137,9 +129,7 @@ export function buildGoogleMapsDirectionsUrl(customer: {
   }
 
   const query = queryParts.join(", ");
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-    query
-  )}`;
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(query)}`;
 }
 
 export interface RouteCustomer {
@@ -157,10 +147,10 @@ export interface RouteCustomer {
  */
 export function optimizeRouteByNearestNeighbor(
   origin: { latitude: number; longitude: number },
-  customers: RouteCustomer[]
+  customers: RouteCustomer[],
 ): RouteCustomer[] {
   // Lọc danh sách khách hàng có tọa độ hợp lệ
-  const validCustomers = customers.filter(c => hasValidCoordinates(c));
+  const validCustomers = customers.filter((c) => hasValidCoordinates(c));
 
   const ordered: RouteCustomer[] = [];
   const unvisited = [...validCustomers];
@@ -176,7 +166,7 @@ export function optimizeRouteByNearestNeighbor(
         currentPos.latitude,
         currentPos.longitude,
         Number(cust.latitude),
-        Number(cust.longitude)
+        Number(cust.longitude),
       );
       if (dist < minDistance) {
         minDistance = dist;
@@ -205,7 +195,7 @@ export function optimizeRouteByNearestNeighbor(
 export function buildGoogleMapsRouteUrl(
   origin: { latitude: number; longitude: number },
   orderedCustomers: RouteCustomer[],
-  options?: { returnToOrigin?: boolean }
+  options?: { returnToOrigin?: boolean },
 ): string | null {
   if (!orderedCustomers || orderedCustomers.length === 0) {
     return null;
@@ -232,9 +222,7 @@ export function buildGoogleMapsRouteUrl(
   let url = `${base}&origin=${encodeURIComponent(originStr)}&destination=${encodeURIComponent(destStr)}`;
 
   if (waypointList.length > 0) {
-    const waypointsStr = waypointList
-      .map(c => `${c.latitude},${c.longitude}`)
-      .join("|");
+    const waypointsStr = waypointList.map((c) => `${c.latitude},${c.longitude}`).join("|");
     url += `&waypoints=${encodeURIComponent(waypointsStr)}`;
   }
 
@@ -246,7 +234,7 @@ export function buildGoogleMapsRouteUrl(
  */
 export function getRouteDistanceEstimate(
   origin: { latitude: number; longitude: number },
-  orderedCustomers: RouteCustomer[]
+  orderedCustomers: RouteCustomer[],
 ): number {
   if (!orderedCustomers || orderedCustomers.length === 0) {
     return 0;
@@ -261,7 +249,7 @@ export function getRouteDistanceEstimate(
         currentPos.latitude,
         currentPos.longitude,
         Number(cust.latitude),
-        Number(cust.longitude)
+        Number(cust.longitude),
       );
       totalDistance += dist;
       currentPos = {
@@ -277,7 +265,9 @@ export function getRouteDistanceEstimate(
 /**
  * Phân tích URL Google Maps để trích xuất toạ độ latitude, longitude
  */
-export function parseGoogleMapsUrlToCoordinates(url: string): { latitude: number; longitude: number } | null {
+export function parseGoogleMapsUrlToCoordinates(
+  url: string,
+): { latitude: number; longitude: number } | null {
   if (!url) return null;
 
   try {

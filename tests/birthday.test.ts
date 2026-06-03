@@ -1,7 +1,11 @@
 import { describe, it, expect } from "vitest";
 
 // Frontend validation logic to be tested
-function validateBirthday(day: number | null, month: number | null, year: number | null): { valid: boolean; error?: string } {
+function validateBirthday(
+  day: number | null,
+  month: number | null,
+  year: number | null,
+): { valid: boolean; error?: string } {
   // Both present or both null rule
   if ((day === null && month !== null) || (day !== null && month === null)) {
     return { valid: false, error: "Ngày và tháng sinh nhật phải cùng có giá trị hoặc cùng trống" };
@@ -107,13 +111,17 @@ describe("E. Birthday Reminder & Contacts MVP Validations", () => {
 
   describe("3. Worker Dry-run and Execution Safety Rules", () => {
     // Mock simulation for SQL stored procedure
-    function runBirthdayWorkerProcedure(p_dry_run: boolean, p_confirm_phrase: string, system_setting_worker_enabled: boolean) {
+    function runBirthdayWorkerProcedure(
+      p_dry_run: boolean,
+      p_confirm_phrase: string,
+      system_setting_worker_enabled: boolean,
+    ) {
       // If worker disabled in system settings and not dry-run => Error
       if (!system_setting_worker_enabled && !p_dry_run) {
         return {
           status: "error",
           message: "Birthday reminder worker is disabled in system_settings.",
-          dbWrites: false
+          dbWrites: false,
         };
       }
 
@@ -124,7 +132,7 @@ describe("E. Birthday Reminder & Contacts MVP Validations", () => {
           dry_run: true,
           processed_reminders_count: 1,
           created_tasks_count: 0,
-          dbWrites: false
+          dbWrites: false,
         };
       }
 
@@ -133,7 +141,7 @@ describe("E. Birthday Reminder & Contacts MVP Validations", () => {
         return {
           status: "error",
           message: "Invalid confirmation phrase for actual metadata database writes.",
-          dbWrites: false
+          dbWrites: false,
         };
       }
 
@@ -143,7 +151,7 @@ describe("E. Birthday Reminder & Contacts MVP Validations", () => {
         dry_run: false,
         processed_reminders_count: 1,
         created_tasks_count: 1,
-        dbWrites: true
+        dbWrites: true,
       };
     }
 

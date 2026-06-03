@@ -8,8 +8,7 @@ const DEFAULT_SALE_PASSWORD = "12345678";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 function json(body: unknown, status = 200) {
@@ -79,9 +78,13 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
 
-    const email = String(body.email || "").trim().toLowerCase();
+    const email = String(body.email || "")
+      .trim()
+      .toLowerCase();
     const fullName = String(body.fullName || "").trim();
-    const requestedRole = String(body.role || "sale").trim().toLowerCase();
+    const requestedRole = String(body.role || "sale")
+      .trim()
+      .toLowerCase();
 
     if (!email) {
       return json({ error: "Email is required" }, 400);
@@ -103,16 +106,15 @@ Deno.serve(async (req) => {
     let newUserId = "";
     let isSelfHealed = false;
 
-    const { data: createdUser, error: createUserError } =
-      await adminClient.auth.admin.createUser({
-        email,
-        password: DEFAULT_SALE_PASSWORD,
-        email_confirm: true,
-        user_metadata: {
-          display_name: fullName,
-          full_name: fullName,
-        },
-      });
+    const { data: createdUser, error: createUserError } = await adminClient.auth.admin.createUser({
+      email,
+      password: DEFAULT_SALE_PASSWORD,
+      email_confirm: true,
+      user_metadata: {
+        display_name: fullName,
+        full_name: fullName,
+      },
+    });
 
     if (createUserError || !createdUser?.user) {
       const errMsg = (createUserError?.message || "").toLowerCase();
@@ -133,7 +135,7 @@ Deno.serve(async (req) => {
           {
             error: createUserError?.message || "Cannot create user",
           },
-          400
+          400,
         );
       }
     } else {
@@ -150,7 +152,7 @@ Deno.serve(async (req) => {
       },
       {
         onConflict: "id",
-      }
+      },
     );
 
     if (profileError) {
@@ -163,7 +165,7 @@ Deno.serve(async (req) => {
         {
           error: `Tạo/Khôi phục Auth user thành công nhưng ghi profiles thất bại: ${profileError.message}`,
         },
-        400
+        400,
       );
     }
 
@@ -175,7 +177,7 @@ Deno.serve(async (req) => {
       },
       {
         onConflict: "user_id,role",
-      }
+      },
     );
 
     if (roleError) {
@@ -187,13 +189,15 @@ Deno.serve(async (req) => {
         {
           error: `Tạo/Khôi phục Auth user thành công nhưng gán role thất bại: ${roleError.message}`,
         },
-        400
+        400,
       );
     }
 
     // Gỡ các quyền dư thừa nếu đây là tài khoản được khôi phục sang vai trò mới
     if (isSelfHealed) {
-      const otherRoles = ["admin", "sub_admin", "sale", "tele_lead", "telesale"].filter((r) => r !== finalRole);
+      const otherRoles = ["admin", "sub_admin", "sale", "tele_lead", "telesale"].filter(
+        (r) => r !== finalRole,
+      );
       for (const or of otherRoles) {
         await adminClient.from("user_roles").delete().eq("user_id", newUserId).eq("role", or);
       }
@@ -215,7 +219,7 @@ Deno.serve(async (req) => {
       {
         error: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 });

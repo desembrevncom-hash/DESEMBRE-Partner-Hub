@@ -1,46 +1,46 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { createFileRoute, Link } from '@tanstack/react-router';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import Papa from 'papaparse';
-import { 
-  Upload, 
-  FileText, 
-  CheckCircle2, 
-  AlertCircle, 
-  ShieldAlert, 
-  RefreshCw, 
-  Database, 
-  ArrowRight, 
-  Download, 
-  Table, 
-  Play, 
+import React, { useState, useEffect, useRef } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import Papa from "papaparse";
+import {
+  Upload,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
+  ShieldAlert,
+  RefreshCw,
+  Database,
+  ArrowRight,
+  Download,
+  Table,
+  Play,
   ChevronRight,
   Sparkles,
   HelpCircle,
-  Undo
-} from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { 
-  Table as TableComponent, 
-  TableHeader, 
-  TableBody, 
-  TableRow, 
-  TableCell, 
-  TableHead 
-} from '@/components/ui/table';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select';
+  Undo,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import {
+  Table as TableComponent,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableCell,
+  TableHead,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   parseRawText,
   getNormalizedKey,
@@ -49,47 +49,117 @@ import {
   DuplicateAction,
   SourceType,
   ValidationError,
-  ImportResult
-} from '@/lib/productKnowledgeImport';
+  ImportResult,
+} from "@/lib/productKnowledgeImport";
 
-export const Route = createFileRoute('/admin/product-import')({
+export const Route = createFileRoute("/admin/product-import")({
   component: ProductImportPage,
 });
 
 const SCHEMA_FIELDS = [
-  { key: 'product_id', label: 'ID Sản phẩm (Mã)', required: true, description: 'Số nguyên dương liên kết với sản phẩm' },
-  { key: 'benefits', label: 'Lợi ích sản phẩm', required: true, description: 'Mô tả chi tiết các lợi ích' },
-  { key: 'usage_instructions', label: 'Hướng dẫn sử dụng', required: true, description: 'Cách dùng, liều lượng, tần suất' },
-  { key: 'sales_pitch', label: 'Lời khuyên bán hàng', required: true, description: 'Kịch bản/pitch bán hàng nhanh' },
-  { key: 'skin_concerns', label: 'Tình trạng da phù hợp', required: false, description: 'Mảng/Danh sách tình trạng da' },
-  { key: 'suitable_spa_types', label: 'Loại hình Spa phù hợp', required: false, description: 'Mảng/Danh sách loại hình Spa' },
-  { key: 'cross_sell_products', label: 'Sản phẩm bán kèm (ID)', required: false, description: 'Mảng số nguyên ID sản phẩm' },
-  { key: 'restock_cycle_days', label: 'Chu kỳ đặt hàng (ngày)', required: false, description: 'Số ngày chu kỳ mua hàng' },
-  { key: 'warnings', label: 'Lưu ý & Chống chỉ định', required: false, description: 'Các cảnh báo sử dụng' },
-  { key: 'is_active', label: 'Đang hoạt động (Kích hoạt)', required: false, description: 'Đánh dấu bản ghi có hiệu lực' },
-  { key: 'ingredient_highlights', label: 'Thành phần nổi bật', required: false, description: 'Mảng/Danh sách thành phần chính' },
-  { key: 'skin_types', label: 'Loại da phù hợp', required: false, description: 'Mảng/Danh sách loại da' },
-  { key: 'pregnancy_safe', label: 'An toàn cho bà bầu', required: false, description: 'Giá trị boolean có/không' },
-  { key: 'routine_position', label: 'Vị trí chu trình skincare', required: false, description: 'Thứ tự trong chu trình' },
+  {
+    key: "product_id",
+    label: "ID Sản phẩm (Mã)",
+    required: true,
+    description: "Số nguyên dương liên kết với sản phẩm",
+  },
+  {
+    key: "benefits",
+    label: "Lợi ích sản phẩm",
+    required: true,
+    description: "Mô tả chi tiết các lợi ích",
+  },
+  {
+    key: "usage_instructions",
+    label: "Hướng dẫn sử dụng",
+    required: true,
+    description: "Cách dùng, liều lượng, tần suất",
+  },
+  {
+    key: "sales_pitch",
+    label: "Lời khuyên bán hàng",
+    required: true,
+    description: "Kịch bản/pitch bán hàng nhanh",
+  },
+  {
+    key: "skin_concerns",
+    label: "Tình trạng da phù hợp",
+    required: false,
+    description: "Mảng/Danh sách tình trạng da",
+  },
+  {
+    key: "suitable_spa_types",
+    label: "Loại hình Spa phù hợp",
+    required: false,
+    description: "Mảng/Danh sách loại hình Spa",
+  },
+  {
+    key: "cross_sell_products",
+    label: "Sản phẩm bán kèm (ID)",
+    required: false,
+    description: "Mảng số nguyên ID sản phẩm",
+  },
+  {
+    key: "restock_cycle_days",
+    label: "Chu kỳ đặt hàng (ngày)",
+    required: false,
+    description: "Số ngày chu kỳ mua hàng",
+  },
+  {
+    key: "warnings",
+    label: "Lưu ý & Chống chỉ định",
+    required: false,
+    description: "Các cảnh báo sử dụng",
+  },
+  {
+    key: "is_active",
+    label: "Đang hoạt động (Kích hoạt)",
+    required: false,
+    description: "Đánh dấu bản ghi có hiệu lực",
+  },
+  {
+    key: "ingredient_highlights",
+    label: "Thành phần nổi bật",
+    required: false,
+    description: "Mảng/Danh sách thành phần chính",
+  },
+  {
+    key: "skin_types",
+    label: "Loại da phù hợp",
+    required: false,
+    description: "Mảng/Danh sách loại da",
+  },
+  {
+    key: "pregnancy_safe",
+    label: "An toàn cho bà bầu",
+    required: false,
+    description: "Giá trị boolean có/không",
+  },
+  {
+    key: "routine_position",
+    label: "Vị trí chu trình skincare",
+    required: false,
+    description: "Thứ tự trong chu trình",
+  },
 ];
 
 function ProductImportPage() {
   const { user, isAdmin, isSubAdmin, loading: authLoading } = useAuth();
-  
+
   // Wizard Steps
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   // Input states
-  const [sourceType, setSourceType] = useState<SourceType>('csv');
-  const [fileName, setFileName] = useState<string>('');
-  const [rawText, setRawText] = useState<string>('');
+  const [sourceType, setSourceType] = useState<SourceType>("csv");
+  const [fileName, setFileName] = useState<string>("");
+  const [rawText, setRawText] = useState<string>("");
   const [parsedRawData, setParsedRawData] = useState<any[]>([]);
   const [sourceHeaders, setSourceHeaders] = useState<string[]>([]);
-  
+
   // Mapping state: schema_field_key -> source_header_name
   const [mappings, setMappings] = useState<Record<string, string>>({});
-  const [duplicateAction, setDuplicateAction] = useState<DuplicateAction>('overwrite');
-  
+  const [duplicateAction, setDuplicateAction] = useState<DuplicateAction>("overwrite");
+
   // Status and Results
   const [isProcessing, setIsProcessing] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -102,18 +172,18 @@ function ProductImportPage() {
   useEffect(() => {
     if (parsedRawData.length > 0) {
       // Get all unique keys in the parsed data
-      const headers = Array.from(
-        new Set(parsedRawData.flatMap(row => Object.keys(row)))
-      ).filter(h => h.trim() !== '');
+      const headers = Array.from(new Set(parsedRawData.flatMap((row) => Object.keys(row)))).filter(
+        (h) => h.trim() !== "",
+      );
 
       setSourceHeaders(headers);
 
       // Auto map logic based on normalized matches
       const newMappings: Record<string, string> = {};
-      
-      SCHEMA_FIELDS.forEach(field => {
+
+      SCHEMA_FIELDS.forEach((field) => {
         // Try to find a header that matches
-        const match = headers.find(h => getNormalizedKey(h) === field.key);
+        const match = headers.find((h) => getNormalizedKey(h) === field.key);
         if (match) {
           newMappings[field.key] = match;
         }
@@ -130,7 +200,9 @@ function ProductImportPage() {
       <div className="min-h-[85vh] flex items-center justify-center bg-slate-50/50">
         <div className="flex flex-col items-center gap-3">
           <RefreshCw className="h-8 w-8 animate-spin text-indigo-600" />
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Đang xác thực quyền truy cập...</p>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">
+            Đang xác thực quyền truy cập...
+          </p>
         </div>
       </div>
     );
@@ -144,7 +216,8 @@ function ProductImportPage() {
         </div>
         <h2 className="text-xl font-bold text-slate-800">Không có quyền truy cập</h2>
         <p className="text-slate-500 text-sm max-w-sm mt-2">
-          Giao diện Import Tri thức sản phẩm chỉ dành cho quản trị viên (Admin/Sub Admin). Nhân sự Sale hoặc Telesale không được phép truy cập.
+          Giao diện Import Tri thức sản phẩm chỉ dành cho quản trị viên (Admin/Sub Admin). Nhân sự
+          Sale hoặc Telesale không được phép truy cập.
         </p>
         <Link to="/workspace" className="mt-6">
           <Button className="bg-slate-900 hover:bg-black rounded-xl text-xs font-bold px-6 py-2.5">
@@ -161,9 +234,9 @@ function ProductImportPage() {
     if (!file) return;
 
     setFileName(file.name);
-    
-    if (file.type === 'application/json' || file.name.endsWith('.json')) {
-      setSourceType('json');
+
+    if (file.type === "application/json" || file.name.endsWith(".json")) {
+      setSourceType("json");
       const reader = new FileReader();
       reader.onload = (event) => {
         try {
@@ -173,30 +246,30 @@ function ProductImportPage() {
           toast.success(`Đã tải file JSON: ${arrayData.length} dòng`);
           setStep(2);
         } catch (err: any) {
-          toast.error('Lỗi cú pháp JSON: ' + err.message);
+          toast.error("Lỗi cú pháp JSON: " + err.message);
         }
       };
       reader.readAsText(file);
     } else {
-      setSourceType('csv');
+      setSourceType("csv");
       Papa.parse(file, {
         header: true,
-        skipEmptyLines: 'greedy',
+        skipEmptyLines: "greedy",
         complete: (results) => {
           if (results.errors.length > 0) {
-            console.warn('Cảnh báo CSV parse:', results.errors);
+            console.warn("Cảnh báo CSV parse:", results.errors);
           }
           if (results.data && results.data.length > 0) {
             setParsedRawData(results.data);
             toast.success(`Đã đọc file CSV: ${results.data.length} dòng`);
             setStep(2);
           } else {
-            toast.error('File CSV trống hoặc định dạng không hợp lệ.');
+            toast.error("File CSV trống hoặc định dạng không hợp lệ.");
           }
         },
         error: (err) => {
-          toast.error('Lỗi đọc file CSV: ' + err.message);
-        }
+          toast.error("Lỗi đọc file CSV: " + err.message);
+        },
       });
     }
   };
@@ -204,7 +277,7 @@ function ProductImportPage() {
   // Handle pasted text parsing
   const handleParseText = () => {
     if (!rawText.trim()) {
-      toast.error('Vui lòng nhập/dán dữ liệu trước.');
+      toast.error("Vui lòng nhập/dán dữ liệu trước.");
       return;
     }
 
@@ -215,17 +288,17 @@ function ProductImportPage() {
         toast.success(`Đã phân tích text block: ${data.length} sản phẩm`);
         setStep(2);
       } else {
-        toast.error('Không tìm thấy dữ liệu hợp lệ trong nội dung đã dán.');
+        toast.error("Không tìm thấy dữ liệu hợp lệ trong nội dung đã dán.");
       }
     } catch (e: any) {
-      toast.error('Lỗi phân tích cú pháp: ' + e.message);
+      toast.error("Lỗi phân tích cú pháp: " + e.message);
     }
   };
 
   // Build the mapped data object for validation and previews
   const getMappedRow = (rawRow: any) => {
     const mapped: Record<string, any> = {};
-    Object.keys(mappings).forEach(schemaKey => {
+    Object.keys(mappings).forEach((schemaKey) => {
       const sourceHeader = mappings[schemaKey];
       if (sourceHeader) {
         mapped[schemaKey] = rawRow[sourceHeader];
@@ -237,38 +310,40 @@ function ProductImportPage() {
   // Reset import center state to Step 1
   const handleReset = () => {
     setStep(1);
-    setFileName('');
-    setRawText('');
+    setFileName("");
+    setRawText("");
     setParsedRawData([]);
     setSourceHeaders([]);
     setMappings({});
     setImportResult(null);
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
   // Execute DB import
   const handleStartImport = async () => {
     // 1. Confirm required fields are mapped
-    const unmappedRequired = SCHEMA_FIELDS.filter(f => f.required && !mappings[f.key]);
+    const unmappedRequired = SCHEMA_FIELDS.filter((f) => f.required && !mappings[f.key]);
     if (unmappedRequired.length > 0) {
-      toast.error(`Cần ánh xạ các trường bắt buộc: ${unmappedRequired.map(f => f.label).join(', ')}`);
+      toast.error(
+        `Cần ánh xạ các trường bắt buộc: ${unmappedRequired.map((f) => f.label).join(", ")}`,
+      );
       return;
     }
 
     setIsProcessing(true);
-    toast.info('Đang tiến hành import dữ liệu...');
+    toast.info("Đang tiến hành import dữ liệu...");
 
     try {
       // Convert raw parsed data rows using mapping
-      const mappedRows = parsedRawData.map(raw => getMappedRow(raw));
-      
+      const mappedRows = parsedRawData.map((raw) => getMappedRow(raw));
+
       const result = await executeImport(
         mappedRows,
         duplicateAction,
         sourceType,
-        fileName || 'raw_text_input'
+        fileName || "raw_text_input",
       );
 
       setImportResult(result);
@@ -276,13 +351,15 @@ function ProductImportPage() {
       setStep(3);
 
       if (result.errorCount > 0) {
-        toast.warning(`Import hoàn tất: ${result.successCount} thành công, ${result.errorCount} lỗi.`);
+        toast.warning(
+          `Import hoàn tất: ${result.successCount} thành công, ${result.errorCount} lỗi.`,
+        );
       } else {
         toast.success(`Đã import thành công ${result.successCount} sản phẩm!`);
       }
     } catch (err: any) {
       setIsProcessing(false);
-      toast.error('Lỗi nghiêm trọng khi import: ' + err.message);
+      toast.error("Lỗi nghiêm trọng khi import: " + err.message);
     }
   };
 
@@ -290,21 +367,23 @@ function ProductImportPage() {
   const handleDownloadErrorCsv = () => {
     if (!importResult || importResult.errors.length === 0) return;
 
-    const errorCsvData = importResult.errors.map(err => ({
-      'Dòng': err.rowNumber === -1 ? 'DB Error' : err.rowNumber,
-      'Mã Sản Phẩm': err.productId || 'N/A',
-      'Trường lỗi': err.field || 'N/A',
-      'Chi tiết lỗi': err.message,
-      'Dữ liệu gốc': JSON.stringify(err.rawRow),
+    const errorCsvData = importResult.errors.map((err) => ({
+      Dòng: err.rowNumber === -1 ? "DB Error" : err.rowNumber,
+      "Mã Sản Phẩm": err.productId || "N/A",
+      "Trường lỗi": err.field || "N/A",
+      "Chi tiết lỗi": err.message,
+      "Dữ liệu gốc": JSON.stringify(err.rawRow),
     }));
 
     const csv = Papa.unparse(errorCsvData);
-    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([new Uint8Array([0xef, 0xbb, 0xbf]), csv], {
+      type: "text/csv;charset=utf-8;",
+    });
     const url = URL.createObjectURL(blob);
-    
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `import_errors_${new Date().getTime()}.csv`);
+
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `import_errors_${new Date().getTime()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -312,7 +391,6 @@ function ProductImportPage() {
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
-      
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -326,7 +404,12 @@ function ProductImportPage() {
         </div>
         <div className="flex items-center gap-2">
           {step > 1 && (
-            <Button variant="outline" size="sm" onClick={handleReset} className="rounded-xl border-slate-200">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReset}
+              className="rounded-xl border-slate-200"
+            >
               <Undo className="w-3.5 h-3.5 mr-1.5" /> Làm lại từ đầu
             </Button>
           )}
@@ -347,7 +430,10 @@ function ProductImportPage() {
               Quy Trình Kiểm Soát Tri Thức Sản Phẩm
             </div>
             <p className="text-xs text-slate-650 leading-relaxed max-w-3xl">
-              Dữ liệu được nhập sẽ mặc định ở trạng thái <strong>Draft (Nháp)</strong>. AI Product Tutor chỉ có thể tra cứu và truy xuất (retrieval) đối với các thông tin đã được kiểm duyệt và chuyển trạng thái sang <strong>Approved (Đã duyệt)</strong>. Quá trình sinh chunk và tạo vector embedding chỉ được thực hiện sau bước duyệt.
+              Dữ liệu được nhập sẽ mặc định ở trạng thái <strong>Draft (Nháp)</strong>. AI Product
+              Tutor chỉ có thể tra cứu và truy xuất (retrieval) đối với các thông tin đã được kiểm
+              duyệt và chuyển trạng thái sang <strong>Approved (Đã duyệt)</strong>. Quá trình sinh
+              chunk và tạo vector embedding chỉ được thực hiện sau bước duyệt.
             </p>
           </div>
           <div className="flex items-center gap-2 text-[10px] font-black text-indigo-800 uppercase tracking-widest shrink-0 self-stretch bg-indigo-50/50 rounded-xl px-4 py-2 justify-center border border-indigo-100">
@@ -362,15 +448,21 @@ function ProductImportPage() {
 
       {/* Step Indicators */}
       <div className="grid grid-cols-3 gap-2">
-        <div className={`p-3 rounded-2xl border text-center transition-all ${step === 1 ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-150' : 'bg-white text-slate-500 border-slate-200'}`}>
+        <div
+          className={`p-3 rounded-2xl border text-center transition-all ${step === 1 ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-150" : "bg-white text-slate-500 border-slate-200"}`}
+        >
           <div className="text-[10px] font-black uppercase tracking-wider">Bước 1</div>
           <div className="text-xs font-bold mt-1">Chọn nguồn & Tải file</div>
         </div>
-        <div className={`p-3 rounded-2xl border text-center transition-all ${step === 2 ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-150' : 'bg-white text-slate-500 border-slate-200'}`}>
+        <div
+          className={`p-3 rounded-2xl border text-center transition-all ${step === 2 ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-150" : "bg-white text-slate-500 border-slate-200"}`}
+        >
           <div className="text-[10px] font-black uppercase tracking-wider">Bước 2</div>
           <div className="text-xs font-bold mt-1">Ánh xạ & Xem trước</div>
         </div>
-        <div className={`p-3 rounded-2xl border text-center transition-all ${step === 3 ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-150' : 'bg-white text-slate-500 border-slate-200'}`}>
+        <div
+          className={`p-3 rounded-2xl border text-center transition-all ${step === 3 ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-150" : "bg-white text-slate-500 border-slate-200"}`}
+        >
           <div className="text-[10px] font-black uppercase tracking-wider">Bước 3</div>
           <div className="text-xs font-bold mt-1">Kết quả Import</div>
         </div>
@@ -380,8 +472,12 @@ function ProductImportPage() {
       {step === 1 && (
         <Card className="border-slate-200">
           <CardHeader>
-            <CardTitle className="text-lg font-bold text-slate-800">Chọn nguồn dữ liệu tri thức</CardTitle>
-            <CardDescription>Nhập dữ liệu tri thức hàng loạt thông qua File Excel/CSV, JSON hoặc văn bản tự do.</CardDescription>
+            <CardTitle className="text-lg font-bold text-slate-800">
+              Chọn nguồn dữ liệu tri thức
+            </CardTitle>
+            <CardDescription>
+              Nhập dữ liệu tri thức hàng loạt thông qua File Excel/CSV, JSON hoặc văn bản tự do.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <Tabs defaultValue="file" className="w-full">
@@ -395,7 +491,7 @@ function ProductImportPage() {
               </TabsList>
 
               <TabsContent value="file" className="space-y-4">
-                <div 
+                <div
                   onClick={() => fileInputRef.current?.click()}
                   className="border-2 border-dashed border-indigo-200 bg-indigo-50/20 hover:bg-indigo-50/50 hover:border-indigo-400 transition-all rounded-3xl p-10 text-center cursor-pointer flex flex-col items-center justify-center"
                 >
@@ -404,24 +500,30 @@ function ProductImportPage() {
                   </div>
                   <h3 className="font-bold text-slate-800 text-sm">Chọn file CSV hoặc JSON</h3>
                   <p className="text-xs text-slate-500 max-w-sm mt-1 mb-4 leading-relaxed">
-                    Hỗ trợ file CSV mã hóa UTF-8, ngăn cách bằng dấu phẩy, hoặc file JSON dạng mảng sản phẩm.
+                    Hỗ trợ file CSV mã hóa UTF-8, ngăn cách bằng dấu phẩy, hoặc file JSON dạng mảng
+                    sản phẩm.
                   </p>
-                  <Button variant="outline" className="bg-white border-slate-200 text-xs font-bold shadow-sm rounded-xl">
+                  <Button
+                    variant="outline"
+                    className="bg-white border-slate-200 text-xs font-bold shadow-sm rounded-xl"
+                  >
                     Tìm file máy tính
                   </Button>
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
+                  <input
+                    type="file"
+                    ref={fileInputRef}
                     onChange={handleFileChange}
-                    accept=".csv,.json,text/csv,application/json" 
-                    className="hidden" 
+                    accept=".csv,.json,text/csv,application/json"
+                    className="hidden"
                   />
                 </div>
               </TabsContent>
 
               <TabsContent value="text" className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="rawText" className="text-xs font-bold text-slate-700">Dán khối văn bản tri thức (JSON, TSV hoặc Key-Value)</Label>
+                  <Label htmlFor="rawText" className="text-xs font-bold text-slate-700">
+                    Dán khối văn bản tri thức (JSON, TSV hoặc Key-Value)
+                  </Label>
                   <textarea
                     id="rawText"
                     rows={12}
@@ -441,7 +543,10 @@ sales_pitch: Thích hợp cho da trung niên.`}
                   />
                 </div>
                 <div className="flex justify-end">
-                  <Button onClick={handleParseText} className="bg-indigo-600 hover:bg-indigo-700 rounded-xl px-5 text-xs font-bold">
+                  <Button
+                    onClick={handleParseText}
+                    className="bg-indigo-600 hover:bg-indigo-700 rounded-xl px-5 text-xs font-bold"
+                  >
                     Phân tích dữ liệu <ArrowRight className="w-4 h-4 ml-1.5" />
                   </Button>
                 </div>
@@ -454,7 +559,6 @@ sales_pitch: Thích hợp cho da trung niên.`}
       {/* Step 2 Content: Column Mappings & Previews */}
       {step === 2 && parsedRawData.length > 0 && (
         <div className="space-y-6">
-          
           {/* Mapping settings card */}
           <Card className="border-slate-200">
             <CardHeader className="bg-slate-50/50 border-b border-slate-100">
@@ -463,33 +567,40 @@ sales_pitch: Thích hợp cho da trung niên.`}
                 Thiết lập ánh xạ cột (Field Mapping)
               </CardTitle>
               <CardDescription>
-                Hệ thống tự động phát hiện cột trùng tên viết tắt. Hãy cấu hình thủ công nếu tên cột trong file khác với cấu trúc dữ liệu tri thức.
+                Hệ thống tự động phát hiện cột trùng tên viết tắt. Hãy cấu hình thủ công nếu tên cột
+                trong file khác với cấu trúc dữ liệu tri thức.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
-              
               {/* Target Fields Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                {SCHEMA_FIELDS.map(field => {
+                {SCHEMA_FIELDS.map((field) => {
                   const isMapped = !!mappings[field.key];
                   return (
-                    <div key={field.key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl border border-slate-100 bg-slate-50/30">
+                    <div
+                      key={field.key}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl border border-slate-100 bg-slate-50/30"
+                    >
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-1.5">
                           <span className="text-xs font-black text-slate-800">{field.label}</span>
                           {field.required && (
-                            <span className="text-[10px] font-black text-rose-500 bg-rose-50 px-1.5 py-0.2 rounded uppercase">Bắt buộc</span>
+                            <span className="text-[10px] font-black text-rose-500 bg-rose-50 px-1.5 py-0.2 rounded uppercase">
+                              Bắt buộc
+                            </span>
                           )}
                         </div>
-                        <p className="text-[10px] text-slate-500 font-medium">{field.description}</p>
+                        <p className="text-[10px] text-slate-500 font-medium">
+                          {field.description}
+                        </p>
                       </div>
                       <div className="w-full sm:w-56 shrink-0">
-                        <Select 
-                          value={mappings[field.key] || 'unmapped'} 
+                        <Select
+                          value={mappings[field.key] || "unmapped"}
                           onValueChange={(val) => {
-                            setMappings(prev => {
+                            setMappings((prev) => {
                               const copy = { ...prev };
-                              if (val === 'unmapped') {
+                              if (val === "unmapped") {
                                 delete copy[field.key];
                               } else {
                                 copy[field.key] = val;
@@ -502,8 +613,13 @@ sales_pitch: Thích hợp cho da trung niên.`}
                             <SelectValue placeholder="--- Không ánh xạ ---" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="unmapped" className="text-xs text-rose-600 font-medium">--- Không ánh xạ ---</SelectItem>
-                            {sourceHeaders.map(header => (
+                            <SelectItem
+                              value="unmapped"
+                              className="text-xs text-rose-600 font-medium"
+                            >
+                              --- Không ánh xạ ---
+                            </SelectItem>
+                            {sourceHeaders.map((header) => (
                               <SelectItem key={header} value={header} className="text-xs">
                                 {header}
                               </SelectItem>
@@ -519,23 +635,25 @@ sales_pitch: Thích hợp cho da trung niên.`}
               <div className="border-t border-slate-100 pt-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 {/* Duplicate handling settings */}
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                  <Label className="text-xs font-black text-slate-700 uppercase tracking-wide">Xử lý ID sản phẩm đã tồn tại:</Label>
+                  <Label className="text-xs font-black text-slate-700 uppercase tracking-wide">
+                    Xử lý ID sản phẩm đã tồn tại:
+                  </Label>
                   <div className="flex items-center gap-2">
-                    <Button 
+                    <Button
                       size="sm"
                       type="button"
-                      variant={duplicateAction === 'skip' ? 'default' : 'outline'}
-                      onClick={() => setDuplicateAction('skip')}
-                      className={`h-8 rounded-lg text-xs font-bold ${duplicateAction === 'skip' ? 'bg-indigo-600 hover:bg-indigo-700' : 'border-slate-200 text-slate-700'}`}
+                      variant={duplicateAction === "skip" ? "default" : "outline"}
+                      onClick={() => setDuplicateAction("skip")}
+                      className={`h-8 rounded-lg text-xs font-bold ${duplicateAction === "skip" ? "bg-indigo-600 hover:bg-indigo-700" : "border-slate-200 text-slate-700"}`}
                     >
                       Bỏ qua (Skip)
                     </Button>
-                    <Button 
+                    <Button
                       size="sm"
                       type="button"
-                      variant={duplicateAction === 'overwrite' ? 'default' : 'outline'}
-                      onClick={() => setDuplicateAction('overwrite')}
-                      className={`h-8 rounded-lg text-xs font-bold ${duplicateAction === 'overwrite' ? 'bg-indigo-600 hover:bg-indigo-700' : 'border-slate-200 text-slate-700'}`}
+                      variant={duplicateAction === "overwrite" ? "default" : "outline"}
+                      onClick={() => setDuplicateAction("overwrite")}
+                      className={`h-8 rounded-lg text-xs font-bold ${duplicateAction === "overwrite" ? "bg-indigo-600 hover:bg-indigo-700" : "border-slate-200 text-slate-700"}`}
                     >
                       Ghi đè (Overwrite / Reset Draft)
                     </Button>
@@ -543,11 +661,15 @@ sales_pitch: Thích hợp cho da trung niên.`}
                 </div>
 
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={handleReset} className="rounded-xl border-slate-200 text-xs font-bold">
+                  <Button
+                    variant="outline"
+                    onClick={handleReset}
+                    className="rounded-xl border-slate-200 text-xs font-bold"
+                  >
                     Huỷ
                   </Button>
-                  <Button 
-                    onClick={handleStartImport} 
+                  <Button
+                    onClick={handleStartImport}
                     disabled={isProcessing}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-6 text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-indigo-150"
                   >
@@ -563,7 +685,6 @@ sales_pitch: Thích hợp cho da trung niên.`}
                   </Button>
                 </div>
               </div>
-
             </CardContent>
           </Card>
 
@@ -575,15 +696,18 @@ sales_pitch: Thích hợp cho da trung niên.`}
                 Xem trước dữ liệu ánh xạ (Tối đa 10 dòng)
               </CardTitle>
               <CardDescription>
-                Bảng hiển thị cách dữ liệu nguồn sẽ được chuẩn hóa trước khi đẩy vào database. Cột có nhãn màu đỏ biểu thị trường bắt buộc chưa được ánh xạ.
+                Bảng hiển thị cách dữ liệu nguồn sẽ được chuẩn hóa trước khi đẩy vào database. Cột
+                có nhãn màu đỏ biểu thị trường bắt buộc chưa được ánh xạ.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
               <TableComponent>
                 <TableHeader className="bg-slate-50/50">
                   <TableRow>
-                    <TableHead className="w-12 text-center text-xs font-black text-slate-650">Dòng</TableHead>
-                    {SCHEMA_FIELDS.map(f => (
+                    <TableHead className="w-12 text-center text-xs font-black text-slate-650">
+                      Dòng
+                    </TableHead>
+                    {SCHEMA_FIELDS.map((f) => (
                       <TableHead key={f.key} className="text-xs font-black text-slate-650 min-w-36">
                         {f.label}
                         {f.required && <span className="text-rose-500 ml-0.5">*</span>}
@@ -598,29 +722,37 @@ sales_pitch: Thích hợp cho da trung niên.`}
                     const { error, parsedRow } = validateRow(mapped, rowNumber);
 
                     return (
-                      <TableRow key={idx} className={error ? 'bg-rose-50/30' : ''}>
-                        <TableCell className="text-center font-bold text-xs text-slate-400">{rowNumber}</TableCell>
-                        
+                      <TableRow key={idx} className={error ? "bg-rose-50/30" : ""}>
+                        <TableCell className="text-center font-bold text-xs text-slate-400">
+                          {rowNumber}
+                        </TableCell>
+
                         {/* Map each schema field value */}
-                        {SCHEMA_FIELDS.map(field => {
+                        {SCHEMA_FIELDS.map((field) => {
                           const isMapped = !!mappings[field.key];
                           const rawVal = mapped[field.key];
-                          
-                          let displayVal = rawVal !== undefined && rawVal !== null ? String(rawVal) : '';
-                          
+
+                          let displayVal =
+                            rawVal !== undefined && rawVal !== null ? String(rawVal) : "";
+
                           // Truncate long texts for preview
                           if (displayVal.length > 50) {
-                            displayVal = displayVal.substring(0, 50) + '...';
+                            displayVal = displayVal.substring(0, 50) + "...";
                           }
 
                           // Highlighting validation status
                           if (!isMapped) {
                             return (
-                              <TableCell key={field.key} className="text-xs text-slate-450 italic bg-slate-50/40">
+                              <TableCell
+                                key={field.key}
+                                className="text-xs text-slate-450 italic bg-slate-50/40"
+                              >
                                 {field.required ? (
-                                  <span className="text-[10px] font-bold text-rose-500 bg-rose-50/80 px-1 py-0.5 rounded">Chưa cấu hình cột</span>
+                                  <span className="text-[10px] font-bold text-rose-500 bg-rose-50/80 px-1 py-0.5 rounded">
+                                    Chưa cấu hình cột
+                                  </span>
                                 ) : (
-                                  'Trống'
+                                  "Trống"
                                 )}
                               </TableCell>
                             );
@@ -630,7 +762,10 @@ sales_pitch: Thích hợp cho da trung niên.`}
                           const isFieldError = error?.field === field.key;
 
                           return (
-                            <TableCell key={field.key} className={`text-xs font-medium text-slate-700 ${isFieldError ? 'text-rose-600 font-bold bg-rose-50/50' : ''}`}>
+                            <TableCell
+                              key={field.key}
+                              className={`text-xs font-medium text-slate-700 ${isFieldError ? "text-rose-600 font-bold bg-rose-50/50" : ""}`}
+                            >
                               {displayVal || <span className="text-slate-400 italic">Trống</span>}
                             </TableCell>
                           );
@@ -642,7 +777,6 @@ sales_pitch: Thích hợp cho da trung niên.`}
               </TableComponent>
             </CardContent>
           </Card>
-
         </div>
       )}
 
@@ -653,27 +787,36 @@ sales_pitch: Thích hợp cho da trung niên.`}
             <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
               <CheckCircle2 className="w-6 h-6 text-emerald-500" /> Báo cáo kết quả Import
             </CardTitle>
-            <CardDescription>Quá trình nhập dữ liệu tri thức vào cơ sở dữ liệu đã hoàn tất.</CardDescription>
+            <CardDescription>
+              Quá trình nhập dữ liệu tri thức vào cơ sở dữ liệu đã hoàn tất.
+            </CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
-            
             {/* Quick Metrics */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50 text-center">
                 <div className="text-xs font-medium text-slate-500">Tổng số dòng xử lý</div>
-                <div className="text-2xl font-black text-slate-800 mt-1">{importResult.totalRows}</div>
+                <div className="text-2xl font-black text-slate-800 mt-1">
+                  {importResult.totalRows}
+                </div>
               </div>
               <div className="p-4 rounded-2xl border border-emerald-100 bg-emerald-50/40 text-center">
                 <div className="text-xs font-medium text-emerald-600">Thành công (Draft)</div>
-                <div className="text-2xl font-black text-emerald-700 mt-1">{importResult.successCount}</div>
+                <div className="text-2xl font-black text-emerald-700 mt-1">
+                  {importResult.successCount}
+                </div>
               </div>
               <div className="p-4 rounded-2xl border border-amber-100 bg-amber-50/40 text-center">
                 <div className="text-xs font-medium text-amber-600">Bỏ qua (Trùng lặp)</div>
-                <div className="text-2xl font-black text-amber-700 mt-1">{importResult.warningCount}</div>
+                <div className="text-2xl font-black text-amber-700 mt-1">
+                  {importResult.warningCount}
+                </div>
               </div>
               <div className="p-4 rounded-2xl border border-rose-100 bg-rose-50/40 text-center">
                 <div className="text-xs font-medium text-rose-600">Lỗi biên dịch / DB</div>
-                <div className="text-2xl font-black text-rose-700 mt-1">{importResult.errorCount}</div>
+                <div className="text-2xl font-black text-rose-700 mt-1">
+                  {importResult.errorCount}
+                </div>
               </div>
             </div>
 
@@ -682,11 +825,12 @@ sales_pitch: Thích hợp cho da trung niên.`}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-xs font-black text-slate-800 uppercase tracking-wider">
-                    <AlertCircle className="w-4 h-4 text-rose-500" /> Danh sách lỗi ({importResult.errors.length})
+                    <AlertCircle className="w-4 h-4 text-rose-500" /> Danh sách lỗi (
+                    {importResult.errors.length})
                   </div>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
+                  <Button
+                    size="sm"
+                    variant="outline"
                     onClick={handleDownloadErrorCsv}
                     className="border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-bold rounded-xl h-8"
                   >
@@ -698,12 +842,12 @@ sales_pitch: Thích hợp cho da trung niên.`}
                   {importResult.errors.map((err, idx) => (
                     <div key={idx} className="p-3 text-xs flex items-start gap-2.5">
                       <span className="font-extrabold text-rose-600 bg-rose-100 px-1.5 py-0.5 rounded text-[10px]">
-                        {err.rowNumber === -1 ? 'DB' : `Dòng ${err.rowNumber}`}
+                        {err.rowNumber === -1 ? "DB" : `Dòng ${err.rowNumber}`}
                       </span>
                       <div className="space-y-0.5">
                         <p className="font-bold text-slate-800">
-                          {err.productId ? `Sản phẩm ID: ${err.productId}` : ''} 
-                          {err.field ? ` [Cột: ${err.field}]` : ''}
+                          {err.productId ? `Sản phẩm ID: ${err.productId}` : ""}
+                          {err.field ? ` [Cột: ${err.field}]` : ""}
                         </p>
                         <p className="text-rose-750 font-medium leading-relaxed">{err.message}</p>
                       </div>
@@ -732,10 +876,17 @@ sales_pitch: Thích hợp cho da trung niên.`}
             {/* Operations complete options */}
             <div className="border-t border-slate-100 pt-5 flex items-center justify-between">
               <p className="text-xs text-slate-500 font-medium">
-                Mã log audit: <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">{importResult.logId || 'Không ghi nhận'}</code>
+                Mã log audit:{" "}
+                <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">
+                  {importResult.logId || "Không ghi nhận"}
+                </code>
               </p>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={handleReset} className="rounded-xl border-slate-200 text-xs font-bold">
+                <Button
+                  variant="outline"
+                  onClick={handleReset}
+                  className="rounded-xl border-slate-200 text-xs font-bold"
+                >
                   Import thêm file khác
                 </Button>
                 <Link to="/admin/products">
@@ -745,11 +896,9 @@ sales_pitch: Thích hợp cho da trung niên.`}
                 </Link>
               </div>
             </div>
-
           </CardContent>
         </Card>
       )}
-
     </div>
   );
 }

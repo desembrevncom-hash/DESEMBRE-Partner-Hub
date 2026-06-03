@@ -40,12 +40,16 @@ export function buildSuppressionSet(suppressions: any[] | null): Set<string> {
 }
 
 // Hàm đánh giá sự đủ điều kiện cho Kênh Email
-export function evaluateEmailEligibility(customer: any, suppressionSet: Set<string>, seenContacts: Set<string>): {
-  isValidContact: boolean,
-  isDuplicate: boolean,
-  isSuppressed: boolean,
-  hasConsent: boolean,
-  contactValForPreview: string
+export function evaluateEmailEligibility(
+  customer: any,
+  suppressionSet: Set<string>,
+  seenContacts: Set<string>,
+): {
+  isValidContact: boolean;
+  isDuplicate: boolean;
+  isSuppressed: boolean;
+  hasConsent: boolean;
+  contactValForPreview: string;
 } {
   let isValidContact = false;
   let hasConsent = customer.marketing_opt_in === true;
@@ -56,7 +60,7 @@ export function evaluateEmailEligibility(customer: any, suppressionSet: Set<stri
   if (customer.email && isValidEmail(customer.email)) {
     const nEmail = normalizeEmail(customer.email);
     contactValForPreview = nEmail;
-    
+
     if (seenContacts.has(`email:${nEmail}`)) {
       isDuplicate = true;
     } else {
@@ -66,7 +70,7 @@ export function evaluateEmailEligibility(customer: any, suppressionSet: Set<stri
     if (suppressionSet.has(`email:${nEmail}`)) {
       isSuppressed = true;
     }
-    
+
     isValidContact = true;
   }
 
@@ -74,12 +78,17 @@ export function evaluateEmailEligibility(customer: any, suppressionSet: Set<stri
 }
 
 // Hàm đánh giá sự đủ điều kiện cho Kênh Zalo
-export function evaluateZaloEligibility(customer: any, zProfile: any, suppressionSet: Set<string>, seenContacts: Set<string>): {
-  isValidContact: boolean,
-  isDuplicate: boolean,
-  isSuppressed: boolean,
-  hasConsent: boolean,
-  contactValForPreview: string
+export function evaluateZaloEligibility(
+  customer: any,
+  zProfile: any,
+  suppressionSet: Set<string>,
+  seenContacts: Set<string>,
+): {
+  isValidContact: boolean;
+  isDuplicate: boolean;
+  isSuppressed: boolean;
+  hasConsent: boolean;
+  contactValForPreview: string;
 } {
   let isValidContact = false;
   let hasConsent = customer.marketing_opt_in === true; // Hoặc logic consent riêng của Zalo OA
@@ -129,7 +138,7 @@ export function buildEligibleAudience(
   campaignChannel: string,
   zaloProfilesMap: Map<string, any>,
   suppressionSet: Set<string>,
-  previewLimit: number = 10
+  previewLimit: number = 10,
 ) {
   let eligible_count = 0;
   const excluded_counts = {
@@ -138,22 +147,23 @@ export function buildEligibleAudience(
     blocked_or_inactive: 0,
     duplicate: 0,
     suppressed: 0,
-    invalid_contact: 0
+    invalid_contact: 0,
   };
-  
+
   const preview_recipients: any[] = [];
   const eligible_recipients: any[] = [];
-  const seenContacts = new Set<string>(); 
+  const seenContacts = new Set<string>();
 
   const isEmail = campaignChannel === "email" || campaignChannel === "email_campaign";
-  const isZalo = campaignChannel === "zalo" || campaignChannel === "zalo_oa" || campaignChannel === "zalo_zns";
+  const isZalo =
+    campaignChannel === "zalo" || campaignChannel === "zalo_oa" || campaignChannel === "zalo_zns";
 
   for (const c of customers) {
     if (isBlockedOrInactive(c)) {
       excluded_counts.blocked_or_inactive++;
       continue;
     }
-    
+
     if (c.marketing_opt_out_at) {
       excluded_counts.opt_out++;
       continue;
@@ -164,7 +174,7 @@ export function buildEligibleAudience(
       isDuplicate: false,
       isSuppressed: false,
       hasConsent: false,
-      contactValForPreview: ""
+      contactValForPreview: "",
     };
 
     if (isEmail) {
@@ -196,21 +206,21 @@ export function buildEligibleAudience(
 
     // Nếu qua được tất cả các cửa ải an toàn
     eligible_count++;
-    
+
     eligible_recipients.push({
       customer_id: c.id,
       email: isEmail ? checkResult.contactValForPreview : null,
       zalo_id: isZalo && zaloProfilesMap.get(c.id) ? zaloProfilesMap.get(c.id).zalo_id : null,
       phone: isZalo && !zaloProfilesMap.get(c.id) ? checkResult.contactValForPreview : null,
       marketing_opt_in: c.marketing_opt_in,
-      marketing_opt_out_at: c.marketing_opt_out_at
+      marketing_opt_out_at: c.marketing_opt_out_at,
     });
 
     if (preview_recipients.length < previewLimit) {
       preview_recipients.push({
         id: c.id,
         name: c.name,
-        contact: checkResult.contactValForPreview
+        contact: checkResult.contactValForPreview,
       });
     }
   }

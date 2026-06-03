@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { createFileRoute, Link } from "@tanstack/react-router";
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -67,7 +68,14 @@ interface OpsData {
 
 /* ─── Helper components ──────────────────────────────────────────────────── */
 
-function StatusBadge({ value, trueLabel = "Đang bật", falseLabel = "Đang tắt", dangerOnTrue = false, dangerOnFalse = false, neutralOnFalse = false }: {
+function StatusBadge({
+  value,
+  trueLabel = "Đang bật",
+  falseLabel = "Đang tắt",
+  dangerOnTrue = false,
+  dangerOnFalse = false,
+  neutralOnFalse = false,
+}: {
   value: boolean | string | null | undefined;
   trueLabel?: string;
   falseLabel?: string;
@@ -77,7 +85,10 @@ function StatusBadge({ value, trueLabel = "Đang bật", falseLabel = "Đang t�
 }) {
   if (value === null || value === undefined) {
     return (
-      <Badge variant="outline" className="bg-slate-50 border-slate-300 text-slate-500 font-semibold gap-1 text-xs">
+      <Badge
+        variant="outline"
+        className="bg-slate-50 border-slate-300 text-slate-500 font-semibold gap-1 text-xs"
+      >
         <HelpCircle className="w-3 h-3" /> Chưa xác minh
       </Badge>
     );
@@ -85,26 +96,55 @@ function StatusBadge({ value, trueLabel = "Đang bật", falseLabel = "Đang t�
   if (typeof value === "boolean") {
     if (value) {
       return (
-        <Badge variant="outline" className={`${dangerOnTrue ? "bg-rose-50 border-rose-300 text-rose-700" : "bg-emerald-50 border-emerald-300 text-emerald-700"} font-bold gap-1 text-xs`}>
-          {dangerOnTrue ? <AlertCircle className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />} {trueLabel}
+        <Badge
+          variant="outline"
+          className={`${dangerOnTrue ? "bg-rose-50 border-rose-300 text-rose-700" : "bg-emerald-50 border-emerald-300 text-emerald-700"} font-bold gap-1 text-xs`}
+        >
+          {dangerOnTrue ? (
+            <AlertCircle className="w-3 h-3" />
+          ) : (
+            <CheckCircle2 className="w-3 h-3" />
+          )}{" "}
+          {trueLabel}
         </Badge>
       );
     } else {
       return (
-        <Badge variant="outline" className={`${neutralOnFalse ? "bg-slate-50 border-slate-300 text-slate-500" : dangerOnFalse ? "bg-rose-50 border-rose-300 text-rose-700" : "bg-emerald-50 border-emerald-300 text-emerald-700"} font-bold gap-1 text-xs`}>
-          {neutralOnFalse ? <XCircle className="w-3 h-3" /> : (dangerOnFalse ? <AlertCircle className="w-3 h-3" /> : <Lock className="w-3 h-3" />)} {falseLabel}
+        <Badge
+          variant="outline"
+          className={`${neutralOnFalse ? "bg-slate-50 border-slate-300 text-slate-500" : dangerOnFalse ? "bg-rose-50 border-rose-300 text-rose-700" : "bg-emerald-50 border-emerald-300 text-emerald-700"} font-bold gap-1 text-xs`}
+        >
+          {neutralOnFalse ? (
+            <XCircle className="w-3 h-3" />
+          ) : dangerOnFalse ? (
+            <AlertCircle className="w-3 h-3" />
+          ) : (
+            <Lock className="w-3 h-3" />
+          )}{" "}
+          {falseLabel}
         </Badge>
       );
     }
   }
   return (
-    <Badge variant="outline" className="bg-slate-50 border-slate-200 text-slate-700 font-semibold text-xs">
+    <Badge
+      variant="outline"
+      className="bg-slate-50 border-slate-200 text-slate-700 font-semibold text-xs"
+    >
       {String(value)}
     </Badge>
   );
 }
 
-function SectionHeader({ icon, title, description }: { icon: React.ReactNode; title: string; description?: string }) {
+function SectionHeader({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description?: string;
+}) {
   return (
     <div className="flex items-center gap-3 mb-4">
       <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
@@ -188,16 +228,19 @@ _Generated at: ${format(new Date(), "yyyy-MM-dd HH:mm:ss")}_
 Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
 
     navigator.clipboard.writeText(report);
-    toast.success("Đã copy báo cáo trạng thái", { description: "Bạn có thể dán vào ticket hoặc chat." });
+    toast.success("Đã copy báo cáo trạng thái", {
+      description: "Bạn có thể dán vào ticket hoặc chat.",
+    });
   };
 
   /* ─── Auth guard ────────────────────────────────────────────────────── */
 
-  if (authLoading) return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
-    </div>
-  );
+  if (authLoading)
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+      </div>
+    );
 
   if (!isAdmin && !isSubAdmin) {
     return (
@@ -206,8 +249,13 @@ Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
           <Lock className="w-8 h-8 text-rose-600" />
         </div>
         <h2 className="text-xl font-bold text-slate-800">Không có quyền truy cập</h2>
-        <p className="text-slate-500 text-sm max-w-sm mt-2">Trang Operations Control chỉ dành cho Admin.</p>
-        <Link to="/workspace" className="mt-6 px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-black transition-all">
+        <p className="text-slate-500 text-sm max-w-sm mt-2">
+          Trang Operations Control chỉ dành cho Admin.
+        </p>
+        <Link
+          to="/workspace"
+          className="mt-6 px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-black transition-all"
+        >
           Quay lại Workspace
         </Link>
       </div>
@@ -221,25 +269,29 @@ Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
   return (
     <div className="min-h-screen bg-[#f8fafc] p-6 pb-20 font-sans antialiased">
       <div className="max-w-[1200px] mx-auto space-y-6">
-
         {/* ── Header ── */}
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <Link to="/admin/hub" className="text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors">
+            <Link
+              to="/admin/hub"
+              className="text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors"
+            >
               ← Admin Hub
             </Link>
           </div>
-          <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2">
                 <ShieldAlert className="w-6 h-6 text-violet-500" />
                 Operations Control
               </h1>
-              <p className="text-sm text-slate-500 mt-1">Quan sát và kiểm soát thủ công hệ thống vận hành CRM</p>
+              <p className="text-sm text-slate-500 mt-1">
+                Quan sát và kiểm soát thủ công hệ thống vận hành CRM
+              </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center flex-wrap gap-2 w-full sm:w-auto sm:justify-end">
               {lastRefreshed && (
-                <span className="text-xs text-slate-400 flex items-center gap-1">
+                <span className="text-xs text-slate-400 flex items-center gap-1 mr-auto sm:mr-0 shrink-0">
                   <Clock className="w-3 h-3" />
                   Làm mới lúc {format(lastRefreshed, "HH:mm:ss")}
                 </span>
@@ -249,7 +301,7 @@ Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
                 size="sm"
                 onClick={handleCopyStatus}
                 disabled={opsLoading || !opsData}
-                className="h-9 rounded-lg gap-1.5 text-slate-600"
+                className="h-9 rounded-lg gap-1.5 text-slate-600 text-xs shrink-0"
               >
                 <Copy className="w-4 h-4" />
                 Copy Ops Status
@@ -259,9 +311,13 @@ Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
                 size="sm"
                 onClick={fetchOpsStatus}
                 disabled={opsLoading}
-                className="h-9 rounded-lg gap-1.5 text-slate-600"
+                className="h-9 rounded-lg gap-1.5 text-slate-600 text-xs shrink-0"
               >
-                {opsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                {opsLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
                 Làm mới
               </Button>
             </div>
@@ -302,37 +358,57 @@ Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
               {/* Marketing Production Sending */}
               <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-between">
                 <div>
-                  <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">Marketing Production Sending</div>
+                  <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">
+                    Marketing Production Sending
+                  </div>
                   {opsLoading ? (
                     <div className="h-6 bg-slate-200 rounded animate-pulse w-24" />
                   ) : s ? (
-                    <StatusBadge value={s.marketing_production_sending_enabled} trueLabel="Đang bật (Gửi thật)" falseLabel="Đang khóa an toàn" dangerOnTrue />
+                    <StatusBadge
+                      value={s.marketing_production_sending_enabled}
+                      trueLabel="Đang bật (Gửi thật)"
+                      falseLabel="Đang khóa an toàn"
+                      dangerOnTrue
+                    />
                   ) : (
                     <StatusBadge value={null} />
                   )}
                 </div>
-                <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">Không liên quan tới Send Test hoặc Webhook Processing.</p>
+                <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+                  Không liên quan tới Send Test hoặc Webhook Processing.
+                </p>
               </div>
 
               {/* Resend Worker */}
               <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-between">
                 <div>
-                  <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">Resend Webhook Worker</div>
+                  <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">
+                    Resend Webhook Worker
+                  </div>
                   {opsLoading ? (
                     <div className="h-6 bg-slate-200 rounded animate-pulse w-24" />
                   ) : s ? (
-                    <StatusBadge value={s.resend_worker_enabled} trueLabel="Đang bật" falseLabel="Đang tắt (Kill Switch)" neutralOnFalse />
+                    <StatusBadge
+                      value={s.resend_worker_enabled}
+                      trueLabel="Đang bật"
+                      falseLabel="Đang tắt (Kill Switch)"
+                      neutralOnFalse
+                    />
                   ) : (
                     <StatusBadge value={null} />
                   )}
                 </div>
-                <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">Chỉ xử lý webhook đã nhận, không gửi email.</p>
+                <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+                  Chỉ xử lý webhook đã nhận, không gửi email.
+                </p>
               </div>
 
               {/* Provider Mode */}
               <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-between">
                 <div>
-                  <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">Marketing Provider Mode</div>
+                  <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">
+                    Marketing Provider Mode
+                  </div>
                   {opsLoading ? (
                     <div className="h-6 bg-slate-200 rounded animate-pulse w-24" />
                   ) : s ? (
@@ -346,44 +422,68 @@ Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
               {/* Zalo Webhook Worker */}
               <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-between">
                 <div>
-                  <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">Zalo Webhook Worker</div>
+                  <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">
+                    Zalo Webhook Worker
+                  </div>
                   {opsLoading ? (
                     <div className="h-6 bg-slate-200 rounded animate-pulse w-24" />
                   ) : s ? (
-                    <StatusBadge value={s.zalo_worker_enabled} trueLabel="Đang bật" falseLabel="Đang tắt (Kill Switch)" neutralOnFalse />
+                    <StatusBadge
+                      value={s.zalo_worker_enabled}
+                      trueLabel="Đang bật"
+                      falseLabel="Đang tắt (Kill Switch)"
+                      neutralOnFalse
+                    />
                   ) : (
                     <StatusBadge value={null} />
                   )}
                 </div>
-                <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">Chỉ xử lý webhook đã nhận, không gửi tin nhắn.</p>
+                <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+                  Chỉ xử lý webhook đã nhận, không gửi tin nhắn.
+                </p>
               </div>
 
               {/* Cron Scheduler */}
               <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-between">
                 <div>
-                  <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">Cron Scheduler</div>
+                  <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">
+                    Cron Scheduler
+                  </div>
                   {opsLoading ? (
                     <div className="h-6 bg-slate-200 rounded animate-pulse w-24" />
                   ) : s ? (
-                    <Badge variant="outline" className="bg-slate-50 border-slate-300 text-slate-600 font-semibold gap-1 text-xs">
+                    <Badge
+                      variant="outline"
+                      className="bg-slate-50 border-slate-300 text-slate-600 font-semibold gap-1 text-xs"
+                    >
                       <CheckCircle2 className="w-3 h-3 text-slate-400" /> Đã kiểm chứng thủ công
                     </Badge>
                   ) : (
                     <StatusBadge value={null} />
                   )}
                 </div>
-                <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">GitHub Actions có thể gọi định kỳ; Supabase kill switch quyết định có xử lý hay không.</p>
+                <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+                  GitHub Actions có thể gọi định kỳ; Supabase kill switch quyết định có xử lý hay
+                  không.
+                </p>
               </div>
 
               {/* Automation/AI */}
               <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-between">
                 <div>
-                  <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">Automation / AI</div>
-                  <Badge variant="outline" className="bg-slate-50 border-slate-300 text-slate-500 font-semibold gap-1 text-xs">
+                  <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">
+                    Automation / AI
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="bg-slate-50 border-slate-300 text-slate-500 font-semibold gap-1 text-xs"
+                  >
                     <HelpCircle className="w-3 h-3" /> Chưa xác minh
                   </Badge>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">Xem Automation Governance.</p>
+                <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+                  Xem Automation Governance.
+                </p>
               </div>
             </div>
           </CardContent>
@@ -420,13 +520,35 @@ Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
           </CardHeader>
           <CardContent className="pt-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              <StatCard label="Pending Resend Events" value={c?.pending_resend_events} loading={opsLoading} color="amber" />
-              <StatCard label="Pending Zalo Delivery" value={c?.pending_zalo_delivery_events} loading={opsLoading} color="amber" />
-              <StatCard label="Inbound Zalo (Preserved)" value={c?.inbound_zalo_events} loading={opsLoading} color="slate" />
-              <StatCard label="Failed Webhook Events" value={c?.failed_webhook_events} loading={opsLoading} color={c?.failed_webhook_events ? "rose" : "slate"} />
+              <StatCard
+                label="Pending Resend Events"
+                value={c?.pending_resend_events}
+                loading={opsLoading}
+                color="amber"
+              />
+              <StatCard
+                label="Pending Zalo Delivery"
+                value={c?.pending_zalo_delivery_events}
+                loading={opsLoading}
+                color="amber"
+              />
+              <StatCard
+                label="Inbound Zalo (Preserved)"
+                value={c?.inbound_zalo_events}
+                loading={opsLoading}
+                color="slate"
+              />
+              <StatCard
+                label="Failed Webhook Events"
+                value={c?.failed_webhook_events}
+                loading={opsLoading}
+                color={c?.failed_webhook_events ? "rose" : "slate"}
+              />
             </div>
             <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 mb-4">
-              <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1">Latest Webhook Received</div>
+              <div className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
+                Latest Webhook Received
+              </div>
               {opsLoading ? (
                 <div className="h-5 bg-slate-200 rounded animate-pulse w-40 mt-1" />
               ) : (
@@ -459,22 +581,39 @@ Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
           </CardHeader>
           <CardContent className="pt-4">
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-              <StatCard label="Active Email Suppressions" value={c?.active_email_suppressions} loading={opsLoading} color="amber" />
-              <StatCard label="Healthy Senders" value={c?.healthy_sender_count} loading={opsLoading} color="emerald" />
-              <StatCard label="Error Senders" value={c?.error_sender_count} loading={opsLoading} color={c?.error_sender_count ? "rose" : "slate"} />
+              <StatCard
+                label="Active Email Suppressions"
+                value={c?.active_email_suppressions}
+                loading={opsLoading}
+                color="amber"
+              />
+              <StatCard
+                label="Healthy Senders"
+                value={c?.healthy_sender_count}
+                loading={opsLoading}
+                color="emerald"
+              />
+              <StatCard
+                label="Error Senders"
+                value={c?.error_sender_count}
+                loading={opsLoading}
+                color={c?.error_sender_count ? "rose" : "slate"}
+              />
             </div>
             <div className="flex flex-wrap gap-3">
               <Link
                 to="/admin/sender-accounts"
                 className="inline-flex items-center gap-1.5 text-xs font-semibold text-violet-600 hover:text-violet-800 transition-colors"
               >
-                <Radio className="w-3.5 h-3.5" /> Sender Accounts <ExternalLink className="w-3 h-3" />
+                <Radio className="w-3.5 h-3.5" /> Sender Accounts{" "}
+                <ExternalLink className="w-3 h-3" />
               </Link>
               <Link
                 to="/admin/webhooks"
                 className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-800 transition-colors"
               >
-                <DatabaseZap className="w-3.5 h-3.5" /> Delivery Logs <ExternalLink className="w-3 h-3" />
+                <DatabaseZap className="w-3.5 h-3.5" /> Delivery Logs{" "}
+                <ExternalLink className="w-3 h-3" />
               </Link>
             </div>
           </CardContent>
@@ -493,8 +632,8 @@ Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2 items-start text-xs mb-4">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <p className="text-amber-700 leading-relaxed">
-                Trạng thái Automation và AI chưa có nguồn dữ liệu trực tiếp từ trang này.{" "}
-                Vui lòng dùng trang <strong>Automation Governance</strong> để kiểm tra chính xác.
+                Trạng thái Automation và AI chưa có nguồn dữ liệu trực tiếp từ trang này. Vui lòng
+                dùng trang <strong>Automation Governance</strong> để kiểm tra chính xác.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -502,7 +641,8 @@ Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
                 to="/admin/automation-governance"
                 className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-600 hover:text-amber-800 transition-colors"
               >
-                <Zap className="w-3.5 h-3.5" /> Automation Governance <ExternalLink className="w-3 h-3" />
+                <Zap className="w-3.5 h-3.5" /> Automation Governance{" "}
+                <ExternalLink className="w-3 h-3" />
               </Link>
               <Link
                 to="/admin/ai-settings"
@@ -513,7 +653,6 @@ Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
             </div>
           </CardContent>
         </Card>
-
       </div>
     </div>
   );
@@ -521,7 +660,12 @@ Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
 
 /* ── StatCard helper ─────────────────────────────────────────────────────── */
 
-function StatCard({ label, value, loading, color = "slate" }: {
+function StatCard({
+  label,
+  value,
+  loading,
+  color = "slate",
+}: {
   label: string;
   value?: number | null;
   loading?: boolean;

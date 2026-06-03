@@ -21,13 +21,17 @@ export type HeatLevel = "hot" | "warm" | "cold" | "frozen";
 
 export function getCustomerHealth(customer: HealthDataInput): CustomerHealth {
   const flags = getRiskFlags(customer);
-  if (flags.includes("At Risk") || flags.includes("No Follow-up") || flags.includes("Overdue Follow-up")) {
+  if (
+    flags.includes("At Risk") ||
+    flags.includes("No Follow-up") ||
+    flags.includes("Overdue Follow-up")
+  ) {
     return "critical";
   }
   if (
-    flags.includes("Missing Social") || 
-    flags.includes("Missing Phone") || 
-    flags.includes("Inactive 7d") || 
+    flags.includes("Missing Social") ||
+    flags.includes("Missing Phone") ||
+    flags.includes("Inactive 7d") ||
     flags.includes("Unassigned")
   ) {
     return "warning";
@@ -74,19 +78,29 @@ export function getRiskFlags(customer: HealthDataInput): string[] {
     if (!customer.channel_summary.has_phone) {
       flags.push("Missing Phone");
     }
-    if (!customer.channel_summary.has_facebook && !customer.channel_summary.has_zalo && !customer.channel_summary.has_tiktok) {
+    if (
+      !customer.channel_summary.has_facebook &&
+      !customer.channel_summary.has_zalo &&
+      !customer.channel_summary.has_tiktok
+    ) {
       flags.push("Missing Social");
     }
   } else {
     // Fallback to array check
     const channels = customer.contact_channels || [];
-    const hasPhone = channels.some(c => c.channel_type === 'phone');
-    const hasSocial = channels.some(c => ["facebook", "zalo", "tiktok", "instagram"].includes(c.channel_type));
-    
+    const hasPhone = channels.some((c) => c.channel_type === "phone");
+    const hasSocial = channels.some((c) =>
+      ["facebook", "zalo", "tiktok", "instagram"].includes(c.channel_type),
+    );
+
     if (!hasPhone) flags.push("Missing Phone");
     if (!hasSocial) flags.push("Missing Social");
-    
-    if (channels.length === 0 && !flags.includes("Missing Phone") && !flags.includes("Missing Social")) {
+
+    if (
+      channels.length === 0 &&
+      !flags.includes("Missing Phone") &&
+      !flags.includes("Missing Social")
+    ) {
       flags.push("Weak"); // Legacy fallback
     }
   }
@@ -110,10 +124,11 @@ export function getRiskFlags(customer: HealthDataInput): string[] {
 
 export function getInteractionHeatLevel(customer: HealthDataInput): HeatLevel {
   if (!customer.last_interaction_at) {
-    if (customer.created_at && differenceInDays(new Date(), new Date(customer.created_at)) < 3) return "warm";
+    if (customer.created_at && differenceInDays(new Date(), new Date(customer.created_at)) < 3)
+      return "warm";
     return "frozen";
   }
-  
+
   const daysSince = differenceInDays(new Date(), new Date(customer.last_interaction_at));
   if (daysSince <= 2) return "hot";
   if (daysSince <= 7) return "warm";

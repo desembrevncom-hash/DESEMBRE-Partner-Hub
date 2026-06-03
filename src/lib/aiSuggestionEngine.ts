@@ -23,7 +23,8 @@ export interface RawSuggestion {
 function evaluateNoReorder(orders: any[]): RawSuggestion | null {
   if (!orders || orders.length === 0) return null;
   const latestOrder = orders[0];
-  const daysSinceLastOrder = (new Date().getTime() - new Date(latestOrder.created_at).getTime()) / (1000 * 3600 * 24);
+  const daysSinceLastOrder =
+    (new Date().getTime() - new Date(latestOrder.created_at).getTime()) / (1000 * 3600 * 24);
 
   if (daysSinceLastOrder > 30 && daysSinceLastOrder <= 60) {
     return {
@@ -31,7 +32,8 @@ function evaluateNoReorder(orders: any[]): RawSuggestion | null {
       type: "retention",
       priority: "medium",
       title: "Đã 30 ngày chưa mua lại",
-      reason: "Khách hàng có đơn hàng cuối cùng cách đây hơn 30 ngày. Cần hỏi thăm tình trạng sử dụng sản phẩm.",
+      reason:
+        "Khách hàng có đơn hàng cuối cùng cách đây hơn 30 ngày. Cần hỏi thăm tình trạng sử dụng sản phẩm.",
       rule_id: "no_reorder_30d",
       suggestedAction: "Gọi điện hỏi thăm, xin feedback",
       purchase_probability: 60,
@@ -55,7 +57,8 @@ function evaluateInactiveCustomer(activities: any[]): RawSuggestion | null {
   }
 
   const latestActivity = activities[0];
-  const daysSinceLastActivity = (new Date().getTime() - new Date(latestActivity.created_at).getTime()) / (1000 * 3600 * 24);
+  const daysSinceLastActivity =
+    (new Date().getTime() - new Date(latestActivity.created_at).getTime()) / (1000 * 3600 * 24);
 
   if (daysSinceLastActivity > 60) {
     return {
@@ -74,15 +77,17 @@ function evaluateInactiveCustomer(activities: any[]): RawSuggestion | null {
 
 function evaluateHighValueCustomer(orders: any[]): RawSuggestion | null {
   if (!orders || orders.length === 0) return null;
-  
+
   const totalSpend = orders.reduce((sum, o) => sum + (o.total || 0), 0);
-  if (totalSpend > 10000000) { // e.g. 10 million VND VIP threshold
+  if (totalSpend > 10000000) {
+    // e.g. 10 million VND VIP threshold
     return {
       id: crypto.randomUUID(),
       type: "upsell",
       priority: "high",
       title: "Khách hàng VIP (Chi tiêu cao)",
-      reason: "Khách hàng đã chi tiêu mức VIP. Có khả năng cao chốt được các combo/sản phẩm cao cấp mới.",
+      reason:
+        "Khách hàng đã chi tiêu mức VIP. Có khả năng cao chốt được các combo/sản phẩm cao cấp mới.",
       rule_id: "high_value_customer",
       suggestedAction: "Giới thiệu bộ sản phẩm cao cấp mới ra mắt",
       purchase_probability: 75,
@@ -95,8 +100,8 @@ function evaluateProductPairing(orders: any[], items: any[]): RawSuggestion | nu
   if (!orders || orders.length === 0 || !items || items.length === 0) return null;
 
   // Example Logic: Bought Cleanser (product_id 1) but not Toner (product_id 2)
-  const boughtProducts = new Set(items.map(i => i.product_id));
-  
+  const boughtProducts = new Set(items.map((i) => i.product_id));
+
   if (boughtProducts.has(1) && !boughtProducts.has(2)) {
     return {
       id: crypto.randomUUID(),
@@ -116,13 +121,15 @@ function evaluateProductPairing(orders: any[], items: any[]): RawSuggestion | nu
 function evaluatePendingQuote(tasks: any[]): RawSuggestion | null {
   if (!tasks || tasks.length === 0) return null;
   // Look for tasks that indicate a quote was sent but not followed up
-  const quoteTask = tasks.find(t => 
-    (t.title?.toLowerCase().includes('báo giá') || t.title?.toLowerCase().includes('quote')) && 
-    t.status === 'completed'
+  const quoteTask = tasks.find(
+    (t) =>
+      (t.title?.toLowerCase().includes("báo giá") || t.title?.toLowerCase().includes("quote")) &&
+      t.status === "completed",
   );
 
   if (quoteTask) {
-    const daysSinceQuote = (new Date().getTime() - new Date(quoteTask.created_at).getTime()) / (1000 * 3600 * 24);
+    const daysSinceQuote =
+      (new Date().getTime() - new Date(quoteTask.created_at).getTime()) / (1000 * 3600 * 24);
     if (daysSinceQuote > 3 && daysSinceQuote < 14) {
       return {
         id: crypto.randomUUID(),
@@ -159,7 +166,7 @@ export function generateSuggestions(params: {
     () => evaluateNoReorder(orders),
     () => evaluateHighValueCustomer(orders),
     () => evaluateProductPairing(orders, items),
-    () => evaluatePendingQuote(tasks)
+    () => evaluatePendingQuote(tasks),
   ];
 
   for (const evaluate of ruleEvaluators) {
@@ -168,7 +175,7 @@ export function generateSuggestions(params: {
   }
 
   // --- PHASE 6.4: SCORING ENGINE ---
-  
+
   // 1. Calculate normalized LTV score (0-100)
   // Assume 50,000,000 VND is the top benchmark for 100 score
   const totalSpend = orders.reduce((sum, o) => sum + (o.total || 0), 0);
@@ -178,17 +185,18 @@ export function generateSuggestions(params: {
   // 0 days = 0 score, 90+ days = 100 score (high risk/need to act)
   let days_inactive = 0;
   if (activities && activities.length > 0) {
-    days_inactive = (new Date().getTime() - new Date(activities[0].created_at).getTime()) / (1000 * 3600 * 24);
+    days_inactive =
+      (new Date().getTime() - new Date(activities[0].created_at).getTime()) / (1000 * 3600 * 24);
   } else {
     days_inactive = 90; // Max inactive if no activities
   }
   const inactive_score = Math.min((days_inactive / 90) * 100, 100);
 
   // 3. Apply formula to all suggestions
-  allSuggestions.forEach(suggestion => {
+  allSuggestions.forEach((suggestion) => {
     const prob = suggestion.purchase_probability || 50;
     // Formula: score = (customer_ltv * 0.3) + (days_inactive * 0.4) + (purchase_probability * 0.3)
-    suggestion.score = Math.round((ltv_score * 0.3) + (inactive_score * 0.4) + (prob * 0.3));
+    suggestion.score = Math.round(ltv_score * 0.3 + inactive_score * 0.4 + prob * 0.3);
   });
 
   // 4. Sort by score descending

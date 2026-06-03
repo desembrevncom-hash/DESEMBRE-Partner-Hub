@@ -17,9 +17,7 @@ export interface AutomationLogInput {
 
 export async function createAutomationLog(input: AutomationLogInput) {
   try {
-    const { data, error } = await supabase
-      .from("automation_logs")
-      .insert([input]);
+    const { data, error } = await supabase.from("automation_logs").insert([input]);
     if (error) throw error;
     return data;
   } catch (err) {

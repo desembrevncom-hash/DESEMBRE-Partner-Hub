@@ -1,18 +1,19 @@
 export type InteractionQuality = "high" | "medium" | "low" | "negative" | "neutral" | "system";
 
-export const INTERACTION_WEIGHTS: Record<string, { weight: number; quality: InteractionQuality }> = {
-  call_connected: { weight: 5, quality: "high" },
-  call_no_answer: { weight: 1, quality: "low" },
-  call_wrong_number: { weight: 0, quality: "negative" },
-  zalo_message: { weight: 3, quality: "medium" },
-  facebook_message: { weight: 3, quality: "medium" },
-  email: { weight: 2, quality: "low" },
-  meeting: { weight: 10, quality: "high" },
-  quote_sent: { weight: 8, quality: "high" },
-  task: { weight: 1, quality: "low" },
-  note: { weight: 0, quality: "neutral" },
-  automation: { weight: 0, quality: "system" },
-};
+export const INTERACTION_WEIGHTS: Record<string, { weight: number; quality: InteractionQuality }> =
+  {
+    call_connected: { weight: 5, quality: "high" },
+    call_no_answer: { weight: 1, quality: "low" },
+    call_wrong_number: { weight: 0, quality: "negative" },
+    zalo_message: { weight: 3, quality: "medium" },
+    facebook_message: { weight: 3, quality: "medium" },
+    email: { weight: 2, quality: "low" },
+    meeting: { weight: 10, quality: "high" },
+    quote_sent: { weight: 8, quality: "high" },
+    task: { weight: 1, quality: "low" },
+    note: { weight: 0, quality: "neutral" },
+    automation: { weight: 0, quality: "system" },
+  };
 
 export function getInteractionWeight(type: string, result?: string): number {
   // Overrides based on result for communication platforms
@@ -20,7 +21,7 @@ export function getInteractionWeight(type: string, result?: string): number {
     if (type === "zalo_message" || type === "facebook_message") return 2;
     if (type === "email") return 1;
   }
-  
+
   if (result === "interested") return 5;
   if (result === "callback") return 4;
   if (result === "no_answer") return 1;

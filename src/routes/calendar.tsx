@@ -13,20 +13,15 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import { 
-  Calendar as CalendarIcon, 
-  Plus, 
-  ArrowLeft, 
-  RotateCcw, 
-  Clock, 
-  CheckCircle2, 
-  AlertCircle, 
+  Calendar as CalendarIcon,
+  Plus,
+  ArrowLeft,
+  RotateCcw,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
   CalendarDays,
   Users,
   Building2,
@@ -36,35 +31,39 @@ import {
   MapPin,
   Megaphone,
   TrendingUp,
-  Trash2
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { 
-  PersonalEvent, 
-  CompanyEvent, 
-  EventRegistration, 
+import type {
+  PersonalEvent,
+  CompanyEvent,
+  EventRegistration,
   UnifiedCalendarEvent,
   CalendarEventStatus,
   PersonalEventType,
   CompanyEventType,
-  RegistrationStatus
+  RegistrationStatus,
 } from "@/types/calendar";
-import { 
-  formatCalendarTime, 
-  getDefaultReminderMinutes, 
-  getEventStatusLabel, 
+import {
+  formatCalendarTime,
+  getDefaultReminderMinutes,
+  getEventStatusLabel,
   getPersonalEventTypeLabel,
   getCompanyEventTypeLabel,
   getAttendeeStatusMeta,
   getCampaignStatusLabel,
-  isEventOverdue 
+  isEventOverdue,
 } from "@/lib/calendar";
 import { buildGoogleCalendarLink } from "@/lib/googleCalendar";
 import { renderTemplate } from "@/lib/templateRenderer";
 
-const formatGCalDescription = (custName: string, custPhone?: string | null, descText?: string | null) => {
-  return descText && descText.trim() 
-    ? descText.trim() 
+const formatGCalDescription = (
+  custName: string,
+  custPhone?: string | null,
+  descText?: string | null,
+) => {
+  return descText && descText.trim()
+    ? descText.trim()
     : "Chương trình đào tạo và chuyển giao phác đồ chuyên sâu từ hệ thống DESEMBRE Partner Hub. Quý khách vui lòng tham dự đúng giờ để công tác đón tiếp được chu đáo nhất.";
 };
 import { useCalendarRealtime } from "@/hooks/useCalendarRealtime";
@@ -80,14 +79,18 @@ export const Route = createFileRoute("/calendar")({
 
 function CalendarPage() {
   const { user, isAdmin, isSubAdmin, isTeleLead, isTelesale, isSale, isManager } = useAuth();
-  
+
   // Dữ liệu danh sách
   const [events, setEvents] = useState<UnifiedCalendarEvent[]>([]);
-  const [customersList, setCustomersList] = useState<Array<{ id: string; name: string; phone?: string | null; email?: string | null }>>([]);
+  const [customersList, setCustomersList] = useState<
+    Array<{ id: string; name: string; phone?: string | null; email?: string | null }>
+  >([]);
   const [salesList, setSalesList] = useState<Array<{ id: string; name: string }>>([]);
-  const [customersMap, setCustomersMap] = useState<Record<string, { name: string; phone?: string | null; email?: string | null }>>({});
+  const [customersMap, setCustomersMap] = useState<
+    Record<string, { name: string; phone?: string | null; email?: string | null }>
+  >({});
   const [customerSearch, setCustomerSearch] = useState("");
-  
+
   // Trạng thái chung
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -101,9 +104,9 @@ function CalendarPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editEventId, setEditEventId] = useState<string | null>(null);
-  const [editEventType, setEditEventType] = useState<'personal' | 'company'>('personal');
+  const [editEventType, setEditEventType] = useState<"personal" | "company">("personal");
   const [isSyncingGCal, setIsSyncingGCal] = useState(false);
-  
+
   // Form Fields
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -114,7 +117,7 @@ function CalendarPage() {
   const [customerId, setCustomerId] = useState("");
   const [assignedSaleId, setAssignedSaleId] = useState("");
   const [remindMinutes, setRemindMinutes] = useState(getDefaultReminderMinutes());
-  
+
   // Fields cho Company Event
   const [modalRegistrations, setModalRegistrations] = useState<EventRegistration[]>([]);
   const [attendeeSelectId, setAttendeeSelectId] = useState("");
@@ -122,8 +125,10 @@ function CalendarPage() {
   const [meetingUrl, setMeetingUrl] = useState("");
   const [eventCapacity, setEventCapacity] = useState<number | "">("");
   const [regDeadline, setRegDeadline] = useState("");
-  const [campaignStatus, setCampaignStatus] = useState<"draft" | "published" | "closed" | "completed" | "cancelled">("draft");
-  
+  const [campaignStatus, setCampaignStatus] = useState<
+    "draft" | "published" | "closed" | "completed" | "cancelled"
+  >("draft");
+
   // Quick Add Attendee fields
   const [newAttendeeNote, setNewAttendeeNote] = useState("");
   const [newAttendeeStatus, setNewAttendeeStatus] = useState<RegistrationStatus>("registered");
@@ -148,7 +153,10 @@ function CalendarPage() {
     try {
       // 1. Tải danh sách khách hàng kèm số điện thoại và email theo role phân quyền
       let custData: any[] = [];
-      let query = supabase.from("customers").select("id, contact_name, name, business_name, facility_name, phone, email").is("deleted_at", null);
+      const query = supabase
+        .from("customers")
+        .select("id, contact_name, name, business_name, facility_name, phone, email")
+        .is("deleted_at", null);
 
       if (isAdmin || isSubAdmin) {
         const { data } = await query;
@@ -164,20 +172,29 @@ function CalendarPage() {
           .from("customer_tasks")
           .select("customer_id")
           .eq("assigned_to", user?.id);
-        
-        const customerIds = Array.from(new Set((tasksData || []).map((t: any) => t.customer_id).filter(Boolean)));
+
+        const customerIds = Array.from(
+          new Set((tasksData || []).map((t: any) => t.customer_id).filter(Boolean)),
+        );
         if (customerIds.length > 0) {
           const { data: custVal } = await query.in("id", customerIds);
           custData = custVal || [];
         }
       }
 
-      const listC: Array<{ id: string; name: string; phone?: string | null; email?: string | null }> = [];
-      const mapC: Record<string, { name: string; phone?: string | null; email?: string | null }> = {};
-      
+      const listC: Array<{
+        id: string;
+        name: string;
+        phone?: string | null;
+        email?: string | null;
+      }> = [];
+      const mapC: Record<string, { name: string; phone?: string | null; email?: string | null }> =
+        {};
+
       if (custData) {
         custData.forEach((c: any) => {
-          const dName = c.contact_name || c.name || c.business_name || c.facility_name || "Khách hàng";
+          const dName =
+            c.contact_name || c.name || c.business_name || c.facility_name || "Khách hàng";
           listC.push({ id: c.id, name: dName, phone: c.phone, email: c.email });
           mapC[c.id] = { name: dName, phone: c.phone, email: c.email };
         });
@@ -187,7 +204,9 @@ function CalendarPage() {
 
       // 2. Tải danh sách nhân sự Sale (Dành cho Quản lý chọn)
       if (isManager) {
-        const { data: profData } = await supabase.from("profiles").select("id, email, display_name");
+        const { data: profData } = await supabase
+          .from("profiles")
+          .select("id, email, display_name");
         const listS: Array<{ id: string; name: string }> = [];
         if (profData) {
           profData.forEach((p: any) => {
@@ -208,7 +227,7 @@ function CalendarPage() {
     }
     setLoading(true);
     setError(null);
-    
+
     try {
       await loadBaseData();
 
@@ -227,14 +246,15 @@ function CalendarPage() {
       if (cErr) throw cErr;
 
       // 3. Tải danh sách đăng ký
-      const { data: rData, error: rErr } = await supabase
-        .from("event_registrations")
-        .select("*");
+      const { data: rData, error: rErr } = await supabase.from("event_registrations").select("*");
       if (rErr) throw rErr;
 
       // 4. Tải danh sách công việc khách hàng (customer_tasks)
-      let taskQuery = supabase.from("customer_tasks")
-        .select("*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)")
+      let taskQuery = supabase
+        .from("customer_tasks")
+        .select(
+          "*, customer:customers(name, facility_name, phone), lead:leads(name, facility_name, phone)",
+        )
         .order("due_at", { ascending: true });
       if (!isManager) {
         taskQuery = taskQuery.eq("assigned_to", user?.id);
@@ -243,31 +263,37 @@ function CalendarPage() {
       if (tErr) throw tErr;
 
       // Gộp và chuẩn hóa dữ liệu
-      const personalEvents: UnifiedCalendarEvent[] = (pData || []).map((ev: any) => ({ ...ev, _ui_type: 'personal' }));
+      const personalEvents: UnifiedCalendarEvent[] = (pData || []).map((ev: any) => ({
+        ...ev,
+        _ui_type: "personal",
+      }));
       const companyEvents: UnifiedCalendarEvent[] = (cData || []).map((ev: any) => {
         const registrations = (rData || []).filter((r: any) => r.event_id === ev.id);
-        return { ...ev, _ui_type: 'company', registrations };
+        return { ...ev, _ui_type: "company", registrations };
       });
 
       const mappedTasks: UnifiedCalendarEvent[] = (tData || []).map((t: any) => {
         let eventType: PersonalEventType = "follow_up";
-        if (t.task_type === 'visit') eventType = "check_in";
-        else if (t.task_type === 'quotation') eventType = "payment";
-        else if (t.task_type === 'follow_up') eventType = "follow_up";
-        else if (t.task_type === 'call') eventType = "follow_up";
+        if (t.task_type === "visit") eventType = "check_in";
+        else if (t.task_type === "quotation") eventType = "payment";
+        else if (t.task_type === "follow_up") eventType = "follow_up";
+        else if (t.task_type === "call") eventType = "follow_up";
         else eventType = "note";
 
         const custMeta = t.customer || t.lead || null;
-        const custName = custMeta 
-          ? (custMeta.name || custMeta.facility_name || "Khách hàng")
-          : "";
+        const custName = custMeta ? custMeta.name || custMeta.facility_name || "Khách hàng" : "";
 
         return {
           id: t.id,
           title: t.title,
           description: t.description || null,
           event_type: eventType,
-          status: t.status === 'pending' ? 'pending' : (t.status === 'completed' ? 'completed' : 'cancelled'),
+          status:
+            t.status === "pending"
+              ? "pending"
+              : t.status === "completed"
+                ? "completed"
+                : "cancelled",
           starts_at: t.due_at,
           ends_at: null,
           customer_id: t.customer_id || null,
@@ -277,24 +303,25 @@ function CalendarPage() {
           created_at: t.created_at || new Date().toISOString(),
           updated_at: t.updated_at || new Date().toISOString(),
           customer_name: custName,
-          _ui_type: 'personal',
-          _is_db_task: true
+          _ui_type: "personal",
+          _is_db_task: true,
         };
       });
 
       const combined = [...personalEvents, ...companyEvents, ...mappedTasks];
       setEvents(combined);
-      
+
       // Cache lại cho offline mode
-      try { localStorage.setItem("offline_calendar_events_v3", JSON.stringify(combined)); } catch {}
-      
+      try {
+        localStorage.setItem("offline_calendar_events_v3", JSON.stringify(combined));
+      } catch {}
     } catch (err: any) {
       console.warn("Lỗi tải lịch từ Supabase (Có thể do chưa chạy SQL Migration):", err);
-      
+
       // Tạo dữ liệu Fallback mẫu để đảm bảo giao diện luôn hiển thị trực quan
       const now = new Date();
       const currentMonthStr = now.toISOString().slice(0, 7); // YYYY-MM
-      
+
       const samplePersonal: UnifiedCalendarEvent[] = [
         {
           id: "mock-pers-1",
@@ -307,7 +334,7 @@ function CalendarPage() {
           created_at: now.toISOString(),
           updated_at: now.toISOString(),
           customer_name: "Chị Lan Anh",
-          _ui_type: "personal"
+          _ui_type: "personal",
         },
         {
           id: "mock-pers-2",
@@ -320,15 +347,16 @@ function CalendarPage() {
           created_at: now.toISOString(),
           updated_at: now.toISOString(),
           customer_name: "Anh Minh Tuấn",
-          _ui_type: "personal"
-        }
+          _ui_type: "personal",
+        },
       ];
 
       const sampleCompany: UnifiedCalendarEvent[] = [
         {
           id: "mock-comp-1",
           title: "Workshop: Kỹ thuật Trị liệu Chuyên sâu 2026",
-          description: "Cập nhật phác đồ điều trị mới nhất dành cho hệ thống đại lý và đối tác Spa chiến lược.",
+          description:
+            "Cập nhật phác đồ điều trị mới nhất dành cho hệ thống đại lý và đối tác Spa chiến lược.",
           event_type: "workshop",
           status: "published",
           starts_at: `${currentMonthStr}-20T08:30:00`,
@@ -346,7 +374,7 @@ function CalendarPage() {
               customer_phone: "0911223344",
               status: "registered",
               created_at: now.toISOString(),
-              updated_at: now.toISOString()
+              updated_at: now.toISOString(),
             },
             {
               id: "reg-2",
@@ -355,7 +383,7 @@ function CalendarPage() {
               customer_phone: "0988776655",
               status: "attended",
               created_at: now.toISOString(),
-              updated_at: now.toISOString()
+              updated_at: now.toISOString(),
             },
             {
               id: "reg-3",
@@ -364,22 +392,24 @@ function CalendarPage() {
               customer_phone: "0900112233",
               status: "converted",
               created_at: now.toISOString(),
-              updated_at: now.toISOString()
-            }
-          ]
-        }
+              updated_at: now.toISOString(),
+            },
+          ],
+        },
       ];
 
       const fallbackData = [...samplePersonal, ...sampleCompany];
-      
+
       const cached = JSON.parse(localStorage.getItem("offline_calendar_events_v3") || "null");
       if (cached && Array.isArray(cached) && cached.length > 0) {
         setEvents(cached);
       } else {
         setEvents(fallbackData);
       }
-      
-      toast.error("CSDL chưa chạy Migration bảng sự kiện. Đã tự động hiển thị dữ liệu mô phỏng cao cấp.");
+
+      toast.error(
+        "CSDL chưa chạy Migration bảng sự kiện. Đã tự động hiển thị dữ liệu mô phỏng cao cấp.",
+      );
     } finally {
       setLoading(false);
     }
@@ -401,12 +431,12 @@ function CalendarPage() {
     setDescription("");
     setPersonalType("follow_up");
     setCompanyType("workshop");
-    
+
     const targetTab = forcedTab || modalTab;
     const now = new Date();
     const offset = now.getTimezoneOffset() * 60000;
     const baseDateStr = new Date(now.getTime() - offset).toISOString().slice(0, 10);
-    
+
     if (targetTab === "company") {
       setStartsAt(`${baseDateStr}T08:30`);
       setEndsAt(`${baseDateStr}T12:00`);
@@ -419,10 +449,10 @@ function CalendarPage() {
       setEndsAt("");
       setRegDeadline("");
     }
-    
+
     setCustomerId("");
     setCustomerSearch("");
-    setAssignedSaleId(isManager ? "" : (user?.id || ""));
+    setAssignedSaleId(isManager ? "" : user?.id || "");
     setRemindMinutes(getDefaultReminderMinutes());
     setEditEventId(null);
     setModalRegistrations([]);
@@ -435,7 +465,7 @@ function CalendarPage() {
     setQuickCustomerName("");
     setQuickCustomerPhone("");
     setQuickCustomerEmail("");
-    
+
     if (forcedTab) {
       setModalTab(forcedTab);
     }
@@ -445,16 +475,20 @@ function CalendarPage() {
   // Hàm kích hoạt Đồng bộ thủ công Chiến dịch Công ty lên Google Calendar
   const handleTriggerGCalSync = async () => {
     if (!editEventId) return;
-    const currentEv = events.find(e => e.id === editEventId) as CompanyEvent | undefined;
-    if (currentEv?.google_sync_status === 'synced') {
-      if (!window.confirm("Sự kiện này đã được đồng bộ lên Google Calendar. Bạn có chắc chắn muốn đồng bộ lại không?")) {
+    const currentEv = events.find((e) => e.id === editEventId) as CompanyEvent | undefined;
+    if (currentEv?.google_sync_status === "synced") {
+      if (
+        !window.confirm(
+          "Sự kiện này đã được đồng bộ lên Google Calendar. Bạn có chắc chắn muốn đồng bộ lại không?",
+        )
+      ) {
         return;
       }
     }
     setIsSyncingGCal(true);
     try {
       const res = await supabase.functions.invoke("sync-company-event-to-google", {
-        body: { companyEventId: editEventId }
+        body: { companyEventId: editEventId },
       });
       if (res.error) throw res.error;
       if (res.data && !res.data.success) {
@@ -464,7 +498,7 @@ function CalendarPage() {
       await loadEvents();
     } catch (err: any) {
       let errorMsg = err.message || JSON.stringify(err);
-      if (err.context && typeof err.context.json === 'function') {
+      if (err.context && typeof err.context.json === "function") {
         try {
           const ctxData = await err.context.json();
           if (ctxData && ctxData.error) {
@@ -494,7 +528,7 @@ function CalendarPage() {
 
     const startIso = new Date(startsAt).toISOString();
     let endIso: string | null = null;
-    
+
     if (endsAt) {
       const startTime = new Date(startsAt).getTime();
       const endTime = new Date(endsAt).getTime();
@@ -516,9 +550,9 @@ function CalendarPage() {
       }
 
       const isCompanyMode = modalTab === "company";
-      
+
       if (editEventId) {
-        if (editEventType === 'company') {
+        if (editEventType === "company") {
           const payload = {
             title: title.trim(),
             description: description.trim() || null,
@@ -530,35 +564,40 @@ function CalendarPage() {
             capacity: Number(eventCapacity) || null,
             registration_deadline: regDeadline ? new Date(regDeadline).toISOString() : null,
             status: campaignStatus,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
           };
-          const { error: err } = await supabase.from("company_events").update(payload).eq("id", editEventId);
+          const { error: err } = await supabase
+            .from("company_events")
+            .update(payload)
+            .eq("id", editEventId);
           if (err) throw err;
           toast.success("Cập nhật Chiến dịch thành công");
 
           // Tự động nạp Master Event lên Google Calendar ngay cho Admin nghiệm thu
           try {
-            supabase.functions.invoke('send-gcal-invite', {
-              body: {
-                registration_id: editEventId || "master_update",
-                event_title: title.trim(),
-                starts_at: startsAt,
-                ends_at: endsAt || startsAt,
-                location: eventLocation.trim() || meetingUrl.trim() || "Hệ thống DESEMBRE",
-                description: description.trim(),
-                attendee_email: user?.email || "desembrevn.com@gmail.com",
-                attendee_name: "Ban Quản Trị DESEMBRE"
-              }
-            }).then();
+            supabase.functions
+              .invoke("send-gcal-invite", {
+                body: {
+                  registration_id: editEventId || "master_update",
+                  event_title: title.trim(),
+                  starts_at: startsAt,
+                  ends_at: endsAt || startsAt,
+                  location: eventLocation.trim() || meetingUrl.trim() || "Hệ thống DESEMBRE",
+                  description: description.trim(),
+                  attendee_email: user?.email || "desembrevn.com@gmail.com",
+                  attendee_name: "Ban Quản Trị DESEMBRE",
+                },
+              })
+              .then();
           } catch (_) {}
         } else {
-          const isDbTask = (events.find(e => e.id === editEventId) as any)?._is_db_task;
+          const isDbTask = (events.find((e) => e.id === editEventId) as any)?._is_db_task;
           if (isDbTask) {
             let taskType = "call";
             if (personalType === "check_in") taskType = "visit";
             else if (personalType === "payment") taskType = "quotation";
             else if (personalType === "follow_up") taskType = "follow_up";
-            
+
             const payload = {
               title: title.trim(),
               description: description.trim() || null,
@@ -566,9 +605,12 @@ function CalendarPage() {
               customer_id: customerId || null,
               assigned_to: targetSaleId,
               task_type: taskType,
-              updated_at: new Date().toISOString()
+              updated_at: new Date().toISOString(),
             };
-            const { error: err } = await supabase.from("customer_tasks").update(payload).eq("id", editEventId);
+            const { error: err } = await supabase
+              .from("customer_tasks")
+              .update(payload)
+              .eq("id", editEventId);
             if (err) throw err;
             toast.success("Cập nhật Công việc thành công");
           } else {
@@ -581,9 +623,12 @@ function CalendarPage() {
               customer_id: customerId || null,
               assigned_sale_id: targetSaleId,
               remind_before_minutes: Number(remindMinutes) || 30,
-              updated_at: new Date().toISOString()
+              updated_at: new Date().toISOString(),
             };
-            const { error: err } = await supabase.from("calendar_events").update(payload).eq("id", editEventId);
+            const { error: err } = await supabase
+              .from("calendar_events")
+              .update(payload)
+              .eq("id", editEventId);
             if (err) throw err;
             toast.success("Cập nhật Lịch cá nhân thành công");
           }
@@ -604,24 +649,30 @@ function CalendarPage() {
             status: campaignStatus,
             created_by: user?.id || null,
           };
-          const { data: newEv, error: err } = await supabase.from("company_events").insert([payload]).select().single();
+          const { data: newEv, error: err } = await supabase
+            .from("company_events")
+            .insert([payload])
+            .select()
+            .single();
           if (err) throw err;
           toast.success("Khởi tạo Chiến dịch mới thành công");
 
           // Tự động nạp Master Event lên Google Calendar ngay khi vừa tạo xong
           try {
-            supabase.functions.invoke('send-gcal-invite', {
-              body: {
-                registration_id: newEv?.id || "master_init",
-                event_title: title.trim(),
-                starts_at: startsAt,
-                ends_at: endsAt || startsAt,
-                location: eventLocation.trim() || meetingUrl.trim() || "Hệ thống DESEMBRE",
-                description: description.trim(),
-                attendee_email: user?.email || "desembrevn.com@gmail.com",
-                attendee_name: "Ban Quản Trị DESEMBRE"
-              }
-            }).then();
+            supabase.functions
+              .invoke("send-gcal-invite", {
+                body: {
+                  registration_id: newEv?.id || "master_init",
+                  event_title: title.trim(),
+                  starts_at: startsAt,
+                  ends_at: endsAt || startsAt,
+                  location: eventLocation.trim() || meetingUrl.trim() || "Hệ thống DESEMBRE",
+                  description: description.trim(),
+                  attendee_email: user?.email || "desembrevn.com@gmail.com",
+                  attendee_name: "Ban Quản Trị DESEMBRE",
+                },
+              })
+              .then();
           } catch (_) {}
         } else {
           const payload = {
@@ -634,7 +685,7 @@ function CalendarPage() {
             assigned_sale_id: targetSaleId,
             created_by: user?.id || null,
             owner_user_id: targetSaleId || user?.id || null,
-            visibility: 'private',
+            visibility: "private",
             remind_before_minutes: Number(remindMinutes) || 30,
             status: "pending",
           };
@@ -653,16 +704,24 @@ function CalendarPage() {
     }
   };
 
-  const handleDeleteEvent = async (id: string, type: 'personal' | 'company') => {
-    if (type === 'company') {
-      if (!window.confirm("Hành động này sẽ XÓA VĨNH VIỄN sự kiện khỏi hệ thống CRM.\nNếu sự kiện đã đồng bộ Google Calendar, lịch trên Google cũng sẽ được tự động gỡ bỏ.\nBạn có chắc chắn muốn tiếp tục không?")) return;
-      const reasonInput = window.prompt("Vui lòng nhập lý do xóa sự kiện (tùy chọn để lưu vết log):", "");
+  const handleDeleteEvent = async (id: string, type: "personal" | "company") => {
+    if (type === "company") {
+      if (
+        !window.confirm(
+          "Hành động này sẽ XÓA VĨNH VIỄN sự kiện khỏi hệ thống CRM.\nNếu sự kiện đã đồng bộ Google Calendar, lịch trên Google cũng sẽ được tự động gỡ bỏ.\nBạn có chắc chắn muốn tiếp tục không?",
+        )
+      )
+        return;
+      const reasonInput = window.prompt(
+        "Vui lòng nhập lý do xóa sự kiện (tùy chọn để lưu vết log):",
+        "",
+      );
       if (reasonInput === null) return; // Người dùng bấm Hủy
-      
+
       try {
         setSaving(true);
         const res = await supabase.functions.invoke("cancel-company-event", {
-          body: { companyEventId: id, cancelReason: reasonInput }
+          body: { companyEventId: id, cancelReason: reasonInput },
         });
         if (res.error) throw res.error;
         if (res.data && !res.data.success) {
@@ -673,7 +732,7 @@ function CalendarPage() {
         await loadEvents();
       } catch (err: any) {
         let errorMsg = err.message || JSON.stringify(err);
-        if (err.context && typeof err.context.json === 'function') {
+        if (err.context && typeof err.context.json === "function") {
           try {
             const ctxData = await err.context.json();
             if (ctxData && ctxData.error) {
@@ -686,10 +745,17 @@ function CalendarPage() {
         setSaving(false);
       }
     } else {
-      const isDbTask = (events.find(e => e.id === id) as any)?._is_db_task;
+      const isDbTask = (events.find((e) => e.id === id) as any)?._is_db_task;
       const targetTable = isDbTask ? "customer_tasks" : "calendar_events";
-      
-      if (!window.confirm(isDbTask ? "Bạn có chắc chắn muốn xóa công việc này?" : "Bạn có chắc chắn muốn xóa lịch trình cá nhân này?")) return;
+
+      if (
+        !window.confirm(
+          isDbTask
+            ? "Bạn có chắc chắn muốn xóa công việc này?"
+            : "Bạn có chắc chắn muốn xóa lịch trình cá nhân này?",
+        )
+      )
+        return;
       try {
         setSaving(true);
         const { error } = await supabase.from(targetTable).delete().eq("id", id);
@@ -708,12 +774,12 @@ function CalendarPage() {
   const handleDateClick = (arg: { dateStr: string; date: Date }) => {
     const isCompTab = isManager;
     const baseDateStr = arg.dateStr.slice(0, 10);
-    
+
     setTitle("");
     setDescription("");
     setPersonalType("follow_up");
     setCompanyType("workshop");
-    
+
     if (isCompTab) {
       setStartsAt(`${baseDateStr}T08:30`);
       setEndsAt(`${baseDateStr}T12:00`);
@@ -729,10 +795,10 @@ function CalendarPage() {
       setEndsAt("");
       setRegDeadline("");
     }
-    
+
     setCustomerId("");
     setCustomerSearch("");
-    setAssignedSaleId(isManager ? "" : (user?.id || ""));
+    setAssignedSaleId(isManager ? "" : user?.id || "");
     setRemindMinutes(getDefaultReminderMinutes());
     setEditEventId(null);
     setCampaignStatus("published");
@@ -741,12 +807,12 @@ function CalendarPage() {
   };
 
   const handleEventClick = (arg: { event: { id: string } }) => {
-    const ev = events.find(e => e.id === arg.event.id);
+    const ev = events.find((e) => e.id === arg.event.id);
     if (!ev) return;
-    
+
     setTitle(ev.title);
     setDescription(ev.description || "");
-    
+
     const toInputTime = (isoStr: string) => {
       if (!isoStr) return "";
       const dt = new Date(isoStr);
@@ -759,7 +825,7 @@ function CalendarPage() {
     setEditEventType(ev._ui_type);
     setModalTab(ev._ui_type);
 
-    if (ev._ui_type === 'company') {
+    if (ev._ui_type === "company") {
       setCompanyType(ev.event_type);
       setEventLocation(ev.location || "");
       setMeetingUrl(ev.meeting_url || "");
@@ -767,7 +833,7 @@ function CalendarPage() {
       setRegDeadline(ev.registration_deadline ? toInputTime(ev.registration_deadline) : "");
       setCampaignStatus(ev.status);
       setModalRegistrations(ev.registrations || []);
-      
+
       setCustomerId("");
       setAssignedSaleId("");
     } else {
@@ -775,7 +841,7 @@ function CalendarPage() {
       setCustomerId(ev.customer_id || "");
       setAssignedSaleId(ev.assigned_sale_id || "");
       setRemindMinutes(ev.remind_before_minutes || 30);
-      
+
       setEventLocation("");
       setMeetingUrl("");
       setEventCapacity("");
@@ -795,7 +861,7 @@ function CalendarPage() {
   };
 
   const handleAddAttendee = async () => {
-    let finalCustomerId = attendeeSelectId;
+    const finalCustomerId = attendeeSelectId;
     let finalCustomerName = quickCustomerName.trim();
     let finalCustomerPhone = quickCustomerPhone.trim();
     let finalCustomerEmail: string | null = null;
@@ -817,14 +883,20 @@ function CalendarPage() {
       finalCustomerEmail = quickCustomerEmail.trim() || null;
     }
 
-    if (modalRegistrations.some(r => (r.customer_id && r.customer_id === finalCustomerId) || (r.customer_phone && r.customer_phone === finalCustomerPhone))) {
+    if (
+      modalRegistrations.some(
+        (r) =>
+          (r.customer_id && r.customer_id === finalCustomerId) ||
+          (r.customer_phone && r.customer_phone === finalCustomerPhone),
+      )
+    ) {
       toast.warning("Khách hàng này đã có trong danh sách đăng ký");
       return;
     }
 
     try {
       setSaving(true);
-      
+
       const eventDatePart = endsAt ? endsAt.slice(0, 10) : startsAt.slice(0, 10);
       const startTimePart = startsAt.includes("T") ? startsAt.slice(11, 16) : "08:30";
       const endTimePart = endsAt && endsAt.includes("T") ? endsAt.slice(11, 16) : "12:00";
@@ -834,7 +906,7 @@ function CalendarPage() {
         startsAt: `${eventDatePart}T${startTimePart}`,
         endsAt: `${eventDatePart}T${endTimePart}`,
         location: eventLocation || meetingUrl || null,
-        description: formatGCalDescription(finalCustomerName, finalCustomerPhone, description)
+        description: formatGCalDescription(finalCustomerName, finalCustomerPhone, description),
       });
 
       const newRegPayload = {
@@ -847,7 +919,7 @@ function CalendarPage() {
         registered_by: user?.id,
         assigned_sale_id: user?.id,
         status: newAttendeeStatus,
-        note: newAttendeeNote.trim() || null
+        note: newAttendeeNote.trim() || null,
       };
 
       if (editEventId) {
@@ -857,29 +929,32 @@ function CalendarPage() {
           .select()
           .single();
         if (err) throw err;
-        
+
         if (insertedData) {
           const freshReg = {
             ...insertedData,
-            added_by_sale_name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || "SALE"
+            added_by_sale_name:
+              user?.user_metadata?.full_name || user?.email?.split("@")[0] || "SALE",
           };
-          setModalRegistrations(prev => [freshReg as any, ...prev]);
+          setModalRegistrations((prev) => [freshReg as any, ...prev]);
 
           if (insertedData.customer_id) {
             try {
-              await supabase.from("customer_activities").insert([{
-                customer_id: insertedData.customer_id,
-                created_by: user?.id,
-                activity_type: "event_registered",
-                title: "Đăng ký tham gia sự kiện",
-                content: `Đã đăng ký tham gia sự kiện thành công.`
-              }]);
+              await supabase.from("customer_activities").insert([
+                {
+                  customer_id: insertedData.customer_id,
+                  created_by: user?.id,
+                  activity_type: "event_registered",
+                  title: "Đăng ký tham gia sự kiện",
+                  content: `Đã đăng ký tham gia sự kiện thành công.`,
+                },
+              ]);
             } catch (e) {
               console.error("Error creating customer activity for event registration:", e);
             }
           }
         }
-        
+
         toast.success("Đăng ký khách hàng thành công");
         await loadEvents();
       } else {
@@ -926,30 +1001,41 @@ function CalendarPage() {
       const computedTargetStart = `${targetDatePart}T${targetStartTimePart}`;
       const computedTargetEnd = `${targetDatePart}T${targetEndTimePart}`;
 
-      let calUrl = buildGoogleCalendarLink({
+      const calUrl = buildGoogleCalendarLink({
         title: title || "Sự kiện DESEMBRE Partner",
         startsAt: computedTargetStart,
         endsAt: computedTargetEnd,
         location: eventLocation || meetingUrl || null,
-        description: formatGCalDescription(reg.customer_name || "", reg.customer_phone, description)
+        description: formatGCalDescription(
+          reg.customer_name || "",
+          reg.customer_phone,
+          description,
+        ),
       });
 
       if (reg.id && calUrl) {
-        supabase.from("event_registrations").update({ add_to_calendar_url: calUrl }).eq("id", reg.id).then();
-        setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, add_to_calendar_url: calUrl } : r));
+        supabase
+          .from("event_registrations")
+          .update({ add_to_calendar_url: calUrl })
+          .eq("id", reg.id)
+          .then();
+        setModalRegistrations((prev) =>
+          prev.map((r) => (r.id === reg.id ? { ...r, add_to_calendar_url: calUrl } : r)),
+        );
       }
 
       // Format chuỗi hiển thị đúng mốc cuối cùng của ngày kết thúc: "21h00 ngày 19/05/2026"
       const formattedTimeStr = targetEndTimePart.replace(":", "h");
       const partsD = targetDatePart.split("-");
-      const fullDateStr = partsD.length === 3 ? `${partsD[2]}/${partsD[1]}/${partsD[0]}` : targetDatePart;
+      const fullDateStr =
+        partsD.length === 3 ? `${partsD[2]}/${partsD[1]}/${partsD[0]}` : targetDatePart;
 
       const timeLine = `${formattedTimeStr} ngày ${fullDateStr}`;
 
       const locLine = eventLocation || meetingUrl || "Hệ thống DESEMBRE";
 
-      const greeting = reg.customer_name 
-        ? `Chị/Anh ${reg.customer_name} ơi, em gửi lịch sự kiện Desembre ạ.` 
+      const greeting = reg.customer_name
+        ? `Chị/Anh ${reg.customer_name} ơi, em gửi lịch sự kiện Desembre ạ.`
         : `Chị/Anh ơi, em gửi lịch sự kiện Desembre ạ.`;
 
       const msg = `${greeting}\n\nTên sự kiện: ${title || "Sự kiện DESEMBRE Partner"}\nThời gian: ${timeLine}\nĐịa điểm: ${locLine}\n\nAnh/Chị bấm link này để thêm vào Google Calendar và nhận nhắc lịch:\n${calUrl}`;
@@ -962,14 +1048,20 @@ function CalendarPage() {
         const sentBy = user?.id || null;
         supabase
           .from("event_registrations")
-          .update({ 
+          .update({
             calendar_link_sent_at: sentAt,
-            calendar_link_sent_by: sentBy
+            calendar_link_sent_by: sentBy,
           })
           .eq("id", reg.id)
           .then();
 
-        setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, calendar_link_sent_at: sentAt, calendar_link_sent_by: sentBy } as any : r));
+        setModalRegistrations((prev) =>
+          prev.map((r) =>
+            r.id === reg.id
+              ? ({ ...r, calendar_link_sent_at: sentAt, calendar_link_sent_by: sentBy } as any)
+              : r,
+          ),
+        );
       }
     } catch (err) {
       toast.error("Lỗi copy link lịch: Trình duyệt từ chối quyền Clipboard");
@@ -983,8 +1075,17 @@ function CalendarPage() {
     }
 
     try {
-      const headers = ["STT", "Tên khách hàng", "Số điện thoại", "Email", "Trạng thái", "Ghi chú", "Nhân viên SALE", "Ngày đăng ký"];
-      
+      const headers = [
+        "STT",
+        "Tên khách hàng",
+        "Số điện thoại",
+        "Email",
+        "Trạng thái",
+        "Ghi chú",
+        "Nhân viên SALE",
+        "Ngày đăng ký",
+      ];
+
       const escapeCell = (cell: any) => {
         if (cell === null || cell === undefined) return '""';
         const str = String(cell).replace(/"/g, '""');
@@ -1003,23 +1104,30 @@ function CalendarPage() {
           stMeta.label || "",
           reg.note || "",
           saleName,
-          createdStr
-        ].map(escapeCell).join(",");
+          createdStr,
+        ]
+          .map(escapeCell)
+          .join(",");
       });
 
       const csvContent = "\uFEFF" + [headers.map(escapeCell).join(","), ...rows].join("\n");
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
-      
+
       const safeTitle = (title || "Danh_sach_khach_hang").replace(/[^a-zA-Z0-9]/g, "_");
       const link = document.createElement("a");
       link.setAttribute("href", url);
-      link.setAttribute("download", `DESEMBRE_Campaign_${safeTitle}_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.setAttribute(
+        "download",
+        `DESEMBRE_Campaign_${safeTitle}_${new Date().toISOString().slice(0, 10)}.csv`,
+      );
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
-      toast.success("Đã xuất danh sách thành công! Bạn có thể Import file CSV này thẳng vào Google Sheets.");
+
+      toast.success(
+        "Đã xuất danh sách thành công! Bạn có thể Import file CSV này thẳng vào Google Sheets.",
+      );
     } catch (err: any) {
       toast.error("Không thể xuất file: " + err.message);
     }
@@ -1042,7 +1150,9 @@ function CalendarPage() {
 
       const targetDatePart = endsAt ? endsAt.slice(0, 10) : startsAt.slice(0, 10);
       const targetStartTimePart = startsAt.includes("T") ? startsAt.slice(11, 16) : "18:00";
-      const eventTimeStr = startsAt ? `${targetStartTimePart} ngày ${targetDatePart.split('-').reverse().join('/')}` : "Chưa xác định";
+      const eventTimeStr = startsAt
+        ? `${targetStartTimePart} ngày ${targetDatePart.split("-").reverse().join("/")}`
+        : "Chưa xác định";
 
       const vars = {
         customer_name: reg.customer_name || "Khách Quý",
@@ -1057,12 +1167,15 @@ function CalendarPage() {
 
       if (tplErr || !tplData) {
         const defaultSubject = "[DESEMBRE] Thư mời: {{event_title}}";
-        const defaultBody = "Kính gửi Quý đối tác / Khách mời: {{customer_name}}\n\nCông ty {{company_name}} trân trọng kính mời Quý khách tham dự chương trình đào tạo và chuyển giao phác đồ chuyên sâu.\n\n📌 THÔNG TIN SỰ KIỆN:\n- Chủ đề: {{event_title}}\n- Thời gian: {{event_time}}\n- Địa điểm: {{event_location}}\n- Link trực tuyến: {{meeting_url}}\n\nChuyên viên phụ trách: {{sale_name}}\nLink nạp nhanh vào Lịch Google: {{calendar_link}}\n\nSự hiện diện của Quý khách là niềm vinh hạnh lớn cho công ty chúng tôi.\nTrân trọng,\nBan Giám Đốc DESEMBRE Partner Hub";
-        
+        const defaultBody =
+          "Kính gửi Quý đối tác / Khách mời: {{customer_name}}\n\nCông ty {{company_name}} trân trọng kính mời Quý khách tham dự chương trình đào tạo và chuyển giao phác đồ chuyên sâu.\n\n📌 THÔNG TIN SỰ KIỆN:\n- Chủ đề: {{event_title}}\n- Thời gian: {{event_time}}\n- Địa điểm: {{event_location}}\n- Link trực tuyến: {{meeting_url}}\n\nChuyên viên phụ trách: {{sale_name}}\nLink nạp nhanh vào Lịch Google: {{calendar_link}}\n\nSự hiện diện của Quý khách là niềm vinh hạnh lớn cho công ty chúng tôi.\nTrân trọng,\nBan Giám Đốc DESEMBRE Partner Hub";
+
         setRenderedPreviewSubject(renderTemplate(defaultSubject, vars));
         setRenderedPreviewBody(renderTemplate(defaultBody, vars));
       } else {
-        setRenderedPreviewSubject(renderTemplate(tplData.subject_template || "[DESEMBRE] Thư mời: {{event_title}}", vars));
+        setRenderedPreviewSubject(
+          renderTemplate(tplData.subject_template || "[DESEMBRE] Thư mời: {{event_title}}", vars),
+        );
         setRenderedPreviewBody(renderTemplate(tplData.body_template, vars));
       }
     } catch (err) {
@@ -1075,19 +1188,28 @@ function CalendarPage() {
   const handleSendRealGCalInvite = async (reg: EventRegistration) => {
     let targetEmail = reg.attendee_email;
     if (!targetEmail) {
-      const input = window.prompt(`Khách mời "${reg.customer_name || 'Khách hàng'}" chưa có Email.\nVui lòng nhập địa chỉ Email để hệ thống gửi thư mời chính thức:`, "");
+      const input = window.prompt(
+        `Khách mời "${reg.customer_name || "Khách hàng"}" chưa có Email.\nVui lòng nhập địa chỉ Email để hệ thống gửi thư mời chính thức:`,
+        "",
+      );
       if (!input || !input.trim()) {
         toast.warning("Khách chưa có email, không thể gửi Google Calendar invite");
         return;
       }
       targetEmail = input.trim();
-      
+
       // Cập nhật ngầm vào CSDL Supabase
-      supabase.from("event_registrations").update({ attendee_email: targetEmail }).eq("id", reg.id).then();
-      setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, attendee_email: targetEmail } as any : r));
+      supabase
+        .from("event_registrations")
+        .update({ attendee_email: targetEmail })
+        .eq("id", reg.id)
+        .then();
+      setModalRegistrations((prev) =>
+        prev.map((r) => (r.id === reg.id ? ({ ...r, attendee_email: targetEmail } as any) : r)),
+      );
     }
 
-    setSendingInviteIds(prev => [...prev, reg.id]);
+    setSendingInviteIds((prev) => [...prev, reg.id]);
     const tid = toast.loading("Đang kết nối với Google Calendar và gửi thiệp mời từ Công ty...");
     try {
       const payload = {
@@ -1098,19 +1220,19 @@ function CalendarPage() {
         location: eventLocation || meetingUrl || "Hệ thống DESEMBRE Việt Nam",
         description: description,
         attendee_email: targetEmail,
-        attendee_name: reg.customer_name || "Khách Quý"
+        attendee_name: reg.customer_name || "Khách Quý",
       };
 
       let success = false;
 
       try {
-        const { data, error } = await supabase.functions.invoke('send-gcal-invite', {
-          body: payload
+        const { data, error } = await supabase.functions.invoke("send-gcal-invite", {
+          body: payload,
         });
 
         if (error) {
           let customErr = error.message;
-          if (error.context && typeof error.context.json === 'function') {
+          if (error.context && typeof error.context.json === "function") {
             try {
               const errCtx = await error.context.json();
               if (errCtx && errCtx.error) {
@@ -1142,15 +1264,19 @@ function CalendarPage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY,
-            "Authorization": `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            apikey:
+              import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+              import.meta.env.VITE_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
           body: JSON.stringify(payload),
         });
 
         const resData = await rawRes.json().catch(() => null);
         if (!rawRes.ok || resData?.error) {
-          throw new Error(resData?.error || sdkErr.message || "Lỗi giao tiếp máy chủ Edge Function");
+          throw new Error(
+            resData?.error || sdkErr.message || "Lỗi giao tiếp máy chủ Edge Function",
+          );
         }
         success = resData?.success || true;
       }
@@ -1160,20 +1286,36 @@ function CalendarPage() {
       }
 
       toast.success("Đã gửi thư mời Google Calendar", { id: tid });
-      
-      setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, google_invite_status: "sent", attendee_email: targetEmail } as any : r));
+
+      setModalRegistrations((prev) =>
+        prev.map((r) =>
+          r.id === reg.id
+            ? ({ ...r, google_invite_status: "sent", attendee_email: targetEmail } as any)
+            : r,
+        ),
+      );
       await loadEvents();
     } catch (err: any) {
       toast.error(err.message || "Lỗi gửi thư mời", { id: tid });
-      supabase.from("event_registrations").update({ google_invite_status: "failed" } as any).eq("id", reg.id).then();
-      setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, google_invite_status: "failed" } as any : r));
+      supabase
+        .from("event_registrations")
+        .update({ google_invite_status: "failed" } as any)
+        .eq("id", reg.id)
+        .then();
+      setModalRegistrations((prev) =>
+        prev.map((r) => (r.id === reg.id ? ({ ...r, google_invite_status: "failed" } as any) : r)),
+      );
       await loadEvents();
     } finally {
-      setSendingInviteIds(prev => prev.filter(id => id !== reg.id));
+      setSendingInviteIds((prev) => prev.filter((id) => id !== reg.id));
     }
   };
 
-  const handleUpdateAttendeeStatus = async (regId: string, assignedSaleId: string, nextStatus: RegistrationStatus) => {
+  const handleUpdateAttendeeStatus = async (
+    regId: string,
+    assignedSaleId: string,
+    nextStatus: RegistrationStatus,
+  ) => {
     if (!isManager && assignedSaleId !== user?.id) {
       toast.error("Bạn chỉ có quyền cập nhật khách do mình phụ trách");
       return;
@@ -1182,20 +1324,20 @@ function CalendarPage() {
     try {
       const { error: err } = await supabase
         .from("event_registrations")
-        .update({ 
+        .update({
           status: nextStatus,
           updated_at: new Date().toISOString(),
-          ...(nextStatus === 'attended' ? { checked_in_at: new Date().toISOString() } : {})
+          ...(nextStatus === "attended" ? { checked_in_at: new Date().toISOString() } : {}),
         })
         .eq("id", regId);
-      
+
       if (err) throw err;
       toast.success("Cập nhật trạng thái thành công");
-      
-      if (nextStatus === 'attended') {
-        const reg = modalRegistrations.find(r => r.id === regId);
+
+      if (nextStatus === "attended") {
+        const reg = modalRegistrations.find((r) => r.id === regId);
         if (reg) {
-          setPendingFollowUpReg({ ...reg, status: 'attended' });
+          setPendingFollowUpReg({ ...reg, status: "attended" });
           setShowFollowUpDialog(true);
         }
       }
@@ -1208,7 +1350,7 @@ function CalendarPage() {
 
   const handleCreateFollowUp = async (days: number) => {
     if (!pendingFollowUpReg) return;
-    
+
     try {
       setSaving(true);
       const followUpDate = new Date();
@@ -1218,13 +1360,13 @@ function CalendarPage() {
       const payload = {
         title: `📞 Follow-up: ${pendingFollowUpReg.customer_name}`,
         description: `Lịch tự động sau sự kiện. (Nhu cầu: ${pendingFollowUpReg.note || "N/A"})`,
-        event_type: 'follow_up',
+        event_type: "follow_up",
         starts_at: followUpDate.toISOString(),
         customer_id: pendingFollowUpReg.customer_id || null,
         assigned_sale_id: pendingFollowUpReg.assigned_sale_id || user?.id,
         created_by: user?.id,
-        status: 'pending',
-        remind_before_minutes: 30
+        status: "pending",
+        remind_before_minutes: 30,
       };
 
       const { error } = await supabase.from("calendar_events").insert([payload]);
@@ -1243,24 +1385,29 @@ function CalendarPage() {
 
   const adminStats = useMemo(() => {
     if (!isManager) return null;
-    
-    const companyEvs = events.filter(e => e._ui_type === 'company');
-    const allRegs = companyEvs.flatMap(e => e.registrations || []);
-    
+
+    const companyEvs = events.filter((e) => e._ui_type === "company");
+    const allRegs = companyEvs.flatMap((e) => e.registrations || []);
+
     const totalEvents = companyEvs.length;
     const totalRegs = allRegs.length;
-    const totalAttended = allRegs.filter(r => r.status === 'attended' || r.status === 'converted').length;
-    const totalConverted = allRegs.filter(r => r.status === 'converted').length;
-    
+    const totalAttended = allRegs.filter(
+      (r) => r.status === "attended" || r.status === "converted",
+    ).length;
+    const totalConverted = allRegs.filter((r) => r.status === "converted").length;
+
     const salePerformance = Object.entries(
-      allRegs.reduce((acc, reg) => {
-        const sName = reg.added_by_sale_name || "Admin/Khác";
-        if (!acc[sName]) acc[sName] = { reg: 0, att: 0, conv: 0 };
-        acc[sName].reg++;
-        if (reg.status === 'attended' || reg.status === 'converted') acc[sName].att++;
-        if (reg.status === 'converted') acc[sName].conv++;
-        return acc;
-      }, {} as Record<string, { reg: number, att: number, conv: number }>)
+      allRegs.reduce(
+        (acc, reg) => {
+          const sName = reg.added_by_sale_name || "Admin/Khác";
+          if (!acc[sName]) acc[sName] = { reg: 0, att: 0, conv: 0 };
+          acc[sName].reg++;
+          if (reg.status === "attended" || reg.status === "converted") acc[sName].att++;
+          if (reg.status === "converted") acc[sName].conv++;
+          return acc;
+        },
+        {} as Record<string, { reg: number; att: number; conv: number }>,
+      ),
     ).sort((a, b) => b[1].conv - a[1].conv);
 
     return {
@@ -1268,26 +1415,28 @@ function CalendarPage() {
       totalRegs,
       totalAttended,
       totalConverted,
-      salePerformance
+      salePerformance,
     };
   }, [events, isManager]);
 
   const filteredEvents = useMemo(() => {
-    return events.filter(ev => {
-      const isMyPersonalEvent = ev._ui_type === 'personal' && (ev.assigned_sale_id === user?.id || ev.created_by === user?.id);
-      const isCompanyEvent = ev._ui_type === 'company';
-      
+    return events.filter((ev) => {
+      const isMyPersonalEvent =
+        ev._ui_type === "personal" &&
+        (ev.assigned_sale_id === user?.id || ev.created_by === user?.id);
+      const isCompanyEvent = ev._ui_type === "company";
+
       const hasViewAccess = isManager || isMyPersonalEvent || isCompanyEvent;
       if (!hasViewAccess) return false;
 
       const matchStatus = statusFilter === "all" || ev.status === statusFilter;
       const matchType = typeFilter === "all" || ev.event_type === typeFilter;
-      
+
       let matchGroup = true;
       if (groupFilter === "personal") {
-        matchGroup = ev._ui_type === 'personal';
+        matchGroup = ev._ui_type === "personal";
       } else if (groupFilter === "company") {
-        matchGroup = ev._ui_type === 'company';
+        matchGroup = ev._ui_type === "company";
       }
 
       return matchStatus && matchType && matchGroup;
@@ -1295,29 +1444,32 @@ function CalendarPage() {
   }, [events, statusFilter, typeFilter, groupFilter, isManager, user?.id]);
 
   const fullCalendarEvents = useMemo(() => {
-    return filteredEvents.map(ev => {
-      const isCompany = ev._ui_type === 'company';
-      const typeMeta = isCompany 
+    return filteredEvents.map((ev) => {
+      const isCompany = ev._ui_type === "company";
+      const typeMeta = isCompany
         ? getCompanyEventTypeLabel(ev.event_type as CompanyEventType)
         : getPersonalEventTypeLabel(ev.event_type as PersonalEventType);
-        
+
       const isOverdue = !isCompany && isEventOverdue(ev.starts_at, (ev as PersonalEvent).status);
-      const custMeta = !isCompany && (ev as PersonalEvent).customer_id ? customersMap[(ev as PersonalEvent).customer_id!] : null;
-      
+      const custMeta =
+        !isCompany && (ev as PersonalEvent).customer_id
+          ? customersMap[(ev as PersonalEvent).customer_id!]
+          : null;
+
       let color = "#0ea5e9";
       let statusPrefix = "";
-      
+
       if (isCompany) {
-        if (ev.status === 'draft') {
+        if (ev.status === "draft") {
           color = "#d97706";
           statusPrefix = "📝 [Nháp] ";
-        } else if (ev.status === 'completed') {
+        } else if (ev.status === "completed") {
           color = "#10b981";
           statusPrefix = "✓ [Xong] ";
-        } else if (ev.status === 'closed') {
+        } else if (ev.status === "closed") {
           color = "#be123c";
           statusPrefix = "🔒 [Đóng] ";
-        } else if (ev.status === 'cancelled') {
+        } else if (ev.status === "cancelled") {
           color = "#64748b";
           statusPrefix = "🚫 [Hủy] ";
         } else {
@@ -1339,20 +1491,25 @@ function CalendarPage() {
           color = "#f97316";
         }
       }
-      
-      const myRegsCount = isCompany && ev.registrations 
-        ? ev.registrations.filter((r: any) => r.assigned_sale_id === user?.id || r.registered_by === user?.id).length 
-        : 0;
 
-      const saleStatsLabel = (!isManager && isCompany && myRegsCount > 0) ? ` [👤 Khách: ${myRegsCount}]` : "";
-      
+      const myRegsCount =
+        isCompany && ev.registrations
+          ? ev.registrations.filter(
+              (r: any) => r.assigned_sale_id === user?.id || r.registered_by === user?.id,
+            ).length
+          : 0;
+
+      const saleStatsLabel =
+        !isManager && isCompany && myRegsCount > 0 ? ` [👤 Khách: ${myRegsCount}]` : "";
+
       return {
         id: ev.id,
         title: `${statusPrefix}${typeMeta.icon} ${ev.title}${custMeta ? ` (${custMeta.name})` : ""}${saleStatsLabel}`,
-        start: isCompany 
+        start: isCompany
           ? (() => {
               const startDay = ev.ends_at ? ev.ends_at.slice(0, 10) : ev.starts_at.slice(0, 10);
-              const startTime = ev.starts_at && ev.starts_at.includes("T") ? ev.starts_at.slice(11) : "08:30:00";
+              const startTime =
+                ev.starts_at && ev.starts_at.includes("T") ? ev.starts_at.slice(11) : "08:30:00";
               return `${startDay}T${startTime}`;
             })()
           : ev.starts_at,
@@ -1361,8 +1518,8 @@ function CalendarPage() {
         borderColor: color,
         textColor: "#ffffff",
         extendedProps: {
-          ...ev
-        }
+          ...ev,
+        },
       };
     });
   }, [filteredEvents, customersMap, isManager, user?.id]);
@@ -1376,7 +1533,7 @@ function CalendarPage() {
     const now = Date.now();
     const todayStr = new Date().toDateString();
 
-    filteredEvents.forEach(ev => {
+    filteredEvents.forEach((ev) => {
       if (ev.status === "completed") {
         completedCount++;
       } else if (ev.status === "cancelled") {
@@ -1385,7 +1542,7 @@ function CalendarPage() {
         try {
           const evDate = new Date(ev.starts_at);
           const evTime = evDate.getTime();
-          
+
           if (evDate.toDateString() === todayStr) todayCount++;
           if (evTime < now) overdueCount++;
           else upcomingCount++;
@@ -1400,41 +1557,58 @@ function CalendarPage() {
     try {
       const { error: updateErr } = await supabase
         .from("calendar_events")
-        .update({ 
+        .update({
           status: newStatus,
           updated_at: new Date().toISOString(),
           ...(newStatus === "completed" ? { completed_at: new Date().toISOString() } : {}),
-          ...(newStatus === "cancelled" ? { cancelled_at: new Date().toISOString() } : {})
+          ...(newStatus === "cancelled" ? { cancelled_at: new Date().toISOString() } : {}),
         })
         .eq("id", id);
 
       if (updateErr) throw updateErr;
 
-      toast.success(newStatus === "completed" ? "Đã đánh dấu hoàn thành lịch hẹn" : "Đã hủy lịch hẹn");
-      setEvents(prev => prev.map(ev => ev.id === id ? ({ ...ev, status: newStatus } as any) : ev));
+      toast.success(
+        newStatus === "completed" ? "Đã đánh dấu hoàn thành lịch hẹn" : "Đã hủy lịch hẹn",
+      );
+      setEvents((prev) =>
+        prev.map((ev) => (ev.id === id ? ({ ...ev, status: newStatus } as any) : ev)),
+      );
       await loadEvents();
     } catch (err: any) {
-      setEvents(prev => {
-        const updated = prev.map(ev => ev.id === id ? ({ ...ev, status: newStatus } as any) : ev);
-        try { localStorage.setItem("offline_calendar_events", JSON.stringify(updated)); } catch {}
+      setEvents((prev) => {
+        const updated = prev.map((ev) =>
+          ev.id === id ? ({ ...ev, status: newStatus } as any) : ev,
+        );
+        try {
+          localStorage.setItem("offline_calendar_events", JSON.stringify(updated));
+        } catch {}
         return updated;
       });
-      toast.success(newStatus === "completed" ? "Đã hoàn thành lịch hẹn (Bộ nhớ đệm)" : "Đã hủy lịch hẹn (Bộ nhớ đệm)");
+      toast.success(
+        newStatus === "completed"
+          ? "Đã hoàn thành lịch hẹn (Bộ nhớ đệm)"
+          : "Đã hủy lịch hẹn (Bộ nhớ đệm)",
+      );
     }
   };
 
-  const isCompanyEditDisabled = !isManager && !!editEventId && editEventType === 'company';
+  const isCompanyEditDisabled = !isManager && !!editEventId && editEventType === "company";
 
-  const currentActiveCompEv = editEventId ? events.find(e => e.id === editEventId) as CompanyEvent | undefined : undefined;
-  const currentSyncStatus = currentActiveCompEv?.google_sync_status || 'not_synced';
+  const currentActiveCompEv = editEventId
+    ? (events.find((e) => e.id === editEventId) as CompanyEvent | undefined)
+    : undefined;
+  const currentSyncStatus = currentActiveCompEv?.google_sync_status || "not_synced";
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-12 flex flex-col">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+      <header className="bg-white border-b border-slate-200 relative z-30 shadow-xs">
         <div className="container mx-auto px-4 md:px-6 h-20 flex items-center justify-between">
           <div className="flex flex-col justify-center">
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 mb-1">
-              <Link to="/" className="hover:text-primary inline-flex items-center gap-1 transition-colors">
+              <Link
+                to="/"
+                className="hover:text-primary inline-flex items-center gap-1 transition-colors"
+              >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 Trang chủ
               </Link>
@@ -1442,33 +1616,35 @@ function CalendarPage() {
               <span className="text-slate-800">Lịch hẹn</span>
             </div>
             <div className="flex items-baseline gap-3">
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Lịch hẹn & Follow-up</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                Lịch hẹn & Follow-up
+              </h1>
               <p className="text-xs text-slate-500 hidden sm:inline-block border-l border-slate-200 pl-3">
                 Quản lý nhắc việc, lịch hẹn tư vấn và check-in khách hàng
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="icon" 
-              onClick={loadEvents} 
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={loadEvents}
               disabled={loading}
               title="Tải lại dữ liệu"
             >
-              <RotateCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <RotateCcw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             </Button>
             {isManager && (
-              <Button 
-                onClick={() => handleOpenCreateModal("company")} 
+              <Button
+                onClick={() => handleOpenCreateModal("company")}
                 className="bg-purple-600 hover:bg-purple-700 shadow-sm font-bold text-white"
               >
                 <Plus className="w-4 h-4 mr-2" /> Tạo sự kiện công ty
               </Button>
             )}
-            <Button 
-              onClick={() => handleOpenCreateModal("personal")} 
+            <Button
+              onClick={() => handleOpenCreateModal("personal")}
               variant={isManager ? "outline" : "default"}
               className="shadow-sm font-bold"
             >
@@ -1513,7 +1689,9 @@ function CalendarPage() {
           <div className="bg-white p-4 rounded-xl border border-emerald-100 shadow-2xs hover:shadow-sm transition-all relative overflow-hidden">
             <div className="absolute top-0 left-0 w-1 h-full bg-emerald-600"></div>
             <div className="flex items-center justify-between">
-              <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Hoàn thành</p>
+              <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider">
+                Hoàn thành
+              </p>
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
             </div>
             <p className="text-2xl font-black text-emerald-700 mt-2">{stats.completedCount}</p>
@@ -1522,62 +1700,89 @@ function CalendarPage() {
         </div>
 
         {/* Dashboard Chiến dịch (Dành cho Quản lý) */}
-        {isManager && events.some(e => e._ui_type === "company") && (
+        {isManager && events.some((e) => e._ui_type === "company") && (
           <div className="bg-white rounded-xl border border-purple-200 shadow-sm overflow-hidden">
             <div className="bg-purple-600 px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2 text-white">
                 <Target className="w-4 h-4" />
-                <h2 className="text-sm font-bold uppercase tracking-wide">Tổng quan Chiến dịch & Sự kiện Công ty</h2>
+                <h2 className="text-sm font-bold uppercase tracking-wide">
+                  Tổng quan Chiến dịch & Sự kiện Công ty
+                </h2>
               </div>
               <span className="bg-purple-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
-                {events.filter(e => e._ui_type === "company" && (e as CompanyEvent).status !== "completed").length} Đang diễn ra
+                {
+                  events.filter(
+                    (e) => e._ui_type === "company" && (e as CompanyEvent).status !== "completed",
+                  ).length
+                }{" "}
+                Đang diễn ra
               </span>
             </div>
             <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {events
-                .filter(e => e._ui_type === "company")
+                .filter((e) => e._ui_type === "company")
                 .sort((a, b) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime())
                 .slice(0, 3)
-                .map(ev => {
+                .map((ev) => {
                   const companyEv = ev as CompanyEvent;
                   const registrations = companyEv.registrations || [];
                   const regCount = registrations.length;
-                  const convCount = registrations.filter(r => r.status === "converted").length;
-                  const attendCount = registrations.filter(r => r.status === "attended" || r.status === "converted").length;
+                  const convCount = registrations.filter((r) => r.status === "converted").length;
+                  const attendCount = registrations.filter(
+                    (r) => r.status === "attended" || r.status === "converted",
+                  ).length;
                   const max = companyEv.capacity || 0;
                   const progress = max > 0 ? (regCount / max) * 100 : 0;
-                  
+
                   return (
-                    <div 
-                      key={companyEv.id} 
+                    <div
+                      key={companyEv.id}
                       onClick={() => handleEventClick({ event: { id: companyEv.id } })}
                       className="border border-slate-100 rounded-lg p-3 hover:bg-slate-50 cursor-pointer transition-all flex flex-col gap-2 shadow-2xs"
                     >
                       <div className="flex justify-between items-start">
-                        <h3 className="text-xs font-bold text-slate-900 line-clamp-1 flex-1 pr-2">{companyEv.title}</h3>
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold shrink-0 ${
-                          companyEv.status === 'draft' ? 'bg-amber-100 text-amber-800' :
-                          companyEv.status === 'published' ? 'bg-purple-100 text-purple-700' : 
-                          companyEv.status === 'closed' ? 'bg-rose-100 text-rose-700' : 
-                          companyEv.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          {companyEv.status === 'draft' ? '📝 NHÁP' :
-                           companyEv.status === 'published' ? '📢 LIVE' :
-                           companyEv.status === 'closed' ? '🔒 ĐÓNG' :
-                           companyEv.status === 'completed' ? '✓ XONG' :
-                           companyEv.status === 'cancelled' ? '🚫 HỦY' : ""}
+                        <h3 className="text-xs font-bold text-slate-900 line-clamp-1 flex-1 pr-2">
+                          {companyEv.title}
+                        </h3>
+                        <span
+                          className={`text-[9px] px-1.5 py-0.5 rounded font-bold shrink-0 ${
+                            companyEv.status === "draft"
+                              ? "bg-amber-100 text-amber-800"
+                              : companyEv.status === "published"
+                                ? "bg-purple-100 text-purple-700"
+                                : companyEv.status === "closed"
+                                  ? "bg-rose-100 text-rose-700"
+                                  : companyEv.status === "completed"
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          {companyEv.status === "draft"
+                            ? "📝 NHÁP"
+                            : companyEv.status === "published"
+                              ? "📢 LIVE"
+                              : companyEv.status === "closed"
+                                ? "🔒 ĐÓNG"
+                                : companyEv.status === "completed"
+                                  ? "✓ XONG"
+                                  : companyEv.status === "cancelled"
+                                    ? "🚫 HỦY"
+                                    : ""}
                         </span>
                       </div>
-                      
+
                       <div className="space-y-1">
                         <div className="flex justify-between text-[10px]">
                           <span className="text-slate-500">Tiến độ đăng ký</span>
-                          <span className="font-bold text-slate-700">{regCount}{max > 0 ? `/${max}` : ""} khách</span>
+                          <span className="font-bold text-slate-700">
+                            {regCount}
+                            {max > 0 ? `/${max}` : ""} khách
+                          </span>
                         </div>
                         {max > 0 && (
                           <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                            <div 
-                              className={`h-full transition-all ${progress >= 100 ? 'bg-rose-500' : progress >= 80 ? 'bg-amber-500' : 'bg-purple-500'}`}
+                            <div
+                              className={`h-full transition-all ${progress >= 100 ? "bg-rose-500" : progress >= 80 ? "bg-amber-500" : "bg-purple-500"}`}
                               style={{ width: `${Math.min(progress, 100)}%` }}
                             ></div>
                           </div>
@@ -1586,11 +1791,15 @@ function CalendarPage() {
 
                       <div className="flex gap-4 pt-1">
                         <div className="flex flex-col">
-                          <span className="text-[9px] text-slate-400 uppercase font-bold">Tham gia</span>
+                          <span className="text-[9px] text-slate-400 uppercase font-bold">
+                            Tham gia
+                          </span>
                           <span className="text-xs font-black text-emerald-600">{attendCount}</span>
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-[9px] text-slate-400 uppercase font-bold">Chốt đơn</span>
+                          <span className="text-[9px] text-slate-400 uppercase font-bold">
+                            Chốt đơn
+                          </span>
                           <span className="text-xs font-black text-yellow-600">{convCount}</span>
                         </div>
                         <div className="flex flex-col">
@@ -1617,14 +1826,18 @@ function CalendarPage() {
               </span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {upcomingEvents.map(ev => {
-                const isCompany = (ev as any)._ui_type === 'company';
-                const typeMeta = isCompany 
+              {upcomingEvents.map((ev) => {
+                const isCompany = (ev as any)._ui_type === "company";
+                const typeMeta = isCompany
                   ? getCompanyEventTypeLabel(ev.event_type as CompanyEventType)
                   : getPersonalEventTypeLabel(ev.event_type as PersonalEventType);
-                const cName = !isCompany && ev.customer_id ? customersMap[ev.customer_id]?.name : null;
+                const cName =
+                  !isCompany && ev.customer_id ? customersMap[ev.customer_id]?.name : null;
                 return (
-                  <div key={ev.id} className="bg-white rounded-lg p-3 border border-amber-100 shadow-2xs flex items-start justify-between gap-3">
+                  <div
+                    key={ev.id}
+                    className="bg-white rounded-lg p-3 border border-amber-100 shadow-2xs flex items-start justify-between gap-3"
+                  >
                     <div className="space-y-1">
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs">{typeMeta.icon}</span>
@@ -1661,24 +1874,50 @@ function CalendarPage() {
             <div className="bg-slate-900 px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Target className="w-4 h-4 text-purple-400" />
-                <h3 className="text-xs font-black text-white uppercase tracking-wider">Hiệu suất Sự kiện tháng này</h3>
+                <h3 className="text-xs font-black text-white uppercase tracking-wider">
+                  Hiệu suất Sự kiện tháng này
+                </h3>
               </div>
               <div className="text-[10px] text-slate-400 font-bold">Cập nhật thời gian thực</div>
             </div>
-            
+
             <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="grid grid-cols-2 gap-3 lg:col-span-1">
                 {[
-                  { label: "Tổng sự kiện", val: adminStats.totalEvents, icon: "📁", color: "text-slate-900" },
-                  { label: "Tổng Đăng ký", val: adminStats.totalRegs, icon: "👥", color: "text-blue-600" },
-                  { label: "Tham gia", val: adminStats.totalAttended, icon: "✓", color: "text-emerald-600" },
-                  { label: "Chốt đơn", val: adminStats.totalConverted, icon: "💰", color: "text-yellow-600" }
+                  {
+                    label: "Tổng sự kiện",
+                    val: adminStats.totalEvents,
+                    icon: "📁",
+                    color: "text-slate-900",
+                  },
+                  {
+                    label: "Tổng Đăng ký",
+                    val: adminStats.totalRegs,
+                    icon: "👥",
+                    color: "text-blue-600",
+                  },
+                  {
+                    label: "Tham gia",
+                    val: adminStats.totalAttended,
+                    icon: "✓",
+                    color: "text-emerald-600",
+                  },
+                  {
+                    label: "Chốt đơn",
+                    val: adminStats.totalConverted,
+                    icon: "💰",
+                    color: "text-yellow-600",
+                  },
                 ].map((s, i) => (
                   <div key={i} className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                    <span className="text-[9px] text-slate-400 uppercase font-bold block mb-1">{s.icon} {s.label}</span>
+                    <span className="text-[9px] text-slate-400 uppercase font-bold block mb-1">
+                      {s.icon} {s.label}
+                    </span>
                     <span className={`text-xl font-black ${s.color}`}>{s.val}</span>
                     {i === 2 && adminStats.totalRegs > 0 && (
-                      <span className="text-[10px] text-slate-400 ml-2 font-bold">({((adminStats.totalAttended / adminStats.totalRegs) * 100).toFixed(0)}%)</span>
+                      <span className="text-[10px] text-slate-400 ml-2 font-bold">
+                        ({((adminStats.totalAttended / adminStats.totalRegs) * 100).toFixed(0)}%)
+                      </span>
                     )}
                   </div>
                 ))}
@@ -1686,8 +1925,12 @@ function CalendarPage() {
 
               <div className="lg:col-span-2">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">🏆 Hiệu quả theo SALE</span>
-                  <span className="text-[9px] text-slate-400 italic">Xếp hạng theo số đơn chốt</span>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                    🏆 Hiệu quả theo SALE
+                  </span>
+                  <span className="text-[9px] text-slate-400 italic">
+                    Xếp hạng theo số đơn chốt
+                  </span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[11px]">
@@ -1695,9 +1938,15 @@ function CalendarPage() {
                       <tr className="border-b border-slate-100 text-slate-400">
                         <th className="text-left py-2 font-bold uppercase text-[9px]">Nhân viên</th>
                         <th className="text-center py-2 font-bold uppercase text-[9px]">Đăng ký</th>
-                        <th className="text-center py-2 font-bold uppercase text-[9px]">Tham gia</th>
-                        <th className="text-center py-2 font-bold uppercase text-[9px]">Đơn chốt</th>
-                        <th className="text-right py-2 font-bold uppercase text-[9px]">Tỷ lệ (%)</th>
+                        <th className="text-center py-2 font-bold uppercase text-[9px]">
+                          Tham gia
+                        </th>
+                        <th className="text-center py-2 font-bold uppercase text-[9px]">
+                          Đơn chốt
+                        </th>
+                        <th className="text-right py-2 font-bold uppercase text-[9px]">
+                          Tỷ lệ (%)
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
@@ -1709,9 +1958,15 @@ function CalendarPage() {
                             {i === 2 && "🥉 "}
                             {name}
                           </td>
-                          <td className="text-center py-2.5 font-bold text-slate-600">{stat.reg}</td>
-                          <td className="text-center py-2.5 font-bold text-emerald-600">{stat.att}</td>
-                          <td className="text-center py-2.5 font-bold text-yellow-600">{stat.conv}</td>
+                          <td className="text-center py-2.5 font-bold text-slate-600">
+                            {stat.reg}
+                          </td>
+                          <td className="text-center py-2.5 font-bold text-emerald-600">
+                            {stat.att}
+                          </td>
+                          <td className="text-center py-2.5 font-bold text-yellow-600">
+                            {stat.conv}
+                          </td>
                           <td className="text-right py-2.5 font-mono font-bold text-purple-600">
                             {stat.reg > 0 ? ((stat.conv / stat.reg) * 100).toFixed(0) : 0}%
                           </td>
@@ -1719,7 +1974,9 @@ function CalendarPage() {
                       ))}
                       {adminStats.salePerformance.length === 0 && (
                         <tr>
-                          <td colSpan={5} className="py-8 text-center text-slate-400 italic">Chưa có dữ liệu đóng góp từ nhân viên.</td>
+                          <td colSpan={5} className="py-8 text-center text-slate-400 italic">
+                            Chưa có dữ liệu đóng góp từ nhân viên.
+                          </td>
                         </tr>
                       )}
                     </tbody>
@@ -1734,13 +1991,19 @@ function CalendarPage() {
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-lg border border-slate-200">
               <span className="text-xs font-bold text-slate-500 px-2">Trạng thái:</span>
-              {(["all", "pending", "completed", "cancelled"] as const).map(st => (
+              {(["all", "pending", "completed", "cancelled"] as const).map((st) => (
                 <button
                   key={st}
                   onClick={() => setStatusFilter(st)}
-                  className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${statusFilter === st ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                  className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${statusFilter === st ? "bg-white text-primary shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
                 >
-                  {st === "all" ? "Tất cả" : st === "pending" ? "⏳ Chờ xử lý" : st === "completed" ? "✓ Hoàn thành" : "✕ Đã hủy"}
+                  {st === "all"
+                    ? "Tất cả"
+                    : st === "pending"
+                      ? "⏳ Chờ xử lý"
+                      : st === "completed"
+                        ? "✓ Hoàn thành"
+                        : "✕ Đã hủy"}
                 </button>
               ))}
             </div>
@@ -1766,19 +2029,19 @@ function CalendarPage() {
             <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-lg border border-slate-200">
               <button
                 onClick={() => setGroupFilter("all")}
-                className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${groupFilter === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600'}`}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${groupFilter === "all" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-600"}`}
               >
                 Mọi lịch trình
               </button>
               <button
                 onClick={() => setGroupFilter("personal")}
-                className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${groupFilter === 'personal' ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-600'}`}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${groupFilter === "personal" ? "bg-white text-blue-600 shadow-2xs" : "text-slate-600"}`}
               >
                 👤 Lịch cá nhân
               </button>
               <button
                 onClick={() => setGroupFilter("company")}
-                className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${groupFilter === 'company' ? 'bg-white text-purple-600 shadow-2xs' : 'text-slate-600'}`}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${groupFilter === "company" ? "bg-white text-purple-600 shadow-2xs" : "text-slate-600"}`}
               >
                 🏢 Sự kiện công ty
               </button>
@@ -1786,20 +2049,25 @@ function CalendarPage() {
           </div>
 
           <div className="text-xs text-slate-500">
-            Hiển thị <span className="font-bold text-slate-800">{filteredEvents.length}</span> sự kiện
+            Hiển thị <span className="font-bold text-slate-800">{filteredEvents.length}</span> sự
+            kiện
           </div>
         </div>
 
         {loading ? (
           <div className="bg-white rounded-xl border border-slate-200 p-12 text-center space-y-3">
             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="text-xs text-slate-500 font-medium">Đang tải danh sách lịch hẹn từ hệ thống…</p>
+            <p className="text-xs text-slate-500 font-medium">
+              Đang tải danh sách lịch hẹn từ hệ thống…
+            </p>
           </div>
         ) : error ? (
           <div className="bg-rose-50 rounded-xl border border-rose-200 p-8 text-center space-y-2">
             <AlertCircle className="w-8 h-8 text-rose-600 mx-auto" />
             <p className="text-xs font-bold text-rose-800">{error}</p>
-            <Button variant="outline" size="sm" onClick={loadEvents} className="mt-2 bg-white">Thử lại</Button>
+            <Button variant="outline" size="sm" onClick={loadEvents} className="mt-2 bg-white">
+              Thử lại
+            </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
@@ -1810,24 +2078,31 @@ function CalendarPage() {
                     <CalendarDays className="w-4 h-4 text-primary" /> Việc hôm nay
                   </span>
                   <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-[10px]">
-                    {events.filter(ev => new Date(ev.starts_at).toDateString() === new Date().toDateString()).length}
+                    {
+                      events.filter(
+                        (ev) => new Date(ev.starts_at).toDateString() === new Date().toDateString(),
+                      ).length
+                    }
                   </span>
                 </h3>
                 <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
                   {events
-                    .filter(ev => new Date(ev.starts_at).toDateString() === new Date().toDateString())
-                    .map(ev => {
-                      const isCompany = ev._ui_type === 'company';
-                      const typeMeta = isCompany 
+                    .filter(
+                      (ev) => new Date(ev.starts_at).toDateString() === new Date().toDateString(),
+                    )
+                    .map((ev) => {
+                      const isCompany = ev._ui_type === "company";
+                      const typeMeta = isCompany
                         ? getCompanyEventTypeLabel(ev.event_type as CompanyEventType)
                         : getPersonalEventTypeLabel(ev.event_type as PersonalEventType);
-                      const custName = !isCompany && ev.customer_id ? customersMap[ev.customer_id]?.name : null;
-                      
+                      const custName =
+                        !isCompany && ev.customer_id ? customersMap[ev.customer_id]?.name : null;
+
                       return (
-                        <div 
-                          key={ev.id} 
+                        <div
+                          key={ev.id}
                           onClick={() => handleEventClick({ event: { id: ev.id } })}
-                          className={`p-2.5 rounded-lg border text-xs cursor-pointer hover:border-primary transition-all ${!isCompany && (ev as PersonalEvent).status === 'completed' ? 'bg-slate-50/50 border-slate-100 opacity-60' : !isCompany && (ev as PersonalEvent).status === 'cancelled' ? 'bg-rose-50/30 border-rose-100 line-through opacity-50' : 'bg-white border-slate-100 shadow-2xs'}`}
+                          className={`p-2.5 rounded-lg border text-xs cursor-pointer hover:border-primary transition-all ${!isCompany && (ev as PersonalEvent).status === "completed" ? "bg-slate-50/50 border-slate-100 opacity-60" : !isCompany && (ev as PersonalEvent).status === "cancelled" ? "bg-rose-50/30 border-rose-100 line-through opacity-50" : "bg-white border-slate-100 shadow-2xs"}`}
                         >
                           <div className="flex items-center gap-1.5 justify-between">
                             <div className="flex items-center gap-1.5 overflow-hidden">
@@ -1835,24 +2110,44 @@ function CalendarPage() {
                               <p className="font-bold text-slate-900 line-clamp-1">{ev.title}</p>
                             </div>
                             {isCompany ? (
-                              <span className={`shrink-0 text-[8px] px-1 py-0.2 rounded font-bold ${
-                                ev.status === 'draft' ? 'bg-amber-100 text-amber-800' :
-                                ev.status === 'published' ? 'bg-purple-100 text-purple-700' :
-                                ev.status === 'closed' ? 'bg-rose-100 text-rose-700' :
-                                ev.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
-                              }`}>
-                                {ev.status === 'draft' ? '📝 NHÁP' :
-                                 ev.status === 'published' ? '📢 LIVE' :
-                                 ev.status === 'closed' ? '🔒 ĐÓNG' :
-                                 ev.status === 'completed' ? '✓ XONG' : '🚫 HỦY'}
+                              <span
+                                className={`shrink-0 text-[8px] px-1 py-0.2 rounded font-bold ${
+                                  ev.status === "draft"
+                                    ? "bg-amber-100 text-amber-800"
+                                    : ev.status === "published"
+                                      ? "bg-purple-100 text-purple-700"
+                                      : ev.status === "closed"
+                                        ? "bg-rose-100 text-rose-700"
+                                        : ev.status === "completed"
+                                          ? "bg-emerald-100 text-emerald-700"
+                                          : "bg-slate-100 text-slate-600"
+                                }`}
+                              >
+                                {ev.status === "draft"
+                                  ? "📝 NHÁP"
+                                  : ev.status === "published"
+                                    ? "📢 LIVE"
+                                    : ev.status === "closed"
+                                      ? "🔒 ĐÓNG"
+                                      : ev.status === "completed"
+                                        ? "✓ XONG"
+                                        : "🚫 HỦY"}
                               </span>
                             ) : (
-                              <span className={`shrink-0 text-[8px] px-1 py-0.2 rounded font-bold ${
-                                (ev as PersonalEvent).status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
-                                (ev as PersonalEvent).status === 'cancelled' ? 'bg-slate-100 text-slate-500' : 'bg-blue-100 text-blue-700'
-                              }`}>
-                                {(ev as PersonalEvent).status === 'completed' ? '✓ Xong' :
-                                 (ev as PersonalEvent).status === 'cancelled' ? '🚫 Hủy' : '⏳ Chờ'}
+                              <span
+                                className={`shrink-0 text-[8px] px-1 py-0.2 rounded font-bold ${
+                                  (ev as PersonalEvent).status === "completed"
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : (ev as PersonalEvent).status === "cancelled"
+                                      ? "bg-slate-100 text-slate-500"
+                                      : "bg-blue-100 text-blue-700"
+                                }`}
+                              >
+                                {(ev as PersonalEvent).status === "completed"
+                                  ? "✓ Xong"
+                                  : (ev as PersonalEvent).status === "cancelled"
+                                    ? "🚫 Hủy"
+                                    : "⏳ Chờ"}
                               </span>
                             )}
                           </div>
@@ -1860,7 +2155,7 @@ function CalendarPage() {
                             ⏰ {formatCalendarTime(ev.starts_at)}
                           </p>
                           {custName && (
-                            <Link 
+                            <Link
                               to="/customers/$id"
                               params={{ id: ev.customer_id! }}
                               onClick={(e) => e.stopPropagation()}
@@ -1894,7 +2189,9 @@ function CalendarPage() {
                         </div>
                       );
                     })}
-                  {events.filter(ev => new Date(ev.starts_at).toDateString() === new Date().toDateString()).length === 0 && (
+                  {events.filter(
+                    (ev) => new Date(ev.starts_at).toDateString() === new Date().toDateString(),
+                  ).length === 0 && (
                     <p className="text-[11px] text-slate-400 italic text-center py-6">
                       Không có lịch hẹn nào lên lịch cho ngày hôm nay.
                     </p>
@@ -1911,6 +2208,26 @@ function CalendarPage() {
                 .fc .fc-button-active { background-color: #0369a1 !important; border-color: #0369a1 !important; }
                 .fc .fc-event { cursor: pointer; border-radius: 0.375rem; font-size: 0.7rem; padding: 0.1rem 0.25rem; font-weight: 600; }
                 .fc .fc-daygrid-day:hover { background-color: #f8fafc; cursor: pointer; }
+                @media (max-width: 640px) {
+                  .fc .fc-header-toolbar {
+                    flex-direction: column !important;
+                    gap: 0.6rem;
+                    align-items: center;
+                    width: 100%;
+                  }
+                  .fc .fc-toolbar-title {
+                    font-size: 1.1rem !important;
+                    margin: 0.25rem 0 !important;
+                  }
+                  .fc .fc-button-primary {
+                    font-size: 0.8rem !important;
+                    padding: 0.5rem 0.8rem !important;
+                    min-height: 40px !important;
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                  }
+                }
               `}</style>
               <div className="calendar-wrapper">
                 <FullCalendar
@@ -1919,13 +2236,13 @@ function CalendarPage() {
                   headerToolbar={{
                     left: "prev,next today",
                     center: "title",
-                    right: "dayGridMonth,timeGridWeek,timeGridDay"
+                    right: "dayGridMonth,timeGridWeek,timeGridDay",
                   }}
                   buttonText={{
                     today: "Hôm nay",
                     month: "Tháng",
                     week: "Tuần",
-                    day: "Ngày"
+                    day: "Ngày",
                   }}
                   locale="vi"
                   events={fullCalendarEvents}
@@ -1941,51 +2258,63 @@ function CalendarPage() {
       </main>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden w-[calc(100%-32px)] rounded-3xl">
           <form onSubmit={handleSubmitCreate}>
             <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100 bg-white sticky top-0 z-10">
               <div className="flex items-center justify-between pr-8">
                 <DialogTitle className="text-lg font-bold flex items-center gap-2 text-slate-900">
-                  {editEventId ? <RotateCcw className="w-5 h-5 text-primary" /> : <Plus className="w-5 h-5 text-primary" />}
+                  {editEventId ? (
+                    <RotateCcw className="w-5 h-5 text-primary" />
+                  ) : (
+                    <Plus className="w-5 h-5 text-primary" />
+                  )}
                   {editEventId ? "Cập nhật thông tin" : "Tạo mới lịch trình"}
                 </DialogTitle>
                 {isManager && !editEventId && (
                   <div className="flex bg-slate-100 p-1 rounded-lg">
-                    <button 
+                    <button
                       type="button"
                       onClick={() => setModalTab("personal")}
-                      className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${modalTab === 'personal' ? 'bg-white shadow-xs text-blue-600' : 'text-slate-500'}`}
+                      className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${modalTab === "personal" ? "bg-white shadow-xs text-blue-600" : "text-slate-500"}`}
                     >
                       CÁ NHÂN
                     </button>
-                    <button 
+                    <button
                       type="button"
                       onClick={() => {
                         setModalTab("company");
                         if (!endsAt) {
-                          const baseD = startsAt ? startsAt.slice(0, 10) : new Date().toISOString().slice(0, 10);
+                          const baseD = startsAt
+                            ? startsAt.slice(0, 10)
+                            : new Date().toISOString().slice(0, 10);
                           setEndsAt(`${baseD}T12:00`);
                           setRegDeadline(`${baseD}T12:00`);
-                          if (startsAt && startsAt.includes("T") && Number(startsAt.slice(11, 13)) >= 12) {
+                          if (
+                            startsAt &&
+                            startsAt.includes("T") &&
+                            Number(startsAt.slice(11, 13)) >= 12
+                          ) {
                             setStartsAt(`${baseD}T08:30`);
                           }
                         }
                       }}
-                      className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${modalTab === 'company' ? 'bg-white shadow-xs text-purple-600' : 'text-slate-500'}`}
+                      className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${modalTab === "company" ? "bg-white shadow-xs text-purple-600" : "text-slate-500"}`}
                     >
                       CÔNG TY
                     </button>
                   </div>
                 )}
                 {editEventId && (
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${editEventType === 'company' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                    {editEventType === 'company' ? 'Chiến dịch' : 'Lịch cá nhân'}
+                  <span
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${editEventType === "company" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}
+                  >
+                    {editEventType === "company" ? "Chiến dịch" : "Lịch cá nhân"}
                   </span>
                 )}
               </div>
             </DialogHeader>
 
-            <div className="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto text-xs">
+            <div className="px-5 py-4 md:px-6 md:py-4 space-y-4 max-h-[calc(100dvh-12rem)] md:max-h-[70vh] overflow-y-auto text-xs">
               <div className="space-y-1">
                 <Label htmlFor="ev-title" className="text-xs font-bold text-slate-700">
                   Tiêu đề / Nội dung ngắn gọn <span className="text-destructive">*</span>
@@ -1996,7 +2325,7 @@ function CalendarPage() {
                   disabled={isCompanyEditDisabled}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Nội dung chính..."
-                  className="h-8 text-xs bg-white font-medium focus:ring-primary"
+                  className="h-11 md:h-8 text-xs bg-white font-medium focus:ring-primary"
                 />
               </div>
 
@@ -2008,7 +2337,7 @@ function CalendarPage() {
                       <select
                         value={personalType}
                         onChange={(e) => setPersonalType(e.target.value as PersonalEventType)}
-                        className="w-full h-8 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary"
+                        className="w-full h-11 md:h-8 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary"
                       >
                         <option value="follow_up">📞 Follow-up KH</option>
                         <option value="appointment">🤝 Lịch hẹn Spa</option>
@@ -2025,7 +2354,7 @@ function CalendarPage() {
                       <select
                         value={remindMinutes}
                         onChange={(e) => setRemindMinutes(Number(e.target.value))}
-                        className="w-full h-8 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary"
+                        className="w-full h-11 md:h-8 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary"
                       >
                         <option value={15}>15 phút</option>
                         <option value={30}>30 phút</option>
@@ -2038,11 +2367,13 @@ function CalendarPage() {
 
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
-                      <Label className="text-xs font-bold text-slate-700">Gán cho khách hàng (CRM)</Label>
+                      <Label className="text-xs font-bold text-slate-700">
+                        Gán cho khách hàng (CRM)
+                      </Label>
                       {customerId && (
-                        <Link 
-                          to="/customers/$id" 
-                          params={{ id: customerId }} 
+                        <Link
+                          to="/customers/$id"
+                          params={{ id: customerId }}
                           target="_blank"
                           className="text-[10px] font-black text-indigo-600 hover:underline"
                         >
@@ -2054,11 +2385,13 @@ function CalendarPage() {
                       <select
                         value={customerId}
                         onChange={(e) => setCustomerId(e.target.value)}
-                        className="w-full h-8 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-medium focus:ring-1 focus:ring-primary"
+                        className="w-full h-11 md:h-8 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-medium focus:ring-1 focus:ring-primary"
                       >
                         <option value="">-- Không chọn / Khách hàng chưa có --</option>
-                        {customersList.map(c => (
-                          <option key={c.id} value={c.id}>{c.name} {c.phone ? `- ${c.phone}` : ""}</option>
+                        {customersList.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} {c.phone ? `- ${c.phone}` : ""}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -2073,11 +2406,13 @@ function CalendarPage() {
                       <select
                         value={assignedSaleId}
                         onChange={(e) => setAssignedSaleId(e.target.value)}
-                        className="w-full h-8 px-2 py-1 bg-purple-50/50 border border-purple-100 rounded-md text-xs font-bold text-purple-900 focus:ring-1 focus:ring-purple-500"
+                        className="w-full h-11 md:h-8 px-2 py-1 bg-purple-50/50 border border-purple-100 rounded-md text-xs font-bold text-purple-900 focus:ring-1 focus:ring-purple-500"
                       >
                         <option value="">-- Tự do / Admin quản lý chung --</option>
-                        {salesList.map(s => (
-                          <option key={s.id} value={s.id}>👤 {s.name}</option>
+                        {salesList.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            👤 {s.name}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -2092,7 +2427,7 @@ function CalendarPage() {
                         value={companyType}
                         disabled={isCompanyEditDisabled}
                         onChange={(e) => setCompanyType(e.target.value as CompanyEventType)}
-                        className="w-full h-8 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary"
+                        className="w-full h-11 md:h-8 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary"
                       >
                         <option value="workshop">🏢 Workshop Offline</option>
                         <option value="training">🎓 Đào tạo / Chuyển giao</option>
@@ -2104,12 +2439,14 @@ function CalendarPage() {
                     </div>
 
                     <div className="space-y-1">
-                      <Label className="text-xs font-bold text-slate-700">Trạng thái vận hành</Label>
+                      <Label className="text-xs font-bold text-slate-700">
+                        Trạng thái vận hành
+                      </Label>
                       <select
                         value={campaignStatus}
                         disabled={isCompanyEditDisabled}
                         onChange={(e: any) => setCampaignStatus(e.target.value)}
-                        className="w-full h-8 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-bold focus:ring-1 focus:ring-primary"
+                        className="w-full h-11 md:h-8 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-bold focus:ring-1 focus:ring-primary"
                       >
                         <option value="draft">📝 Bản nháp</option>
                         <option value="published">🟢 Đang mở đăng ký</option>
@@ -2130,7 +2467,7 @@ function CalendarPage() {
                         disabled={isCompanyEditDisabled}
                         onChange={(e) => setEventLocation(e.target.value)}
                         placeholder="Hội trường, Spa..."
-                        className="h-8 text-xs"
+                        className="h-11 md:h-8 text-xs bg-white"
                       />
                     </div>
                     <div className="space-y-1">
@@ -2142,7 +2479,7 @@ function CalendarPage() {
                         disabled={isCompanyEditDisabled}
                         onChange={(e) => setMeetingUrl(e.target.value)}
                         placeholder="Zoom, Google Meet..."
-                        className="h-8 text-xs"
+                        className="h-11 md:h-8 text-xs bg-white"
                       />
                     </div>
                   </div>
@@ -2153,9 +2490,11 @@ function CalendarPage() {
                       type="number"
                       value={eventCapacity}
                       disabled={isCompanyEditDisabled}
-                      onChange={(e) => setEventCapacity(e.target.value ? Number(e.target.value) : "")}
+                      onChange={(e) =>
+                        setEventCapacity(e.target.value ? Number(e.target.value) : "")
+                      }
                       placeholder="Số lượng khách..."
-                      className="h-8 text-xs"
+                      className="h-11 md:h-8 text-xs bg-white"
                     />
                   </div>
                 </TabsContent>
@@ -2173,11 +2512,13 @@ function CalendarPage() {
                     value={startsAt}
                     disabled={isCompanyEditDisabled}
                     onChange={(e) => setStartsAt(e.target.value)}
-                    className="h-8 text-xs font-mono"
+                    className="h-11 md:h-8 text-xs font-mono bg-white"
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="ev-end" className="text-xs font-bold text-slate-700">Ngày giờ Sự kiện (GCal)</Label>
+                  <Label htmlFor="ev-end" className="text-xs font-bold text-slate-700">
+                    Ngày giờ Sự kiện (GCal)
+                  </Label>
                   <Input
                     id="ev-end"
                     type="datetime-local"
@@ -2185,13 +2526,15 @@ function CalendarPage() {
                     value={endsAt}
                     disabled={isCompanyEditDisabled}
                     onChange={(e) => setEndsAt(e.target.value)}
-                    className="h-8 text-xs font-mono"
+                    className="h-11 md:h-8 text-xs font-mono bg-white"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="ev-desc" className="text-xs font-bold text-slate-700">Chi tiết / Ghi chú</Label>
+                <Label htmlFor="ev-desc" className="text-xs font-bold text-slate-700">
+                  Chi tiết / Ghi chú
+                </Label>
                 <Textarea
                   id="ev-desc"
                   value={description}
@@ -2202,89 +2545,108 @@ function CalendarPage() {
                 />
               </div>
 
-              {modalTab === 'company' && editEventId && (
+              {modalTab === "company" && editEventId && (
                 <div className="space-y-5 pt-5 border-t border-purple-100">
                   {/* KHỐI ĐỒNG BỘ GOOGLE CALENDAR (GCal Sync Hub) */}
-                    <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200/80 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-md bg-white shadow-2xs flex items-center justify-center font-bold text-blue-600 text-[10px]">
-                            📅
-                          </div>
-                          <div>
-                            <h5 className="text-xs font-bold text-slate-800">Đồng bộ Google Calendar</h5>
-                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                              <span className="text-[10px] text-slate-500">Trạng thái:</span>
-                              <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
-                                currentSyncStatus === 'synced' ? 'bg-emerald-100 text-emerald-700' :
-                                currentSyncStatus === 'failed' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'
-                              }`}>
-                                {currentSyncStatus === 'synced' ? '✓ Đã đồng bộ' :
-                                 currentSyncStatus === 'failed' ? '✕ Lỗi đồng bộ' : '⏳ Chưa đồng bộ'}
-                              </span>
-                              {currentSyncStatus === 'synced' && currentActiveCompEv?.google_synced_at && (
+                  <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200/80 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-md bg-white shadow-2xs flex items-center justify-center font-bold text-blue-600 text-[10px]">
+                          📅
+                        </div>
+                        <div>
+                          <h5 className="text-xs font-bold text-slate-800">
+                            Đồng bộ Google Calendar
+                          </h5>
+                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            <span className="text-[10px] text-slate-500">Trạng thái:</span>
+                            <span
+                              className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                                currentSyncStatus === "synced"
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : currentSyncStatus === "failed"
+                                    ? "bg-rose-100 text-rose-700"
+                                    : "bg-amber-100 text-amber-800"
+                              }`}
+                            >
+                              {currentSyncStatus === "synced"
+                                ? "✓ Đã đồng bộ"
+                                : currentSyncStatus === "failed"
+                                  ? "✕ Lỗi đồng bộ"
+                                  : "⏳ Chưa đồng bộ"}
+                            </span>
+                            {currentSyncStatus === "synced" &&
+                              currentActiveCompEv?.google_synced_at && (
                                 <span className="text-[9px] text-slate-400 italic">
-                                  ({new Date(currentActiveCompEv.google_synced_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
+                                  (
+                                  {new Date(
+                                    currentActiveCompEv.google_synced_at,
+                                  ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                  )
                                 </span>
                               )}
-                            </div>
                           </div>
                         </div>
-
-                        {/* Nút bấm dành cho Admin/Sub-admin */}
-                        {(isAdmin || isSubAdmin) && (
-                          <div className="flex items-center gap-2">
-                            {currentActiveCompEv?.google_calendar_html_link && (
-                              <a
-                                href={currentActiveCompEv.google_calendar_html_link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-blue-300 rounded-lg text-blue-600 font-bold text-[10px] transition-colors flex items-center gap-1 shadow-2xs"
-                              >
-                                <ExternalLink className="w-3 h-3" /> Mở GCal
-                              </a>
-                            )}
-                            <Button
-                              type="button"
-                              size="sm"
-                              disabled={isSyncingGCal}
-                              onClick={handleTriggerGCalSync}
-                              className="h-7 text-[10px] bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 shadow-xs"
-                            >
-                              {isSyncingGCal ? (
-                                <span className="flex items-center gap-1.5">
-                                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> Đang đồng bộ...
-                                </span>
-                              ) : currentSyncStatus === 'failed' ? (
-                                "🔄 Thử lại"
-                              ) : (
-                                "🔄 Đồng bộ GCal"
-                              )}
-                            </Button>
-                          </div>
-                        )}
                       </div>
 
-                      {/* Hiển thị chi tiết lỗi nếu có */}
-                      {currentActiveCompEv?.google_sync_error && (
-                        <div className="bg-rose-50/80 border border-rose-200 rounded-lg p-2.5 text-[11px] text-rose-700 font-medium">
-                          <span className="font-bold">Chi tiết lỗi từ Google:</span> {currentActiveCompEv.google_sync_error}
+                      {/* Nút bấm dành cho Admin/Sub-admin */}
+                      {(isAdmin || isSubAdmin) && (
+                        <div className="flex items-center gap-2">
+                          {currentActiveCompEv?.google_calendar_html_link && (
+                            <a
+                              href={currentActiveCompEv.google_calendar_html_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-blue-300 rounded-lg text-blue-600 font-bold text-[10px] transition-colors flex items-center gap-1 shadow-2xs"
+                            >
+                              <ExternalLink className="w-3 h-3" /> Mở GCal
+                            </a>
+                          )}
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={isSyncingGCal}
+                            onClick={handleTriggerGCalSync}
+                            className="h-7 text-[10px] bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 shadow-xs"
+                          >
+                            {isSyncingGCal ? (
+                              <span className="flex items-center gap-1.5">
+                                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />{" "}
+                                Đang đồng bộ...
+                              </span>
+                            ) : currentSyncStatus === "failed" ? (
+                              "🔄 Thử lại"
+                            ) : (
+                              "🔄 Đồng bộ GCal"
+                            )}
+                          </Button>
                         </div>
                       )}
                     </div>
 
-                    {/* KHỐI QUẢN TRỊ NÂNG CAO BAN ĐẦU */}
-                    {isManager && (
-                      <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-4 shadow-lg border border-slate-700">
+                    {/* Hiển thị chi tiết lỗi nếu có */}
+                    {currentActiveCompEv?.google_sync_error && (
+                      <div className="bg-rose-50/80 border border-rose-200 rounded-lg p-2.5 text-[11px] text-rose-700 font-medium">
+                        <span className="font-bold">Chi tiết lỗi từ Google:</span>{" "}
+                        {currentActiveCompEv.google_sync_error}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* KHỐI QUẢN TRỊ NÂNG CAO BAN ĐẦU */}
+                  {isManager && (
+                    <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-4 shadow-lg border border-slate-700">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
                           <Target className="w-4 h-4 text-purple-400" />
-                          <h4 className="text-xs font-black text-white uppercase tracking-wider">Phân tích Hiệu quả Chiến dịch</h4>
+                          <h4 className="text-xs font-black text-white uppercase tracking-wider">
+                            Phân tích Hiệu quả Chiến dịch
+                          </h4>
                         </div>
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="sm" 
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
                           className="h-7 text-[10px] bg-white/10 border-white/20 text-white hover:bg-white/20 font-bold"
                           onClick={handleExportCampaignCSV}
                         >
@@ -2294,13 +2656,38 @@ function CalendarPage() {
 
                       <div className="grid grid-cols-4 gap-3 mb-4">
                         {[
-                          { label: "Tổng Đăng ký", val: modalRegistrations.length, color: "text-white" },
-                          { label: "Đã Xác nhận", val: modalRegistrations.filter(r => r.status === 'confirmed' || r.status === 'attended' || r.status === 'converted').length, color: "text-blue-400" },
-                          { label: "Đã Tham gia", val: modalRegistrations.filter(r => r.status === 'attended' || r.status === 'converted').length, color: "text-emerald-400" },
-                          { label: "Chốt đơn", val: modalRegistrations.filter(r => r.status === 'converted').length, color: "text-yellow-400" }
+                          {
+                            label: "Tổng Đăng ký",
+                            val: modalRegistrations.length,
+                            color: "text-white",
+                          },
+                          {
+                            label: "Đã Xác nhận",
+                            val: modalRegistrations.filter(
+                              (r) =>
+                                r.status === "confirmed" ||
+                                r.status === "attended" ||
+                                r.status === "converted",
+                            ).length,
+                            color: "text-blue-400",
+                          },
+                          {
+                            label: "Đã Tham gia",
+                            val: modalRegistrations.filter(
+                              (r) => r.status === "attended" || r.status === "converted",
+                            ).length,
+                            color: "text-emerald-400",
+                          },
+                          {
+                            label: "Chốt đơn",
+                            val: modalRegistrations.filter((r) => r.status === "converted").length,
+                            color: "text-yellow-400",
+                          },
                         ].map((s, i) => (
                           <div key={i} className="bg-white/5 p-2 rounded-lg border border-white/10">
-                            <span className="text-[9px] text-slate-400 uppercase font-bold block mb-1">{s.label}</span>
+                            <span className="text-[9px] text-slate-400 uppercase font-bold block mb-1">
+                              {s.label}
+                            </span>
                             <span className={`text-lg font-black ${s.color}`}>{s.val}</span>
                           </div>
                         ))}
@@ -2312,22 +2699,34 @@ function CalendarPage() {
                         </p>
                         <div className="grid grid-cols-1 gap-1.5 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
                           {Object.entries(
-                            modalRegistrations.reduce((acc, reg) => {
-                              const sName = reg.added_by_sale_name || "Khác/Admin";
-                              if (!acc[sName]) acc[sName] = { total: 0, conv: 0 };
-                              acc[sName].total++;
-                              if (reg.status === 'converted') acc[sName].conv++;
-                              return acc;
-                            }, {} as Record<string, { total: number; conv: number }>)
-                          ).sort((a, b) => b[1].total - a[1].total).map(([name, stat]) => (
-                            <div key={name} className="flex items-center justify-between bg-white/5 px-3 py-1.5 rounded border border-white/5 text-[11px]">
-                              <span className="text-slate-300 font-medium">👤 {name}</span>
-                              <div className="flex gap-3">
-                                <span className="text-slate-400">Khách: <b className="text-white">{stat.total}</b></span>
-                                <span className="text-slate-400">Đơn: <b className="text-yellow-400">{stat.conv}</b></span>
+                            modalRegistrations.reduce(
+                              (acc, reg) => {
+                                const sName = reg.added_by_sale_name || "Khác/Admin";
+                                if (!acc[sName]) acc[sName] = { total: 0, conv: 0 };
+                                acc[sName].total++;
+                                if (reg.status === "converted") acc[sName].conv++;
+                                return acc;
+                              },
+                              {} as Record<string, { total: number; conv: number }>,
+                            ),
+                          )
+                            .sort((a, b) => b[1].total - a[1].total)
+                            .map(([name, stat]) => (
+                              <div
+                                key={name}
+                                className="flex items-center justify-between bg-white/5 px-3 py-1.5 rounded border border-white/5 text-[11px]"
+                              >
+                                <span className="text-slate-300 font-medium">👤 {name}</span>
+                                <div className="flex gap-3">
+                                  <span className="text-slate-400">
+                                    Khách: <b className="text-white">{stat.total}</b>
+                                  </span>
+                                  <span className="text-slate-400">
+                                    Đơn: <b className="text-yellow-400">{stat.conv}</b>
+                                  </span>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            ))}
                         </div>
                       </div>
                     </div>
@@ -2339,11 +2738,16 @@ function CalendarPage() {
                         <Plus className="w-3.5 h-3.5" /> Thêm khách hàng đăng ký mới
                       </h4>
                       <div className="flex items-center gap-2">
-                        <Label htmlFor="quick-add" className="text-[10px] cursor-pointer font-bold text-slate-600">Khách vãng lai</Label>
-                        <input 
-                          id="quick-add" 
-                          type="checkbox" 
-                          checked={isQuickAddCustomer} 
+                        <Label
+                          htmlFor="quick-add"
+                          className="text-[10px] cursor-pointer font-bold text-slate-600"
+                        >
+                          Khách vãng lai
+                        </Label>
+                        <input
+                          id="quick-add"
+                          type="checkbox"
+                          checked={isQuickAddCustomer}
                           onChange={(e) => setIsQuickAddCustomer(e.target.checked)}
                           className="w-3 h-3 rounded"
                         />
@@ -2354,53 +2758,55 @@ function CalendarPage() {
                       {isQuickAddCustomer ? (
                         <div className="space-y-2">
                           <div className="grid grid-cols-2 gap-2">
-                            <Input 
-                              placeholder="Tên khách hàng..." 
-                              value={quickCustomerName} 
+                            <Input
+                              placeholder="Tên khách hàng..."
+                              value={quickCustomerName}
                               onChange={(e) => setQuickCustomerName(e.target.value)}
-                              className="h-8 text-xs bg-white border-purple-200"
+                              className="h-11 md:h-8 text-xs bg-white border-purple-200"
                             />
-                            <Input 
-                              placeholder="Số điện thoại..." 
-                              value={quickCustomerPhone} 
+                            <Input
+                              placeholder="Số điện thoại..."
+                              value={quickCustomerPhone}
                               onChange={(e) => setQuickCustomerPhone(e.target.value)}
-                              className="h-8 text-xs bg-white border-purple-200"
+                              className="h-11 md:h-8 text-xs bg-white border-purple-200"
                             />
                           </div>
-                          <Input 
+                          <Input
                             type="email"
-                            placeholder="Email khách hàng (Không bắt buộc)..." 
-                            value={quickCustomerEmail} 
+                            placeholder="Email khách hàng (Không bắt buộc)..."
+                            value={quickCustomerEmail}
                             onChange={(e) => setQuickCustomerEmail(e.target.value)}
-                            className="h-8 text-xs bg-white border-purple-200"
+                            className="h-11 md:h-8 text-xs bg-white border-purple-200"
                           />
                         </div>
                       ) : (
                         <select
                           value={attendeeSelectId}
                           onChange={(e) => setAttendeeSelectId(e.target.value)}
-                          className="w-full h-8 px-2 py-1 bg-white border border-purple-200 rounded-md text-xs font-medium focus:ring-1 focus:ring-purple-500"
+                          className="w-full h-11 md:h-8 px-2 py-1 bg-white border border-purple-200 rounded-md text-xs font-medium focus:ring-1 focus:ring-purple-500"
                         >
                           <option value="">-- Chọn khách hàng từ CRM --</option>
-                          {customersList.map(c => (
-                            <option key={c.id} value={c.id}>{c.name} {c.phone ? `(${c.phone})` : ""}</option>
+                          {customersList.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} {c.phone ? `(${c.phone})` : ""}
+                            </option>
                           ))}
                         </select>
                       )}
 
                       <div className="flex gap-2">
-                        <Input 
-                          placeholder="Ghi chú nhu cầu (VD: Quan tâm cấy tảo...)" 
+                        <Input
+                          placeholder="Ghi chú nhu cầu (VD: Quan tâm cấy tảo...)"
                           value={newAttendeeNote}
                           onChange={(e) => setNewAttendeeNote(e.target.value)}
-                          className="flex-1 h-8 text-xs bg-white border-purple-200"
+                          className="flex-1 h-11 md:h-8 text-xs bg-white border-purple-200"
                         />
-                        <Button 
-                          type="button" 
-                          size="sm" 
+                        <Button
+                          type="button"
+                          size="sm"
                           onClick={handleAddAttendee}
                           disabled={saving}
-                          className="h-8 bg-purple-600 hover:bg-purple-700 text-white font-bold shrink-0"
+                          className="h-11 md:h-8 bg-purple-600 hover:bg-purple-700 text-white font-bold shrink-0 flex items-center justify-center"
                         >
                           {saving ? "..." : <Plus className="w-3.5 h-3.5" />}
                         </Button>
@@ -2410,61 +2816,85 @@ function CalendarPage() {
 
                   <div className="space-y-2">
                     {(() => {
-                      const displayedRegs = isManager 
-                        ? modalRegistrations 
-                        : modalRegistrations.filter(r => r.assigned_sale_id === user?.id || r.registered_by === user?.id);
+                      const displayedRegs = isManager
+                        ? modalRegistrations
+                        : modalRegistrations.filter(
+                            (r) => r.assigned_sale_id === user?.id || r.registered_by === user?.id,
+                          );
 
                       return (
                         <>
                           <Label className="text-[11px] font-bold text-slate-800 flex items-center justify-between px-1 flex-wrap gap-1">
                             <span className="flex items-center gap-1.5">
-                              <Users className="w-3.5 h-3.5 text-slate-500" /> 
-                              {isManager ? `Danh sách đăng ký (${modalRegistrations.length})` : `Khách của tôi (${displayedRegs.length})`}
+                              <Users className="w-3.5 h-3.5 text-slate-500" />
+                              {isManager
+                                ? `Danh sách đăng ký (${modalRegistrations.length})`
+                                : `Khách của tôi (${displayedRegs.length})`}
                             </span>
                             <div className="flex items-center gap-1.5 text-[10px]">
                               {isManager && (
                                 <>
-                                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-100" title="Khách đã có Email, sẵn sàng nhận lời mời GCal tự động">
-                                    📧 Có Email: {modalRegistrations.filter(r => r.attendee_email).length}
+                                  <span
+                                    className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-100"
+                                    title="Khách đã có Email, sẵn sàng nhận lời mời GCal tự động"
+                                  >
+                                    📧 Có Email:{" "}
+                                    {modalRegistrations.filter((r) => r.attendee_email).length}
                                   </span>
-                                  <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 font-bold border border-rose-100" title="Khách thiếu Email, cần bổ sung để gửi lịch">
-                                    ⚠️ Thiếu: {modalRegistrations.filter(r => !r.attendee_email).length}
+                                  <span
+                                    className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 font-bold border border-rose-100"
+                                    title="Khách thiếu Email, cần bổ sung để gửi lịch"
+                                  >
+                                    ⚠️ Thiếu:{" "}
+                                    {modalRegistrations.filter((r) => !r.attendee_email).length}
                                   </span>
                                 </>
                               )}
                               <span className="text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
-                                Chuyển đổi: {modalRegistrations.length > 0 ? `${((modalRegistrations.filter(r => r.status === 'converted').length / modalRegistrations.length) * 100).toFixed(0)}%` : "0%"}
+                                Chuyển đổi:{" "}
+                                {modalRegistrations.length > 0
+                                  ? `${((modalRegistrations.filter((r) => r.status === "converted").length / modalRegistrations.length) * 100).toFixed(0)}%`
+                                  : "0%"}
                               </span>
                             </div>
                           </Label>
 
                           {displayedRegs.length === 0 ? (
                             <p className="text-[10px] text-slate-400 italic text-center py-8 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
-                              {isManager ? "Chưa có khách hàng đăng ký tham gia sự kiện này." : "Bạn chưa đăng ký khách hàng nào cho sự kiện này."}
+                              {isManager
+                                ? "Chưa có khách hàng đăng ký tham gia sự kiện này."
+                                : "Bạn chưa đăng ký khách hàng nào cho sự kiện này."}
                             </p>
                           ) : (
                             <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar">
-                              {displayedRegs.map(reg => {
+                              {displayedRegs.map((reg) => {
                                 const statusMeta = getAttendeeStatusMeta(reg.status);
                                 const canModify = isManager || reg.assigned_sale_id === user?.id;
 
                                 return (
-                                  <div key={reg.id} className={`p-3 rounded-xl border transition-all ${reg.status === 'converted' ? 'bg-yellow-50/30 border-yellow-200' : reg.status === 'attended' ? 'bg-emerald-50/30 border-emerald-200' : 'bg-white border-slate-100 shadow-sm'}`}>
+                                  <div
+                                    key={reg.id}
+                                    className={`p-3 rounded-xl border transition-all ${reg.status === "converted" ? "bg-yellow-50/30 border-yellow-200" : reg.status === "attended" ? "bg-emerald-50/30 border-emerald-200" : "bg-white border-slate-100 shadow-sm"}`}
+                                  >
                                     <div className="flex items-start justify-between gap-2">
                                       <div className="space-y-1 flex-1">
                                         <div className="flex items-center gap-2 flex-wrap">
                                           {reg.customer_id ? (
-                                            <Link 
-                                              to="/customers/$id" 
+                                            <Link
+                                              to="/customers/$id"
                                               params={{ id: reg.customer_id }}
                                               className="text-xs font-bold text-slate-900 hover:underline hover:text-indigo-600 cursor-pointer"
                                             >
                                               {reg.customer_name}
                                             </Link>
                                           ) : (
-                                            <p className="text-xs font-bold text-slate-900">{reg.customer_name}</p>
+                                            <p className="text-xs font-bold text-slate-900">
+                                              {reg.customer_name}
+                                            </p>
                                           )}
-                                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight border ${statusMeta.badgeClass}`}>
+                                          <span
+                                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight border ${statusMeta.badgeClass}`}
+                                          >
                                             {statusMeta.label}
                                           </span>
                                           {(() => {
@@ -2473,31 +2903,71 @@ function CalendarPage() {
                                             const lSent = (reg as any).calendar_link_sent_at;
 
                                             if (!eMail) {
-                                              return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-rose-50 text-rose-600 border border-rose-200">⚠️ Thiếu email</span>;
+                                              return (
+                                                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-rose-50 text-rose-600 border border-rose-200">
+                                                  ⚠️ Thiếu email
+                                                </span>
+                                              );
                                             }
-                                            if (gStatus === 'invited' || gStatus === 'sent') {
-                                              return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-50 text-purple-600 border border-purple-200">✉️ Đã gửi GCal</span>;
+                                            if (gStatus === "invited" || gStatus === "sent") {
+                                              return (
+                                                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-50 text-purple-600 border border-purple-200">
+                                                  ✉️ Đã gửi GCal
+                                                </span>
+                                              );
                                             }
-                                            if (gStatus === 'failed') {
-                                              return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-rose-50 text-rose-600 border border-rose-200">❌ Gửi lỗi</span>;
+                                            if (gStatus === "failed") {
+                                              return (
+                                                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-rose-50 text-rose-600 border border-rose-200">
+                                                  ❌ Gửi lỗi
+                                                </span>
+                                              );
                                             }
                                             if (lSent) {
-                                              return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200" title={`Gửi lúc: ${new Date(lSent).toLocaleString()}`}>🔗 Đã gửi link</span>;
+                                              return (
+                                                <span
+                                                  className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200"
+                                                  title={`Gửi lúc: ${new Date(lSent).toLocaleString()}`}
+                                                >
+                                                  🔗 Đã gửi link
+                                                </span>
+                                              );
                                             }
-                                            return <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-50 text-slate-400 border border-slate-200">⏳ Chưa gửi</span>;
+                                            return (
+                                              <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-50 text-slate-400 border border-slate-200">
+                                                ⏳ Chưa gửi
+                                              </span>
+                                            );
                                           })()}
                                         </div>
                                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-slate-500 pt-0.5">
-                                          {reg.customer_phone && <span className="flex items-center gap-1 font-medium text-slate-600">📞 {reg.customer_phone}</span>}
+                                          {reg.customer_phone && (
+                                            <span className="flex items-center gap-1 font-medium text-slate-600">
+                                              📞 {reg.customer_phone}
+                                            </span>
+                                          )}
                                           {reg.attendee_email ? (
-                                            <button 
+                                            <button
                                               type="button"
                                               onClick={() => {
-                                                const newE = window.prompt(`Sửa Email cho "${reg.customer_name || 'Khách'}":`, reg.attendee_email || "");
+                                                const newE = window.prompt(
+                                                  `Sửa Email cho "${reg.customer_name || "Khách"}":`,
+                                                  reg.attendee_email || "",
+                                                );
                                                 if (newE !== null) {
                                                   const trimmed = newE.trim();
-                                                  supabase.from("event_registrations").update({ attendee_email: trimmed }).eq("id", reg.id).then();
-                                                  setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, attendee_email: trimmed } as any : r));
+                                                  supabase
+                                                    .from("event_registrations")
+                                                    .update({ attendee_email: trimmed })
+                                                    .eq("id", reg.id)
+                                                    .then();
+                                                  setModalRegistrations((prev) =>
+                                                    prev.map((r) =>
+                                                      r.id === reg.id
+                                                        ? ({ ...r, attendee_email: trimmed } as any)
+                                                        : r,
+                                                    ),
+                                                  );
                                                 }
                                               }}
                                               title="Bấm để chỉnh sửa Email"
@@ -2506,14 +2976,27 @@ function CalendarPage() {
                                               📧 {reg.attendee_email}
                                             </button>
                                           ) : (
-                                            <button 
+                                            <button
                                               type="button"
                                               onClick={() => {
-                                                const newE = window.prompt(`Bổ sung Email cho "${reg.customer_name || 'Khách'}":`, "");
+                                                const newE = window.prompt(
+                                                  `Bổ sung Email cho "${reg.customer_name || "Khách"}":`,
+                                                  "",
+                                                );
                                                 if (newE && newE.trim()) {
                                                   const trimmed = newE.trim();
-                                                  supabase.from("event_registrations").update({ attendee_email: trimmed }).eq("id", reg.id).then();
-                                                  setModalRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, attendee_email: trimmed } as any : r));
+                                                  supabase
+                                                    .from("event_registrations")
+                                                    .update({ attendee_email: trimmed })
+                                                    .eq("id", reg.id)
+                                                    .then();
+                                                  setModalRegistrations((prev) =>
+                                                    prev.map((r) =>
+                                                      r.id === reg.id
+                                                        ? ({ ...r, attendee_email: trimmed } as any)
+                                                        : r,
+                                                    ),
+                                                  );
                                                 }
                                               }}
                                               title="Khách chưa có Email. Bấm để bổ sung nhanh!"
@@ -2522,30 +3005,43 @@ function CalendarPage() {
                                               ⚠️ Thiếu Email (Bấm bổ sung)
                                             </button>
                                           )}
-                                          <span className="flex items-center gap-1 font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">👤 Sale: {reg.added_by_sale_name || "Admin"}</span>
+                                          <span className="flex items-center gap-1 font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                                            👤 Sale: {reg.added_by_sale_name || "Admin"}
+                                          </span>
                                         </div>
                                       </div>
                                       {canModify && (
                                         <button
                                           type="button"
-                                          onClick={() => handleRemoveAttendee(reg.id, reg.assigned_sale_id!)}
+                                          onClick={() =>
+                                            handleRemoveAttendee(reg.id, reg.assigned_sale_id!)
+                                          }
                                           className="w-6 h-6 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all"
                                         >
                                           ✕
                                         </button>
                                       )}
                                     </div>
-                                    
+
                                     {reg.note && (
                                       <p className="text-[10px] text-slate-600 bg-slate-50/80 p-2 rounded-lg italic border border-slate-100 mt-2">
-                                        <b className="text-[9px] uppercase text-slate-400 not-italic mr-1">Ghi chú:</b> {reg.note}
+                                        <b className="text-[9px] uppercase text-slate-400 not-italic mr-1">
+                                          Ghi chú:
+                                        </b>{" "}
+                                        {reg.note}
                                       </p>
                                     )}
 
                                     <div className="flex items-center gap-1.5 pt-2 mt-2 border-t border-slate-100/60">
                                       <select
                                         value={reg.status}
-                                        onChange={(e: any) => handleUpdateAttendeeStatus(reg.id, reg.assigned_sale_id!, e.target.value)}
+                                        onChange={(e: any) =>
+                                          handleUpdateAttendeeStatus(
+                                            reg.id,
+                                            reg.assigned_sale_id!,
+                                            e.target.value,
+                                          )
+                                        }
                                         disabled={!canModify}
                                         className="h-8 flex-1 px-2 text-[10px] font-bold bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition-all"
                                       >
@@ -2561,81 +3057,93 @@ function CalendarPage() {
                                           <option value="converted">💰 Đã chốt đơn</option>
                                         </optgroup>
                                       </select>
-                                      {isManager && reg.status !== 'attended' && reg.status !== 'converted' && (
-                                        <Button 
-                                          type="button" 
-                                          size="sm" 
-                                          onClick={() => handleUpdateAttendeeStatus(reg.id, reg.assigned_sale_id!, 'attended')}
-                                          className="h-8 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold shadow-2xs rounded-lg shrink-0"
-                                        >
-                                          Check-in
-                                        </Button>
-                                      )}
-                                      {isManager && (() => {
-                                        const gStatus = (reg as any).google_invite_status;
-                                        const isSending = sendingInviteIds.includes(reg.id);
-                                        const calLinkUrl = (reg as any).add_to_calendar_url || "https://calendar.google.com";
+                                      {isManager &&
+                                        reg.status !== "attended" &&
+                                        reg.status !== "converted" && (
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            onClick={() =>
+                                              handleUpdateAttendeeStatus(
+                                                reg.id,
+                                                reg.assigned_sale_id!,
+                                                "attended",
+                                              )
+                                            }
+                                            className="h-8 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold shadow-2xs rounded-lg shrink-0"
+                                          >
+                                            Check-in
+                                          </Button>
+                                        )}
+                                      {isManager &&
+                                        (() => {
+                                          const gStatus = (reg as any).google_invite_status;
+                                          const isSending = sendingInviteIds.includes(reg.id);
+                                          const calLinkUrl =
+                                            (reg as any).add_to_calendar_url ||
+                                            "https://calendar.google.com";
 
-                                        if (isSending) {
+                                          if (isSending) {
+                                            return (
+                                              <button
+                                                type="button"
+                                                disabled
+                                                className="h-8 px-2.5 flex items-center justify-center gap-1 bg-slate-200 text-slate-500 text-[10px] font-bold rounded-lg cursor-not-allowed shrink-0"
+                                              >
+                                                ⏳ Đang gửi...
+                                              </button>
+                                            );
+                                          }
+
+                                          if (gStatus === "invited" || gStatus === "sent") {
+                                            return (
+                                              <div className="flex items-center gap-1 shrink-0">
+                                                <span className="h-8 px-2 flex items-center justify-center bg-purple-50 text-purple-700 text-[10px] font-bold rounded-lg border border-purple-200">
+                                                  ✓ Đã gửi
+                                                </span>
+                                                <a
+                                                  href={calLinkUrl}
+                                                  target="_blank"
+                                                  rel="noreferrer"
+                                                  title="Mở form sự kiện trên Google Calendar"
+                                                  className="h-8 px-2 flex items-center justify-center bg-blue-50 hover:bg-blue-100 text-blue-600 text-[10px] font-bold rounded-lg border border-blue-200 transition-all"
+                                                >
+                                                  🌐 Mở GCal
+                                                </a>
+                                              </div>
+                                            );
+                                          }
+
+                                          if (gStatus === "failed") {
+                                            return (
+                                              <div className="flex items-center gap-1 shrink-0">
+                                                <span className="h-8 px-1.5 flex items-center justify-center bg-rose-50 text-rose-600 text-[10px] font-bold rounded-lg border border-rose-200">
+                                                  Lỗi gửi
+                                                </span>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleSendRealGCalInvite(reg)}
+                                                  title="Thử kết nối và gửi lại lời mời Google Calendar"
+                                                  className="h-8 px-2 flex items-center justify-center gap-1 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold rounded-lg shadow-2xs transition-all"
+                                                >
+                                                  🔄 Gửi lại
+                                                </button>
+                                              </div>
+                                            );
+                                          }
+
                                           return (
                                             <button
                                               type="button"
-                                              disabled
-                                              className="h-8 px-2.5 flex items-center justify-center gap-1 bg-slate-200 text-slate-500 text-[10px] font-bold rounded-lg cursor-not-allowed shrink-0"
+                                              onClick={() => handleSendRealGCalInvite(reg)}
+                                              title="Hệ thống tự động gửi thư mời chính thức từ Lịch Công ty"
+                                              className="h-8 px-2.5 flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-bold rounded-lg shadow-2xs transition-all shrink-0"
                                             >
-                                              ⏳ Đang gửi...
+                                              📧{" "}
+                                              <span className="hidden sm:inline">Gửi thư mời</span>
                                             </button>
                                           );
-                                        }
-
-                                        if (gStatus === 'invited' || gStatus === 'sent') {
-                                          return (
-                                            <div className="flex items-center gap-1 shrink-0">
-                                              <span className="h-8 px-2 flex items-center justify-center bg-purple-50 text-purple-700 text-[10px] font-bold rounded-lg border border-purple-200">
-                                                ✓ Đã gửi
-                                              </span>
-                                              <a
-                                                href={calLinkUrl}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                title="Mở form sự kiện trên Google Calendar"
-                                                className="h-8 px-2 flex items-center justify-center bg-blue-50 hover:bg-blue-100 text-blue-600 text-[10px] font-bold rounded-lg border border-blue-200 transition-all"
-                                              >
-                                                🌐 Mở GCal
-                                              </a>
-                                            </div>
-                                          );
-                                        }
-
-                                        if (gStatus === 'failed') {
-                                          return (
-                                            <div className="flex items-center gap-1 shrink-0">
-                                              <span className="h-8 px-1.5 flex items-center justify-center bg-rose-50 text-rose-600 text-[10px] font-bold rounded-lg border border-rose-200">
-                                                Lỗi gửi
-                                              </span>
-                                              <button
-                                                type="button"
-                                                onClick={() => handleSendRealGCalInvite(reg)}
-                                                title="Thử kết nối và gửi lại lời mời Google Calendar"
-                                                className="h-8 px-2 flex items-center justify-center gap-1 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold rounded-lg shadow-2xs transition-all"
-                                              >
-                                                🔄 Gửi lại
-                                              </button>
-                                            </div>
-                                          );
-                                        }
-
-                                        return (
-                                          <button
-                                            type="button"
-                                            onClick={() => handleSendRealGCalInvite(reg)}
-                                            title="Hệ thống tự động gửi thư mời chính thức từ Lịch Công ty"
-                                            className="h-8 px-2.5 flex items-center justify-center gap-1 bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-bold rounded-lg shadow-2xs transition-all shrink-0"
-                                          >
-                                            📧 <span className="hidden sm:inline">Gửi thư mời</span>
-                                          </button>
-                                        );
-                                      })()}
+                                        })()}
                                       <button
                                         type="button"
                                         onClick={() => handleOpenPreview(reg)}
@@ -2646,15 +3154,26 @@ function CalendarPage() {
                                       </button>
                                       <a
                                         href={(() => {
-                                          const targetDatePart = endsAt ? endsAt.slice(0, 10) : startsAt.slice(0, 10);
-                                          const targetEndTimePart = endsAt && endsAt.includes("T") ? endsAt.slice(11, 16) : "21:00";
-                                          const targetStartTimePart = startsAt.includes("T") ? startsAt.slice(11, 16) : "18:00";
+                                          const targetDatePart = endsAt
+                                            ? endsAt.slice(0, 10)
+                                            : startsAt.slice(0, 10);
+                                          const targetEndTimePart =
+                                            endsAt && endsAt.includes("T")
+                                              ? endsAt.slice(11, 16)
+                                              : "21:00";
+                                          const targetStartTimePart = startsAt.includes("T")
+                                            ? startsAt.slice(11, 16)
+                                            : "18:00";
                                           return buildGoogleCalendarLink({
                                             title: title || "Sự kiện DESEMBRE Partner",
                                             startsAt: `${targetDatePart}T${targetStartTimePart}`,
                                             endsAt: `${targetDatePart}T${targetEndTimePart}`,
                                             location: eventLocation || meetingUrl || null,
-                                            description: formatGCalDescription(reg.customer_name || "", reg.customer_phone, description)
+                                            description: formatGCalDescription(
+                                              reg.customer_name || "",
+                                              reg.customer_phone,
+                                              description,
+                                            ),
                                           });
                                         })()}
                                         target="_blank"
@@ -2687,40 +3206,44 @@ function CalendarPage() {
             </div>
 
             <DialogFooter className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => setModalOpen(false)}
-                className="h-9 px-4 text-xs font-bold text-slate-600 border-slate-200 hover:bg-slate-100 shadow-2xs"
+                className="h-11 md:h-9 px-4 text-xs font-bold text-slate-600 border-slate-200 hover:bg-slate-100 shadow-2xs"
               >
                 Hủy bỏ
               </Button>
               <div className="flex items-center gap-2">
                 {editEventId && !isCompanyEditDisabled && (
-                  <Button 
+                  <Button
                     type="button"
                     variant="destructive"
                     onClick={() => handleDeleteEvent(editEventId, editEventType)}
-                    className="h-9 px-4 text-xs font-bold shadow-2xs"
+                    className="h-11 md:h-9 px-4 text-xs font-bold shadow-2xs"
                   >
                     Xóa
                   </Button>
                 )}
                 {!isCompanyEditDisabled && (
-                  <Button 
-                    type="submit" 
-                    disabled={saving} 
-                    className={`h-9 px-6 text-xs font-bold shadow-2xs text-white ${modalTab === 'company' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                  <Button
+                    type="submit"
+                    disabled={saving}
+                    className={`h-11 md:h-9 px-6 text-xs font-bold shadow-2xs text-white ${modalTab === "company" ? "bg-purple-600 hover:bg-purple-700" : "bg-blue-600 hover:bg-blue-700"}`}
                   >
-                    {saving ? "Đang xử lý..." : editEventId ? "Cập nhật dữ liệu" : "Xác nhận lưu lịch"}
+                    {saving
+                      ? "Đang xử lý..."
+                      : editEventId
+                        ? "Cập nhật dữ liệu"
+                        : "Xác nhận lưu lịch"}
                   </Button>
                 )}
                 {isCompanyEditDisabled && (
-                  <Button 
-                    type="button" 
+                  <Button
+                    type="button"
                     variant="default"
                     onClick={() => setModalOpen(false)}
-                    className="h-9 px-6 text-xs font-bold shadow-2xs bg-slate-900 hover:bg-slate-800 text-white"
+                    className="h-11 md:h-9 px-6 text-xs font-bold shadow-2xs bg-slate-900 hover:bg-slate-800 text-white"
                   >
                     Đóng giao diện
                   </Button>
@@ -2741,40 +3264,47 @@ function CalendarPage() {
               Check-in thành công!
             </DialogTitle>
             <p className="text-center text-slate-500 text-xs px-4">
-              Khách hàng <b>{pendingFollowUpReg?.customer_name}</b> đã tham gia sự kiện. Bạn có muốn lên lịch Follow-up để chăm sóc và chốt đơn không?
+              Khách hàng <b>{pendingFollowUpReg?.customer_name}</b> đã tham gia sự kiện. Bạn có muốn
+              lên lịch Follow-up để chăm sóc và chốt đơn không?
             </p>
           </DialogHeader>
 
           <div className="grid grid-cols-1 gap-2.5 mt-6">
-            <Button 
+            <Button
               onClick={() => handleCreateFollowUp(1)}
               variant="outline"
               className="h-11 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 justify-between px-4 group"
             >
               <div className="flex items-center gap-3">
-                <span className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-xs font-bold text-slate-600 group-hover:bg-emerald-100 group-hover:text-emerald-700">1</span>
+                <span className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-xs font-bold text-slate-600 group-hover:bg-emerald-100 group-hover:text-emerald-700">
+                  1
+                </span>
                 <span className="text-xs font-bold text-slate-700">Sau 1 ngày (Gợi ý)</span>
               </div>
               <ArrowLeft className="w-4 h-4 rotate-180 text-slate-400" />
             </Button>
-            <Button 
+            <Button
               onClick={() => handleCreateFollowUp(3)}
               variant="outline"
               className="h-11 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 justify-between px-4 group"
             >
               <div className="flex items-center gap-3">
-                <span className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-xs font-bold text-slate-600 group-hover:bg-emerald-100 group-hover:text-emerald-700">3</span>
+                <span className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-xs font-bold text-slate-600 group-hover:bg-emerald-100 group-hover:text-emerald-700">
+                  3
+                </span>
                 <span className="text-xs font-bold text-slate-700">Sau 3 ngày</span>
               </div>
               <ArrowLeft className="w-4 h-4 rotate-180 text-slate-400" />
             </Button>
-            <Button 
+            <Button
               onClick={() => handleCreateFollowUp(7)}
               variant="outline"
               className="h-11 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 justify-between px-4 group"
             >
               <div className="flex items-center gap-3">
-                <span className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-xs font-bold text-slate-600 group-hover:bg-emerald-100 group-hover:text-emerald-700">7</span>
+                <span className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-xs font-bold text-slate-600 group-hover:bg-emerald-100 group-hover:text-emerald-700">
+                  7
+                </span>
                 <span className="text-xs font-bold text-slate-700">Sau 1 tuần</span>
               </div>
               <ArrowLeft className="w-4 h-4 rotate-180 text-slate-400" />
@@ -2783,17 +3313,23 @@ function CalendarPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!previewInviteReg} onOpenChange={(open: boolean) => !open && setPreviewInviteReg(null)}>
+      <Dialog
+        open={!!previewInviteReg}
+        onOpenChange={(open: boolean) => !open && setPreviewInviteReg(null)}
+      >
         <DialogContent className="sm:max-w-[480px] p-6 rounded-2xl border-none shadow-2xl bg-white">
           <DialogHeader className="space-y-2 border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
-              <span className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600 text-xs font-bold">👁️</span>
+              <span className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600 text-xs font-bold">
+                👁️
+              </span>
               <DialogTitle className="text-base font-black text-slate-900">
                 Xem trước nội dung thư mời
               </DialogTitle>
             </div>
             <p className="text-xs text-slate-500">
-              Nội dung mô phỏng kết xuất chính thức từ <b>Mẫu Tin Nhắn</b> gửi qua <b>Google Calendar</b> tới đối tác.
+              Nội dung mô phỏng kết xuất chính thức từ <b>Mẫu Tin Nhắn</b> gửi qua{" "}
+              <b>Google Calendar</b> tới đối tác.
             </p>
           </DialogHeader>
 
@@ -2807,8 +3343,12 @@ function CalendarPage() {
               ) : (
                 <>
                   <div className="space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Tiêu đề (Subject):</span>
-                    <p className="font-bold text-slate-900">{renderedPreviewSubject || "[Chưa có tiêu đề]"}</p>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                      Tiêu đề (Subject):
+                    </span>
+                    <p className="font-bold text-slate-900">
+                      {renderedPreviewSubject || "[Chưa có tiêu đề]"}
+                    </p>
                   </div>
 
                   <div className="space-y-2 bg-white p-3 rounded-xl border border-slate-100 shadow-2xs whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-slate-800">

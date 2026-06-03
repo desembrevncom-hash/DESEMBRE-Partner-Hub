@@ -4,10 +4,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { 
-  ArrowLeft, FileSpreadsheet, Users, UserPlus, 
-  Clock, AlertTriangle, ShoppingCart, DollarSign, 
-  Sparkles, TrendingUp, UserCheck, Loader2, CloudUpload
+import {
+  ArrowLeft,
+  FileSpreadsheet,
+  Users,
+  UserPlus,
+  Clock,
+  AlertTriangle,
+  ShoppingCart,
+  DollarSign,
+  Sparkles,
+  TrendingUp,
+  UserCheck,
+  Loader2,
+  CloudUpload,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -41,7 +51,7 @@ function CrmReportPage() {
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<CustomerItem[]>([]);
   const [orders, setOrders] = useState<OrderItem[]>([]);
-  
+
   // Trạng thái trích xuất kết hợp song song Supabase và LocalStorage Fallback
   const [useLocalFallback, setUseLocalFallback] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -58,7 +68,7 @@ function CrmReportPage() {
       created_at: new Date().toISOString(), // Khách mới tháng này
       next_followup_date: "12/05/2026",
       potential_level: "hot",
-      demand_notes: "Nhập hàng sỉ mỹ phẩm Desembre cao cấp"
+      demand_notes: "Nhập hàng sỉ mỹ phẩm Desembre cao cấp",
     },
     {
       id: "crm-c-2",
@@ -70,7 +80,7 @@ function CrmReportPage() {
       created_at: new Date(Date.now() - 5 * 86400000).toISOString(), // 5 ngày trước
       next_followup_date: "05/05/2026", // Quá hạn follow-up
       potential_level: "warm",
-      demand_notes: "Quan tâm liệu trình peel da chuyên sâu"
+      demand_notes: "Quan tâm liệu trình peel da chuyên sâu",
     },
     {
       id: "crm-c-3",
@@ -82,7 +92,7 @@ function CrmReportPage() {
       created_at: new Date(Date.now() - 40 * 86400000).toISOString(), // Tháng trước
       next_followup_date: "18/05/2026", // Sắp đến hạn
       potential_level: "hot",
-      demand_notes: "Hợp tác hội thảo chuyển giao công nghệ"
+      demand_notes: "Hợp tác hội thảo chuyển giao công nghệ",
     },
     {
       id: "crm-c-4",
@@ -94,33 +104,57 @@ function CrmReportPage() {
       created_at: new Date().toISOString(),
       next_followup_date: "01/05/2026", // Quá hạn
       potential_level: "cold",
-      demand_notes: "Xin bảng báo giá trang thiết bị ban đầu"
-    }
+      demand_notes: "Xin bảng báo giá trang thiết bị ban đầu",
+    },
   ];
 
   const initialOrders: OrderItem[] = [
-    { id: "ord-1", total_amount: 15500000, created_at: new Date().toISOString(), status: "completed" },
-    { id: "ord-2", total_amount: 8200000, created_at: new Date(Date.now() - 2 * 86400000).toISOString(), status: "completed" },
-    { id: "ord-3", total_amount: 24000000, created_at: new Date(Date.now() - 10 * 86400000).toISOString(), status: "completed" },
-    { id: "ord-4", total_amount: 4500000, created_at: new Date(Date.now() - 15 * 86400000).toISOString(), status: "processing" },
+    {
+      id: "ord-1",
+      total_amount: 15500000,
+      created_at: new Date().toISOString(),
+      status: "completed",
+    },
+    {
+      id: "ord-2",
+      total_amount: 8200000,
+      created_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+      status: "completed",
+    },
+    {
+      id: "ord-3",
+      total_amount: 24000000,
+      created_at: new Date(Date.now() - 10 * 86400000).toISOString(),
+      status: "completed",
+    },
+    {
+      id: "ord-4",
+      total_amount: 4500000,
+      created_at: new Date(Date.now() - 15 * 86400000).toISOString(),
+      status: "processing",
+    },
   ];
 
   useEffect(() => {
     async function fetchCrmData() {
       setLoading(true);
-      
+
       // Xử lý dữ liệu fallback cục bộ
       const loadLocalData = () => {
         let locCustomers = JSON.parse(localStorage.getItem("mock_customers") || "[]");
         if (locCustomers.length === 0) {
           locCustomers = [...initialCustomers];
-          try { localStorage.setItem("mock_customers", JSON.stringify(locCustomers)); } catch {}
+          try {
+            localStorage.setItem("mock_customers", JSON.stringify(locCustomers));
+          } catch {}
         }
 
         let locOrders = JSON.parse(localStorage.getItem("mock_orders") || "[]");
         if (locOrders.length === 0) {
           locOrders = [...initialOrders];
-          try { localStorage.setItem("mock_orders", JSON.stringify(locOrders)); } catch {}
+          try {
+            localStorage.setItem("mock_orders", JSON.stringify(locOrders));
+          } catch {}
         }
 
         // Định dạng hóa dữ liệu khách hàng
@@ -132,9 +166,11 @@ function CrmReportPage() {
           status: c.status || "lead",
           sale_name: c.sale_name || (c.assigned_sale_id ? "Sale Phụ trách" : "Chưa phân công"),
           created_at: c.created_at || new Date().toISOString(),
-          next_followup_date: c.next_follow_up_at ? new Date(c.next_follow_up_at).toLocaleDateString("vi-VN") : (c.next_followup_date || ""),
+          next_followup_date: c.next_follow_up_at
+            ? new Date(c.next_follow_up_at).toLocaleDateString("vi-VN")
+            : c.next_followup_date || "",
           potential_level: c.potential_level || "warm",
-          demand_notes: c.note || c.demand_notes || ""
+          demand_notes: c.note || c.demand_notes || "",
         }));
 
         setCustomers(fmtCusts);
@@ -147,7 +183,7 @@ function CrmReportPage() {
         // Thử fetch từ Supabase DB
         const [custRes, ordRes] = await Promise.all([
           supabase.from("customers").select("*").order("created_at", { ascending: false }),
-          supabase.from("orders").select("id, total_amount, created_at, status")
+          supabase.from("orders").select("id, total_amount, created_at, status"),
         ]);
 
         const hasDbErr = custRes.error || ordRes.error;
@@ -164,9 +200,11 @@ function CrmReportPage() {
           status: c.status || "lead",
           sale_name: c.sale_name || "Nhân viên Sale",
           created_at: c.created_at || new Date().toISOString(),
-          next_followup_date: c.next_follow_up_at ? new Date(c.next_follow_up_at).toLocaleDateString("vi-VN") : (c.next_followup_date || ""),
+          next_followup_date: c.next_follow_up_at
+            ? new Date(c.next_follow_up_at).toLocaleDateString("vi-VN")
+            : c.next_followup_date || "",
           potential_level: c.potential_level || "warm",
-          demand_notes: c.note || c.demand_notes || ""
+          demand_notes: c.note || c.demand_notes || "",
         }));
 
         // Gộp kết hợp với Local cache nếu DB ít dữ liệu
@@ -196,19 +234,19 @@ function CrmReportPage() {
   const currentYear = new Date().getFullYear();
 
   // Khách mới tháng này
-  const newCustomersThisMonth = customers.filter(c => {
+  const newCustomersThisMonth = customers.filter((c) => {
     if (!c.created_at) return false;
     const dt = new Date(c.created_at);
     return dt.getMonth() === currentMonth && dt.getFullYear() === currentYear;
   }).length;
 
   // Khách cần follow-up (Có lịch hẹn hoặc trạng thái đang chăm sóc)
-  const needingFollowup = customers.filter(c => 
-    c.next_followup_date && c.next_followup_date.trim() !== ""
+  const needingFollowup = customers.filter(
+    (c) => c.next_followup_date && c.next_followup_date.trim() !== "",
   ).length;
 
   // Khách quá hạn follow-up (So sánh ngày quá khứ)
-  const overdueFollowups = customers.filter(c => {
+  const overdueFollowups = customers.filter((c) => {
     if (!c.next_followup_date || c.next_followup_date.trim() === "") return false;
     // Chuyển đổi chuỗi dd/mm/yyyy sang Date để so sánh
     const parts = c.next_followup_date.split("/");
@@ -228,11 +266,11 @@ function CrmReportPage() {
 
   // Phân bổ danh sách khách hàng theo từng nhân viên SALE
   const salesMap = new Map<string, { total: number; newMonth: number; overdue: number }>();
-  customers.forEach(c => {
+  customers.forEach((c) => {
     const sName = c.sale_name || "Chưa phân công";
     const curr = salesMap.get(sName) || { total: 0, newMonth: 0, overdue: 0 };
     curr.total += 1;
-    
+
     // Check new this month
     if (c.created_at) {
       const dt = new Date(c.created_at);
@@ -247,7 +285,7 @@ function CrmReportPage() {
       if (parts.length === 3) {
         const pDate = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
         const today = new Date();
-        today.setHours(0,0,0,0);
+        today.setHours(0, 0, 0, 0);
         if (pDate < today) curr.overdue += 1;
       }
     }
@@ -256,7 +294,7 @@ function CrmReportPage() {
 
   const salesBreakdownArray = Array.from(salesMap.entries()).map(([saleName, data]) => ({
     saleName,
-    ...data
+    ...data,
   }));
 
   // Logic đồng bộ báo cáo CRM sang Google Sheets thông qua Edge Function
@@ -267,7 +305,9 @@ function CrmReportPage() {
     }
 
     setSyncing(true);
-    const toastId = toast.loading("Đang đẩy dữ liệu sang Google Sheets thông qua kết nối bảo mật...");
+    const toastId = toast.loading(
+      "Đang đẩy dữ liệu sang Google Sheets thông qua kết nối bảo mật...",
+    );
 
     try {
       // Đóng gói payload chứa dữ liệu và các thông số KPI hiện tại
@@ -279,12 +319,12 @@ function CrmReportPage() {
           needingFollowup,
           overdueFollowups,
           totalOrdersCount,
-          totalRevenueAmount
-        }
+          totalRevenueAmount,
+        },
       };
 
       const { data, error } = await supabase.functions.invoke("export-crm-to-google-sheets", {
-        body: payload
+        body: payload,
       });
 
       if (error) {
@@ -294,17 +334,17 @@ function CrmReportPage() {
       if (data?.success) {
         const sheetLink = `https://docs.google.com/spreadsheets/d/${data.spreadsheetId || "1qSw-dGf8lkCZN69MTKMoDwwuovQLxUXR-9oin1tu5Ks"}`;
         toast.success(
-          data.simulated 
-            ? `[Simulation Mode] Đã mô phỏng đồng bộ thành công ${data.updatedRows} dải ô!` 
+          data.simulated
+            ? `[Simulation Mode] Đã mô phỏng đồng bộ thành công ${data.updatedRows} dải ô!`
             : `Đã đồng bộ thành công ${data.updatedRows} dải ô dữ liệu sang Google Sheets!`,
-          { 
-            id: toastId, 
+          {
+            id: toastId,
             duration: 8000,
             action: {
               label: "Mở Google Sheets",
-              onClick: () => window.open(sheetLink, "_blank")
-            }
-          }
+              onClick: () => window.open(sheetLink, "_blank"),
+            },
+          },
         );
       } else {
         throw new Error(data?.error || "Đồng bộ thất bại do lỗi cấu hình phân quyền Google Sheets");
@@ -312,18 +352,19 @@ function CrmReportPage() {
     } catch (err: any) {
       console.error("Lỗi đồng bộ Google Sheets:", err);
       // Fallback mô phỏng thành công cho người dùng nếu API bị chặn hoặc chưa triển khai live
-      const fallbackLink = "https://docs.google.com/spreadsheets/d/1qSw-dGf8lkCZN69MTKMoDwwuovQLxUXR-9oin1tu5Ks";
+      const fallbackLink =
+        "https://docs.google.com/spreadsheets/d/1qSw-dGf8lkCZN69MTKMoDwwuovQLxUXR-9oin1tu5Ks";
       toast.success(
         `Đã xuất thành công ${customers.length + 4} dải ô báo cáo sang Google Sheets!`,
-        { 
-          id: toastId, 
+        {
+          id: toastId,
           duration: 8000,
           description: "Hệ thống đang chạy ở chế độ đệm fallback bảo mật.",
           action: {
             label: "Mở Trang tính",
-            onClick: () => window.open(fallbackLink, "_blank")
-          }
-        }
+            onClick: () => window.open(fallbackLink, "_blank"),
+          },
+        },
       );
     } finally {
       setSyncing(false);
@@ -345,7 +386,9 @@ function CrmReportPage() {
     // ----------------------------------------------------
     const overviewRows = [
       ["BÁO CÁO PHÂN TÍCH VÀ THỐNG KÊ CRM TOÀN DIỆN"],
-      [`Thời gian kết xuất: ${new Date().toLocaleDateString("vi-VN")} ${new Date().toLocaleTimeString("vi-VN")}`],
+      [
+        `Thời gian kết xuất: ${new Date().toLocaleDateString("vi-VN")} ${new Date().toLocaleTimeString("vi-VN")}`,
+      ],
       ["Hệ thống: Partner Hub Enterprise CRM"],
       [],
       ["CHỈ SỐ ĐO LƯỜNG (KPI)", "GIÁ TRỊ KẾT QUẢ", "ĐƠN VỊ TÍNH"],
@@ -354,7 +397,7 @@ function CrmReportPage() {
       ["Khách hàng đang trong chu kỳ Follow-up", needingFollowup, "Khách hàng"],
       ["Khách hàng ĐÃ QUÁ HẠN chăm sóc", overdueFollowups, "Khách hàng"],
       ["Tổng số lượng đơn hàng giao dịch", totalOrdersCount, "Đơn hàng"],
-      ["Tổng doanh thu ghi nhận hệ thống", totalRevenueAmount, "VNĐ"]
+      ["Tổng doanh thu ghi nhận hệ thống", totalRevenueAmount, "VNĐ"],
     ];
 
     const wsOverview = XLSX.utils.aoa_to_sheet(overviewRows);
@@ -366,29 +409,39 @@ function CrmReportPage() {
     // Sheet 2: CustomersBySale
     // ----------------------------------------------------
     const salesSheetRows = salesBreakdownArray.map((s, idx) => ({
-      "STT": idx + 1,
+      STT: idx + 1,
       "Nhân viên SALE Phụ trách": s.saleName,
       "Tổng khách hàng quản lý": s.total,
       "Khách mới trong tháng": s.newMonth,
       "Số khách QUÁ HẠN gọi": s.overdue,
-      "Tỷ trọng đóng góp (%)": ((s.total / customers.length) * 100).toFixed(1) + "%"
+      "Tỷ trọng đóng góp (%)": ((s.total / customers.length) * 100).toFixed(1) + "%",
     }));
 
     const wsSales = XLSX.utils.json_to_sheet(salesSheetRows);
-    wsSales["!cols"] = [{ wch: 8 }, { wch: 30 }, { wch: 25 }, { wch: 22 }, { wch: 22 }, { wch: 22 }];
+    wsSales["!cols"] = [
+      { wch: 8 },
+      { wch: 30 },
+      { wch: 25 },
+      { wch: 22 },
+      { wch: 22 },
+      { wch: 22 },
+    ];
     XLSX.utils.book_append_sheet(workbook, wsSales, "CustomersBySale");
 
     // ----------------------------------------------------
     // Sheet 3: FollowUps
     // ----------------------------------------------------
     // Danh sách các khách hàng đang có lịch hẹn hoặc cần theo dõi sát sao
-    const followupList = customers.filter(c => c.next_followup_date && c.next_followup_date.trim() !== "");
+    const followupList = customers.filter(
+      (c) => c.next_followup_date && c.next_followup_date.trim() !== "",
+    );
     const followupSheetRows = followupList.map((c, idx) => {
       let isOv = false;
       const parts = c.next_followup_date.split("/");
       if (parts.length === 3) {
         const pDate = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
-        const today = new Date(); today.setHours(0,0,0,0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         if (pDate < today) isOv = true;
       }
 
@@ -399,7 +452,7 @@ function CrmReportPage() {
       };
 
       return {
-        "STT": idx + 1,
+        STT: idx + 1,
         "Tên khách hàng": c.name,
         "Tên cơ sở / Đơn vị": c.facility_name || "Không có",
         "Số điện thoại": c.phone,
@@ -407,14 +460,21 @@ function CrmReportPage() {
         "Mức độ tiềm năng": mapPotVi(c.potential_level),
         "Tình trạng Follow-up": isOv ? "⚠️ QUÁ HẠN GỌI" : "⏳ TRONG HẠN",
         "Ngày hẹn tiếp theo": c.next_followup_date,
-        "Ghi chú nhu cầu": c.demand_notes || "Không có ghi chú"
+        "Ghi chú nhu cầu": c.demand_notes || "Không có ghi chú",
       };
     });
 
     const wsFollowup = XLSX.utils.json_to_sheet(followupSheetRows);
     wsFollowup["!cols"] = [
-      { wch: 6 }, { wch: 22 }, { wch: 25 }, { wch: 15 }, 
-      { wch: 20 }, { wch: 22 }, { wch: 18 }, { wch: 18 }, { wch: 35 }
+      { wch: 6 },
+      { wch: 22 },
+      { wch: 25 },
+      { wch: 15 },
+      { wch: 20 },
+      { wch: 22 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 35 },
     ];
     XLSX.utils.book_append_sheet(workbook, wsFollowup, "FollowUps");
 
@@ -432,7 +492,10 @@ function CrmReportPage() {
         <div className="container mx-auto px-4 md:px-6 h-20 flex items-center justify-between">
           <div className="flex flex-col justify-center">
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 mb-1">
-              <Link to="/" className="hover:text-primary inline-flex items-center gap-1 transition-colors">
+              <Link
+                to="/"
+                className="hover:text-primary inline-flex items-center gap-1 transition-colors"
+              >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 Trang chủ
               </Link>
@@ -450,8 +513,8 @@ function CrmReportPage() {
           </div>
 
           <div className="flex items-center gap-2.5">
-            <Button 
-              onClick={handleSyncGoogleSheets} 
+            <Button
+              onClick={handleSyncGoogleSheets}
               disabled={loading || syncing || customers.length === 0}
               className="shadow-sm hover:shadow-md transition-all duration-300 font-bold bg-blue-600 hover:bg-blue-700 text-white h-10 px-4 rounded-lg flex items-center gap-2"
             >
@@ -468,8 +531,8 @@ function CrmReportPage() {
               )}
             </Button>
 
-            <Button 
-              onClick={handleExportCrmExcel} 
+            <Button
+              onClick={handleExportCrmExcel}
               disabled={loading || customers.length === 0}
               className="shadow-sm hover:shadow-md transition-all duration-300 font-bold bg-emerald-600 hover:bg-emerald-700 text-white h-10 px-4 rounded-lg flex items-center gap-2"
             >
@@ -485,7 +548,8 @@ function CrmReportPage() {
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 flex items-center justify-between shadow-2xs">
             <span className="flex items-center gap-2 font-medium">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-              Đang kết xuất báo cáo dựa trên bộ đệm dữ liệu thông minh (Fallback Cache) đảm bảo tốc độ phản hồi tức thì.
+              Đang kết xuất báo cáo dựa trên bộ đệm dữ liệu thông minh (Fallback Cache) đảm bảo tốc
+              độ phản hồi tức thì.
             </span>
             <span className="font-bold text-[10px] bg-amber-100 px-2 py-0.5 rounded text-amber-700 uppercase">
               Offline Ready
@@ -499,7 +563,9 @@ function CrmReportPage() {
           <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all duration-300 relative overflow-hidden group">
             <div className="absolute top-0 left-0 w-1 h-full bg-blue-600 group-hover:w-1.5 transition-all"></div>
             <div className="flex items-center justify-between">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tổng khách hàng</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Tổng khách hàng
+              </p>
               <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:scale-110 transition-transform">
                 <Users className="w-4 h-4" />
               </div>
@@ -519,7 +585,9 @@ function CrmReportPage() {
           <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all duration-300 relative overflow-hidden group">
             <div className="absolute top-0 left-0 w-1 h-full bg-emerald-600 group-hover:w-1.5 transition-all"></div>
             <div className="flex items-center justify-between">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Khách mới tháng này</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Khách mới tháng này
+              </p>
               <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg group-hover:scale-110 transition-transform">
                 <UserPlus className="w-4 h-4" />
               </div>
@@ -538,7 +606,9 @@ function CrmReportPage() {
           <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all duration-300 relative overflow-hidden group">
             <div className="absolute top-0 left-0 w-1 h-full bg-amber-500 group-hover:w-1.5 transition-all"></div>
             <div className="flex items-center justify-between">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Khách cần Follow-up</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Khách cần Follow-up
+              </p>
               <div className="p-2 bg-amber-50 text-amber-600 rounded-lg group-hover:scale-110 transition-transform">
                 <Clock className="w-4 h-4" />
               </div>
@@ -557,7 +627,9 @@ function CrmReportPage() {
           <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all duration-300 relative overflow-hidden group">
             <div className="absolute top-0 left-0 w-1 h-full bg-red-600 group-hover:w-1.5 transition-all"></div>
             <div className="flex items-center justify-between">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Khách quá hạn gọi</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Khách quá hạn gọi
+              </p>
               <div className="p-2 bg-red-50 text-red-600 rounded-lg group-hover:scale-110 transition-transform">
                 <AlertTriangle className="w-4 h-4" />
               </div>
@@ -576,7 +648,9 @@ function CrmReportPage() {
           <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all duration-300 relative overflow-hidden group">
             <div className="absolute top-0 left-0 w-1 h-full bg-purple-600 group-hover:w-1.5 transition-all"></div>
             <div className="flex items-center justify-between">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tổng số đơn hàng</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Tổng số đơn hàng
+              </p>
               <div className="p-2 bg-purple-50 text-purple-600 rounded-lg group-hover:scale-110 transition-transform">
                 <ShoppingCart className="w-4 h-4" />
               </div>
@@ -595,7 +669,9 @@ function CrmReportPage() {
           <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all duration-300 relative overflow-hidden group">
             <div className="absolute top-0 left-0 w-1 h-full bg-amber-600 group-hover:w-1.5 transition-all"></div>
             <div className="flex items-center justify-between">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tổng doanh thu</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Tổng doanh thu
+              </p>
               <div className="p-2 bg-amber-50 text-amber-700 rounded-lg group-hover:scale-110 transition-transform">
                 <DollarSign className="w-4 h-4" />
               </div>
@@ -629,8 +705,12 @@ function CrmReportPage() {
                 <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                   <th className="p-3.5 pl-6 border-r border-slate-100 w-12 text-center">STT</th>
                   <th className="p-3.5 border-r border-slate-100">Nhân viên SALE Phụ trách</th>
-                  <th className="p-3.5 border-r border-slate-100 text-center">Tổng khách quản lý</th>
-                  <th className="p-3.5 border-r border-slate-100 text-center">Khách mới tháng này</th>
+                  <th className="p-3.5 border-r border-slate-100 text-center">
+                    Tổng khách quản lý
+                  </th>
+                  <th className="p-3.5 border-r border-slate-100 text-center">
+                    Khách mới tháng này
+                  </th>
                   <th className="p-3.5 border-r border-slate-100 text-center">Khách QUÁ HẠN gọi</th>
                   <th className="p-3.5 pr-6 text-right">Tỷ trọng đóng góp</th>
                 </tr>
@@ -644,7 +724,8 @@ function CrmReportPage() {
                   </tr>
                 ) : (
                   salesBreakdownArray.map((s, idx) => {
-                    const pct = customers.length > 0 ? ((s.total / customers.length) * 100).toFixed(1) : "0";
+                    const pct =
+                      customers.length > 0 ? ((s.total / customers.length) * 100).toFixed(1) : "0";
                     return (
                       <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
                         <td className="p-3.5 pl-6 border-r border-slate-100 text-center font-mono text-slate-400">
@@ -664,7 +745,9 @@ function CrmReportPage() {
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-50 text-red-700">
                               ⚠️ {s.overdue}
                             </span>
-                          ) : "0"}
+                          ) : (
+                            "0"
+                          )}
                         </td>
                         <td className="p-3.5 pr-6 text-right font-mono font-bold text-slate-800">
                           {pct}%

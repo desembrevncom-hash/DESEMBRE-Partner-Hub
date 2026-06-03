@@ -27,13 +27,18 @@ export function useProductCopilot() {
       timestamp: new Date(),
     };
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (user) {
-      supabase.from('pilot_usage_metrics').insert({
-        user_id: user.id,
-        action_key: 'product_copilot_ask',
-        metadata: { hasContext: !!customerContext }
-      }).then();
+      supabase
+        .from("pilot_usage_metrics")
+        .insert({
+          user_id: user.id,
+          action_key: "product_copilot_ask",
+          metadata: { hasContext: !!customerContext },
+        })
+        .then();
     }
 
     setMessages((prev) => [...prev, userMessage]);
@@ -62,7 +67,7 @@ export function useProductCopilot() {
             threshold: 0.2,
             customerContext: customerContext || undefined,
           }),
-        }
+        },
       );
 
       if (!response.ok) {
@@ -83,7 +88,7 @@ export function useProductCopilot() {
     } catch (error: any) {
       console.error("AI Error:", error);
       toast.error(error.message || "Lỗi kết nối AI");
-      
+
       const errorMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
@@ -97,7 +102,7 @@ export function useProductCopilot() {
     }
   }, []);
 
-  const toggleChat = useCallback(() => setIsOpen(p => !p), []);
+  const toggleChat = useCallback(() => setIsOpen((p) => !p), []);
   const closeChat = useCallback(() => setIsOpen(false), []);
   const clearHistory = useCallback(() => setMessages([]), []);
 
@@ -109,6 +114,6 @@ export function useProductCopilot() {
     isLoading,
     sendMessage,
     clearHistory,
-    customerContext
+    customerContext,
   };
 }

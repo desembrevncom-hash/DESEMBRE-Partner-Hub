@@ -20,7 +20,11 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ configured: false, status: "fail", message: "Missing authorization header" }),
+        JSON.stringify({
+          configured: false,
+          status: "fail",
+          message: "Missing authorization header",
+        }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -30,7 +34,10 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await userClient.auth.getUser();
     if (authError || !user) {
       return new Response(
         JSON.stringify({ configured: false, status: "fail", message: "Unauthorized" }),
@@ -42,12 +49,19 @@ serve(async (req) => {
     const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { data: isAdminResult, error: roleError } = await adminClient.rpc("is_admin_or_sub_admin", {
-      user_id: user.id,
-    });
+    const { data: isAdminResult, error: roleError } = await adminClient.rpc(
+      "is_admin_or_sub_admin",
+      {
+        user_id: user.id,
+      },
+    );
     if (roleError || !isAdminResult) {
       return new Response(
-        JSON.stringify({ configured: false, status: "fail", message: "Forbidden: only Admin or Sub Admin can test AI connection" }),
+        JSON.stringify({
+          configured: false,
+          status: "fail",
+          message: "Forbidden: only Admin or Sub Admin can test AI connection",
+        }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -57,7 +71,11 @@ serve(async (req) => {
     // Currently only OpenAI is supported for connection test
     if (provider !== "openai") {
       return new Response(
-        JSON.stringify({ configured: false, status: "fail", message: "Provider not supported in MVP" }),
+        JSON.stringify({
+          configured: false,
+          status: "fail",
+          message: "Provider not supported in MVP",
+        }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -89,7 +107,11 @@ serve(async (req) => {
 
     if (!openAiKey) {
       return new Response(
-        JSON.stringify({ configured: false, status: "fail", message: "OPENAI_API_KEY not configured. Vui lòng nhập API Key." }),
+        JSON.stringify({
+          configured: false,
+          status: "fail",
+          message: "OPENAI_API_KEY not configured. Vui lòng nhập API Key.",
+        }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -97,7 +119,7 @@ serve(async (req) => {
     // Simple health check: call OpenAI models list endpoint
     const resp = await fetch("https://api.openai.com/v1/models", {
       method: "GET",
-      headers: { "Authorization": `Bearer ${openAiKey}` },
+      headers: { Authorization: `Bearer ${openAiKey}` },
     });
     if (!resp.ok) {
       const errText = await resp.text();
@@ -111,7 +133,11 @@ serve(async (req) => {
         // fallback to raw text if not valid JSON
       }
       return new Response(
-        JSON.stringify({ configured: true, status: "fail", message: `OpenAI API error: ${errMsg}` }),
+        JSON.stringify({
+          configured: true,
+          status: "fail",
+          message: `OpenAI API error: ${errMsg}`,
+        }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -123,14 +149,14 @@ serve(async (req) => {
       ? `Connection successful, model ${model} is available.`
       : `Connection successful, but model ${model} not found.`;
 
-    return new Response(
-      JSON.stringify({ configured: true, status: "pass", message }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ configured: true, status: "pass", message }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (e: any) {
-    return new Response(
-      JSON.stringify({ configured: false, status: "fail", message: e.message }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ configured: false, status: "fail", message: e.message }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

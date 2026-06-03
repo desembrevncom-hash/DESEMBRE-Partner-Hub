@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-worker-secret",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-worker-secret",
 };
 
 serve(async (req) => {
@@ -20,7 +21,7 @@ serve(async (req) => {
     if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
       return new Response(
         JSON.stringify({ error: "missing_config", details: "Env vars missing on Edge Function." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -34,10 +35,10 @@ serve(async (req) => {
     if (xWorkerSecret) {
       // Path A: Cron Secret Path
       if (!cronSecret || xWorkerSecret !== cronSecret) {
-        return new Response(
-          JSON.stringify({ error: "Unauthorized (invalid worker secret)" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "Unauthorized (invalid worker secret)" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
       isCronAuth = true;
     } else if (authHeader) {
@@ -46,11 +47,14 @@ serve(async (req) => {
         global: { headers: { Authorization: authHeader } },
       });
 
-      const { data: { user }, error: authError } = await clientSupabase.auth.getUser();
+      const {
+        data: { user },
+        error: authError,
+      } = await clientSupabase.auth.getUser();
       if (authError || !user) {
         return new Response(
           JSON.stringify({ error: "Unauthorized", details: authError?.message || "Invalid JWT." }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
 
@@ -65,7 +69,7 @@ serve(async (req) => {
       if (roleError || !roleData) {
         return new Response(
           JSON.stringify({ error: "Forbidden", details: "Admins/Sub-admins role required." }),
-          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
 
@@ -74,7 +78,7 @@ serve(async (req) => {
     } else {
       return new Response(
         JSON.stringify({ error: "Unauthorized", details: "Credentials required." }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -102,7 +106,7 @@ serve(async (req) => {
     if (settingsError || !settings) {
       return new Response(
         JSON.stringify({ error: "db_error", details: "Failed to read system_settings." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -116,21 +120,24 @@ serve(async (req) => {
       if (!isAdminDryRun) {
         return new Response(
           JSON.stringify({ success: true, skipped: true, reason: "worker_disabled" }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
     }
 
     // ─── 5. Invoke generate_birthday_reminders RPC ─────────────────────────────
-    const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc("generate_birthday_reminders", {
-      p_dry_run: dryRun,
-      p_confirm_phrase: dryRun ? "" : "PROCESS_BIRTHDAY_REMINDERS"
-    });
+    const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc(
+      "generate_birthday_reminders",
+      {
+        p_dry_run: dryRun,
+        p_confirm_phrase: dryRun ? "" : "PROCESS_BIRTHDAY_REMINDERS",
+      },
+    );
 
     if (rpcError) {
       return new Response(
         JSON.stringify({ success: false, error: "rpc_error", details: "RPC execution failed." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -146,9 +153,9 @@ serve(async (req) => {
           worker_enabled: isWorkerEnabled,
           scanned_count: rpcData?.processed_reminders_count || 0,
           created_tasks_count: rpcData?.created_tasks_count || 0,
-          processed_reminders_count: rpcData?.processed_reminders_count || 0
+          processed_reminders_count: rpcData?.processed_reminders_count || 0,
         }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     } else {
       // Admin path: full response with logs for manual previews
@@ -158,16 +165,19 @@ serve(async (req) => {
           dry_run: dryRun,
           worker_enabled: isWorkerEnabled,
           bypass_kill_switch: isBypassKillSwitch,
-          rpc_result: rpcData
+          rpc_result: rpcData,
         }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
-
   } catch (err: any) {
     return new Response(
-      JSON.stringify({ success: false, error: "internal_error", details: "Internal server error occurred." }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({
+        success: false,
+        error: "internal_error",
+        details: "Internal server error occurred.",
+      }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });

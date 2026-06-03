@@ -12,7 +12,13 @@ interface WorkspaceCustomersCardProps {
   emptyMessage?: string;
 }
 
-export const WorkspaceCustomersCard: React.FC<WorkspaceCustomersCardProps> = ({ title, customers, icon, color, emptyMessage = "Chưa có khách cần chăm hôm nay." }) => {
+export const WorkspaceCustomersCard: React.FC<WorkspaceCustomersCardProps> = ({
+  title,
+  customers,
+  icon,
+  color,
+  emptyMessage = "Chưa có khách cần chăm hôm nay.",
+}) => {
   const [previewCustomer, setPreviewCustomer] = useState<any | null>(null);
 
   return (
@@ -27,9 +33,9 @@ export const WorkspaceCustomersCard: React.FC<WorkspaceCustomersCardProps> = ({ 
       </div>
       <div className="flex-1 overflow-y-auto max-h-[300px] divide-y divide-slate-50">
         {customers.length > 0 ? (
-          customers.map(c => (
-            <div 
-              key={c.id} 
+          customers.map((c) => (
+            <div
+              key={c.id}
               onClick={() => setPreviewCustomer(c)}
               className="p-4 hover:bg-slate-50 transition-colors group cursor-pointer block"
             >
@@ -38,7 +44,9 @@ export const WorkspaceCustomersCard: React.FC<WorkspaceCustomersCardProps> = ({ 
                   <h4 className="text-[13px] font-bold text-slate-800 line-clamp-1 group-hover:text-primary transition-colors">
                     {c.facility_name || c.name || "Khách hàng"}
                   </h4>
-                  <p className="text-[10px] text-slate-500 font-medium mt-0.5">{c.name || c.contact_name}</p>
+                  <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                    {c.name || c.contact_name}
+                  </p>
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
                   <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 text-[9px] font-bold">
@@ -52,7 +60,9 @@ export const WorkspaceCustomersCard: React.FC<WorkspaceCustomersCardProps> = ({ 
         ) : (
           <div className="py-12 text-center">
             <Users className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{emptyMessage}</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              {emptyMessage}
+            </p>
           </div>
         )}
       </div>
@@ -61,7 +71,6 @@ export const WorkspaceCustomersCard: React.FC<WorkspaceCustomersCardProps> = ({ 
         customer={previewCustomer}
         open={!!previewCustomer}
         onOpenChange={(open) => !open && setPreviewCustomer(null)}
-
       />
     </div>
   );

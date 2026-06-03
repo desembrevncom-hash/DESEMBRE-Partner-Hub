@@ -195,19 +195,37 @@ const ProductEditDialog = ({ open, onOpenChange, initial, sectionOptions, onSave
           <div className="grid grid-cols-2 gap-3 pt-2 border-t">
             <div>
               <Label className="text-xs">Retail Size</Label>
-              <Input value={retailSize} onChange={(e) => setRetailSize(e.target.value)} placeholder="VD: 150ml" />
+              <Input
+                value={retailSize}
+                onChange={(e) => setRetailSize(e.target.value)}
+                placeholder="VD: 150ml"
+              />
             </div>
             <div>
               <Label className="text-xs">Retail Consumer (100%)</Label>
-              <Input value={retailPrice} onChange={(e) => setRetailPrice(e.target.value)} placeholder="VD: 702000" inputMode="numeric" />
+              <Input
+                value={retailPrice}
+                onChange={(e) => setRetailPrice(e.target.value)}
+                placeholder="VD: 702000"
+                inputMode="numeric"
+              />
             </div>
             <div>
               <Label className="text-xs">Salon Size</Label>
-              <Input value={salonSize} onChange={(e) => setSalonSize(e.target.value)} placeholder="VD: 1000ml" />
+              <Input
+                value={salonSize}
+                onChange={(e) => setSalonSize(e.target.value)}
+                placeholder="VD: 1000ml"
+              />
             </div>
             <div>
               <Label className="text-xs">Salon Consumer (100%)</Label>
-              <Input value={salonPrice} onChange={(e) => setSalonPrice(e.target.value)} placeholder="VD: 1782000" inputMode="numeric" />
+              <Input
+                value={salonPrice}
+                onChange={(e) => setSalonPrice(e.target.value)}
+                placeholder="VD: 1782000"
+                inputMode="numeric"
+              />
             </div>
           </div>
         </div>

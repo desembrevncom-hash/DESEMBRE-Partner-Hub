@@ -31,9 +31,10 @@ serve(async (req: Request) => {
     // Gọi nội bộ từ cron/edge function khác
     isInternalCall = true;
   } else if (authHeader) {
-    const { data: { user }, error: authErr } = await adminClient.auth.getUser(
-      authHeader.replace("Bearer ", ""),
-    );
+    const {
+      data: { user },
+      error: authErr,
+    } = await adminClient.auth.getUser(authHeader.replace("Bearer ", ""));
     if (authErr || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -82,7 +83,7 @@ serve(async (req: Request) => {
 
   try {
     await refreshZaloToken(adminClient, sender_account_id);
-    
+
     // Get updated token expiry
     const { data: updatedToken } = await adminClient
       .from("sender_account_tokens")
@@ -100,9 +101,9 @@ serve(async (req: Request) => {
     );
   } catch (err: any) {
     const msg = err.message || "Unknown error";
-    return new Response(
-      JSON.stringify({ success: false, error: msg }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ success: false, error: msg }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

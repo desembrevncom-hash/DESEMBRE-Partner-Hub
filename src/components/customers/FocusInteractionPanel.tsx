@@ -1,7 +1,7 @@
-import React from 'react';
-import { Button } from '@/components/ui/button';
-import { ArrowRight, Phone, Calendar, CheckCircle2 } from 'lucide-react';
-import { getCustomerConversationState } from '@/lib/customerConversationState';
+import React from "react";
+import { Button } from "@/components/ui/button";
+import { ArrowRight, Phone, Calendar, CheckCircle2 } from "lucide-react";
+import { getCustomerConversationState } from "@/lib/customerConversationState";
 
 interface FocusInteractionPanelProps {
   customer: any;
@@ -10,7 +10,12 @@ interface FocusInteractionPanelProps {
   onFollowUp?: () => void;
 }
 
-export function FocusInteractionPanel({ customer, onNextCustomer, onQuickLog, onFollowUp }: FocusInteractionPanelProps) {
+export function FocusInteractionPanel({
+  customer,
+  onNextCustomer,
+  onQuickLog,
+  onFollowUp,
+}: FocusInteractionPanelProps) {
   if (!customer) return null;
   const state = getCustomerConversationState(customer);
 
@@ -21,14 +26,22 @@ export function FocusInteractionPanel({ customer, onNextCustomer, onQuickLog, on
           <CheckCircle2 className="w-5 h-5" />
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-widest font-black text-indigo-100 opacity-80">Focus Action</p>
-          <p className="text-sm font-black truncate max-w-[200px] leading-tight mt-0.5">{customer.contact_name || customer.name || 'Khách hàng'}</p>
+          <p className="text-[10px] uppercase tracking-widest font-black text-indigo-100 opacity-80">
+            Focus Action
+          </p>
+          <p className="text-sm font-black truncate max-w-[200px] leading-tight mt-0.5">
+            {customer.contact_name || customer.name || "Khách hàng"}
+          </p>
         </div>
       </div>
-      
+
       <div className="flex items-center gap-2 w-full sm:w-auto">
         {onNextCustomer && (
-          <Button onClick={onNextCustomer} size="sm" className="bg-white text-indigo-600 hover:bg-slate-50 font-black ml-auto shrink-0 shadow-sm rounded-xl px-6 py-4">
+          <Button
+            onClick={onNextCustomer}
+            size="sm"
+            className="bg-white text-indigo-600 hover:bg-slate-50 font-black ml-auto shrink-0 shadow-sm rounded-xl px-6 py-4"
+          >
             Next Khách <ArrowRight className="w-4 h-4 ml-1.5" />
           </Button>
         )}

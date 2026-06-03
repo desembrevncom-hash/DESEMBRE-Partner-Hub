@@ -12,13 +12,17 @@ import { encode } from "https://deno.land/std@0.182.0/encoding/base64.ts";
 async function encryptToken(token: string, keyString: string): Promise<string> {
   const encKeyData = new TextEncoder().encode(keyString);
   const hashBuffer = await crypto.subtle.digest("SHA-256", encKeyData);
-  const key = await crypto.subtle.importKey("raw", hashBuffer, { name: "AES-GCM" }, false, ["encrypt"]);
-  
+  const key = await crypto.subtle.importKey("raw", hashBuffer, { name: "AES-GCM" }, false, [
+    "encrypt",
+  ]);
+
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(token);
   const ciphertextBuffer = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
-  
-  const ivHex = Array.from(iv).map((b) => b.toString(16).padStart(2, "0")).join("");
+
+  const ivHex = Array.from(iv)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
   const cipherBase64 = encode(new Uint8Array(ciphertextBuffer));
   return ivHex + ":" + cipherBase64;
 }
@@ -37,40 +41,59 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ success: false, error: "Missing authorization" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authErr } = await adminClient.auth.getUser(token);
-    
+    const {
+      data: { user },
+      error: authErr,
+    } = await adminClient.auth.getUser(token);
+
     if (authErr || !user) {
       return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { data: roleData } = await adminClient.from("user_roles").select("role").eq("user_id", user.id).single();
+    const { data: roleData } = await adminClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .single();
     const role = roleData?.role;
-    
+
     if (role !== "admin" && role !== "sub_admin") {
-      return new Response(JSON.stringify({ success: false, error: "Forbidden: Admin/SubAdmin only" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+      return new Response(
+        JSON.stringify({ success: false, error: "Forbidden: Admin/SubAdmin only" }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // 2. Parse Body
-    const { provider, sender_account_id, sender_name, sender_email, domain, api_key } = await req.json();
+    const { provider, sender_account_id, sender_name, sender_email, domain, api_key } =
+      await req.json();
 
     if (provider !== "resend") {
-      return new Response(JSON.stringify({ success: false, error: "Unsupported provider for configuration" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+      return new Response(
+        JSON.stringify({ success: false, error: "Unsupported provider for configuration" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     if (!sender_account_id) {
-       return new Response(JSON.stringify({ success: false, error: "Missing sender_account_id" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      return new Response(JSON.stringify({ success: false, error: "Missing sender_account_id" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -82,16 +105,20 @@ serve(async (req) => {
     if (api_key && api_key.trim() !== "") {
       const trimmedKey = api_key.trim();
       if (!trimmedKey.startsWith("re_")) {
-        return new Response(JSON.stringify({ success: false, error: "Resend API Key phải bắt đầu bằng re_" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
+        return new Response(
+          JSON.stringify({ success: false, error: "Resend API Key phải bắt đầu bằng re_" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
 
       // Check Domain on Resend
       const domainToCheck = domain || (sender_email ? sender_email.split("@")[1] : "");
       try {
         const res = await fetch(`https://api.resend.com/domains`, {
-          headers: { "Authorization": `Bearer ${trimmedKey}` }
+          headers: { Authorization: `Bearer ${trimmedKey}` },
         });
         if (res.ok) {
           const data = await res.json();
@@ -102,56 +129,78 @@ serve(async (req) => {
             domain_status = "not_found";
           }
         } else {
-           const errData = await res.json();
-           return new Response(JSON.stringify({ success: false, error: `Lỗi kết nối Resend API: ${errData?.message || res.statusText}` }), {
-            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
+          const errData = await res.json();
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Lỗi kết nối Resend API: ${errData?.message || res.statusText}`,
+            }),
+            {
+              status: 400,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
         }
       } catch (e: any) {
-        return new Response(JSON.stringify({ success: false, error: `Lỗi mạng khi gọi Resend: ${e.message}` }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
+        return new Response(
+          JSON.stringify({ success: false, error: `Lỗi mạng khi gọi Resend: ${e.message}` }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
 
       // Encrypt and Upsert into sender_account_tokens
       const tokenEncKey = Deno.env.get("TOKEN_ENCRYPTION_KEY") || supabaseServiceKey;
       const accessTokenEnc = await encryptToken(trimmedKey, tokenEncKey);
-      
-      const { error: upsertErr } = await adminClient.from("sender_account_tokens").upsert({
-        sender_account_id,
-        access_token_enc: accessTokenEnc,
-        refresh_token_enc: "",
-        token_expires_at: "2099-12-31T23:59:59Z", // Mãi mãi trừ khi bị revoke
-        updated_at: new Date().toISOString()
-      }, { onConflict: "sender_account_id" });
+
+      const { error: upsertErr } = await adminClient.from("sender_account_tokens").upsert(
+        {
+          sender_account_id,
+          access_token_enc: accessTokenEnc,
+          refresh_token_enc: "",
+          token_expires_at: "2099-12-31T23:59:59Z", // Mãi mãi trừ khi bị revoke
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "sender_account_id" },
+      );
 
       if (upsertErr) throw upsertErr;
       isKeyConfigured = true;
     } else {
       // Nếu không nhập key, check xem đã có key trong DB chưa
-      const { data: existingToken } = await adminClient.from("sender_account_tokens")
-         .select("access_token_enc")
-         .eq("sender_account_id", sender_account_id)
-         .maybeSingle();
-      
+      const { data: existingToken } = await adminClient
+        .from("sender_account_tokens")
+        .select("access_token_enc")
+        .eq("sender_account_id", sender_account_id)
+        .maybeSingle();
+
       if (existingToken?.access_token_enc) {
-         isKeyConfigured = true;
+        isKeyConfigured = true;
       } else {
-         missing_config.push("RESEND_API_KEY_FOR_SENDER");
+        missing_config.push("RESEND_API_KEY_FOR_SENDER");
       }
     }
 
     // 4. Update metadata in sender_accounts
-    const { error: updateErr } = await adminClient.from("sender_accounts").update({
-      provider: "resend",
-      auth_type: "api_key",
-      sender_email: sender_email || null,
-      sender_name: sender_name || null,
-      health_status: isKeyConfigured ? (domain_status === "verified" ? "healthy" : "warning") : "error",
-      status: isKeyConfigured ? "active" : "error",
-      is_active: isKeyConfigured,
-      updated_at: new Date().toISOString()
-    }).eq("id", sender_account_id);
+    const { error: updateErr } = await adminClient
+      .from("sender_accounts")
+      .update({
+        provider: "resend",
+        auth_type: "api_key",
+        sender_email: sender_email || null,
+        sender_name: sender_name || null,
+        health_status: isKeyConfigured
+          ? domain_status === "verified"
+            ? "healthy"
+            : "warning"
+          : "error",
+        status: isKeyConfigured ? "active" : "error",
+        is_active: isKeyConfigured,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", sender_account_id);
 
     if (updateErr) throw updateErr;
 
@@ -165,20 +214,23 @@ serve(async (req) => {
       note: `Updated Resend configuration (auth_type=api_key). Key updated: ${api_key ? "yes" : "no"}`,
     });
 
-    return new Response(JSON.stringify({
-      success: true,
-      configured: isKeyConfigured,
-      api_key_configured: isKeyConfigured,
-      from_email: sender_email,
-      domain_status,
-      can_send_test: isKeyConfigured && domain_status === "verified",
-      missing_config,
-      message: "Cập nhật cấu hình thành công"
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
+    return new Response(
+      JSON.stringify({
+        success: true,
+        configured: isKeyConfigured,
+        api_key_configured: isKeyConfigured,
+        from_email: sender_email,
+        domain_status,
+        can_send_test: isKeyConfigured && domain_status === "verified",
+        missing_config,
+        message: "Cập nhật cấu hình thành công",
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (err: any) {
     return new Response(JSON.stringify({ success: false, error: err.message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

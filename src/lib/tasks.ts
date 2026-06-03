@@ -1,8 +1,8 @@
 import { isPast, isToday } from "date-fns";
 
-export type TaskType = 'call' | 'visit' | 'quotation' | 'contract' | 'follow_up' | 'onboarding';
-export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
-export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent';
+export type TaskType = "call" | "visit" | "quotation" | "contract" | "follow_up" | "onboarding";
+export type TaskStatus = "pending" | "in_progress" | "completed" | "cancelled";
+export type TaskPriority = "low" | "normal" | "high" | "urgent";
 
 /**
  * Trả về nhãn hiển thị cho loại công việc
@@ -49,8 +49,8 @@ export const getTaskPriorityLabel = (priority: string): string => {
  * Kiểm tra xem công việc có bị quá hạn không
  */
 export const isTaskOverdue = (dueAt: string | null | undefined, status: string): boolean => {
-  if (!dueAt || status === 'completed' || status === 'cancelled') return false;
-  
+  if (!dueAt || status === "completed" || status === "cancelled") return false;
+
   const dueDate = new Date(dueAt);
   // Quá hạn nếu là quá khứ và không phải hôm nay (hoặc nếu cần chính xác đến từng phút thì dùng isPast)
   return isPast(dueDate) && !isToday(dueDate);

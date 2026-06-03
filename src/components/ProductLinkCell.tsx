@@ -9,6 +9,7 @@ type Props = {
   productNo: number;
   href?: string;
   onChange: (href: string | undefined) => void;
+  isReadOnly?: boolean;
 };
 
 const normalize = (raw: string): string | undefined => {
@@ -18,8 +19,9 @@ const normalize = (raw: string): string | undefined => {
   return `https://${v}`;
 };
 
-const ProductLinkCell = ({ productNo, href, onChange }: Props) => {
-  const { unlocked, getPassword } = useEditUnlock();
+const ProductLinkCell = ({ productNo, href, onChange, isReadOnly = false }: Props) => {
+  const { unlocked: editUnlocked, getPassword } = useEditUnlock();
+  const unlocked = isReadOnly ? false : editUnlocked;
   const [open, setOpen] = useState(false);
   const [askUnlock, setAskUnlock] = useState(false);
   const [value, setValue] = useState(href ?? "");
@@ -28,6 +30,7 @@ const ProductLinkCell = ({ productNo, href, onChange }: Props) => {
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const requestOpen = () => {
+    if (isReadOnly) return;
     if (!unlocked) {
       setAskUnlock(true);
       return;
@@ -112,7 +115,6 @@ const ProductLinkCell = ({ productNo, href, onChange }: Props) => {
           Link
           <ExternalLink className="w-3 h-3 ml-1 inline-block opacity-70" />
         </a>
-
       ) : unlocked ? (
         <button
           type="button"
@@ -138,11 +140,7 @@ const ProductLinkCell = ({ productNo, href, onChange }: Props) => {
         </button>
       )}
 
-      <UnlockDialog
-        open={askUnlock}
-        onOpenChange={setAskUnlock}
-        onUnlocked={() => setOpen(true)}
-      />
+      <UnlockDialog open={askUnlock} onOpenChange={setAskUnlock} onUnlocked={() => setOpen(true)} />
 
       {open && unlocked && (
         <div
@@ -191,7 +189,11 @@ const ProductLinkCell = ({ productNo, href, onChange }: Props) => {
                 disabled={saving}
                 className="h-8 px-3 text-xs rounded bg-primary text-primary-foreground font-semibold inline-flex items-center gap-1 hover:opacity-90 disabled:opacity-50"
               >
-                {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                {saving ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Check className="w-3 h-3" />
+                )}
                 Lưu
               </button>
             </div>

@@ -2,21 +2,21 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { 
-  ArrowLeft, 
-  CheckCircle2, 
-  Clock, 
-  Play, 
-  PhoneOff, 
-  Flame, 
-  UserCheck, 
-  Plus, 
-  Search, 
-  Loader2, 
-  AlertCircle, 
-  Calendar, 
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Clock,
+  Play,
+  PhoneOff,
+  Flame,
+  UserCheck,
+  Plus,
+  Search,
+  Loader2,
+  AlertCircle,
+  Calendar,
   ListTodo,
-  FileText
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -104,14 +104,18 @@ export function TasksPage() {
   const { user, isAdmin, isSubAdmin, isTeleLead, isSale, isTelesale } = useAuth();
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Bộ lọc danh sách
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  
+
   // Danh sách nhân sự phụ trách để ánh xạ và tạo việc
-  const [staffList, setStaffList] = useState<Array<{ id: string; display_name?: string; email?: string }>>([]);
-  const [customersList, setCustomersList] = useState<Array<{ id: string; name: string; phone?: string }>>([]);
+  const [staffList, setStaffList] = useState<
+    Array<{ id: string; display_name?: string; email?: string }>
+  >([]);
+  const [customersList, setCustomersList] = useState<
+    Array<{ id: string; name: string; phone?: string }>
+  >([]);
 
   const isMock = !!localStorage.getItem("mock_session") || !!localStorage.getItem("mock_tasks");
   const [useLocalFallback, setUseLocalFallback] = useState(isMock);
@@ -136,11 +140,13 @@ export function TasksPage() {
       try {
         const { data: profs } = await supabase.from("profiles").select("id, display_name, email");
         if (profs) {
-          setStaffList(profs.map((p: any) => ({
-            id: p.id,
-            display_name: p.display_name || p.email?.split("@")[0],
-            email: p.email
-          })));
+          setStaffList(
+            profs.map((p: any) => ({
+              id: p.id,
+              display_name: p.display_name || p.email?.split("@")[0],
+              email: p.email,
+            })),
+          );
         }
 
         let fetchedCustomers: any[] = [];
@@ -160,8 +166,10 @@ export function TasksPage() {
             .from("customer_tasks")
             .select("customer_id")
             .eq("assigned_to", user.id);
-          
-          const customerIds = Array.from(new Set((tasksData || []).map((t: any) => t.customer_id).filter(Boolean)));
+
+          const customerIds = Array.from(
+            new Set((tasksData || []).map((t: any) => t.customer_id).filter(Boolean)),
+          );
           if (customerIds.length > 0) {
             const { data: custData } = await query.in("id", customerIds);
             fetchedCustomers = custData || [];
@@ -207,7 +215,11 @@ export function TasksPage() {
       let data = JSON.parse(localStorage.getItem("mock_tasks") || "[]");
       if (data.length === 0) {
         data = [...defaultBaselineTasks];
-        try { localStorage.setItem("mock_tasks", JSON.stringify(data)); } catch { /* ignore */ }
+        try {
+          localStorage.setItem("mock_tasks", JSON.stringify(data));
+        } catch {
+          /* ignore */
+        }
       }
       setTasks(data);
       setLoading(false);
@@ -218,7 +230,8 @@ export function TasksPage() {
       // Tối ưu hóa truy vấn RLS: Lấy toàn bộ task mà dải bảo mật cho phép đọc
       const { data, error } = await supabase
         .from("customer_tasks")
-        .select(`
+        .select(
+          `
           *,
           customer:customers(
             id,
@@ -228,7 +241,8 @@ export function TasksPage() {
             facility_name,
             phone
           )
-        `)
+        `,
+        )
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -266,7 +280,11 @@ export function TasksPage() {
       let localData = JSON.parse(localStorage.getItem("mock_tasks") || "[]");
       if (localData.length === 0) {
         localData = [...defaultBaselineTasks];
-        try { localStorage.setItem("mock_tasks", JSON.stringify(localData)); } catch { /* ignore */ }
+        try {
+          localStorage.setItem("mock_tasks", JSON.stringify(localData));
+        } catch {
+          /* ignore */
+        }
       }
       setTasks(localData);
       toast.success("Đã kích hoạt dải dữ liệu tác vụ dự phòng cục bộ");
@@ -281,7 +299,7 @@ export function TasksPage() {
 
   // Bộ lọc tính toán
   const filteredTasks = useMemo(() => {
-    return tasks.filter(t => {
+    return tasks.filter((t) => {
       // Lọc từ khóa
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -305,19 +323,25 @@ export function TasksPage() {
   }, [tasks, searchQuery, statusFilter]);
 
   // CÁC THАО TÁC XỬ LÝ NHANH CỦA NHÂN VIÊN (QUICK UPDATE ACTIONS)
-  const updateTaskFields = async (taskId: string, fields: Partial<TaskItem>, successMsg: string) => {
+  const updateTaskFields = async (
+    taskId: string,
+    fields: Partial<TaskItem>,
+    successMsg: string,
+  ) => {
     // 1. Cập nhật giao diện lập tức (Optimistic updates)
-    setTasks(prev => prev.map(item => {
-      if (item.id === taskId) {
-        return { ...item, ...fields, updated_at: new Date().toISOString() };
-      }
-      return item;
-    }));
+    setTasks((prev) =>
+      prev.map((item) => {
+        if (item.id === taskId) {
+          return { ...item, ...fields, updated_at: new Date().toISOString() };
+        }
+        return item;
+      }),
+    );
 
     // 2. Ghi đệm cache nếu dùng Fallback
     if (useLocalFallback) {
       let data = JSON.parse(localStorage.getItem("mock_tasks") || "[]");
-      data = data.map((item: any) => item.id === taskId ? { ...item, ...fields } : item);
+      data = data.map((item: any) => (item.id === taskId ? { ...item, ...fields } : item));
       localStorage.setItem("mock_tasks", JSON.stringify(data));
       toast.success(successMsg);
       return;
@@ -335,37 +359,57 @@ export function TasksPage() {
   };
 
   const handleStartTask = (id: string) => {
-    updateTaskFields(id, { 
-      status: "in_progress", 
-      started_at: new Date().toISOString() 
-    }, "▶️ Đã bắt đầu thực hiện công việc!");
+    updateTaskFields(
+      id,
+      {
+        status: "in_progress",
+        started_at: new Date().toISOString(),
+      },
+      "▶️ Đã bắt đầu thực hiện công việc!",
+    );
   };
 
   const handleCompleteTask = (id: string) => {
-    updateTaskFields(id, { 
-      status: "completed", 
-      completed_at: new Date().toISOString() 
-    }, "✅ Đã đánh dấu hoàn thành tác vụ!");
+    updateTaskFields(
+      id,
+      {
+        status: "completed",
+        completed_at: new Date().toISOString(),
+      },
+      "✅ Đã đánh dấu hoàn thành tác vụ!",
+    );
   };
 
   const handleNoAnswer = (id: string) => {
-    updateTaskFields(id, { 
-      result: "no_answer",
-      status: "completed",
-      completed_at: new Date().toISOString() 
-    }, "🔇 Đã ghi nhận: Khách không nghe máy.");
+    updateTaskFields(
+      id,
+      {
+        result: "no_answer",
+        status: "completed",
+        completed_at: new Date().toISOString(),
+      },
+      "🔇 Đã ghi nhận: Khách không nghe máy.",
+    );
   };
 
   const handleMarkInterested = (id: string) => {
-    updateTaskFields(id, { 
-      result: "interested" 
-    }, "🔥 Ghi nhận thành công: Khách có quan tâm!");
+    updateTaskFields(
+      id,
+      {
+        result: "interested",
+      },
+      "🔥 Ghi nhận thành công: Khách có quan tâm!",
+    );
   };
 
   const handleTransferToSale = (id: string) => {
-    updateTaskFields(id, { 
-      result: "transfer_to_sale" 
-    }, "➡️ Đã gắn cờ: Cần chuyển giao Sale thị trường chăm sóc tiếp!");
+    updateTaskFields(
+      id,
+      {
+        result: "transfer_to_sale",
+      },
+      "➡️ Đã gắn cờ: Cần chuyển giao Sale thị trường chăm sóc tiếp!",
+    );
   };
 
   // Tạo tác vụ phân công mới
@@ -395,7 +439,8 @@ export function TasksPage() {
         id: crypto.randomUUID(),
         created_at: new Date().toISOString(),
         ...payload,
-        customer_name: customersList.find(c => c.id === payload.customer_id)?.name || "Khách tự do",
+        customer_name:
+          customersList.find((c) => c.id === payload.customer_id)?.name || "Khách tự do",
       };
       let data = JSON.parse(localStorage.getItem("mock_tasks") || "[]");
       data.unshift(newItem);
@@ -421,8 +466,8 @@ export function TasksPage() {
 
   const getStaffLabel = (id?: string | null) => {
     if (!id) return "—";
-    const found = staffList.find(s => s.id === id);
-    return found ? found.display_name || found.email : "ID: " + id.slice(0,6);
+    const found = staffList.find((s) => s.id === id);
+    return found ? found.display_name || found.email : "ID: " + id.slice(0, 6);
   };
 
   return (
@@ -431,7 +476,10 @@ export function TasksPage() {
       <header className="border-b border-border bg-white shadow-2xs sticky top-0 z-20">
         <div className="container mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link to="/" className="text-xs font-semibold text-slate-500 hover:text-primary transition-colors flex items-center gap-1 bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-lg">
+            <Link
+              to="/"
+              className="text-xs font-semibold text-slate-500 hover:text-primary transition-colors flex items-center gap-1 bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-lg"
+            >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Trang chủ</span>
             </Link>
@@ -442,7 +490,11 @@ export function TasksPage() {
             </h1>
           </div>
           <div>
-            <Button onClick={() => setOpenInsert(true)} size="sm" className="font-bold bg-primary hover:bg-primary/90 shadow-xs">
+            <Button
+              onClick={() => setOpenInsert(true)}
+              size="sm"
+              className="font-bold bg-primary hover:bg-primary/90 shadow-xs"
+            >
               <Plus className="w-4 h-4 mr-1.5" /> Giao việc nhanh
             </Button>
           </div>
@@ -453,27 +505,43 @@ export function TasksPage() {
         {/* THỐNG KÊ NHANH (RICH AESTHETICS COUNTERS) */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">⏳ Chờ xử lý</div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              ⏳ Chờ xử lý
+            </div>
             <div className="text-base font-extrabold text-amber-600 mt-0.5">
-              {tasks.filter(t => t.status === "pending").length}
+              {tasks.filter((t) => t.status === "pending").length}
             </div>
           </div>
           <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">▶️ Đang thực hiện</div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              ▶️ Đang thực hiện
+            </div>
             <div className="text-base font-extrabold text-blue-600 mt-0.5">
-              {tasks.filter(t => t.status === "in_progress").length}
+              {tasks.filter((t) => t.status === "in_progress").length}
             </div>
           </div>
           <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">✅ Đã hoàn thành</div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              ✅ Đã hoàn thành
+            </div>
             <div className="text-base font-extrabold text-emerald-600 mt-0.5">
-              {tasks.filter(t => t.status === "completed").length}
+              {tasks.filter((t) => t.status === "completed").length}
             </div>
           </div>
           <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">⏰ Quá hạn (Overdue)</div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              ⏰ Quá hạn (Overdue)
+            </div>
             <div className="text-base font-extrabold text-red-600 mt-0.5">
-              {tasks.filter(t => t.status !== "completed" && t.status !== "cancelled" && t.due_at && new Date(t.due_at).getTime() < Date.now()).length}
+              {
+                tasks.filter(
+                  (t) =>
+                    t.status !== "completed" &&
+                    t.status !== "cancelled" &&
+                    t.due_at &&
+                    new Date(t.due_at).getTime() < Date.now(),
+                ).length
+              }
             </div>
           </div>
         </div>
@@ -494,7 +562,9 @@ export function TasksPage() {
             <button
               onClick={() => setStatusFilter("all")}
               className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
-                statusFilter === "all" ? "bg-slate-900 text-white shadow-2xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                statusFilter === "all"
+                  ? "bg-slate-900 text-white shadow-2xs"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
             >
               Tất cả
@@ -502,7 +572,9 @@ export function TasksPage() {
             <button
               onClick={() => setStatusFilter("pending")}
               className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
-                statusFilter === "pending" ? "bg-amber-600 text-white shadow-2xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                statusFilter === "pending"
+                  ? "bg-amber-600 text-white shadow-2xs"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
             >
               Chờ xử lý
@@ -510,7 +582,9 @@ export function TasksPage() {
             <button
               onClick={() => setStatusFilter("in_progress")}
               className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
-                statusFilter === "in_progress" ? "bg-blue-600 text-white shadow-2xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                statusFilter === "in_progress"
+                  ? "bg-blue-600 text-white shadow-2xs"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
             >
               Đang làm
@@ -518,7 +592,9 @@ export function TasksPage() {
             <button
               onClick={() => setStatusFilter("completed")}
               className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
-                statusFilter === "completed" ? "bg-emerald-600 text-white shadow-2xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                statusFilter === "completed"
+                  ? "bg-emerald-600 text-white shadow-2xs"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
             >
               Hoàn thành
@@ -526,7 +602,9 @@ export function TasksPage() {
             <button
               onClick={() => setStatusFilter("overdue")}
               className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
-                statusFilter === "overdue" ? "bg-red-600 text-white shadow-2xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                statusFilter === "overdue"
+                  ? "bg-red-600 text-white shadow-2xs"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
             >
               ⚠️ Quá hạn
@@ -543,26 +621,38 @@ export function TasksPage() {
         ) : filteredTasks.length === 0 ? (
           <div className="bg-white border border-slate-200 rounded-xl p-12 text-center text-slate-400">
             <AlertCircle className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-            <p className="text-xs font-medium">Không tìm thấy công việc nào tương ứng với bộ lọc hiện tại.</p>
+            <p className="text-xs font-medium">
+              Không tìm thấy công việc nào tương ứng với bộ lọc hiện tại.
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredTasks.map(t => {
+            {filteredTasks.map((t) => {
               const st = STATUS_LABELS[t.status] || STATUS_LABELS.pending;
-              const isOverdue = t.status !== "completed" && t.status !== "cancelled" && t.due_at && new Date(t.due_at).getTime() < Date.now();
+              const isOverdue =
+                t.status !== "completed" &&
+                t.status !== "cancelled" &&
+                t.due_at &&
+                new Date(t.due_at).getTime() < Date.now();
               const isAssignedToMe = t.assigned_to === user?.id;
 
               return (
-                <div 
-                  key={t.id} 
+                <div
+                  key={t.id}
                   className={`bg-white border rounded-xl shadow-2xs hover:shadow-md transition-all flex flex-col overflow-hidden relative ${
                     isOverdue ? "border-red-300 bg-red-50/10" : "border-slate-200/80"
                   }`}
                 >
                   {/* Nhãn viền ưu tiên */}
-                  <div className={`h-1.5 w-full ${
-                    t.priority === "high" ? "bg-red-500" : t.priority === "low" ? "bg-slate-300" : "bg-blue-500"
-                  }`}></div>
+                  <div
+                    className={`h-1.5 w-full ${
+                      t.priority === "high"
+                        ? "bg-red-500"
+                        : t.priority === "low"
+                          ? "bg-slate-300"
+                          : "bg-blue-500"
+                    }`}
+                  ></div>
 
                   <div className="p-4 flex-1 space-y-3">
                     {/* Hàng 1: Loại hình & Trạng thái */}
@@ -570,14 +660,19 @@ export function TasksPage() {
                       <span className="text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60">
                         {TASK_TYPE_LABELS[t.task_type] || t.task_type}
                       </span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${st.bg} ${st.text_color}`}>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${st.bg} ${st.text_color}`}
+                      >
                         {st.text}
                       </span>
                     </div>
 
                     {/* Tiêu đề chính */}
                     <div>
-                      <h3 className="font-bold text-slate-900 text-sm leading-snug line-clamp-2" title={t.title}>
+                      <h3
+                        className="font-bold text-slate-900 text-sm leading-snug line-clamp-2"
+                        title={t.title}
+                      >
                         {t.title}
                       </h3>
                       {t.note && (
@@ -591,8 +686,8 @@ export function TasksPage() {
                     <div className="bg-slate-50/80 p-2.5 rounded-lg border border-slate-100 space-y-1 text-xs">
                       <div className="flex items-center justify-between font-semibold text-slate-800">
                         {t.customer_id ? (
-                          <Link 
-                            to="/customers/$id" 
+                          <Link
+                            to="/customers/$id"
                             params={{ id: t.customer_id }}
                             className="hover:underline hover:text-indigo-600 transition-colors cursor-pointer flex items-center gap-1 truncate"
                           >
@@ -606,19 +701,27 @@ export function TasksPage() {
                       </div>
                       {t.customer && (
                         <div className="text-[11px] text-slate-500 font-medium">
-                          🏢 {t.customer.business_name || t.customer.facility_name || "Chưa có cơ sở"}
+                          🏢{" "}
+                          {t.customer.business_name || t.customer.facility_name || "Chưa có cơ sở"}
                         </div>
                       )}
                       <div className="text-[11px] text-slate-500 font-mono">
-                        Liên hệ: <strong className="text-slate-700">{t.customer_phone || "—"}</strong>
+                        Liên hệ:{" "}
+                        <strong className="text-slate-700">{t.customer_phone || "—"}</strong>
                       </div>
                     </div>
 
                     {/* Thông tin Người thực hiện & Hạn chót */}
                     <div className="pt-1 text-[11px] space-y-1 text-slate-500 border-t border-slate-100">
                       <div className="flex items-center justify-between">
-                        <span>Phụ trách: <strong>{getStaffLabel(t.assigned_to)}</strong></span>
-                        {isAssignedToMe && <span className="text-[9px] bg-purple-100 text-purple-800 font-bold px-1 rounded">Của bạn</span>}
+                        <span>
+                          Phụ trách: <strong>{getStaffLabel(t.assigned_to)}</strong>
+                        </span>
+                        {isAssignedToMe && (
+                          <span className="text-[9px] bg-purple-100 text-purple-800 font-bold px-1 rounded">
+                            Của bạn
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-between">
@@ -626,8 +729,15 @@ export function TasksPage() {
                           <Clock className="w-3 h-3 text-slate-400" />
                           <span>Hạn chót:</span>
                         </span>
-                        <span className={`font-mono font-medium ${isOverdue ? "text-red-600 font-bold" : "text-slate-700"}`}>
-                          {t.due_at ? new Date(t.due_at).toLocaleDateString("vi-VN", { hour: '2-digit', minute: '2-digit' }) : "Không thời hạn"}
+                        <span
+                          className={`font-mono font-medium ${isOverdue ? "text-red-600 font-bold" : "text-slate-700"}`}
+                        >
+                          {t.due_at
+                            ? new Date(t.due_at).toLocaleDateString("vi-VN", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : "Không thời hạn"}
                         </span>
                       </div>
                     </div>
@@ -646,9 +756,9 @@ export function TasksPage() {
                   <div className="p-2.5 bg-slate-50 border-t border-slate-100 grid grid-cols-2 gap-1.5 text-xs">
                     {/* Nhóm cập nhật tiến độ */}
                     {t.status === "pending" && (
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => handleStartTask(t.id)}
                         className="h-8 text-xs font-bold border-blue-200 text-blue-700 hover:bg-blue-50 col-span-2"
                       >
@@ -657,8 +767,8 @@ export function TasksPage() {
                     )}
 
                     {t.status === "in_progress" && (
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         onClick={() => handleCompleteTask(t.id)}
                         className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white col-span-2 shadow-2xs"
                       >
@@ -714,10 +824,12 @@ export function TasksPage() {
 
           <div className="space-y-3 py-2">
             <div className="space-y-1">
-              <Label className="text-xs font-bold text-slate-700">Tiêu đề công việc <span className="text-red-500">*</span></Label>
+              <Label className="text-xs font-bold text-slate-700">
+                Tiêu đề công việc <span className="text-red-500">*</span>
+              </Label>
               <Input
                 value={form.title}
-                onChange={e => setForm({ ...form, title: e.target.value })}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
                 placeholder="VD: Gọi điện chăm sóc hỏi thăm chất lượng sản phẩm..."
                 className="h-8 text-xs"
               />
@@ -726,13 +838,18 @@ export function TasksPage() {
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-xs font-bold text-slate-700">Loại hình</Label>
-                <Select value={form.task_type} onValueChange={val => setForm({ ...form, task_type: val })}>
+                <Select
+                  value={form.task_type}
+                  onValueChange={(val) => setForm({ ...form, task_type: val })}
+                >
                   <SelectTrigger className="h-8 text-xs bg-white">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {Object.entries(TASK_TYPE_LABELS).map(([k, v]) => (
-                      <SelectItem key={k} value={k} className="text-xs font-medium">{v}</SelectItem>
+                      <SelectItem key={k} value={k} className="text-xs font-medium">
+                        {v}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -740,28 +857,44 @@ export function TasksPage() {
 
               <div className="space-y-1">
                 <Label className="text-xs font-bold text-slate-700">Độ ưu tiên</Label>
-                <Select value={form.priority} onValueChange={val => setForm({ ...form, priority: val })}>
+                <Select
+                  value={form.priority}
+                  onValueChange={(val) => setForm({ ...form, priority: val })}
+                >
                   <SelectTrigger className="h-8 text-xs bg-white">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="high" className="text-xs font-bold text-red-600">🔴 Cao (High)</SelectItem>
-                    <SelectItem value="normal" className="text-xs font-medium text-slate-700">🔵 Bình thường</SelectItem>
-                    <SelectItem value="low" className="text-xs text-slate-400">⚪ Thấp</SelectItem>
+                    <SelectItem value="high" className="text-xs font-bold text-red-600">
+                      🔴 Cao (High)
+                    </SelectItem>
+                    <SelectItem value="normal" className="text-xs font-medium text-slate-700">
+                      🔵 Bình thường
+                    </SelectItem>
+                    <SelectItem value="low" className="text-xs text-slate-400">
+                      ⚪ Thấp
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs font-bold text-slate-700">Giao cho nhân sự (Assigned to)</Label>
-              <Select value={form.assigned_to} onValueChange={val => setForm({ ...form, assigned_to: val })}>
+              <Label className="text-xs font-bold text-slate-700">
+                Giao cho nhân sự (Assigned to)
+              </Label>
+              <Select
+                value={form.assigned_to}
+                onValueChange={(val) => setForm({ ...form, assigned_to: val })}
+              >
                 <SelectTrigger className="h-8 text-xs bg-white">
                   <SelectValue placeholder="Chọn nhân viên thực hiện" />
                 </SelectTrigger>
                 <SelectContent className="max-h-40">
-                  <SelectItem value="" className="text-xs italic text-slate-400">— Giao cho chính tôi —</SelectItem>
-                  {staffList.map(s => (
+                  <SelectItem value="" className="text-xs italic text-slate-400">
+                    — Giao cho chính tôi —
+                  </SelectItem>
+                  {staffList.map((s) => (
                     <SelectItem key={s.id} value={s.id} className="text-xs">
                       👤 {s.display_name}
                     </SelectItem>
@@ -772,15 +905,20 @@ export function TasksPage() {
 
             <div className="space-y-1">
               <Label className="text-xs font-bold text-slate-700">Khách hàng liên quan</Label>
-              <Select value={form.customer_id} onValueChange={val => setForm({ ...form, customer_id: val })}>
+              <Select
+                value={form.customer_id}
+                onValueChange={(val) => setForm({ ...form, customer_id: val })}
+              >
                 <SelectTrigger className="h-8 text-xs bg-white">
                   <SelectValue placeholder="Chọn khách hàng" />
                 </SelectTrigger>
                 <SelectContent className="max-h-40">
-                  <SelectItem value="" className="text-xs italic text-slate-400">— Khách tự do (Không đính kèm) —</SelectItem>
-                  {customersList.map(c => (
+                  <SelectItem value="" className="text-xs italic text-slate-400">
+                    — Khách tự do (Không đính kèm) —
+                  </SelectItem>
+                  {customersList.map((c) => (
                     <SelectItem key={c.id} value={c.id} className="text-xs">
-                      👥 {c.name} {c.phone ? `(${c.phone})` : ''}
+                      👥 {c.name} {c.phone ? `(${c.phone})` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -792,7 +930,7 @@ export function TasksPage() {
               <Input
                 type="datetime-local"
                 value={form.due_at}
-                onChange={e => setForm({ ...form, due_at: e.target.value })}
+                onChange={(e) => setForm({ ...form, due_at: e.target.value })}
                 className="h-8 text-xs"
               />
             </div>
@@ -801,7 +939,7 @@ export function TasksPage() {
               <Label className="text-xs font-bold text-slate-700">Ghi chú hướng dẫn</Label>
               <Input
                 value={form.note}
-                onChange={e => setForm({ ...form, note: e.target.value })}
+                onChange={(e) => setForm({ ...form, note: e.target.value })}
                 placeholder="VD: Cần nhấn mạnh chương trình chiết khấu 30%..."
                 className="h-8 text-xs"
               />
@@ -809,10 +947,19 @@ export function TasksPage() {
           </div>
 
           <DialogFooter className="pt-2 border-t border-slate-100">
-            <Button variant="outline" onClick={() => setOpenInsert(false)} disabled={inserting} className="h-8 text-xs font-bold">
+            <Button
+              variant="outline"
+              onClick={() => setOpenInsert(false)}
+              disabled={inserting}
+              className="h-8 text-xs font-bold"
+            >
               Hủy
             </Button>
-            <Button onClick={handleSaveInsert} disabled={inserting} className="h-8 text-xs font-bold bg-primary hover:bg-primary/90">
+            <Button
+              onClick={handleSaveInsert}
+              disabled={inserting}
+              className="h-8 text-xs font-bold bg-primary hover:bg-primary/90"
+            >
               {inserting && <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />}
               Giao việc
             </Button>

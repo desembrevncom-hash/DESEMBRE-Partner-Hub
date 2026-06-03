@@ -17,47 +17,54 @@ export function useWorkspaceDashboard() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDashboardData = useCallback(async (forceRefresh = false) => {
-    if (!user) return;
-    
-    try {
-      setLoading(true);
-      setError(null);
+  const fetchDashboardData = useCallback(
+    async (forceRefresh = false) => {
+      if (!user) return;
 
-      // Check cache first if not forced
-      if (!forceRefresh) {
-        const cached = localStorage.getItem(CACHE_KEY);
-        if (cached) {
-          const parsedCache: CacheItem = JSON.parse(cached);
-          if (Date.now() - parsedCache.timestamp < CACHE_TTL_MS) {
-            setData(parsedCache.data);
-            setLoading(false);
-            return;
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Check cache first if not forced
+        if (!forceRefresh) {
+          const cached = localStorage.getItem(CACHE_KEY);
+          if (cached) {
+            const parsedCache: CacheItem = JSON.parse(cached);
+            if (Date.now() - parsedCache.timestamp < CACHE_TTL_MS) {
+              setData(parsedCache.data);
+              setLoading(false);
+              return;
+            }
           }
         }
+
+        // Fetch from RPC
+        const { data: rpcData, error: rpcError } = await supabase.rpc(
+          "get_workspace_execution_dashboard",
+        );
+
+        if (rpcError) throw rpcError;
+
+        const parsedData = rpcData as WorkspaceExecutionData;
+        setData(parsedData);
+
+        // Save to cache
+        localStorage.setItem(
+          CACHE_KEY,
+          JSON.stringify({
+            timestamp: Date.now(),
+            data: parsedData,
+          }),
+        );
+      } catch (err: any) {
+        console.error("Error fetching workspace execution dashboard:", err);
+        setError(err.message || "Failed to load dashboard data");
+      } finally {
+        setLoading(false);
       }
-
-      // Fetch from RPC
-      const { data: rpcData, error: rpcError } = await supabase.rpc("get_workspace_execution_dashboard");
-
-      if (rpcError) throw rpcError;
-
-      const parsedData = rpcData as WorkspaceExecutionData;
-      setData(parsedData);
-
-      // Save to cache
-      localStorage.setItem(CACHE_KEY, JSON.stringify({
-        timestamp: Date.now(),
-        data: parsedData
-      }));
-
-    } catch (err: any) {
-      console.error("Error fetching workspace execution dashboard:", err);
-      setError(err.message || "Failed to load dashboard data");
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+    },
+    [user],
+  );
 
   useEffect(() => {
     fetchDashboardData();
@@ -67,6 +74,6 @@ export function useWorkspaceDashboard() {
     data,
     loading,
     error,
-    refetch: () => fetchDashboardData(true)
+    refetch: () => fetchDashboardData(true),
   };
 }

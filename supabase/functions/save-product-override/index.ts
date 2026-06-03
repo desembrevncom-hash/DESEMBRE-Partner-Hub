@@ -16,7 +16,9 @@ const json = (status: number, body: unknown) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-async function requireAdmin(req: Request): Promise<{ ok: true; userId: string } | { ok: false; res: Response }> {
+async function requireAdmin(
+  req: Request,
+): Promise<{ ok: true; userId: string } | { ok: false; res: Response }> {
   const authHeader = req.headers.get("Authorization") ?? "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
   if (!token) return { ok: false, res: json(401, { error: "Chưa đăng nhập" }) };
@@ -24,7 +26,8 @@ async function requireAdmin(req: Request): Promise<{ ok: true; userId: string } 
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
   const { data: userData, error: userErr } = await userClient.auth.getUser();
-  if (userErr || !userData.user) return { ok: false, res: json(401, { error: "Phiên không hợp lệ" }) };
+  if (userErr || !userData.user)
+    return { ok: false, res: json(401, { error: "Phiên không hợp lệ" }) };
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
   const { data: roles } = await admin
     .from("user_roles")
@@ -99,11 +102,12 @@ Deno.serve(async (req) => {
         .upload(path, bytes, { contentType: mime, upsert: true });
       if (upErr) {
         console.error("Storage upload error:", upErr);
-        return json(500, { error: `Không thể tải ảnh lên Storage. Hãy đảm bảo Bucket 'product-images' đã được tạo và ở chế độ Public. Chi tiết: ${upErr.message}` });
+        return json(500, {
+          error: `Không thể tải ảnh lên Storage. Hãy đảm bảo Bucket 'product-images' đã được tạo và ở chế độ Public. Chi tiết: ${upErr.message}`,
+        });
       }
       const { data: pub } = supabase.storage.from("product-images").getPublicUrl(path);
       image_url = pub.publicUrl;
-
     }
   } else if ("image_url" in body) {
     const v = body.image_url;
@@ -133,7 +137,8 @@ Deno.serve(async (req) => {
   const salon_price = pickNum("salon_price");
 
   const deleted = "deleted" in body ? Boolean(body.deleted) : undefined;
-  const is_custom = action === "create" ? true : ("is_custom" in body ? Boolean(body.is_custom) : undefined);
+  const is_custom =
+    action === "create" ? true : "is_custom" in body ? Boolean(body.is_custom) : undefined;
 
   const { data: existing } = await supabase
     .from("product_overrides")
@@ -143,17 +148,17 @@ Deno.serve(async (req) => {
 
   const row: Record<string, unknown> = {
     no,
-    image_url: image_url === undefined ? existing?.image_url ?? null : image_url,
-    link_url: link_url === undefined ? existing?.link_url ?? null : link_url,
-    section: section === undefined ? existing?.section ?? null : section,
-    name: name === undefined ? existing?.name ?? null : name,
-    desc: desc === undefined ? existing?.desc ?? null : desc,
-    retail_size: retail_size === undefined ? existing?.retail_size ?? null : retail_size,
-    retail_price: retail_price === undefined ? existing?.retail_price ?? null : retail_price,
-    salon_size: salon_size === undefined ? existing?.salon_size ?? null : salon_size,
-    salon_price: salon_price === undefined ? existing?.salon_price ?? null : salon_price,
-    deleted: deleted === undefined ? existing?.deleted ?? false : deleted,
-    is_custom: is_custom === undefined ? existing?.is_custom ?? false : is_custom,
+    image_url: image_url === undefined ? (existing?.image_url ?? null) : image_url,
+    link_url: link_url === undefined ? (existing?.link_url ?? null) : link_url,
+    section: section === undefined ? (existing?.section ?? null) : section,
+    name: name === undefined ? (existing?.name ?? null) : name,
+    desc: desc === undefined ? (existing?.desc ?? null) : desc,
+    retail_size: retail_size === undefined ? (existing?.retail_size ?? null) : retail_size,
+    retail_price: retail_price === undefined ? (existing?.retail_price ?? null) : retail_price,
+    salon_size: salon_size === undefined ? (existing?.salon_size ?? null) : salon_size,
+    salon_price: salon_price === undefined ? (existing?.salon_price ?? null) : salon_price,
+    deleted: deleted === undefined ? (existing?.deleted ?? false) : deleted,
+    is_custom: is_custom === undefined ? (existing?.is_custom ?? false) : is_custom,
     updated_at: new Date().toISOString(),
   };
 

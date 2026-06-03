@@ -74,12 +74,54 @@ function buildInitialModules(): HealthModule[] {
       expanded: true,
       loading: false,
       checks: [
-        { id: "no_gps", label: "Khách thiếu GPS", description: "latitude IS NULL hoặc longitude IS NULL", status: "loading", count: null, sql: "SELECT count(*) FROM customers WHERE (latitude IS NULL OR longitude IS NULL) AND deleted_at IS NULL" },
-        { id: "no_owner", label: "Khách thiếu owner", description: "owner_sale_id IS NULL và owner_tele_id IS NULL", status: "loading", count: null, sql: "SELECT count(*) FROM customers WHERE owner_sale_id IS NULL AND owner_tele_id IS NULL AND deleted_at IS NULL" },
-        { id: "no_phone", label: "Khách thiếu SĐT", description: "phone IS NULL hoặc rỗng", status: "loading", count: null, sql: "SELECT count(*) FROM customers WHERE (phone IS NULL OR phone = '') AND deleted_at IS NULL" },
-        { id: "no_norm_phone", label: "Thiếu normalized_phone", description: "normalized_phone IS NULL", status: "loading", count: null, sql: "SELECT count(*) FROM customers WHERE normalized_phone IS NULL AND deleted_at IS NULL" },
-        { id: "dup_phone", label: "Số điện thoại trùng lặp", description: "Nhiều KH có cùng normalized_phone", status: "loading", count: null, sql: "SELECT count(*) FROM (SELECT normalized_phone FROM customers WHERE deleted_at IS NULL GROUP BY normalized_phone HAVING count(*) > 1) t" },
-        { id: "no_name", label: "Khách thiếu tên", description: "name IS NULL hoặc rỗng", status: "loading", count: null, sql: "SELECT count(*) FROM customers WHERE (name IS NULL OR name = '') AND deleted_at IS NULL" },
+        {
+          id: "no_gps",
+          label: "Khách thiếu GPS",
+          description: "latitude IS NULL hoặc longitude IS NULL",
+          status: "loading",
+          count: null,
+          sql: "SELECT count(*) FROM customers WHERE (latitude IS NULL OR longitude IS NULL) AND deleted_at IS NULL",
+        },
+        {
+          id: "no_owner",
+          label: "Khách thiếu owner",
+          description: "owner_sale_id IS NULL và owner_tele_id IS NULL",
+          status: "loading",
+          count: null,
+          sql: "SELECT count(*) FROM customers WHERE owner_sale_id IS NULL AND owner_tele_id IS NULL AND deleted_at IS NULL",
+        },
+        {
+          id: "no_phone",
+          label: "Khách thiếu SĐT",
+          description: "phone IS NULL hoặc rỗng",
+          status: "loading",
+          count: null,
+          sql: "SELECT count(*) FROM customers WHERE (phone IS NULL OR phone = '') AND deleted_at IS NULL",
+        },
+        {
+          id: "no_norm_phone",
+          label: "Thiếu normalized_phone",
+          description: "normalized_phone IS NULL",
+          status: "loading",
+          count: null,
+          sql: "SELECT count(*) FROM customers WHERE normalized_phone IS NULL AND deleted_at IS NULL",
+        },
+        {
+          id: "dup_phone",
+          label: "Số điện thoại trùng lặp",
+          description: "Nhiều KH có cùng normalized_phone",
+          status: "loading",
+          count: null,
+          sql: "SELECT count(*) FROM (SELECT normalized_phone FROM customers WHERE deleted_at IS NULL GROUP BY normalized_phone HAVING count(*) > 1) t",
+        },
+        {
+          id: "no_name",
+          label: "Khách thiếu tên",
+          description: "name IS NULL hoặc rỗng",
+          status: "loading",
+          count: null,
+          sql: "SELECT count(*) FROM customers WHERE (name IS NULL OR name = '') AND deleted_at IS NULL",
+        },
       ],
     },
     {
@@ -90,9 +132,30 @@ function buildInitialModules(): HealthModule[] {
       expanded: false,
       loading: false,
       checks: [
-        { id: "overdue_tasks", label: "Task quá hạn chưa xử lý", description: "due_at < now() và status != 'done'", status: "loading", count: null, sql: "SELECT count(*) FROM customer_tasks WHERE due_at < now() AND status != 'done'" },
-        { id: "orphan_tasks", label: "Task không có khách", description: "customer_id bị NULL hoặc KH đã xoá", status: "loading", count: null, sql: "SELECT count(*) FROM customer_tasks WHERE customer_id IS NULL OR NOT EXISTS (SELECT 1 FROM customers c WHERE c.id = customer_tasks.customer_id AND c.deleted_at IS NULL)" },
-        { id: "no_assignee_tasks", label: "Task chưa assign", description: "assigned_to IS NULL", status: "loading", count: null, sql: "SELECT count(*) FROM customer_tasks WHERE assigned_to IS NULL" },
+        {
+          id: "overdue_tasks",
+          label: "Task quá hạn chưa xử lý",
+          description: "due_at < now() và status != 'done'",
+          status: "loading",
+          count: null,
+          sql: "SELECT count(*) FROM customer_tasks WHERE due_at < now() AND status != 'done'",
+        },
+        {
+          id: "orphan_tasks",
+          label: "Task không có khách",
+          description: "customer_id bị NULL hoặc KH đã xoá",
+          status: "loading",
+          count: null,
+          sql: "SELECT count(*) FROM customer_tasks WHERE customer_id IS NULL OR NOT EXISTS (SELECT 1 FROM customers c WHERE c.id = customer_tasks.customer_id AND c.deleted_at IS NULL)",
+        },
+        {
+          id: "no_assignee_tasks",
+          label: "Task chưa assign",
+          description: "assigned_to IS NULL",
+          status: "loading",
+          count: null,
+          sql: "SELECT count(*) FROM customer_tasks WHERE assigned_to IS NULL",
+        },
       ],
     },
     {
@@ -103,9 +166,30 @@ function buildInitialModules(): HealthModule[] {
       expanded: false,
       loading: false,
       checks: [
-        { id: "orders_no_customer", label: "Orders không có KH", description: "customer_id IS NULL", status: "loading", count: null, sql: "SELECT count(*) FROM orders WHERE customer_id IS NULL" },
-        { id: "orders_no_product", label: "Orders không có sản phẩm", description: "Không có order_items liên kết", status: "loading", count: null, sql: "SELECT count(*) FROM orders o WHERE NOT EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.id)" },
-        { id: "orders_invalid_status", label: "Orders trạng thái không hợp lệ", description: "status NULL hoặc ngoài enum", status: "loading", count: null, sql: "SELECT count(*) FROM orders WHERE status IS NULL" },
+        {
+          id: "orders_no_customer",
+          label: "Orders không có KH",
+          description: "customer_id IS NULL",
+          status: "loading",
+          count: null,
+          sql: "SELECT count(*) FROM orders WHERE customer_id IS NULL",
+        },
+        {
+          id: "orders_no_product",
+          label: "Orders không có sản phẩm",
+          description: "Không có order_items liên kết",
+          status: "loading",
+          count: null,
+          sql: "SELECT count(*) FROM orders o WHERE NOT EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.id)",
+        },
+        {
+          id: "orders_invalid_status",
+          label: "Orders trạng thái không hợp lệ",
+          description: "status NULL hoặc ngoài enum",
+          status: "loading",
+          count: null,
+          sql: "SELECT count(*) FROM orders WHERE status IS NULL",
+        },
       ],
     },
     {
@@ -116,9 +200,30 @@ function buildInitialModules(): HealthModule[] {
       expanded: false,
       loading: false,
       checks: [
-        { id: "broken_conditions", label: "Rules thiếu điều kiện", description: "conditions IS NULL hoặc mảng rỗng", status: "loading", count: null, sql: "SELECT count(*) FROM automation_rules WHERE is_active = true AND (conditions IS NULL OR conditions = '[]'::jsonb)" },
-        { id: "broken_actions", label: "Rules thiếu action", description: "actions IS NULL hoặc mảng rỗng", status: "loading", count: null, sql: "SELECT count(*) FROM automation_rules WHERE is_active = true AND (actions IS NULL OR actions = '[]'::jsonb)" },
-        { id: "rules_no_target", label: "Rules không có trigger event", description: "trigger_event IS NULL", status: "loading", count: null, sql: "SELECT count(*) FROM automation_rules WHERE trigger_event IS NULL AND is_active = true" },
+        {
+          id: "broken_conditions",
+          label: "Rules thiếu điều kiện",
+          description: "conditions IS NULL hoặc mảng rỗng",
+          status: "loading",
+          count: null,
+          sql: "SELECT count(*) FROM automation_rules WHERE is_active = true AND (conditions IS NULL OR conditions = '[]'::jsonb)",
+        },
+        {
+          id: "broken_actions",
+          label: "Rules thiếu action",
+          description: "actions IS NULL hoặc mảng rỗng",
+          status: "loading",
+          count: null,
+          sql: "SELECT count(*) FROM automation_rules WHERE is_active = true AND (actions IS NULL OR actions = '[]'::jsonb)",
+        },
+        {
+          id: "rules_no_target",
+          label: "Rules không có trigger event",
+          description: "trigger_event IS NULL",
+          status: "loading",
+          count: null,
+          sql: "SELECT count(*) FROM automation_rules WHERE trigger_event IS NULL AND is_active = true",
+        },
       ],
     },
     {
@@ -129,8 +234,22 @@ function buildInitialModules(): HealthModule[] {
       expanded: false,
       loading: false,
       checks: [
-        { id: "unread_old", label: "Thông báo cũ chưa đọc (>7 ngày)", description: "read_at IS NULL và created_at < 7 ngày trước", status: "loading", count: null, sql: "SELECT count(*) FROM notifications WHERE read_at IS NULL AND created_at < now() - interval '7 days'" },
-        { id: "notif_no_recipient", label: "Thông báo không có người nhận", description: "recipient_user_id IS NULL", status: "loading", count: null, sql: "SELECT count(*) FROM notifications WHERE recipient_user_id IS NULL" },
+        {
+          id: "unread_old",
+          label: "Thông báo cũ chưa đọc (>7 ngày)",
+          description: "read_at IS NULL và created_at < 7 ngày trước",
+          status: "loading",
+          count: null,
+          sql: "SELECT count(*) FROM notifications WHERE read_at IS NULL AND created_at < now() - interval '7 days'",
+        },
+        {
+          id: "notif_no_recipient",
+          label: "Thông báo không có người nhận",
+          description: "recipient_user_id IS NULL",
+          status: "loading",
+          count: null,
+          sql: "SELECT count(*) FROM notifications WHERE recipient_user_id IS NULL",
+        },
       ],
     },
     {
@@ -141,8 +260,22 @@ function buildInitialModules(): HealthModule[] {
       expanded: true,
       loading: false,
       checks: [
-        { id: "app_error_logs", label: "App Error Logs mới (24h)", description: "Errors sinh ra trong 24h qua", status: "loading", count: null, sql: "SELECT count(*) FROM app_error_logs WHERE created_at > now() - interval '24 hours'" },
-        { id: "retry_queue_failed", label: "Retry Queue Failed", description: "Các job failed trong retry_queue", status: "loading", count: null, sql: "SELECT count(*) FROM retry_queue WHERE status = 'failed'" },
+        {
+          id: "app_error_logs",
+          label: "App Error Logs mới (24h)",
+          description: "Errors sinh ra trong 24h qua",
+          status: "loading",
+          count: null,
+          sql: "SELECT count(*) FROM app_error_logs WHERE created_at > now() - interval '24 hours'",
+        },
+        {
+          id: "retry_queue_failed",
+          label: "Retry Queue Failed",
+          description: "Các job failed trong retry_queue",
+          status: "loading",
+          count: null,
+          sql: "SELECT count(*) FROM retry_queue WHERE status = 'failed'",
+        },
       ],
     },
   ];
@@ -161,11 +294,9 @@ function CRMHealthPage() {
   // ── Fetch logic ──────────────────────────────────────────────────────────
 
   const runCheckForModule = useCallback(async (moduleId: string) => {
-    setModules(prev =>
-      prev.map(m => m.id === moduleId ? { ...m, loading: true } : m)
-    );
+    setModules((prev) => prev.map((m) => (m.id === moduleId ? { ...m, loading: true } : m)));
 
-    const moduleTemplate = buildInitialModules().find(m => m.id === moduleId);
+    const moduleTemplate = buildInitialModules().find((m) => m.id === moduleId);
     if (!moduleTemplate) return;
 
     const results = await Promise.all(
@@ -221,8 +352,11 @@ function CRMHealthPage() {
                 .is("deleted_at", null);
               if (!error && data) {
                 const freq: Record<string, number> = {};
-                data.forEach((r: any) => { if (r.normalized_phone) freq[r.normalized_phone] = (freq[r.normalized_phone] || 0) + 1; });
-                count = Object.values(freq).filter(v => v > 1).length;
+                data.forEach((r: any) => {
+                  if (r.normalized_phone)
+                    freq[r.normalized_phone] = (freq[r.normalized_phone] || 0) + 1;
+                });
+                count = Object.values(freq).filter((v) => v > 1).length;
               }
             }
           } else if (moduleId === "tasks") {
@@ -272,7 +406,9 @@ function CRMHealthPage() {
                   .eq("is_active", true)
                   .is("conditions", null);
                 if (!error) count = c ?? 0;
-              } catch { count = null; }
+              } catch {
+                count = null;
+              }
             } else if (check.id === "broken_actions") {
               try {
                 const { count: c, error } = await supabase
@@ -281,7 +417,9 @@ function CRMHealthPage() {
                   .eq("is_active", true)
                   .is("actions", null);
                 if (!error) count = c ?? 0;
-              } catch { count = null; }
+              } catch {
+                count = null;
+              }
             } else if (check.id === "rules_no_target") {
               try {
                 const { count: c, error } = await supabase
@@ -290,7 +428,9 @@ function CRMHealthPage() {
                   .is("trigger_event", null)
                   .eq("is_active", true);
                 if (!error) count = c ?? 0;
-              } catch { count = null; }
+              } catch {
+                count = null;
+              }
             }
           } else if (moduleId === "notifications") {
             if (check.id === "unread_old") {
@@ -317,7 +457,9 @@ function CRMHealthPage() {
                   .select("id", { count: "exact", head: true })
                   .gt("created_at", oneDayAgo);
                 if (!error) count = c ?? 0;
-              } catch { count = null; }
+              } catch {
+                count = null;
+              }
             } else if (check.id === "retry_queue_failed") {
               try {
                 const { count: c, error } = await supabase
@@ -325,7 +467,9 @@ function CRMHealthPage() {
                   .select("id", { count: "exact", head: true })
                   .eq("status", "failed");
                 if (!error) count = c ?? 0;
-              } catch { count = null; }
+              } catch {
+                count = null;
+              }
             }
           }
 
@@ -334,23 +478,19 @@ function CRMHealthPage() {
         } catch (e: any) {
           return { ...check, count: null, status: "unavailable" as const, detail: e.message };
         }
-      })
+      }),
     );
 
-    setModules(prev =>
-      prev.map(m =>
-        m.id === moduleId
-          ? { ...m, loading: false, checks: results }
-          : m
-      )
+    setModules((prev) =>
+      prev.map((m) => (m.id === moduleId ? { ...m, loading: false, checks: results } : m)),
     );
   }, []);
 
   const runAllChecks = useCallback(async () => {
     if (!isAuthorized) return;
     setGlobalLoading(true);
-    const ids = buildInitialModules().map(m => m.id);
-    await Promise.all(ids.map(id => runCheckForModule(id)));
+    const ids = buildInitialModules().map((m) => m.id);
+    await Promise.all(ids.map((id) => runCheckForModule(id)));
     setLastRefreshed(new Date());
     setGlobalLoading(false);
     toast.success("Đã làm mới toàn bộ CRM Health Data");
@@ -358,11 +498,11 @@ function CRMHealthPage() {
 
   // ── Summary ──────────────────────────────────────────────────────────────
 
-  const allChecks = modules.flatMap(m => m.checks);
+  const allChecks = modules.flatMap((m) => m.checks);
   const totalChecks = allChecks.length;
-  const okCount = allChecks.filter(c => c.status === "ok").length;
-  const warnCount = allChecks.filter(c => c.status === "warning").length;
-  const unavailableCount = allChecks.filter(c => c.status === "unavailable").length;
+  const okCount = allChecks.filter((c) => c.status === "ok").length;
+  const warnCount = allChecks.filter((c) => c.status === "warning").length;
+  const unavailableCount = allChecks.filter((c) => c.status === "unavailable").length;
   const totalIssues = allChecks.reduce((sum, c) => sum + (c.count ?? 0), 0);
 
   // ── Export ───────────────────────────────────────────────────────────────
@@ -372,10 +512,10 @@ function CRMHealthPage() {
       exportedAt: new Date().toISOString(),
       lastRefreshed: lastRefreshed?.toISOString() ?? null,
       summary: { totalChecks, okCount, warnCount, unavailableCount, totalIssues },
-      modules: modules.map(m => ({
+      modules: modules.map((m) => ({
         id: m.id,
         name: m.name,
-        checks: m.checks.map(c => ({
+        checks: m.checks.map((c) => ({
           id: c.id,
           label: c.label,
           status: c.status,
@@ -399,9 +539,7 @@ function CRMHealthPage() {
   // ── Toggle module expand ─────────────────────────────────────────────────
 
   const toggleExpand = (id: string) => {
-    setModules(prev =>
-      prev.map(m => m.id === id ? { ...m, expanded: !m.expanded } : m)
-    );
+    setModules((prev) => prev.map((m) => (m.id === id ? { ...m, expanded: !m.expanded } : m)));
   };
 
   // ── Auth guard ───────────────────────────────────────────────────────────
@@ -482,25 +620,33 @@ function CRMHealthPage() {
         <Card className="border-slate-200 shadow-none">
           <CardContent className="p-4 flex flex-col items-center text-center">
             <span className="text-3xl font-black text-slate-800">{totalChecks}</span>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">Total Checks</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">
+              Total Checks
+            </span>
           </CardContent>
         </Card>
         <Card className="border-emerald-100 bg-emerald-50/50 shadow-none">
           <CardContent className="p-4 flex flex-col items-center text-center">
             <span className="text-3xl font-black text-emerald-600">{okCount}</span>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600/70 mt-1">Passed</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600/70 mt-1">
+              Passed
+            </span>
           </CardContent>
         </Card>
         <Card className="border-amber-100 bg-amber-50/50 shadow-none">
           <CardContent className="p-4 flex flex-col items-center text-center">
             <span className="text-3xl font-black text-amber-600">{warnCount}</span>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-amber-600/70 mt-1">Warnings</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-amber-600/70 mt-1">
+              Warnings
+            </span>
           </CardContent>
         </Card>
         <Card className="border-rose-100 bg-rose-50/50 shadow-none relative overflow-hidden">
           <CardContent className="p-4 flex flex-col items-center text-center">
             <span className="text-3xl font-black text-rose-600">{totalIssues}</span>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-rose-600/70 mt-1">Total Issues</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-rose-600/70 mt-1">
+              Total Issues
+            </span>
           </CardContent>
         </Card>
       </div>
@@ -510,29 +656,29 @@ function CRMHealthPage() {
         <div className="mb-8 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 flex flex-col items-center text-center gap-3">
           <ActivitySquare className="w-10 h-10 text-slate-300" />
           <p className="text-slate-500 font-semibold text-sm">
-            Chưa có dữ liệu. Nhấn <strong>"Chạy kiểm tra"</strong> để bắt đầu phân tích sức khỏe CRM.
+            Chưa có dữ liệu. Nhấn <strong>"Chạy kiểm tra"</strong> để bắt đầu phân tích sức khỏe
+            CRM.
           </p>
         </div>
       )}
 
       {/* Health Modules */}
       <div className="flex flex-col gap-4">
-        {modules.map(mod => {
+        {modules.map((mod) => {
           const modIssues = mod.checks.reduce((sum, c) => sum + (c.count ?? 0), 0);
-          const modOk = mod.checks.every(c => c.status === "ok" || c.status === "loading");
-          const modHasWarn = mod.checks.some(c => c.status === "warning");
+          const modOk = mod.checks.every((c) => c.status === "ok" || c.status === "loading");
+          const modHasWarn = mod.checks.some((c) => c.status === "warning");
           const modLoading = mod.loading || globalLoading;
 
           return (
             <Card key={mod.id} className="border-slate-200 shadow-sm overflow-hidden">
               {/* Module header */}
-              <button
-                className="w-full text-left"
-                onClick={() => toggleExpand(mod.id)}
-              >
+              <button className="w-full text-left" onClick={() => toggleExpand(mod.id)}>
                 <CardHeader className="py-4 px-5 flex flex-row items-center justify-between gap-2 cursor-pointer hover:bg-slate-50 transition-colors">
                   <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100 ${mod.color}`}>
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100 ${mod.color}`}
+                    >
                       {mod.icon}
                     </div>
                     <div>
@@ -540,7 +686,9 @@ function CRMHealthPage() {
                       <p className="text-[11px] text-slate-400 font-medium mt-0.5">
                         {mod.checks.length} checks
                         {lastRefreshed !== null && (
-                          <span className={`ml-2 font-bold ${modHasWarn ? "text-amber-600" : modOk ? "text-emerald-600" : "text-slate-400"}`}>
+                          <span
+                            className={`ml-2 font-bold ${modHasWarn ? "text-amber-600" : modOk ? "text-emerald-600" : "text-slate-400"}`}
+                          >
                             — {modHasWarn ? `⚠ ${modIssues} vấn đề` : "✓ Ổn"}
                           </span>
                         )}
@@ -548,11 +696,14 @@ function CRMHealthPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {modLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-400" />}
-                    {mod.expanded
-                      ? <ChevronDown className="w-4 h-4 text-slate-400" />
-                      : <ChevronRight className="w-4 h-4 text-slate-400" />
-                    }
+                    {modLoading && (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-400" />
+                    )}
+                    {mod.expanded ? (
+                      <ChevronDown className="w-4 h-4 text-slate-400" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    )}
                   </div>
                 </CardHeader>
               </button>
@@ -570,14 +721,17 @@ function CRMHealthPage() {
                   </div>
 
                   <div className="divide-y divide-slate-100">
-                    {mod.checks.map(check => {
+                    {mod.checks.map((check) => {
                       const isLoading = check.status === "loading" || modLoading;
                       const isOk = check.status === "ok";
                       const isWarn = check.status === "warning";
                       const isUnavail = check.status === "unavailable";
 
                       return (
-                        <div key={check.id} className="grid grid-cols-12 gap-3 px-5 py-3 items-center hover:bg-slate-50/50 transition-colors">
+                        <div
+                          key={check.id}
+                          className="grid grid-cols-12 gap-3 px-5 py-3 items-center hover:bg-slate-50/50 transition-colors"
+                        >
                           {/* Status icon */}
                           <div className="col-span-1">
                             {isLoading ? (
@@ -587,18 +741,24 @@ function CRMHealthPage() {
                             ) : isWarn ? (
                               <AlertTriangle className="w-4 h-4 text-amber-500" />
                             ) : (
-                              <div title="Module chưa khả dụng"><Info className="w-4 h-4 text-slate-300" /></div>
+                              <div title="Module chưa khả dụng">
+                                <Info className="w-4 h-4 text-slate-300" />
+                              </div>
                             )}
                           </div>
 
                           {/* Label */}
                           <div className="col-span-4">
-                            <span className="text-sm font-semibold text-slate-800">{check.label}</span>
+                            <span className="text-sm font-semibold text-slate-800">
+                              {check.label}
+                            </span>
                           </div>
 
                           {/* Description */}
                           <div className="col-span-4">
-                            <span className="text-xs text-slate-400 font-mono">{check.description}</span>
+                            <span className="text-xs text-slate-400 font-mono">
+                              {check.description}
+                            </span>
                           </div>
 
                           {/* Count badge */}
@@ -606,13 +766,17 @@ function CRMHealthPage() {
                             {isLoading ? (
                               <span className="text-xs text-slate-300 font-bold">—</span>
                             ) : isUnavail ? (
-                              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-400 text-[10px] font-bold">N/A</span>
+                              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-400 text-[10px] font-bold">
+                                N/A
+                              </span>
                             ) : (
-                              <span className={`px-3 py-0.5 rounded-full text-xs font-black ${
-                                check.count === 0
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : "bg-amber-100 text-amber-700"
-                              }`}>
+                              <span
+                                className={`px-3 py-0.5 rounded-full text-xs font-black ${
+                                  check.count === 0
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : "bg-amber-100 text-amber-700"
+                                }`}
+                              >
                                 {check.count?.toLocaleString("vi-VN")}
                               </span>
                             )}
@@ -659,9 +823,7 @@ function CRMHealthPage() {
       {/* Footer */}
       <div className="mt-8 flex flex-col sm:flex-row justify-between items-center text-[11px] text-slate-400 font-medium gap-1">
         <p>Chỉ đọc — Không tự sửa dữ liệu. Phase C - CRM Rollout Readiness.</p>
-        {lastRefreshed && (
-          <p>Lần cuối: {lastRefreshed.toLocaleString("vi-VN")}</p>
-        )}
+        {lastRefreshed && <p>Lần cuối: {lastRefreshed.toLocaleString("vi-VN")}</p>}
       </div>
     </div>
   );

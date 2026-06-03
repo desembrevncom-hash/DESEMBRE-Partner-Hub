@@ -1,11 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -63,7 +58,7 @@ export function EditSenderModal({ open, onOpenChange, sender, onSuccess }: EditS
         sender_email: senderEmail.trim() || null,
         sender_name: senderName.trim() || null,
         domain: domain.trim() || null,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
 
       // Resend: chỉ cập nhật nếu nhập key mới
@@ -73,12 +68,17 @@ export function EditSenderModal({ open, onOpenChange, sender, onSuccess }: EditS
 
       // Gmail: cập nhật nếu có ít nhất 1 trường được nhập
       if (isGmail) {
-        const hasNewCreds = gmailClientId.trim() || gmailClientSecret.trim() || gmailRefreshToken.trim();
+        const hasNewCreds =
+          gmailClientId.trim() || gmailClientSecret.trim() || gmailRefreshToken.trim();
         if (hasNewCreds) {
           // Đọc giá trị cũ từ DB nếu người dùng chỉ điền một phần
           let oldCreds: any = {};
           if (sender.provider_secret) {
-            try { oldCreds = JSON.parse(sender.provider_secret); } catch { /* ignore */ }
+            try {
+              oldCreds = JSON.parse(sender.provider_secret);
+            } catch {
+              /* ignore */
+            }
           }
           updates.provider_secret = JSON.stringify({
             clientId: gmailClientId.trim() || oldCreds.clientId || "",
@@ -91,10 +91,7 @@ export function EditSenderModal({ open, onOpenChange, sender, onSuccess }: EditS
         }
       }
 
-      const { error } = await supabase
-        .from("sender_accounts")
-        .update(updates)
-        .eq("id", sender.id);
+      const { error } = await supabase.from("sender_accounts").update(updates).eq("id", sender.id);
 
       if (error) throw error;
 
@@ -147,7 +144,9 @@ export function EditSenderModal({ open, onOpenChange, sender, onSuccess }: EditS
           {/* Email gửi đi */}
           {(isResend || isGmail) && (
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">Địa chỉ Email gửi đi (From Email) *</Label>
+              <Label className="text-xs font-bold text-slate-700">
+                Địa chỉ Email gửi đi (From Email) *
+              </Label>
               <Input
                 value={senderEmail}
                 onChange={(e) => setSenderEmail(e.target.value)}
@@ -160,7 +159,9 @@ export function EditSenderModal({ open, onOpenChange, sender, onSuccess }: EditS
           {isResend && (
             <>
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-slate-700">Tên hiển thị người gửi (Sender Name)</Label>
+                <Label className="text-xs font-bold text-slate-700">
+                  Tên hiển thị người gửi (Sender Name)
+                </Label>
                 <Input
                   value={senderName}
                   onChange={(e) => setSenderName(e.target.value)}
@@ -168,7 +169,9 @@ export function EditSenderModal({ open, onOpenChange, sender, onSuccess }: EditS
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-slate-700">Tên miền xác thực (Domain) *</Label>
+                <Label className="text-xs font-bold text-slate-700">
+                  Tên miền xác thực (Domain) *
+                </Label>
                 <Input
                   value={domain}
                   onChange={(e) => setDomain(e.target.value)}
@@ -176,7 +179,9 @@ export function EditSenderModal({ open, onOpenChange, sender, onSuccess }: EditS
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-slate-700">Khóa API Resend (Nhập để thay đổi)</Label>
+                <Label className="text-xs font-bold text-slate-700">
+                  Khóa API Resend (Nhập để thay đổi)
+                </Label>
                 <Input
                   type="password"
                   value={resendApiKey}
@@ -195,7 +200,8 @@ export function EditSenderModal({ open, onOpenChange, sender, onSuccess }: EditS
                 <Shield className="w-3.5 h-3.5" /> Google OAuth 2.0 Credentials
               </p>
               <p className="text-[10px] text-purple-600 leading-relaxed">
-                Để trống các ô bên dưới nếu không muốn thay đổi. Chỉ điền vào trường nào bạn muốn cập nhật.
+                Để trống các ô bên dưới nếu không muốn thay đổi. Chỉ điền vào trường nào bạn muốn
+                cập nhật.
               </p>
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold text-slate-700">Client ID</Label>
@@ -227,7 +233,9 @@ export function EditSenderModal({ open, onOpenChange, sender, onSuccess }: EditS
                 />
               </div>
               <p className="text-[10px] text-purple-500 leading-relaxed">
-                📌 Lấy từ <strong>Google Cloud Console</strong> → APIs & Services → Credentials. Refresh Token lấy qua <strong>OAuth Playground</strong> (oauth2.google.com/playground).
+                📌 Lấy từ <strong>Google Cloud Console</strong> → APIs & Services → Credentials.
+                Refresh Token lấy qua <strong>OAuth Playground</strong>{" "}
+                (oauth2.google.com/playground).
               </p>
             </div>
           )}
@@ -236,7 +244,8 @@ export function EditSenderModal({ open, onOpenChange, sender, onSuccess }: EditS
           {isZalo && (
             <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl">
               <p className="text-[11px] text-blue-700 font-medium">
-                Tài khoản Zalo OA chỉ có thể thay đổi tên cấu hình hiển thị. Để đổi App ID hoặc Zalo OA ID, bạn cần dùng nút <strong>"Reconnect"</strong> (Kết nối lại).
+                Tài khoản Zalo OA chỉ có thể thay đổi tên cấu hình hiển thị. Để đổi App ID hoặc Zalo
+                OA ID, bạn cần dùng nút <strong>"Reconnect"</strong> (Kết nối lại).
               </p>
             </div>
           )}

@@ -8,7 +8,10 @@ interface WorkspaceAppointmentsCardProps {
   emptyMessage?: string;
 }
 
-export const WorkspaceAppointmentsCard: React.FC<WorkspaceAppointmentsCardProps> = ({ appointments, emptyMessage = "Chưa có lịch hẹn sắp tới." }) => {
+export const WorkspaceAppointmentsCard: React.FC<WorkspaceAppointmentsCardProps> = ({
+  appointments,
+  emptyMessage = "Chưa có lịch hẹn sắp tới.",
+}) => {
   return (
     <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden flex flex-col h-full">
       <div className="bg-indigo-600 p-4 text-white">
@@ -18,12 +21,16 @@ export const WorkspaceAppointmentsCard: React.FC<WorkspaceAppointmentsCardProps>
       </div>
       <div className="flex-1 overflow-y-auto max-h-[300px] divide-y divide-slate-50">
         {appointments.length > 0 ? (
-          appointments.map(app => (
+          appointments.map((app) => (
             <div key={app.id} className="p-4 hover:bg-indigo-50/30 transition-colors group">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl bg-indigo-50 flex flex-col items-center justify-center text-indigo-600 shrink-0">
-                  <span className="text-[10px] font-black leading-none">{format(new Date(app.starts_at), "dd")}</span>
-                  <span className="text-[8px] font-bold uppercase mt-0.5">{format(new Date(app.starts_at), "MMM", { locale: vi })}</span>
+                  <span className="text-[10px] font-black leading-none">
+                    {format(new Date(app.starts_at), "dd")}
+                  </span>
+                  <span className="text-[8px] font-bold uppercase mt-0.5">
+                    {format(new Date(app.starts_at), "MMM", { locale: vi })}
+                  </span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="text-[13px] font-bold text-slate-800 line-clamp-1">{app.title}</h4>
@@ -43,7 +50,9 @@ export const WorkspaceAppointmentsCard: React.FC<WorkspaceAppointmentsCardProps>
         ) : (
           <div className="py-12 text-center">
             <Calendar className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{emptyMessage}</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              {emptyMessage}
+            </p>
           </div>
         )}
       </div>

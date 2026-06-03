@@ -1,7 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Shield, ShieldAlert, Activity, AlertTriangle, RefreshCw, Server, Search, CheckCircle2, Play, Terminal, Download } from "lucide-react";
+import {
+  Shield,
+  ShieldAlert,
+  Activity,
+  AlertTriangle,
+  RefreshCw,
+  Server,
+  Search,
+  CheckCircle2,
+  Play,
+  Terminal,
+  Download,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -18,7 +30,11 @@ function ProductionHealthPage() {
   const [logs, setLogs] = useState<any[]>([]);
   const [retries, setRetries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [settings, setSettings] = useState<any>({ ai_enabled: true, automation_enabled: true, pilot_mode: true });
+  const [settings, setSettings] = useState<any>({
+    ai_enabled: true,
+    automation_enabled: true,
+    pilot_mode: true,
+  });
   const [testingEdge, setTestingEdge] = useState(false);
   const [exporting, setExporting] = useState(false);
   const { isAdmin, isSubAdmin } = useAuth();
@@ -27,9 +43,17 @@ function ProductionHealthPage() {
     setLoading(true);
     try {
       const [errorRes, retryRes, sysRes] = await Promise.all([
-        supabase.from('app_error_logs' as any).select('*').order('created_at', { ascending: false }).limit(20),
-        supabase.from('client_retry_queue' as any).select('*').order('created_at', { ascending: false }).limit(20),
-        supabase.from('system_settings').select('*').maybeSingle()
+        supabase
+          .from("app_error_logs" as any)
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(20),
+        supabase
+          .from("client_retry_queue" as any)
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(20),
+        supabase.from("system_settings").select("*").maybeSingle(),
       ]);
 
       if (errorRes.data) setLogs(errorRes.data);
@@ -53,14 +77,18 @@ function ProductionHealthPage() {
     try {
       // Simulate edge function call for manual test
       const res = await supabase.functions.invoke(funcName, {
-        body: { test: true }
+        body: { test: true },
       });
       if (res.error) throw res.error;
       toast.success(`${funcName} hoạt động bình thường!`);
     } catch (e: any) {
       // If the function throws 400 or 403, it means the function is actually alive and reachable.
-      const errorMsg = e.message || '';
-      if (errorMsg.includes('non-2xx status code') || errorMsg.includes('400') || errorMsg.includes('403')) {
+      const errorMsg = e.message || "";
+      if (
+        errorMsg.includes("non-2xx status code") ||
+        errorMsg.includes("400") ||
+        errorMsg.includes("403")
+      ) {
         toast.success(`${funcName} phản hồi bình thường (Alive)!`);
       } else {
         toast.error(`Lỗi kết nối ${funcName}: ${getFriendlyErrorMessage(e)}`);
@@ -74,14 +102,14 @@ function ProductionHealthPage() {
     setExporting(true);
     toast.info("Đang tạo bản sao lưu, vui lòng đợi...");
     try {
-      const { data, error } = await supabase.functions.invoke('backup-export', {
-        method: 'POST'
+      const { data, error } = await supabase.functions.invoke("backup-export", {
+        method: "POST",
       });
       if (error) throw error;
-      
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = `desembre_backup_${format(new Date(), "yyyy-MM-dd_HH-mm")}.json`;
       document.body.appendChild(a);
@@ -104,10 +132,16 @@ function ProductionHealthPage() {
             <ShieldAlert className="w-8 h-8 text-rose-500" />
             Production Health
           </h1>
-          <p className="text-slate-500 font-medium mt-1">Giám sát tính ổn định hệ thống, lỗi Runtime và hàng chờ khôi phục.</p>
+          <p className="text-slate-500 font-medium mt-1">
+            Giám sát tính ổn định hệ thống, lỗi Runtime và hàng chờ khôi phục.
+          </p>
         </div>
-        <Button onClick={fetchHealthData} disabled={loading} className="gap-2 bg-slate-900 text-white rounded-xl">
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        <Button
+          onClick={fetchHealthData}
+          disabled={loading}
+          className="gap-2 bg-slate-900 text-white rounded-xl"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           Làm mới dữ liệu
         </Button>
       </div>
@@ -123,15 +157,27 @@ function ProductionHealthPage() {
             <div className="space-y-3 text-sm font-medium">
               <div className="flex items-center justify-between">
                 <span className="text-slate-600">AI Modules</span>
-                {settings.ai_enabled !== false ? <Badge className="bg-emerald-100 text-emerald-700">Enabled</Badge> : <Badge className="bg-slate-100 text-slate-500">Disabled</Badge>}
+                {settings.ai_enabled !== false ? (
+                  <Badge className="bg-emerald-100 text-emerald-700">Enabled</Badge>
+                ) : (
+                  <Badge className="bg-slate-100 text-slate-500">Disabled</Badge>
+                )}
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-600">Automation Engine</span>
-                {settings.automation_enabled !== false ? <Badge className="bg-emerald-100 text-emerald-700">Enabled</Badge> : <Badge className="bg-slate-100 text-slate-500">Disabled</Badge>}
+                {settings.automation_enabled !== false ? (
+                  <Badge className="bg-emerald-100 text-emerald-700">Enabled</Badge>
+                ) : (
+                  <Badge className="bg-slate-100 text-slate-500">Disabled</Badge>
+                )}
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-600">Pilot Mode UX</span>
-                {settings.pilot_mode !== false ? <Badge className="bg-blue-100 text-blue-700">Active</Badge> : <Badge className="bg-slate-100 text-slate-500">Off</Badge>}
+                {settings.pilot_mode !== false ? (
+                  <Badge className="bg-blue-100 text-blue-700">Active</Badge>
+                ) : (
+                  <Badge className="bg-slate-100 text-slate-500">Off</Badge>
+                )}
               </div>
             </div>
           </div>
@@ -142,13 +188,28 @@ function ProductionHealthPage() {
               Edge Functions
             </h3>
             <div className="space-y-2">
-              <Button onClick={() => handleTestEdge('test-ai-connection')} disabled={testingEdge} variant="outline" className="w-full justify-start text-xs font-bold gap-2">
+              <Button
+                onClick={() => handleTestEdge("test-ai-connection")}
+                disabled={testingEdge}
+                variant="outline"
+                className="w-full justify-start text-xs font-bold gap-2"
+              >
                 <Terminal className="w-3 h-3 text-slate-400" /> Ping test-ai-connection
               </Button>
-              <Button onClick={() => handleTestEdge('ai-customer-suggestions')} disabled={testingEdge} variant="outline" className="w-full justify-start text-xs font-bold gap-2">
+              <Button
+                onClick={() => handleTestEdge("ai-customer-suggestions")}
+                disabled={testingEdge}
+                variant="outline"
+                className="w-full justify-start text-xs font-bold gap-2"
+              >
                 <Terminal className="w-3 h-3 text-slate-400" /> Ping ai-customer-suggestions
               </Button>
-              <Button onClick={() => handleTestEdge('resolve-contact-channel')} disabled={testingEdge} variant="outline" className="w-full justify-start text-xs font-bold gap-2">
+              <Button
+                onClick={() => handleTestEdge("resolve-contact-channel")}
+                disabled={testingEdge}
+                variant="outline"
+                className="w-full justify-start text-xs font-bold gap-2"
+              >
                 <Terminal className="w-3 h-3 text-slate-400" /> Ping resolve-contact-channel
               </Button>
             </div>
@@ -165,9 +226,19 @@ function ProductionHealthPage() {
                   <AlertTriangle className="w-4 h-4 shrink-0" />
                   <span>File backup chứa dữ liệu nhạy cảm, hãy lưu ở nơi an toàn.</span>
                 </div>
-                <p className="text-[10px] text-slate-500 font-medium">Bao gồm: customers, orders, activities, tasks, templates...</p>
-                <Button onClick={handleExportBackup} disabled={exporting} className="w-full bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-bold gap-2">
-                  {exporting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                <p className="text-[10px] text-slate-500 font-medium">
+                  Bao gồm: customers, orders, activities, tasks, templates...
+                </p>
+                <Button
+                  onClick={handleExportBackup}
+                  disabled={exporting}
+                  className="w-full bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-bold gap-2"
+                >
+                  {exporting ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
                   Tải bản sao lưu
                 </Button>
               </div>
@@ -190,17 +261,28 @@ function ProductionHealthPage() {
             ) : (
               <div className="space-y-3">
                 {logs.map((log: any) => (
-                  <div key={log.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex flex-col gap-2">
+                  <div
+                    key={log.id}
+                    className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex flex-col gap-2"
+                  >
                     <div className="flex justify-between items-start">
                       <div className="font-bold text-slate-800 text-sm">{log.error_type}</div>
                       <div className="text-[10px] text-slate-400 font-medium">
                         {format(new Date(log.created_at), "HH:mm dd/MM/yyyy", { locale: vi })}
                       </div>
                     </div>
-                    <div className="text-xs text-slate-600 break-words font-medium">{log.error_message}</div>
+                    <div className="text-xs text-slate-600 break-words font-medium">
+                      {log.error_message}
+                    </div>
                     <div className="flex gap-2 items-center text-[10px] text-slate-400 mt-1">
-                      <span className="bg-white px-2 py-0.5 rounded border border-slate-200">Page: {log.page_key}</span>
-                      {log.user_id && <span className="bg-white px-2 py-0.5 rounded border border-slate-200">User: {log.user_id.slice(0,8)}</span>}
+                      <span className="bg-white px-2 py-0.5 rounded border border-slate-200">
+                        Page: {log.page_key}
+                      </span>
+                      {log.user_id && (
+                        <span className="bg-white px-2 py-0.5 rounded border border-slate-200">
+                          User: {log.user_id.slice(0, 8)}
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -214,25 +296,39 @@ function ProductionHealthPage() {
               Client Retry Queue (Pending / Failed)
             </h3>
             {retries.length === 0 ? (
-              <div className="text-center py-8 text-slate-400 font-medium">
-                Hàng chờ đang trống
-              </div>
+              <div className="text-center py-8 text-slate-400 font-medium">Hàng chờ đang trống</div>
             ) : (
               <div className="space-y-3">
                 {retries.map((r: any) => (
-                  <div key={r.id} className="p-3 bg-amber-50/30 rounded-xl border border-amber-100 flex items-center justify-between gap-4">
+                  <div
+                    key={r.id}
+                    className="p-3 bg-amber-50/30 rounded-xl border border-amber-100 flex items-center justify-between gap-4"
+                  >
                     <div>
                       <div className="font-bold text-slate-800 text-sm flex items-center gap-2">
                         {r.action_type}
-                        <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${r.status === 'failed' ? 'bg-rose-100 text-rose-700 border-none' : 'bg-amber-100 text-amber-700 border-none'}`}>
+                        <Badge
+                          variant="outline"
+                          className={`text-[9px] px-1.5 py-0 ${r.status === "failed" ? "bg-rose-100 text-rose-700 border-none" : "bg-amber-100 text-amber-700 border-none"}`}
+                        >
                           {r.status}
                         </Badge>
                       </div>
-                      <div className="text-xs text-slate-500 mt-1">{r.last_error || 'Đang chờ xử lý lại...'}</div>
+                      <div className="text-xs text-slate-500 mt-1">
+                        {r.last_error || "Đang chờ xử lý lại..."}
+                      </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="text-[10px] text-slate-400 mb-1">{format(new Date(r.created_at), "HH:mm dd/MM")}</div>
-                      <Button variant="ghost" size="sm" className="h-6 text-xs bg-white border border-slate-200">Retry Now</Button>
+                      <div className="text-[10px] text-slate-400 mb-1">
+                        {format(new Date(r.created_at), "HH:mm dd/MM")}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs bg-white border border-slate-200"
+                      >
+                        Retry Now
+                      </Button>
                     </div>
                   </div>
                 ))}

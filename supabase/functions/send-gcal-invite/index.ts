@@ -24,17 +24,17 @@ serve(async (req) => {
 
   try {
     const payload = await req.json();
-    const { 
-      registration_id, 
-      template_id, 
-      event_title, 
-      starts_at, 
-      ends_at, 
-      location, 
-      description, 
-      attendee_email, 
+    const {
+      registration_id,
+      template_id,
+      event_title,
+      starts_at,
+      ends_at,
+      location,
+      description,
+      attendee_email,
       attendee_name,
-      senderAccountId 
+      senderAccountId,
     } = payload;
 
     if (registration_id) {
@@ -47,7 +47,8 @@ serve(async (req) => {
 
     // Khởi tạo Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "";
+    const supabaseServiceKey =
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "";
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // 1. Tra cứu thông tin Tài khoản Nguồn gửi động từ bảng sender_accounts
@@ -59,7 +60,7 @@ serve(async (req) => {
         .select("*")
         .eq("id", senderAccountId.trim())
         .single();
-      
+
       if (!error && data) senderAcc = data;
     }
 
@@ -74,7 +75,9 @@ serve(async (req) => {
         .single();
 
       if (error || !data) {
-        throw new Error("Không tìm thấy tài khoản nguồn gửi hợp lệ. Vui lòng vào Cấu hình -> Quản lý Mẫu Thư Mời để thiết lập tài khoản Lịch Google.");
+        throw new Error(
+          "Không tìm thấy tài khoản nguồn gửi hợp lệ. Vui lòng vào Cấu hình -> Quản lý Mẫu Thư Mời để thiết lập tài khoản Lịch Google.",
+        );
       }
       senderAcc = data;
     }
@@ -92,10 +95,13 @@ serve(async (req) => {
     const clientId = Deno.env.get(`${prefix}_CLIENT_ID`);
     const clientSecret = Deno.env.get(`${prefix}_CLIENT_SECRET`);
     const refreshToken = Deno.env.get(`${prefix}_REFRESH_TOKEN`);
-    const targetCalendarId = Deno.env.get(`${prefix}_CALENDAR_ID`) || senderAcc.calendar_id || "primary";
+    const targetCalendarId =
+      Deno.env.get(`${prefix}_CALENDAR_ID`) || senderAcc.calendar_id || "primary";
 
     if (!clientId || !clientSecret || !refreshToken) {
-      throw new Error(`Hệ thống chưa được nạp đủ bộ bí mật OAuth cho tiền tố "${prefix}". Vui lòng khai báo các biến: ${prefix}_CLIENT_ID, ${prefix}_CLIENT_SECRET và ${prefix}_REFRESH_TOKEN trong Supabase Secrets.`);
+      throw new Error(
+        `Hệ thống chưa được nạp đủ bộ bí mật OAuth cho tiền tố "${prefix}". Vui lòng khai báo các biến: ${prefix}_CLIENT_ID, ${prefix}_CLIENT_SECRET và ${prefix}_REFRESH_TOKEN trong Supabase Secrets.`,
+      );
     }
 
     // 3. Xin cấp Access Token mới qua luồng OAuth2 Refresh Token (Luồng con người thật)
@@ -112,7 +118,9 @@ serve(async (req) => {
 
     const tokenData = await tokenResponse.json();
     if (!tokenResponse.ok) {
-      throw new Error(`Xác thực tài khoản qua OAuth Refresh Token thất bại: ${tokenData.error_description || tokenData.error}`);
+      throw new Error(
+        `Xác thực tài khoản qua OAuth Refresh Token thất bại: ${tokenData.error_description || tokenData.error}`,
+      );
     }
     const access_token = tokenData.access_token;
 
@@ -162,11 +170,16 @@ serve(async (req) => {
     // 5. Tra cứu dữ liệu Mẫu tin nhắn (Message Templates) để thống nhất khuôn mẫu
     let templateData: any = null;
     if (template_id) {
-      const { data } = await supabase.from("message_templates").select("*").eq("id", template_id).single();
+      const { data } = await supabase
+        .from("message_templates")
+        .select("*")
+        .eq("id", template_id)
+        .single();
       templateData = data;
     } else {
       // Ưu tiên mẫu mặc định đang kích hoạt cho kênh calendar_invite
-      const { data } = await supabase.from("message_templates")
+      const { data } = await supabase
+        .from("message_templates")
         .select("*")
         .eq("channel", "calendar_invite")
         .eq("is_active", true)
@@ -236,7 +249,10 @@ serve(async (req) => {
     }
 
     const finalAttendees = Array.from(attendeesMap.values());
-    const cleanEventId = targetEventId.replace(/-/g, "").toLowerCase().replace(/[^a-v0-9]/g, "0");
+    const cleanEventId = targetEventId
+      .replace(/-/g, "")
+      .toLowerCase()
+      .replace(/[^a-v0-9]/g, "0");
     const deterministicGCalId = "guestinvite" + cleanEventId;
 
     const googleEventPayload: any = {
@@ -250,7 +266,7 @@ serve(async (req) => {
         useDefault: false,
         overrides: [
           { method: "email", minutes: 48 * 60 },
-          { method: "popup", minutes: 60 }
+          { method: "popup", minutes: 60 },
         ],
       },
       guestsCanModify: false,
@@ -263,7 +279,7 @@ serve(async (req) => {
     let gcalResponse = await fetch(updateUrl, {
       method: "PUT",
       headers: {
-        "Authorization": `Bearer ${access_token}`,
+        Authorization: `Bearer ${access_token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(googleEventPayload),
@@ -279,7 +295,7 @@ serve(async (req) => {
       gcalResponse = await fetch(insertUrl, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${access_token}`,
+          Authorization: `Bearer ${access_token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(googleEventPayload),
@@ -296,7 +312,9 @@ serve(async (req) => {
       const errMsg = gcalData?.error?.message || JSON.stringify(gcalData);
 
       if (errStatus === 404 || errMsg.toLowerCase().includes("not found")) {
-        throw new Error(`Calendar not found. Không tìm thấy lịch mang ID "${targetCalendarId}". Vui lòng kiểm tra lại cấu hình Lịch đích trên tài khoản "${senderAcc.name}".`);
+        throw new Error(
+          `Calendar not found. Không tìm thấy lịch mang ID "${targetCalendarId}". Vui lòng kiểm tra lại cấu hình Lịch đích trên tài khoản "${senderAcc.name}".`,
+        );
       }
 
       throw new Error(`Google API Error (${errStatus}): ${errMsg}`);
@@ -306,23 +324,25 @@ serve(async (req) => {
     if (registration_id && !registration_id.startsWith("master_")) {
       await supabase
         .from("event_registrations")
-        .update({ 
+        .update({
           google_invite_status: "sent",
-          calendar_link_sent_at: new Date().toISOString()
+          calendar_link_sent_at: new Date().toISOString(),
         })
         .eq("id", registration_id);
     }
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      account_used: senderAcc.name,
-      secret_prefix: prefix,
-      google_event_id: gcalData.id, 
-      html_link: gcalData.htmlLink 
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-
+    return new Response(
+      JSON.stringify({
+        success: true,
+        account_used: senderAcc.name,
+        secret_prefix: prefix,
+        google_event_id: gcalData.id,
+        html_link: gcalData.htmlLink,
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   } catch (error: any) {
     // Thống nhất cập nhật trạng thái thành "failed" khi ném lỗi
     if (registrationIdForFallback && !registrationIdForFallback.startsWith("master_")) {

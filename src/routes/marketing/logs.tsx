@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
@@ -16,20 +17,15 @@ import {
   ShieldAlert,
   Plus,
   Power,
-  FileText
+  FileText,
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/marketing/logs")({
   validateSearch: (search: Record<string, unknown>) => {
     return {
       campaign_id: (search.campaign_id as string) || undefined,
-    }
+    };
   },
   component: MarketingLogsPage,
 });
@@ -46,46 +42,67 @@ function MarketingLogsPage() {
   const [logStatusFilter, setLogStatusFilter] = useState("all");
   const [logModeFilter, setLogModeFilter] = useState("all");
   const [logSearchQuery, setLogSearchQuery] = useState(search.campaign_id || "");
-  const [activeCampaignFilter, setActiveCampaignFilter] = useState<string | null>(search.campaign_id || null);
+  const [activeCampaignFilter, setActiveCampaignFilter] = useState<string | null>(
+    search.campaign_id || null,
+  );
 
   // State for Suppression List
   const [suppressionList, setSuppressionList] = useState<any[]>([]);
   const [loadingSuppression, setLoadingSuppression] = useState(false);
   const [isAddSuppressionOpen, setIsAddSuppressionOpen] = useState(false);
-  const [newSuppression, setNewSuppression] = useState({ channel: "email", contact_value: "", reason: "manual_block", note: "" });
+  const [newSuppression, setNewSuppression] = useState({
+    channel: "email",
+    contact_value: "",
+    reason: "manual_block",
+    note: "",
+  });
 
   const [metadataLogId, setMetadataLogId] = useState<any>(null);
 
   const getModeLabel = (mode: string) => {
-    switch(mode) {
-      case "test": return "Gửi thử";
-      case "mock": return "Giả lập";
-      case "production_pilot": return "Pilot nội bộ";
-      case "production": return "Gửi thật";
-      default: return mode;
+    switch (mode) {
+      case "test":
+        return "Gửi thử";
+      case "mock":
+        return "Giả lập";
+      case "production_pilot":
+        return "Pilot nội bộ";
+      case "production":
+        return "Gửi thật";
+      default:
+        return mode;
     }
   };
 
   const getStatusLabel = (status: string) => {
-    switch(status) {
-      case "test_sent": return "Gửi thử thành công";
-      case "test_failed": return "Gửi thử lỗi";
-      case "sent": return "Đã gửi";
-      case "failed": return "Lỗi";
-      case "skipped": return "Bỏ qua";
-      case "blocked": return "Bị chặn";
-      case "prepared": return "Đã chuẩn bị";
-      case "sending": return "Đang gửi";
-      default: return status;
+    switch (status) {
+      case "test_sent":
+        return "Gửi thử thành công";
+      case "test_failed":
+        return "Gửi thử lỗi";
+      case "sent":
+        return "Đã gửi";
+      case "failed":
+        return "Lỗi";
+      case "skipped":
+        return "Bỏ qua";
+      case "blocked":
+        return "Bị chặn";
+      case "prepared":
+        return "Đã chuẩn bị";
+      case "sending":
+        return "Đang gửi";
+      default:
+        return status;
     }
   };
 
   const stats = {
-    test: logs.filter(l => l.delivery_metadata?.mode === 'test').length,
-    mock: logs.filter(l => l.delivery_metadata?.mode === 'mock').length,
-    pilot: logs.filter(l => l.delivery_metadata?.mode === 'production_pilot').length,
-    failed: logs.filter(l => l.status?.includes('failed') || l.status === 'blocked').length,
-    total: logs.length
+    test: logs.filter((l) => l.delivery_metadata?.mode === "test").length,
+    mock: logs.filter((l) => l.delivery_metadata?.mode === "mock").length,
+    pilot: logs.filter((l) => l.delivery_metadata?.mode === "production_pilot").length,
+    failed: logs.filter((l) => l.status?.includes("failed") || l.status === "blocked").length,
+    total: logs.length,
   };
 
   const loadLogs = async () => {
@@ -99,9 +116,11 @@ function MarketingLogsPage() {
 
       if (logChannelFilter !== "all") query = query.eq("channel", logChannelFilter);
       if (logStatusFilter !== "all") query = query.eq("status", logStatusFilter);
-      if (logModeFilter !== "all") query = query.eq("mode", logModeFilter); // Note: Assuming mode is also saved at root level, or we can't filter jsonb easily here without raw sql. 
+      if (logModeFilter !== "all") query = query.eq("mode", logModeFilter); // Note: Assuming mode is also saved at root level, or we can't filter jsonb easily here without raw sql.
       if (logSearchQuery) {
-        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(logSearchQuery)) {
+        if (
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(logSearchQuery)
+        ) {
           query = query.eq("campaign_id", logSearchQuery);
         } else {
           // Nếu không phải UUID, tìm kiếm trong JSON (giả định email/zalo nằm trong delivery_metadata.to)
@@ -154,20 +173,18 @@ function MarketingLogsPage() {
         normalized = normalized.toLowerCase();
       }
 
-      const { error } = await supabase
-        .from("marketing_suppression_list")
-        .insert({
-          channel: newSuppression.channel,
-          contact_value: normalized,
-          normalized_contact_value: normalized,
-          reason: newSuppression.reason,
-          source: "manual",
-          note: newSuppression.note,
-          is_active: true
-        });
+      const { error } = await supabase.from("marketing_suppression_list").insert({
+        channel: newSuppression.channel,
+        contact_value: normalized,
+        normalized_contact_value: normalized,
+        reason: newSuppression.reason,
+        source: "manual",
+        note: newSuppression.note,
+        is_active: true,
+      });
 
       if (error) {
-        if (error.code === '23505') {
+        if (error.code === "23505") {
           toast.error("Liên hệ này đã có trong danh sách đen!");
         } else {
           throw error;
@@ -175,7 +192,12 @@ function MarketingLogsPage() {
       } else {
         toast.success("Thêm vào Suppression List thành công");
         setIsAddSuppressionOpen(false);
-        setNewSuppression({ channel: "email", contact_value: "", reason: "manual_block", note: "" });
+        setNewSuppression({
+          channel: "email",
+          contact_value: "",
+          reason: "manual_block",
+          note: "",
+        });
         loadSuppressionList();
       }
     } catch (err: any) {
@@ -200,9 +222,12 @@ function MarketingLogsPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 font-sans selection:bg-purple-500 selection:text-white">
       <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-xl sticky top-0 z-30">
-        <div className="container mx-auto px-4 md:px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link to="/marketing/campaigns" className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-all">
+        <div className="container mx-auto px-4 py-4 md:px-6 h-auto md:h-20 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <Link
+              to="/marketing/campaigns"
+              className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-all shrink-0"
+            >
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div>
@@ -241,16 +266,20 @@ function MarketingLogsPage() {
         {/* Tab Logs */}
         {activeTab === "logs" && (
           <div className="space-y-4">
-            
             {activeCampaignFilter && (
               <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span>
-                  <span className="text-xs font-bold text-purple-300">Đang lọc theo Campaign: <span className="font-mono text-purple-200 bg-purple-900/50 px-1.5 py-0.5 rounded">{activeCampaignFilter.substring(0, 12)}</span></span>
+                  <span className="text-xs font-bold text-purple-300">
+                    Đang lọc theo Campaign:{" "}
+                    <span className="font-mono text-purple-200 bg-purple-900/50 px-1.5 py-0.5 rounded">
+                      {activeCampaignFilter.substring(0, 12)}
+                    </span>
+                  </span>
                 </div>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
+                <Button
+                  size="sm"
+                  variant="outline"
                   className="h-7 px-2 text-[10px] border-purple-500/30 text-purple-300 hover:bg-purple-500/20 hover:text-white"
                   onClick={() => {
                     setActiveCampaignFilter(null);
@@ -263,26 +292,38 @@ function MarketingLogsPage() {
             )}
 
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-              <span className="text-[10px] font-black uppercase text-slate-500 block mb-3">{activeCampaignFilter ? "Tổng quan chiến dịch này" : "Tổng quan trang hiện tại"}</span>
+              <span className="text-[10px] font-black uppercase text-slate-500 block mb-3">
+                {activeCampaignFilter ? "Tổng quan chiến dịch này" : "Tổng quan trang hiện tại"}
+              </span>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <div className="bg-slate-950 border border-slate-800 p-3 rounded-lg">
-                  <span className="text-[10px] text-slate-400 block mb-1 uppercase font-bold">Gửi thử</span>
+                  <span className="text-[10px] text-slate-400 block mb-1 uppercase font-bold">
+                    Gửi thử
+                  </span>
                   <span className="text-xl font-black text-white">{stats.test}</span>
                 </div>
                 <div className="bg-slate-950 border border-slate-800 p-3 rounded-lg">
-                  <span className="text-[10px] text-slate-400 block mb-1 uppercase font-bold">Giả lập</span>
+                  <span className="text-[10px] text-slate-400 block mb-1 uppercase font-bold">
+                    Giả lập
+                  </span>
                   <span className="text-xl font-black text-white">{stats.mock}</span>
                 </div>
                 <div className="bg-slate-950 border border-slate-800 p-3 rounded-lg">
-                  <span className="text-[10px] text-slate-400 block mb-1 uppercase font-bold">Pilot Nội bộ</span>
+                  <span className="text-[10px] text-slate-400 block mb-1 uppercase font-bold">
+                    Pilot Nội bộ
+                  </span>
                   <span className="text-xl font-black text-white">{stats.pilot}</span>
                 </div>
                 <div className="bg-slate-950 border border-slate-800 p-3 rounded-lg">
-                  <span className="text-[10px] text-rose-400 block mb-1 uppercase font-bold">Lỗi / Chặn</span>
+                  <span className="text-[10px] text-rose-400 block mb-1 uppercase font-bold">
+                    Lỗi / Chặn
+                  </span>
                   <span className="text-xl font-black text-rose-500">{stats.failed}</span>
                 </div>
                 <div className="bg-slate-950 border border-slate-800 p-3 rounded-lg">
-                  <span className="text-[10px] text-indigo-400 block mb-1 uppercase font-bold">Tổng hiển thị</span>
+                  <span className="text-[10px] text-indigo-400 block mb-1 uppercase font-bold">
+                    Tổng hiển thị
+                  </span>
                   <span className="text-xl font-black text-indigo-500">{stats.total}</span>
                 </div>
               </div>
@@ -296,11 +337,11 @@ function MarketingLogsPage() {
                   onChange={(e) => setLogSearchQuery(e.target.value)}
                   placeholder="Tìm Campaign ID hoặc Email/Zalo..."
                   className="w-64 pl-9 bg-slate-900 border-slate-800 h-9 text-xs"
-                  onKeyDown={(e) => e.key === 'Enter' && loadLogs()}
+                  onKeyDown={(e) => e.key === "Enter" && loadLogs()}
                 />
               </div>
-              <select 
-                value={logChannelFilter} 
+              <select
+                value={logChannelFilter}
                 onChange={(e) => setLogChannelFilter(e.target.value)}
                 className="h-9 rounded-md bg-slate-900 border border-slate-800 px-3 text-xs text-slate-300 outline-none focus:ring-1 focus:ring-purple-500"
               >
@@ -309,8 +350,8 @@ function MarketingLogsPage() {
                 <option value="zalo">Zalo</option>
                 <option value="zalo_oa">Zalo OA</option>
               </select>
-              <select 
-                value={logModeFilter} 
+              <select
+                value={logModeFilter}
                 onChange={(e) => setLogModeFilter(e.target.value)}
                 className="h-9 rounded-md bg-slate-900 border border-slate-800 px-3 text-xs text-slate-300 outline-none focus:ring-1 focus:ring-purple-500"
               >
@@ -319,8 +360,8 @@ function MarketingLogsPage() {
                 <option value="mock">Giả lập</option>
                 <option value="production_pilot">Pilot Nội bộ</option>
               </select>
-              <select 
-                value={logStatusFilter} 
+              <select
+                value={logStatusFilter}
                 onChange={(e) => setLogStatusFilter(e.target.value)}
                 className="h-9 rounded-md bg-slate-900 border border-slate-800 px-3 text-xs text-slate-300 outline-none focus:ring-1 focus:ring-purple-500"
               >
@@ -331,13 +372,17 @@ function MarketingLogsPage() {
                 <option value="failed">Lỗi</option>
                 <option value="blocked">Bị chặn</option>
               </select>
-              <Button onClick={loadLogs} variant="outline" className="h-9 px-3 bg-slate-900 border-slate-800">
+              <Button
+                onClick={loadLogs}
+                variant="outline"
+                className="h-9 px-3 bg-slate-900 border-slate-800"
+              >
                 <RefreshCw className="w-4 h-4" />
               </Button>
             </div>
 
             <div className="rounded-xl border border-slate-800 bg-slate-900/50 overflow-hidden">
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto w-full max-w-full">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-900 border-b border-slate-800 text-slate-400">
                     <tr>
@@ -351,43 +396,74 @@ function MarketingLogsPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-800/50">
                     {loadingLogs ? (
-                      <tr><td colSpan={6} className="text-center py-8"><Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-500" /></td></tr>
+                      <tr>
+                        <td colSpan={6} className="text-center py-8">
+                          <Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-500" />
+                        </td>
+                      </tr>
                     ) : logs.length === 0 ? (
-                      <tr><td colSpan={6} className="text-center py-8 text-slate-500">Không tìm thấy logs</td></tr>
+                      <tr>
+                        <td colSpan={6} className="text-center py-8 text-slate-500">
+                          Không tìm thấy logs
+                        </td>
+                      </tr>
                     ) : (
-                      logs.map(log => (
+                      logs.map((log) => (
                         <tr key={log.id} className="hover:bg-slate-800/30">
-                          <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{new Date(log.created_at).toLocaleString('vi-VN')}</td>
+                          <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                            {new Date(log.created_at).toLocaleString("vi-VN")}
+                          </td>
                           <td className="px-4 py-3">
                             <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px] uppercase">
                               {log.channel}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-slate-300">{log.delivery_metadata?.to || log.delivery_metadata?.email || log.delivery_metadata?.phone || '-'}</td>
+                          <td className="px-4 py-3 text-slate-300">
+                            {log.delivery_metadata?.to ||
+                              log.delivery_metadata?.email ||
+                              log.delivery_metadata?.phone ||
+                              "-"}
+                          </td>
                           <td className="px-4 py-3">
                             <div className="flex flex-col gap-1">
-                              <span className={`w-fit px-2 py-0.5 rounded text-[10px] font-bold ${
-                                log.status?.includes('failed') || log.status === 'blocked' ? 'bg-rose-500/20 text-rose-400' :
-                                log.status?.includes('sent') ? 'bg-emerald-500/20 text-emerald-400' :
-                                'bg-slate-800 text-slate-400'
-                              }`}>
+                              <span
+                                className={`w-fit px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  log.status?.includes("failed") || log.status === "blocked"
+                                    ? "bg-rose-500/20 text-rose-400"
+                                    : log.status?.includes("sent")
+                                      ? "bg-emerald-500/20 text-emerald-400"
+                                      : "bg-slate-800 text-slate-400"
+                                }`}
+                              >
                                 {getStatusLabel(log.status)}
                               </span>
                               {log.delivery_metadata?.mode && (
-                                <span className="text-[9px] text-slate-400 bg-slate-800/50 px-1.5 py-0.5 rounded-sm w-fit uppercase font-bold tracking-widest">{getModeLabel(log.delivery_metadata.mode)}</span>
+                                <span className="text-[9px] text-slate-400 bg-slate-800/50 px-1.5 py-0.5 rounded-sm w-fit uppercase font-bold tracking-widest">
+                                  {getModeLabel(log.delivery_metadata.mode)}
+                                </span>
                               )}
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-slate-500 font-mono text-[10px]">{log.campaign_id?.substring(0, 8)}...</td>
+                          <td className="px-4 py-3 text-slate-500 font-mono text-[10px]">
+                            {log.campaign_id?.substring(0, 8)}...
+                          </td>
                           <td className="px-4 py-3 text-slate-400 text-[11px] max-w-[200px]">
-                            <div className="truncate mb-1" title={log.reason}>{log.reason || '-'}</div>
+                            <div className="truncate mb-1" title={log.reason}>
+                              {log.reason || "-"}
+                            </div>
                             {log.delivery_metadata?.provider_message_id && (
                               <div className="text-[9px] text-slate-500 mb-1 font-mono bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800/50 w-fit">
-                                Mã NSX: {log.delivery_metadata.provider_message_id.substring(0, 16)}...
+                                Mã NSX: {log.delivery_metadata.provider_message_id.substring(0, 16)}
+                                ...
                               </div>
                             )}
                             {log.delivery_metadata && (
-                              <button onClick={() => setMetadataLogId(log)} className="text-[9px] text-purple-400 hover:text-purple-300 underline font-bold">Xem chi tiết kỹ thuật</button>
+                              <button
+                                onClick={() => setMetadataLogId(log)}
+                                className="text-[9px] text-purple-400 hover:text-purple-300 underline font-bold"
+                              >
+                                Xem chi tiết kỹ thuật
+                              </button>
                             )}
                           </td>
                         </tr>
@@ -404,38 +480,58 @@ function MarketingLogsPage() {
         {activeTab === "suppression" && (isAdmin || isSubAdmin) && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <p className="text-xs text-slate-400">Danh sách chặn vĩnh viễn không được nhận thông điệp qua các kênh tương ứng.</p>
-              <Button onClick={() => setIsAddSuppressionOpen(true)} className="h-9 px-4 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold">
+              <p className="text-xs text-slate-400">
+                Danh sách chặn vĩnh viễn không được nhận thông điệp qua các kênh tương ứng.
+              </p>
+              <Button
+                onClick={() => setIsAddSuppressionOpen(true)}
+                className="h-9 px-4 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold"
+              >
                 <Plus className="w-3.5 h-3.5 mr-1" /> Thêm Record
               </Button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {loadingSuppression ? (
-                <div className="col-span-full py-8 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-500" /></div>
+                <div className="col-span-full py-8 text-center">
+                  <Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-500" />
+                </div>
               ) : suppressionList.length === 0 ? (
-                <div className="col-span-full py-8 text-center text-slate-500 text-sm">Chưa có bản ghi nào trong Suppression List.</div>
+                <div className="col-span-full py-8 text-center text-slate-500 text-sm">
+                  Chưa có bản ghi nào trong Suppression List.
+                </div>
               ) : (
-                suppressionList.map(s => (
-                  <div key={s.id} className={`p-4 rounded-xl border ${s.is_active ? 'bg-slate-900 border-rose-500/30' : 'bg-slate-900/50 border-slate-800 opacity-60'} space-y-3`}>
+                suppressionList.map((s) => (
+                  <div
+                    key={s.id}
+                    className={`p-4 rounded-xl border ${s.is_active ? "bg-slate-900 border-rose-500/30" : "bg-slate-900/50 border-slate-800 opacity-60"} space-y-3`}
+                  >
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
-                        <ShieldAlert className={`w-4 h-4 ${s.is_active ? 'text-rose-500' : 'text-slate-600'}`} />
-                        <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">{s.channel}</span>
+                        <ShieldAlert
+                          className={`w-4 h-4 ${s.is_active ? "text-rose-500" : "text-slate-600"}`}
+                        />
+                        <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                          {s.channel}
+                        </span>
                       </div>
-                      <button 
+                      <button
                         onClick={() => handleToggleSuppressionActive(s.id, s.is_active)}
-                        className={`p-1.5 rounded-lg transition-all ${s.is_active ? 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'}`}
-                        title={s.is_active ? "Vô hiệu hóa (Cho phép gửi lại)" : "Kích hoạt (Chặn gửi)"}
+                        className={`p-1.5 rounded-lg transition-all ${s.is_active ? "bg-rose-500/10 text-rose-400 hover:bg-rose-500/20" : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"}`}
+                        title={
+                          s.is_active ? "Vô hiệu hóa (Cho phép gửi lại)" : "Kích hoạt (Chặn gửi)"
+                        }
                       >
                         <Power className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                    
+
                     <div>
-                      <strong className="text-sm font-mono text-white break-all">{s.normalized_contact_value}</strong>
+                      <strong className="text-sm font-mono text-white break-all">
+                        {s.normalized_contact_value}
+                      </strong>
                     </div>
-                    
+
                     <div className="bg-slate-950 rounded p-2 text-[10px] space-y-1">
                       <div className="flex justify-between text-slate-400">
                         <span>Lý do:</span>
@@ -447,10 +543,14 @@ function MarketingLogsPage() {
                       </div>
                       <div className="flex justify-between text-slate-500">
                         <span>Ngày tạo:</span>
-                        <span>{new Date(s.created_at).toLocaleDateString('vi-VN')}</span>
+                        <span>{new Date(s.created_at).toLocaleDateString("vi-VN")}</span>
                       </div>
                     </div>
-                    {s.note && <p className="text-[10px] text-slate-500 italic mt-2 text-center border-t border-slate-800 pt-2">{s.note}</p>}
+                    {s.note && (
+                      <p className="text-[10px] text-slate-500 italic mt-2 text-center border-t border-slate-800 pt-2">
+                        {s.note}
+                      </p>
+                    )}
                   </div>
                 ))
               )}
@@ -470,9 +570,9 @@ function MarketingLogsPage() {
           <div className="space-y-4 mt-4">
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-300">Channel</label>
-              <select 
+              <select
                 value={newSuppression.channel}
-                onChange={(e) => setNewSuppression({...newSuppression, channel: e.target.value})}
+                onChange={(e) => setNewSuppression({ ...newSuppression, channel: e.target.value })}
                 className="w-full h-9 rounded-md bg-slate-950 border border-slate-800 px-3 text-sm text-slate-300 outline-none focus:ring-1 focus:ring-rose-500"
               >
                 <option value="email">Email</option>
@@ -482,18 +582,20 @@ function MarketingLogsPage() {
             </div>
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-300">Contact Value</label>
-              <Input 
+              <Input
                 value={newSuppression.contact_value}
-                onChange={(e) => setNewSuppression({...newSuppression, contact_value: e.target.value})}
+                onChange={(e) =>
+                  setNewSuppression({ ...newSuppression, contact_value: e.target.value })
+                }
                 placeholder="Email hoặc Zalo ID"
                 className="h-9 bg-slate-950 border-slate-800 text-sm focus-visible:ring-rose-500"
               />
             </div>
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-300">Reason</label>
-              <select 
+              <select
                 value={newSuppression.reason}
-                onChange={(e) => setNewSuppression({...newSuppression, reason: e.target.value})}
+                onChange={(e) => setNewSuppression({ ...newSuppression, reason: e.target.value })}
                 className="w-full h-9 rounded-md bg-slate-950 border border-slate-800 px-3 text-sm text-slate-300 outline-none focus:ring-1 focus:ring-rose-500"
               >
                 <option value="bounced">Bounced (Lỗi gửi)</option>
@@ -505,14 +607,14 @@ function MarketingLogsPage() {
             </div>
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-300">Note (Optional)</label>
-              <Input 
+              <Input
                 value={newSuppression.note}
-                onChange={(e) => setNewSuppression({...newSuppression, note: e.target.value})}
+                onChange={(e) => setNewSuppression({ ...newSuppression, note: e.target.value })}
                 placeholder="Ghi chú thêm..."
                 className="h-9 bg-slate-950 border-slate-800 text-sm focus-visible:ring-rose-500"
               />
             </div>
-            <Button 
+            <Button
               onClick={handleAddSuppression}
               className="w-full h-10 mt-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl"
             >

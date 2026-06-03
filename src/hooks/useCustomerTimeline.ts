@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { TimelineItem } from '@/types/customerTimeline';
-import { toast } from 'sonner';
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { TimelineItem } from "@/types/customerTimeline";
+import { toast } from "sonner";
 
 export const useCustomerTimeline = (customerId: string | undefined) => {
   const [data, setData] = useState<TimelineItem[]>([]);
@@ -10,14 +10,13 @@ export const useCustomerTimeline = (customerId: string | undefined) => {
 
   const fetchTimeline = useCallback(async () => {
     if (!customerId) return;
-    
+
     setLoading(true);
     setError(null);
     try {
-      const { data: timelineData, error: rpcError } = await supabase.rpc(
-        'get_customer_timeline',
-        { p_customer_id: customerId }
-      );
+      const { data: timelineData, error: rpcError } = await supabase.rpc("get_customer_timeline", {
+        p_customer_id: customerId,
+      });
 
       if (rpcError) {
         throw rpcError;
@@ -26,9 +25,9 @@ export const useCustomerTimeline = (customerId: string | undefined) => {
       // Supabase RPC returns JSONB array, we can safely cast it to TimelineItem[]
       setData((timelineData as unknown as TimelineItem[]) || []);
     } catch (err: any) {
-      console.error('Error fetching customer timeline:', err);
+      console.error("Error fetching customer timeline:", err);
       setError(err);
-      toast.error(`Lỗi: ${err?.message || JSON.stringify(err) || 'Không rõ'}`);
+      toast.error(`Lỗi: ${err?.message || JSON.stringify(err) || "Không rõ"}`);
       setData([]); // Fallback empty
     } finally {
       setLoading(false);
@@ -43,6 +42,6 @@ export const useCustomerTimeline = (customerId: string | undefined) => {
     data,
     loading,
     error,
-    refetch: fetchTimeline
+    refetch: fetchTimeline,
   };
 };

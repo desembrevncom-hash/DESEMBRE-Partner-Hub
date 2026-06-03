@@ -1,16 +1,18 @@
 # Hướng dẫn Vận hành Tính năng Đồng bộ Google Sheet Mirror (CRM)
 
 ## Mục đích
+
 Tính năng "Google Sheet Mirror" giúp Ban Giám đốc và đội ngũ quản lý có một cái nhìn tổng quát, trực quan và dễ thao tác trên định dạng Excel/Google Sheet quen thuộc. Dữ liệu này được tự động phân loại, kiểm tra trùng lặp và tính toán các chỉ số sức khỏe của tệp khách hàng.
 
 > [!WARNING]
-> **Nguyên tắc cốt lõi:** Google Sheet chỉ đóng vai trò là một màn hình hiển thị (Read-only Mirror). Supabase/PostgreSQL vẫn là kho lưu trữ dữ liệu gốc duy nhất. 
-> 
+> **Nguyên tắc cốt lõi:** Google Sheet chỉ đóng vai trò là một màn hình hiển thị (Read-only Mirror). Supabase/PostgreSQL vẫn là kho lưu trữ dữ liệu gốc duy nhất.
+>
 > Hệ thống được thiết kế theo dạng **đồng bộ 1 chiều (từ CRM đẩy lên Google Sheet)**. Tuyệt đối không được chỉnh sửa thông tin Khách hàng trực tiếp trên Google Sheet với hy vọng nó sẽ "đổ ngược" về CRM. Nếu có dữ liệu sai, cần vào phần mềm CRM sửa lại, sau đó bấm `Sync Now`.
 
 ---
 
 ## Danh sách 6 Tabs (Trang tính)
+
 Để hệ thống hoạt động bình thường, file Google Sheet của bạn phải có đủ 6 tab sau đây (hệ thống có khả năng tự động tạo tab nếu bạn cấp quyền đúng):
 
 1. **`Customers_Master`**: Chứa toàn bộ dữ liệu khách hàng (giới hạn 10.000 records).
@@ -32,7 +34,8 @@ Hệ thống Backend (Edge Function) cần được cấp các biến môi trư�
 - `GOOGLE_SPREADSHEET_ID`: Chuỗi ký tự ID của file Google Sheet (nằm giữa `/d/` và `/edit` trên thanh URL trình duyệt).
 
 ### 🔑 Chú ý Phân quyền trên Google Sheet
-Mặc dù bạn đã có đủ Secrets, nhưng file Google Sheet của bạn vẫn hoàn toàn thuộc về tài khoản Gmail cá nhân của bạn. 
+
+Mặc dù bạn đã có đủ Secrets, nhưng file Google Sheet của bạn vẫn hoàn toàn thuộc về tài khoản Gmail cá nhân của bạn.
 Để hệ thống đẩy được dữ liệu vào, bạn phải bấm **Share (Chia sẻ)** file Google Sheet đó, điền cái địa chỉ `GOOGLE_SERVICE_ACCOUNT_EMAIL` vào ô chia sẻ, và cấp cho nó quyền **Editor (Người chỉnh sửa)**.
 
 ---

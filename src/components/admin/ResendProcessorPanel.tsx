@@ -1,15 +1,7 @@
+/* eslint-disable */
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { 
-  AlertCircle, 
-  Ban, 
-  CheckCircle2, 
-  Eye, 
-  Loader2, 
-  Lock, 
-  Play, 
-  Zap 
-} from "lucide-react";
+import { AlertCircle, Ban, CheckCircle2, Eye, Loader2, Lock, Play, Zap } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -137,13 +129,21 @@ export function ResendProcessorPanel({ onProcessed }: { onProcessed?: () => void
       const data = await res.json();
 
       if (res.status === 409) {
-        setResult({ error: "already_running", message: data.message || "Worker đang chạy bởi một request khác." });
-        toast.warning("Worker đang chạy", { description: "Một phiên xử lý khác đang hoạt động. Vui lòng thử lại sau." });
+        setResult({
+          error: "already_running",
+          message: data.message || "Worker đang chạy bởi một request khác.",
+        });
+        toast.warning("Worker đang chạy", {
+          description: "Một phiên xử lý khác đang hoạt động. Vui lòng thử lại sau.",
+        });
         return;
       }
 
       if (!res.ok) {
-        setResult({ error: data.error || "unknown_error", message: data.details || data.message || res.statusText });
+        setResult({
+          error: data.error || "unknown_error",
+          message: data.details || data.message || res.statusText,
+        });
         toast.error("Lỗi Worker", { description: data.error || res.statusText });
         return;
       }
@@ -156,7 +156,9 @@ export function ResendProcessorPanel({ onProcessed }: { onProcessed?: () => void
         onProcessed?.();
         fetchPendingCount();
       } else if (!confirm && data.success) {
-        toast.info("Dry-run hoàn tất", { description: `Quét ${data.scanned} events. Không ghi DB.` });
+        toast.info("Dry-run hoàn tất", {
+          description: `Quét ${data.scanned} events. Không ghi DB.`,
+        });
       }
     } catch (err: any) {
       setResult({ error: err.message });
@@ -182,7 +184,9 @@ export function ResendProcessorPanel({ onProcessed }: { onProcessed?: () => void
               <Zap className="w-4 h-4 text-indigo-600" />
             </div>
             <div>
-              <CardTitle className="text-base font-bold text-slate-900">Resend Webhook Processor</CardTitle>
+              <CardTitle className="text-base font-bold text-slate-900">
+                Resend Webhook Processor
+              </CardTitle>
               <CardDescription className="text-xs text-slate-500">
                 Xử lý thủ công Resend events → Delivery Logs + Suppression List
               </CardDescription>
@@ -208,7 +212,8 @@ export function ResendProcessorPanel({ onProcessed }: { onProcessed?: () => void
           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <div className="text-amber-700 leading-relaxed">
             <strong>Confirm Process</strong> sẽ cập nhật <strong>Delivery Logs</strong> và{" "}
-            <strong>Suppression List</strong>. Không gửi email. Không gọi provider API. Không trigger automation.
+            <strong>Suppression List</strong>. Không gửi email. Không gọi provider API. Không
+            trigger automation.
           </div>
         </div>
 
@@ -222,7 +227,11 @@ export function ResendProcessorPanel({ onProcessed }: { onProcessed?: () => void
             onClick={() => callWorker(false)}
             className="h-9 rounded-lg border-slate-300 bg-white hover:bg-slate-50 font-semibold text-slate-700 gap-1.5"
           >
-            {runLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+            {runLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Play className="w-4 h-4" />
+            )}
             Run Dry-run
           </Button>
 
@@ -245,7 +254,7 @@ export function ResendProcessorPanel({ onProcessed }: { onProcessed?: () => void
                 placeholder={`Gõ "${CONFIRM_STRING}" để xác nhận`}
                 value={confirmPhrase}
                 onChange={(e) => setConfirmPhrase(e.target.value)}
-                className="h-9 w-72 text-sm font-mono rounded-lg border-rose-200 focus:ring-rose-300"
+                className="h-9 w-full sm:w-72 text-sm font-mono rounded-lg border-rose-200 focus:ring-rose-300"
                 disabled={runLoading}
                 autoFocus
               />
@@ -261,7 +270,11 @@ export function ResendProcessorPanel({ onProcessed }: { onProcessed?: () => void
                     : "bg-slate-200 text-slate-400 cursor-not-allowed"
                 }`}
               >
-                {runLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                {runLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Zap className="w-4 h-4" />
+                )}
                 Xác nhận xử lý
               </Button>
               <Button
@@ -287,8 +300,8 @@ export function ResendProcessorPanel({ onProcessed }: { onProcessed?: () => void
               result.error
                 ? "bg-rose-50 border-rose-200"
                 : result.dry_run
-                ? "bg-sky-50 border-sky-200"
-                : "bg-emerald-50 border-emerald-200"
+                  ? "bg-sky-50 border-sky-200"
+                  : "bg-emerald-50 border-emerald-200"
             }`}
           >
             <div className="flex items-center gap-2 font-bold">
@@ -296,20 +309,26 @@ export function ResendProcessorPanel({ onProcessed }: { onProcessed?: () => void
                 <>
                   <Ban className="w-4 h-4 text-rose-600" />
                   <span className="text-rose-700">
-                    {result.error === "already_running" ? "Worker đang chạy" : `Lỗi: ${result.error}`}
+                    {result.error === "already_running"
+                      ? "Worker đang chạy"
+                      : `Lỗi: ${result.error}`}
                   </span>
                 </>
               ) : result.dry_run ? (
                 <>
                   <Eye className="w-4 h-4 text-sky-600" />
                   <span className="text-sky-700">Dry-run Result</span>
-                  <Badge className="bg-sky-100 text-sky-700 border-sky-300 text-[10px]">PREVIEW</Badge>
+                  <Badge className="bg-sky-100 text-sky-700 border-sky-300 text-[10px]">
+                    PREVIEW
+                  </Badge>
                 </>
               ) : (
                 <>
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   <span className="text-emerald-700">Confirm Run Result</span>
-                  <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300 text-[10px]">EXECUTED</Badge>
+                  <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300 text-[10px]">
+                    EXECUTED
+                  </Badge>
                 </>
               )}
             </div>
@@ -321,19 +340,39 @@ export function ResendProcessorPanel({ onProcessed }: { onProcessed?: () => void
                 <ResultStat label="Scanned" value={result.scanned} />
                 {result.dry_run ? (
                   <>
-                    <ResultStat label="Would Update Logs" value={result.would_update_delivery_logs} highlight="sky" />
-                    <ResultStat label="Would Suppress" value={result.would_suppress} highlight="amber" />
+                    <ResultStat
+                      label="Would Update Logs"
+                      value={result.would_update_delivery_logs}
+                      highlight="sky"
+                    />
+                    <ResultStat
+                      label="Would Suppress"
+                      value={result.would_suppress}
+                      highlight="amber"
+                    />
                     <ResultStat label="Would Ignore" value={result.would_ignore} />
                   </>
                 ) : (
                   <>
-                    <ResultStat label="Updated Logs" value={result.updated_delivery_logs} highlight="emerald" />
+                    <ResultStat
+                      label="Updated Logs"
+                      value={result.updated_delivery_logs}
+                      highlight="emerald"
+                    />
                     <ResultStat label="Suppressed" value={result.suppressed} highlight="amber" />
                     <ResultStat label="Already Suppressed" value={result.already_suppressed} />
                     <ResultStat label="Log Not Found" value={result.delivery_log_not_found} />
                     <ResultStat label="Ignored" value={result.ignored} />
-                    <ResultStat label="Failed" value={result.failed} highlight={result.failed ? "rose" : undefined} />
-                    <ResultStat label="Processed IDs" value={result.processed_event_ids?.length} highlight="emerald" />
+                    <ResultStat
+                      label="Failed"
+                      value={result.failed}
+                      highlight={result.failed ? "rose" : undefined}
+                    />
+                    <ResultStat
+                      label="Processed IDs"
+                      value={result.processed_event_ids?.length}
+                      highlight="emerald"
+                    />
                   </>
                 )}
               </div>

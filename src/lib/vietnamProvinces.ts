@@ -32,7 +32,7 @@ export const VIETNAM_PROVINCES = [
   "Vĩnh Long",
   "Đồng Tháp",
   "Cà Mau",
-  "An Giang"
+  "An Giang",
 ];
 
 /**
@@ -62,15 +62,15 @@ export function findProvinceByName(input: string): string | null {
   const aliasNormalized = searchNormalized.replace(/\s+/g, " ");
 
   const aliasMap: Record<string, string> = {
-    "hcm": "Tp Hồ Chí Minh",
-    "tphcm": "Tp Hồ Chí Minh",
+    hcm: "Tp Hồ Chí Minh",
+    tphcm: "Tp Hồ Chí Minh",
     "tp hcm": "Tp Hồ Chí Minh",
     "ho chi minh": "Tp Hồ Chí Minh",
     "tp ho chi minh": "Tp Hồ Chí Minh",
     "ha noi": "Hà Nội",
-    "hanoi": "Hà Nội",
+    hanoi: "Hà Nội",
     "da nang": "Đà Nẵng",
-    "hue": "Huế",
+    hue: "Huế",
     "can tho": "Cần Thơ",
   };
 
@@ -92,7 +92,10 @@ export function findProvinceByName(input: string): string | null {
   // 3. Substring match
   for (const province of VIETNAM_PROVINCES) {
     const provinceNormalized = stripAccents(province);
-    if (provinceNormalized.includes(searchNormalized) || searchNormalized.includes(provinceNormalized)) {
+    if (
+      provinceNormalized.includes(searchNormalized) ||
+      searchNormalized.includes(provinceNormalized)
+    ) {
       return province;
     }
   }

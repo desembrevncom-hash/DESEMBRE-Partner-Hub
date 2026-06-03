@@ -1,4 +1,4 @@
-export type TimelineSource = 'activity' | 'calendar' | 'task' | 'order' | 'channel' | 'interaction';
+export type TimelineSource = "activity" | "calendar" | "task" | "order" | "channel" | "interaction";
 
 export interface TimelineItem {
   id: string;

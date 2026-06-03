@@ -13,12 +13,12 @@ import { WorkspaceTimeline } from "./WorkspaceTimeline";
 import { WorkspaceSmartAlerts } from "./WorkspaceSmartAlerts";
 import { WorkspaceBirthdayWidget } from "./WorkspaceBirthdayWidget";
 
-import { 
-  Phone, 
-  Clock, 
-  UserCheck, 
-  FileText, 
-  Plus, 
+import {
+  Phone,
+  Clock,
+  UserCheck,
+  FileText,
+  Plus,
   LayoutDashboard,
   Zap,
   Play,
@@ -37,19 +37,14 @@ import {
   MessageCircle,
   Mail,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,7 +61,7 @@ export const SaleWorkspace: React.FC = () => {
   const { data: dashData, loading: dashLoading } = useWorkspaceDashboard();
   const [personalAccounts, setPersonalAccounts] = React.useState<any[]>([]);
   const [loadingAccounts, setLoadingAccounts] = React.useState(true);
-  
+
   const [data, setData] = useState<any>({
     allTasks: [],
     todayTasks: [],
@@ -76,12 +71,12 @@ export const SaleWorkspace: React.FC = () => {
     customers: [],
     companyEvents: [],
     orders: [],
-    loading: true
+    loading: true,
   });
 
   const [refreshKey, setRefreshKey] = useState(0);
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
-  
+
   // Fetch personal sender accounts for this sale
   useEffect(() => {
     if (!user) return;
@@ -94,15 +89,20 @@ export const SaleWorkspace: React.FC = () => {
         setLoadingAccounts(false);
       });
   }, [user]);
-  
+
   // Task Actions
   const [taskAction, setTaskAction] = useState<{ task: any; action: string } | null>(null);
 
   // Drawer Preview
   const [previewCustomerId, setPreviewCustomerId] = useState<string | null>(null);
-  const [previewCustomerAction, setPreviewCustomerAction] = useState<"note" | "task" | "followup" | "call" | null>(null);
+  const [previewCustomerAction, setPreviewCustomerAction] = useState<
+    "note" | "task" | "followup" | "call" | null
+  >(null);
 
-  const handleOpenPreviewDrawer = (customerId: string, action?: "note" | "task" | "followup" | "call") => {
+  const handleOpenPreviewDrawer = (
+    customerId: string,
+    action?: "note" | "task" | "followup" | "call",
+  ) => {
     setPreviewCustomerId(customerId);
     if (action) {
       setPreviewCustomerAction(action);
@@ -112,38 +112,53 @@ export const SaleWorkspace: React.FC = () => {
   };
 
   // Active Queue Dialog
-  const [activeQueue, setActiveQueue] = useState<{ title: string; items: any[]; type: 'task' | 'customer' | 'order' } | null>(null);
+  const [activeQueue, setActiveQueue] = useState<{
+    title: string;
+    items: any[];
+    type: "task" | "customer" | "order";
+  } | null>(null);
 
   useEffect(() => {
     async function fetchData() {
       if (!user) return;
-      
+
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
       const endOfToday = new Date();
       endOfToday.setHours(23, 59, 59, 999);
-      
-      const [tasksRes, personalRes, companyRes, notifsRes, customersRes, ordersRes] = await Promise.all([
-        supabase.from("customer_tasks")
-          .select("*, customer:customers(*)")
-          .eq("assigned_to", user.id)
-          .neq("status", "completed")
-          .neq("status", "cancelled"),
-        supabase.from("calendar_events")
-          .select("*")
-          .eq("assigned_sale_id", user.id)
-          .order("starts_at", { ascending: true }),
-        supabase.from("company_events").select("*").order("starts_at", { ascending: true }),
-        supabase.from("notifications").select("*").eq("recipient_user_id", user.id).is("read_at", null).order("created_at", { ascending: false }).limit(5),
-        supabase.from("customers")
-          .select("*")
-          .eq("owner_sale_id", user.id)
-          .is("deleted_at", null),
-        supabase.from("orders")
-          .select("*, customer:customers(*)")
-          .eq("created_by", user.id)
-          .in("status", ["draft", "pending"])
-      ]);
+
+      const [tasksRes, personalRes, companyRes, notifsRes, customersRes, ordersRes] =
+        await Promise.all([
+          supabase
+            .from("customer_tasks")
+            .select("*, customer:customers(*)")
+            .eq("assigned_to", user.id)
+            .neq("status", "completed")
+            .neq("status", "cancelled"),
+          supabase
+            .from("calendar_events")
+            .select("*")
+            .eq("assigned_sale_id", user.id)
+            .order("starts_at", { ascending: true }),
+          supabase.from("company_events").select("*").order("starts_at", { ascending: true }),
+          supabase
+            .from("notifications")
+            .select("*")
+            .eq("recipient_user_id", user.id)
+            .is("read_at", null)
+            .order("created_at", { ascending: false })
+            .limit(5),
+          supabase
+            .from("customers")
+            .select("*")
+            .eq("owner_sale_id", user.id)
+            .is("deleted_at", null),
+          supabase
+            .from("orders")
+            .select("*, customer:customers(*)")
+            .eq("created_by", user.id)
+            .in("status", ["draft", "pending"]),
+        ]);
 
       const allTasks = tasksRes.data || [];
       const allAppointments = personalRes.data || [];
@@ -169,25 +184,38 @@ export const SaleWorkspace: React.FC = () => {
         notifications: notifsRes.data || [],
         customers: customersRes.data || [],
         orders: ordersRes.data || [],
-        loading: false
+        loading: false,
       });
     }
     fetchData();
   }, [user, refreshKey]);
 
-  const handleRefresh = () => setRefreshKey(prev => prev + 1);
+  const handleRefresh = () => setRefreshKey((prev) => prev + 1);
 
   // Grouped Queues
-  const leadTasks = data.allTasks.filter((t: any) => t.task_type === 'call');
-  
+  const leadTasks = data.allTasks.filter((t: any) => t.task_type === "call");
+
   const endOfToday = new Date();
   endOfToday.setHours(23, 59, 59, 999);
-  const followUpToday = data.customers.filter((c: any) => c.next_follow_up_at && new Date(c.next_follow_up_at).getTime() <= endOfToday.getTime());
+  const followUpToday = data.customers.filter(
+    (c: any) =>
+      c.next_follow_up_at && new Date(c.next_follow_up_at).getTime() <= endOfToday.getTime(),
+  );
 
-  const checkinTasks = data.allTasks.filter((t: any) => t.task_type === 'check_in' || t.task_type === 'visit' || t.title?.toLowerCase().includes('check'));
-  const quotationTasks = data.allTasks.filter((t: any) => t.task_type === 'quote_follow_up' || t.task_type === 'quotation' || t.title?.toLowerCase().includes('báo giá'));
+  const checkinTasks = data.allTasks.filter(
+    (t: any) =>
+      t.task_type === "check_in" ||
+      t.task_type === "visit" ||
+      t.title?.toLowerCase().includes("check"),
+  );
+  const quotationTasks = data.allTasks.filter(
+    (t: any) =>
+      t.task_type === "quote_follow_up" ||
+      t.task_type === "quotation" ||
+      t.title?.toLowerCase().includes("báo giá"),
+  );
   const pendingOrders = data.orders;
-  const atRiskCustomers = data.customers.filter((c: any) => c.ownership_status === 'at_risk');
+  const atRiskCustomers = data.customers.filter((c: any) => c.ownership_status === "at_risk");
 
   // Sort tasks for Priority Tasks
   const priorityTasks = [...data.allTasks].sort((a, b) => {
@@ -204,20 +232,20 @@ export const SaleWorkspace: React.FC = () => {
     if (scoreA !== scoreB) return scoreB - scoreA;
 
     // 3. Lead mới chưa gọi (task_type = 'call', customer.lifecycle_stage = 'new_lead')
-    const isNewLeadA = a.task_type === 'call' && a.customer?.lifecycle_stage === 'new_lead';
-    const isNewLeadB = b.task_type === 'call' && b.customer?.lifecycle_stage === 'new_lead';
+    const isNewLeadA = a.task_type === "call" && a.customer?.lifecycle_stage === "new_lead";
+    const isNewLeadB = b.task_type === "call" && b.customer?.lifecycle_stage === "new_lead";
     if (isNewLeadA && !isNewLeadB) return -1;
     if (!isNewLeadA && isNewLeadB) return 1;
 
     // 4. Follow-up hôm nay
-    const isFollowUpA = a.task_type === 'follow_up';
-    const isFollowUpB = b.task_type === 'follow_up';
+    const isFollowUpA = a.task_type === "follow_up";
+    const isFollowUpB = b.task_type === "follow_up";
     if (isFollowUpA && !isFollowUpB) return -1;
     if (!isFollowUpA && isFollowUpB) return 1;
 
     // 5. Check-in hôm nay
-    const isCheckinA = a.task_type === 'check_in' || a.task_type === 'visit';
-    const isCheckinB = b.task_type === 'check_in' || b.task_type === 'visit';
+    const isCheckinA = a.task_type === "check_in" || a.task_type === "visit";
+    const isCheckinB = b.task_type === "check_in" || b.task_type === "visit";
     if (isCheckinA && !isCheckinB) return -1;
     if (!isCheckinA && isCheckinB) return 1;
 
@@ -230,17 +258,26 @@ export const SaleWorkspace: React.FC = () => {
   };
 
   return (
-    <WorkspaceShell title="Sales Workspace" icon={<LayoutDashboard className="w-6 h-6" />} loading={data.loading}>
-      
+    <WorkspaceShell
+      title="Sales Workspace"
+      icon={<LayoutDashboard className="w-6 h-6" />}
+      loading={data.loading}
+    >
       {/* ACTIONS ROW */}
-      <div className="flex justify-end gap-3 mb-6">
-        <Button asChild size="sm" className="bg-slate-900 hover:bg-primary rounded-xl font-bold px-4">
-          <Link to="/orders/new"><Plus className="w-4 h-4 mr-2" /> Tạo đơn mới</Link>
+      <div className="flex justify-stretch sm:justify-end gap-3 mb-6">
+        <Button
+          asChild
+          size="sm"
+          className="flex-1 sm:flex-initial bg-slate-900 hover:bg-primary rounded-xl font-bold px-4"
+        >
+          <Link to="/orders/new">
+            <Plus className="w-4 h-4 mr-2" /> Tạo đơn mới
+          </Link>
         </Button>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="bg-white border-slate-200 hover:bg-slate-50 rounded-xl font-bold px-4"
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 sm:flex-initial bg-white border-slate-200 hover:bg-slate-50 rounded-xl font-bold px-4"
           onClick={() => setIsAddCustomerOpen(true)}
         >
           <Plus className="w-4 h-4 mr-2 text-primary" /> Thêm khách nhanh
@@ -253,37 +290,55 @@ export const SaleWorkspace: React.FC = () => {
       {!loadingAccounts && (
         <div className="rounded-2xl border border-slate-100 bg-white p-4">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kênh liên lạc cá nhân</span>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              Kênh liên lạc cá nhân
+            </span>
           </div>
           {personalAccounts.length === 0 ? (
             <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-3 py-2 rounded-xl">
               <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-              <span className="text-xs font-bold">Bạn chưa cấu hình kênh cá nhân nào. Liên hệ Admin để thiết lập.</span>
+              <span className="text-xs font-bold">
+                Bạn chưa cấu hình kênh cá nhân nào. Liên hệ Admin để thiết lập.
+              </span>
             </div>
           ) : (
             <div className="flex flex-wrap gap-3">
-              {(['zalo', 'email', 'phone'].map(ch => {
-                const acc = personalAccounts.find(a => a.platform?.toLowerCase().includes(ch));
-                const isOk = acc?.is_active && (acc?.health_status === 'healthy' || acc?.health_status === 'unknown');
-                const label = ch === 'zalo' ? 'Zalo' : ch === 'email' ? 'Email' : 'Phone';
-                const Icon = ch === 'email' ? Mail : ch === 'zalo' ? MessageCircle : Phone;
+              {["zalo", "email", "phone"].map((ch) => {
+                const acc = personalAccounts.find((a) => a.platform?.toLowerCase().includes(ch));
+                const isOk =
+                  acc?.is_active &&
+                  (acc?.health_status === "healthy" || acc?.health_status === "unknown");
+                const label = ch === "zalo" ? "Zalo" : ch === "email" ? "Email" : "Phone";
+                const Icon = ch === "email" ? Mail : ch === "zalo" ? MessageCircle : Phone;
                 return (
-                  <div key={ch} className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold ${
-                    !acc ? 'bg-slate-50 border-slate-100 text-slate-400'
-                    : isOk ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
-                    : 'bg-amber-50 border-amber-100 text-amber-700'
-                  }`}>
+                  <div
+                    key={ch}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold ${
+                      !acc
+                        ? "bg-slate-50 border-slate-100 text-slate-400"
+                        : isOk
+                          ? "bg-emerald-50 border-emerald-100 text-emerald-700"
+                          : "bg-amber-50 border-amber-100 text-amber-700"
+                    }`}
+                  >
                     <Icon className="w-3.5 h-3.5" />
                     {label}:
-                    {!acc
-                      ? <span>Chưa cấu hình</span>
-                      : isOk
-                      ? <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3" />Đã cấu hình</span>
-                      : <span className="flex items-center gap-1"><AlertTriangle className="w-3 h-3" />Cần kiểm tra</span>
-                    }
+                    {!acc ? (
+                      <span>Chưa cấu hình</span>
+                    ) : isOk ? (
+                      <span className="flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Đã cấu hình
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        Cần kiểm tra
+                      </span>
+                    )}
                   </div>
                 );
-              }))}
+              })}
             </div>
           )}
         </div>
@@ -292,37 +347,34 @@ export const SaleWorkspace: React.FC = () => {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         {/* CỘT TRÁI (2 phần) - Ưu tiên hôm nay & Lịch */}
         <div className="xl:col-span-2 space-y-8">
-          <WorkspacePriorityList 
+          <WorkspacePriorityList
             priorities={dashData?.today_priorities || []}
             teamRisks={dashData?.team_risks}
             loading={dashLoading}
             onOpenCustomer={handleOpenPreviewDrawer}
           />
 
-          <WorkspaceCalendarCard 
+          <WorkspaceCalendarCard
             events={[
-              ...data.allTasks.map((t: any) => ({ ...t, _ui_type: 'task' })),
-              ...data.allAppointments.map((a: any) => ({ ...a, _ui_type: 'personal' })),
-              ...data.companyEvents.map((c: any) => ({ ...c, _ui_type: 'company' }))
-            ]} 
-            onRefresh={handleRefresh} 
+              ...data.allTasks.map((t: any) => ({ ...t, _ui_type: "task" })),
+              ...data.allAppointments.map((a: any) => ({ ...a, _ui_type: "personal" })),
+              ...data.companyEvents.map((c: any) => ({ ...c, _ui_type: "company" })),
+            ]}
+            onRefresh={handleRefresh}
           />
         </div>
 
         {/* CỘT PHẢI (1 phần) - Smart Alerts & Timeline */}
         <div className="space-y-8">
           <div className="h-[400px]">
-            <WorkspaceTimeline 
-              events={dashData?.upcoming_timeline || []} 
-              loading={dashLoading} 
+            <WorkspaceTimeline
+              events={dashData?.upcoming_timeline || []}
+              loading={dashLoading}
               onOpenCustomer={handleOpenPreviewDrawer}
             />
           </div>
           <div className="h-[350px]">
-            <WorkspaceSmartAlerts 
-              alerts={dashData?.smart_alerts} 
-              loading={dashLoading} 
-            />
+            <WorkspaceSmartAlerts alerts={dashData?.smart_alerts} loading={dashLoading} />
           </div>
           <div className="h-[300px]">
             <WorkspaceBirthdayWidget onOpenCustomer={handleOpenPreviewDrawer} />
@@ -342,76 +394,101 @@ export const SaleWorkspace: React.FC = () => {
           <ScrollArea className="flex-1 pr-2 mt-4">
             {activeQueue?.items && activeQueue.items.length > 0 ? (
               <div className="space-y-2">
-                {activeQueue.type === 'task' && activeQueue.items.map((item) => (
-                  <div key={item.id} className="p-3.5 rounded-xl border border-slate-100 bg-slate-50 flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-xs font-bold text-slate-950 leading-snug">{item.title}</div>
-                      {item.customer && (
-                        <div className="text-[10px] text-slate-450 font-bold mt-1">🏢 {item.customer.name} ({item.customer.facility_name || "Spa tự do"})</div>
+                {activeQueue.type === "task" &&
+                  activeQueue.items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-3.5 rounded-xl border border-slate-100 bg-slate-50 flex items-center justify-between gap-3"
+                    >
+                      <div>
+                        <div className="text-xs font-bold text-slate-950 leading-snug">
+                          {item.title}
+                        </div>
+                        {item.customer && (
+                          <div className="text-[10px] text-slate-450 font-bold mt-1">
+                            🏢 {item.customer.name} ({item.customer.facility_name || "Spa tự do"})
+                          </div>
+                        )}
+                      </div>
+                      {item.customer_id && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setActiveQueue(null);
+                            setPreviewCustomerId(item.customer_id);
+                          }}
+                          className="h-7 text-[10px] font-bold"
+                        >
+                          Chi tiết
+                        </Button>
                       )}
                     </div>
-                    {item.customer_id && (
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
+                  ))}
+
+                {activeQueue.type === "customer" &&
+                  activeQueue.items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-3.5 rounded-xl border border-slate-100 bg-slate-50 flex items-center justify-between gap-3"
+                    >
+                      <div>
+                        <div className="text-xs font-bold text-slate-950 leading-snug">
+                          {item.name || item.contact_name}
+                        </div>
+                        <div className="text-[10px] text-slate-450 font-bold mt-1">
+                          🏢 {item.facility_name || item.business_name || "Spa tự do"}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => {
                           setActiveQueue(null);
-                          setPreviewCustomerId(item.customer_id);
+                          setPreviewCustomerId(item.id);
                         }}
                         className="h-7 text-[10px] font-bold"
                       >
-                        Chi tiết
+                        Hồ sơ nhanh
                       </Button>
-                    )}
-                  </div>
-                ))}
-
-                {activeQueue.type === 'customer' && activeQueue.items.map((item) => (
-                  <div key={item.id} className="p-3.5 rounded-xl border border-slate-100 bg-slate-50 flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-xs font-bold text-slate-950 leading-snug">{item.name || item.contact_name}</div>
-                      <div className="text-[10px] text-slate-450 font-bold mt-1">🏢 {item.facility_name || item.business_name || "Spa tự do"}</div>
                     </div>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      onClick={() => {
-                        setActiveQueue(null);
-                        setPreviewCustomerId(item.id);
-                      }}
-                      className="h-7 text-[10px] font-bold"
-                    >
-                      Hồ sơ nhanh
-                    </Button>
-                  </div>
-                ))}
+                  ))}
 
-                {activeQueue.type === 'order' && activeQueue.items.map((item) => (
-                  <div key={item.id} className="p-3.5 rounded-xl border border-slate-100 bg-slate-50 flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-xs font-bold text-slate-950 leading-snug">Mã đơn: #{item.order_no || item.id.slice(0, 8)}</div>
-                      <div className="text-[10px] text-slate-450 font-bold mt-1">
-                        Tổng tiền: {formatCurrency(item.total || item.total_amount || 0)} · Trạng thái: {item.status}
+                {activeQueue.type === "order" &&
+                  activeQueue.items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-3.5 rounded-xl border border-slate-100 bg-slate-50 flex items-center justify-between gap-3"
+                    >
+                      <div>
+                        <div className="text-xs font-bold text-slate-950 leading-snug">
+                          Mã đơn: #{item.order_no || item.id.slice(0, 8)}
+                        </div>
+                        <div className="text-[10px] text-slate-450 font-bold mt-1">
+                          Tổng tiền: {formatCurrency(item.total || item.total_amount || 0)} · Trạng
+                          thái: {item.status}
+                        </div>
                       </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setActiveQueue(null);
+                          navigate({ to: "/orders/$id", params: { id: item.id } });
+                        }}
+                        className="h-7 text-[10px] font-bold"
+                      >
+                        Xem đơn
+                      </Button>
                     </div>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      onClick={() => {
-                        setActiveQueue(null);
-                        navigate({ to: "/orders/$id", params: { id: item.id } });
-                      }}
-                      className="h-7 text-[10px] font-bold"
-                    >
-                      Xem đơn
-                    </Button>
-                  </div>
-                ))}
+                  ))}
               </div>
             ) : (
               <div className="py-12 text-center">
                 <Info className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Không có dữ liệu trong hàng chờ này</p>
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">
+                  Không có dữ liệu trong hàng chờ này
+                </p>
               </div>
             )}
           </ScrollArea>
@@ -419,7 +496,7 @@ export const SaleWorkspace: React.FC = () => {
       </Dialog>
 
       {/* PREVIEW CUSTOMER DRAWER */}
-      <CustomerPreviewDrawer 
+      <CustomerPreviewDrawer
         customer={{ id: previewCustomerId }}
         open={!!previewCustomerId}
         onOpenChange={(o) => {
@@ -428,17 +505,16 @@ export const SaleWorkspace: React.FC = () => {
             setPreviewCustomerAction(null);
           }
         }}
-
         initialQuickAction={previewCustomerAction as any}
       />
 
-      <AddCustomerDialog 
-        open={isAddCustomerOpen} 
-        onOpenChange={setIsAddCustomerOpen} 
+      <AddCustomerDialog
+        open={isAddCustomerOpen}
+        onOpenChange={setIsAddCustomerOpen}
         onSuccess={handleRefresh}
       />
 
-      <TaskActionDialog 
+      <TaskActionDialog
         taskAction={taskAction}
         onClose={() => setTaskAction(null)}
         onSuccess={handleRefresh}

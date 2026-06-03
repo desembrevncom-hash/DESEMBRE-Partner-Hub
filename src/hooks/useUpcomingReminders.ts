@@ -38,10 +38,13 @@ export function useUpcomingReminders(userId: string | undefined, isAdmin: boolea
       // Kích hoạt thông báo Toast nhắc việc 1 lần duy nhất khi vào trang
       if (events.length > 0 && !notifiedRef.current) {
         notifiedRef.current = true;
-        toast.warning(`🔔 Nhắc nhở: Bạn có ${events.length} lịch hẹn sắp diễn ra trong vòng 30 phút tới!`, {
-          duration: 8000,
-          position: "top-right",
-        });
+        toast.warning(
+          `🔔 Nhắc nhở: Bạn có ${events.length} lịch hẹn sắp diễn ra trong vòng 30 phút tới!`,
+          {
+            duration: 8000,
+            position: "top-right",
+          },
+        );
       }
     } catch (err) {
       console.warn("Lỗi nạp danh sách nhắc việc:", err);

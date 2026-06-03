@@ -5,14 +5,14 @@
 // 1. KHOẢNG KIỂU DỮ LIỆU CỐT LÕI (CORE LITERAL TYPES)
 export type CustomerChannel = "direct_sales" | "tele_sales" | "hybrid";
 
-export type CustomerDistanceType = 
+export type CustomerDistanceType =
   | "near_company"
   | "same_city"
   | "far_city"
   | "province"
   | "unknown";
 
-export type CustomerCareModel = 
+export type CustomerCareModel =
   | "sale_owned"
   | "tele_owned"
   | "sale_with_tele_support"
@@ -94,13 +94,62 @@ export const CARE_MODEL_OPTIONS = [
 
 // 4. CHU KỲ KHÁCH HÀNG (CUSTOMER LIFECYCLE - NAMING chuẩn 2026)
 export const LIFECYCLE_STAGE_OPTIONS = [
-  { value: "new_lead", label: "Lead mới", color: "blue", bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
-  { value: "consulting", label: "Đang tư vấn", color: "purple", bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200" },
-  { value: "ordered", label: "Khách đã mua", color: "emerald", bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
-  { value: "active_customer", label: "Khách hoạt động", color: "indigo", bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200" },
-  { value: "loyal_customer", label: "Khách thân thiết", color: "amber", bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
-  { value: "inactive", label: "Ngưng hoạt động", color: "slate", bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200" },
-  { value: "lost", label: "Mất khách", color: "red", bg: "bg-red-50", text: "text-red-700", border: "border-red-200" },
+  {
+    value: "new_lead",
+    label: "Lead mới",
+    color: "blue",
+    bg: "bg-blue-50",
+    text: "text-blue-700",
+    border: "border-blue-200",
+  },
+  {
+    value: "consulting",
+    label: "Đang tư vấn",
+    color: "purple",
+    bg: "bg-purple-50",
+    text: "text-purple-700",
+    border: "border-purple-200",
+  },
+  {
+    value: "ordered",
+    label: "Khách đã mua",
+    color: "emerald",
+    bg: "bg-emerald-50",
+    text: "text-emerald-700",
+    border: "border-emerald-200",
+  },
+  {
+    value: "active_customer",
+    label: "Khách hoạt động",
+    color: "indigo",
+    bg: "bg-indigo-50",
+    text: "text-indigo-700",
+    border: "border-indigo-200",
+  },
+  {
+    value: "loyal_customer",
+    label: "Khách thân thiết",
+    color: "amber",
+    bg: "bg-amber-50",
+    text: "text-amber-700",
+    border: "border-amber-200",
+  },
+  {
+    value: "inactive",
+    label: "Ngưng hoạt động",
+    color: "slate",
+    bg: "bg-slate-50",
+    text: "text-slate-700",
+    border: "border-slate-200",
+  },
+  {
+    value: "lost",
+    label: "Mất khách",
+    color: "red",
+    bg: "bg-red-50",
+    text: "text-red-700",
+    border: "border-red-200",
+  },
 ] as const;
 
 // 5. BỘ HÀM TRA CỨU NHÃN TỰ ĐỘNG (LABEL RESOLVER HELPERS)
@@ -114,24 +163,15 @@ export function getLifecycleConfig(value?: string | null) {
 }
 
 export function getCustomerChannelLabel(value?: string | null) {
-  return (
-    CUSTOMER_CHANNEL_OPTIONS.find((item) => item.value === value)?.label ||
-    "Chưa phân tuyến"
-  );
+  return CUSTOMER_CHANNEL_OPTIONS.find((item) => item.value === value)?.label || "Chưa phân tuyến";
 }
 
 export function getCustomerDistanceLabel(value?: string | null) {
-  return (
-    CUSTOMER_DISTANCE_OPTIONS.find((item) => item.value === value)?.label ||
-    "Chưa rõ"
-  );
+  return CUSTOMER_DISTANCE_OPTIONS.find((item) => item.value === value)?.label || "Chưa rõ";
 }
 
 export function getCareModelLabel(value?: string | null) {
-  return (
-    CARE_MODEL_OPTIONS.find((item) => item.value === value)?.label ||
-    "Chưa xác định"
-  );
+  return CARE_MODEL_OPTIONS.find((item) => item.value === value)?.label || "Chưa xác định";
 }
 
 /**

@@ -19,23 +19,28 @@ function hexToBytes(hex: string): Uint8Array {
   return bytes;
 }
 
-export async function decryptSenderToken(encrypted: string, keyString: string): Promise<string | null> {
+export async function decryptSenderToken(
+  encrypted: string,
+  keyString: string,
+): Promise<string | null> {
   try {
     const parts = encrypted.split(":");
     if (parts.length !== 2) throw new Error("OLD_FORMAT_NO_COLON");
     const ivHex = parts[0];
     const ciphertextB64 = parts[1];
-    
+
     // Hash key string to 32 bytes
     const encKeyData = new TextEncoder().encode(keyString);
     const hashBuffer = await crypto.subtle.digest("SHA-256", encKeyData);
-    const key = await crypto.subtle.importKey("raw", hashBuffer, { name: "AES-GCM" }, false, ["decrypt"]);
-    
+    const key = await crypto.subtle.importKey("raw", hashBuffer, { name: "AES-GCM" }, false, [
+      "decrypt",
+    ]);
+
     const iv = hexToBytes(ivHex);
     const ciphertext = decode(ciphertextB64);
 
     const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
-    
+
     return new TextDecoder().decode(plaintext);
   } catch (e: any) {
     console.error("Decryption error:", e);
@@ -44,8 +49,8 @@ export async function decryptSenderToken(encrypted: string, keyString: string): 
 }
 
 export async function resolveResendCredential(
-  supabase: SupabaseClient, 
-  sender_account_id?: string
+  supabase: SupabaseClient,
+  sender_account_id?: string,
 ): Promise<SenderCredential> {
   let auth_type = "platform_secret";
   let from_email = Deno.env.get("EMAIL_FROM_ADDRESS") || null;
@@ -81,10 +86,13 @@ export async function resolveResendCredential(
       .maybeSingle();
 
     if (tokenData?.access_token_enc) {
-      const tokenEncKey = Deno.env.get("TOKEN_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+      const tokenEncKey =
+        Deno.env.get("TOKEN_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
       const decrypted = await decryptSenderToken(tokenData.access_token_enc, tokenEncKey);
       if (decrypted) {
-        console.log(`[Credential Resolver] Using sender credential source: api_key sender_account_id=${sender_account_id}`);
+        console.log(
+          `[Credential Resolver] Using sender credential source: api_key sender_account_id=${sender_account_id}`,
+        );
         api_key = decrypted;
       } else {
         throw new Error("RESEND_API_KEY_DECRYPTION_FAILED");
@@ -94,7 +102,9 @@ export async function resolveResendCredential(
     }
   } else {
     // auth_type === "platform_secret" hoặc thiếu sender_account_id -> dùng env fallback
-    console.warn(`[Credential Resolver] No api_key configured or sender_account_id provided for provider '${provider}'. Using platform secret fallback from Deno.env.`);
+    console.warn(
+      `[Credential Resolver] No api_key configured or sender_account_id provided for provider '${provider}'. Using platform secret fallback from Deno.env.`,
+    );
     api_key = Deno.env.get("RESEND_API_KEY") || null;
     if (!api_key) {
       throw new Error("PLATFORM_RESEND_API_KEY_MISSING");
@@ -109,8 +119,8 @@ export async function resolveResendCredential(
 }
 
 export async function resolveZaloCredential(
-  supabase: SupabaseClient, 
-  sender_account_id?: string
+  supabase: SupabaseClient,
+  sender_account_id?: string,
 ): Promise<SenderCredential> {
   let auth_type = "platform_secret";
   let access_token: string | null = null;
@@ -144,20 +154,25 @@ export async function resolveZaloCredential(
 
     if (tokenData?.access_token_enc) {
       // Check if expired or expiring in less than 5 mins
-      const isExpired = tokenData.token_expires_at 
-        ? new Date(tokenData.token_expires_at).getTime() < Date.now() + 5 * 60 * 1000 
+      const isExpired = tokenData.token_expires_at
+        ? new Date(tokenData.token_expires_at).getTime() < Date.now() + 5 * 60 * 1000
         : true;
 
       if (isExpired) {
-        console.log(`[Credential Resolver] Zalo token expired or expiring soon for sender_account_id=${sender_account_id}. Refreshing...`);
+        console.log(
+          `[Credential Resolver] Zalo token expired or expiring soon for sender_account_id=${sender_account_id}. Refreshing...`,
+        );
         const { refreshZaloToken } = await import("./zalo-token-refresh.ts");
         access_token = await refreshZaloToken(supabase, sender_account_id);
         credential_source = "sender_token_refreshed";
       } else {
-        const tokenEncKey = Deno.env.get("TOKEN_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+        const tokenEncKey =
+          Deno.env.get("TOKEN_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
         const decrypted = await decryptSenderToken(tokenData.access_token_enc, tokenEncKey);
         if (decrypted) {
-          console.log(`[Credential Resolver] Using Zalo credential source: sender_token sender_account_id=${sender_account_id}`);
+          console.log(
+            `[Credential Resolver] Using Zalo credential source: sender_token sender_account_id=${sender_account_id}`,
+          );
           access_token = decrypted;
           credential_source = "sender_token";
         } else {
@@ -177,27 +192,27 @@ export async function resolveZaloCredential(
     credential_source = "env";
   }
 
-  return { 
-    provider: "zalo_oa", 
-    access_token, 
-    credential_source, 
-    sender_account_id, 
-    auth_type 
+  return {
+    provider: "zalo_oa",
+    access_token,
+    credential_source,
+    sender_account_id,
+    auth_type,
   };
 }
 
 export async function getSenderCredential(
   supabase: SupabaseClient,
   provider: string,
-  sender_account_id?: string
+  sender_account_id?: string,
 ): Promise<SenderCredential> {
   if (provider === "resend" || provider === "email") {
     return await resolveResendCredential(supabase, sender_account_id);
   }
-  
+
   if (provider === "zalo_oa" || provider === "zalo") {
     return await resolveZaloCredential(supabase, sender_account_id);
   }
-  
+
   throw new Error(`Credential resolution for provider '${provider}' is not implemented yet.`);
 }

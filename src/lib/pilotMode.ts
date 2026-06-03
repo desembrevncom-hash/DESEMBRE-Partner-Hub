@@ -21,13 +21,13 @@ const DEFAULT_SETTINGS: PilotSettings = {
     ai_rag: true,
     automation_advanced: true,
     product_knowledge_qa: true,
-  }
+  },
 };
 
 const STORAGE_KEY = "pilotModeSettings";
 
 export function getPilotSettings(): PilotSettings {
-  if (typeof window === 'undefined') return DEFAULT_SETTINGS;
+  if (typeof window === "undefined") return DEFAULT_SETTINGS;
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored) {
     try {
@@ -37,8 +37,8 @@ export function getPilotSettings(): PilotSettings {
         ...parsed,
         enabled_features: {
           ...DEFAULT_SETTINGS.enabled_features,
-          ...(parsed.enabled_features || {})
-        }
+          ...(parsed.enabled_features || {}),
+        },
       };
     } catch (e) {
       console.error("Failed to parse pilot settings", e);
@@ -48,7 +48,7 @@ export function getPilotSettings(): PilotSettings {
 }
 
 export function savePilotSettings(settings: PilotSettings) {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
 }
 
@@ -58,7 +58,10 @@ export function isPilotUser(userId: string): boolean {
   return settings.pilot_user_ids.includes(userId);
 }
 
-export function isFeatureEnabledForUser(featureKey: keyof PilotSettings['enabled_features'], userId: string | undefined): boolean {
+export function isFeatureEnabledForUser(
+  featureKey: keyof PilotSettings["enabled_features"],
+  userId: string | undefined,
+): boolean {
   if (!userId) return false;
   const settings = getPilotSettings();
   if (!settings.pilot_mode) return true;

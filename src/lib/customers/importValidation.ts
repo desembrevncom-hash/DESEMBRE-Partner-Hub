@@ -21,20 +21,20 @@ export interface ParsedImportRow {
   note: string | null;
   owner_sale_id: string | null;
   owner_sale_email: string | null;
-  validation_status: 'pending' | 'valid' | 'invalid' | 'duplicate' | 'warning';
+  validation_status: "pending" | "valid" | "invalid" | "duplicate" | "warning";
   validation_errors: string[];
   warning_message: string | null;
   error_message: string | null;
-  import_action: 'skip' | 'create_new' | 'update_existing';
+  import_action: "skip" | "create_new" | "update_existing";
   matched_customer_id: string | null;
   duplicate_reason: string | null;
 }
 
 export function normalizePhone(phone: string | null | undefined): string | null {
   if (!phone) return null;
-  let p = phone.toString().replace(/[^0-9+]/g, '');
-  if (p.startsWith('+84')) p = '0' + p.slice(3);
-  if (p.startsWith('84') && p.length > 9) p = '0' + p.slice(2);
+  let p = phone.toString().replace(/[^0-9+]/g, "");
+  if (p.startsWith("+84")) p = "0" + p.slice(3);
+  if (p.startsWith("84") && p.length > 9) p = "0" + p.slice(2);
   return p.length >= 9 ? p : null;
 }
 
@@ -50,29 +50,40 @@ export function validateEmail(email: string | null | undefined): boolean {
 
 export function isEmptyImportRow(row: any): boolean {
   if (!row) return true;
-  return Object.values(row).every(v => v === null || v === undefined || v === '');
+  return Object.values(row).every((v) => v === null || v === undefined || v === "");
 }
 
 export function mapImportRow(row: any, index: number): ParsedImportRow {
   const getVal = (keys: string[]) => {
     for (const key of keys) {
-      if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
+      if (row[key] !== undefined && row[key] !== null && row[key] !== "") {
         return row[key].toString().trim();
       }
     }
     return null;
   };
 
-  const name = getVal(['name', 'Name', 'Tên', 'tên', 'contact_name', 'Contact Name']);
-  const business_name = getVal(['business_name', 'Business Name', 'Cơ sở', 'facility_name', 'spa_name']);
-  const phone = getVal(['phone', 'Phone', 'SĐT', 'Số điện thoại', 'tel', 'mobile']);
-  const email = getVal(['email', 'Email', 'Thư điện tử']);
-  const address = getVal(['address', 'Address', 'Địa chỉ']);
-  const city = getVal(['city', 'City', 'Thành phố', 'Tỉnh/TP']);
-  const source = getVal(['source', 'Source', 'Nguồn', 'customer_channel']);
-  const status = getVal(['status', 'Status', 'Trạng thái', 'lifecycle_stage']);
-  const note = getVal(['note', 'Note', 'Ghi chú']);
-  const owner_sale_email = getVal(['owner_sale_email', 'Sale Email', 'Người phụ trách', 'email_phu_trach']);
+  const name = getVal(["name", "Name", "Tên", "tên", "contact_name", "Contact Name"]);
+  const business_name = getVal([
+    "business_name",
+    "Business Name",
+    "Cơ sở",
+    "facility_name",
+    "spa_name",
+  ]);
+  const phone = getVal(["phone", "Phone", "SĐT", "Số điện thoại", "tel", "mobile"]);
+  const email = getVal(["email", "Email", "Thư điện tử"]);
+  const address = getVal(["address", "Address", "Địa chỉ"]);
+  const city = getVal(["city", "City", "Thành phố", "Tỉnh/TP"]);
+  const source = getVal(["source", "Source", "Nguồn", "customer_channel"]);
+  const status = getVal(["status", "Status", "Trạng thái", "lifecycle_stage"]);
+  const note = getVal(["note", "Note", "Ghi chú"]);
+  const owner_sale_email = getVal([
+    "owner_sale_email",
+    "Sale Email",
+    "Người phụ trách",
+    "email_phu_trach",
+  ]);
 
   const nPhone = normalizePhone(phone);
   const nEmail = normalizeEmail(email);
@@ -80,7 +91,18 @@ export function mapImportRow(row: any, index: number): ParsedImportRow {
   return {
     row_number: index + 1,
     raw_data: row,
-    parsed_data: { name, business_name, phone, email, address, city, source, status, note, owner_sale_email },
+    parsed_data: {
+      name,
+      business_name,
+      phone,
+      email,
+      address,
+      city,
+      source,
+      status,
+      note,
+      owner_sale_email,
+    },
     name: name,
     contact_name: name,
     business_name: business_name,
@@ -98,20 +120,20 @@ export function mapImportRow(row: any, index: number): ParsedImportRow {
     note: note,
     owner_sale_id: null,
     owner_sale_email: owner_sale_email,
-    validation_status: 'pending',
+    validation_status: "pending",
     validation_errors: [],
     warning_message: null,
     error_message: null,
-    import_action: 'skip',
+    import_action: "skip",
     matched_customer_id: null,
-    duplicate_reason: null
+    duplicate_reason: null,
   };
 }
 
 export function validateImportRow(row: ParsedImportRow): ParsedImportRow {
   const errors: string[] = [];
   const warnings: string[] = [];
-  
+
   // 1 & 2. Required info
   if (!row.name && !row.contact_name && !row.business_name && !row.facility_name) {
     errors.push("Thiếu tên khách hàng hoặc tên cơ sở.");
@@ -134,14 +156,14 @@ export function validateImportRow(row: ParsedImportRow): ParsedImportRow {
     warnings.push("Email người phụ trách sai định dạng.");
   }
 
-  let status: 'valid' | 'invalid' | 'warning' | 'duplicate' = 'valid';
-  let action: 'skip' | 'create_new' | 'update_existing' = 'create_new';
+  let status: "valid" | "invalid" | "warning" | "duplicate" = "valid";
+  let action: "skip" | "create_new" | "update_existing" = "create_new";
 
   if (errors.length > 0) {
-    status = 'invalid';
-    action = 'skip';
+    status = "invalid";
+    action = "skip";
   } else if (warnings.length > 0) {
-    status = 'warning';
+    status = "warning";
   }
 
   return {
@@ -150,7 +172,7 @@ export function validateImportRow(row: ParsedImportRow): ParsedImportRow {
     validation_errors: errors,
     warning_message: warnings.length > 0 ? warnings.join(" | ") : null,
     error_message: errors.length > 0 ? errors.join(" | ") : null,
-    import_action: action
+    import_action: action,
   };
 }
 
@@ -158,12 +180,12 @@ export function detectDuplicateInFile(rows: ParsedImportRow[]): ParsedImportRow[
   const phoneSet = new Set<string>();
   const emailSet = new Set<string>();
 
-  return rows.map(row => {
-    if (row.validation_status === 'invalid') return row;
+  return rows.map((row) => {
+    if (row.validation_status === "invalid") return row;
 
     let isDup = false;
     const errors = [...(row.validation_errors || [])];
-    
+
     if (row.normalized_phone) {
       if (phoneSet.has(row.normalized_phone)) {
         isDup = true;
@@ -172,7 +194,7 @@ export function detectDuplicateInFile(rows: ParsedImportRow[]): ParsedImportRow[
         phoneSet.add(row.normalized_phone);
       }
     }
-    
+
     if (row.normalized_email) {
       if (emailSet.has(row.normalized_email)) {
         isDup = true;
@@ -185,11 +207,11 @@ export function detectDuplicateInFile(rows: ParsedImportRow[]): ParsedImportRow[
     if (isDup) {
       return {
         ...row,
-        validation_status: 'duplicate',
+        validation_status: "duplicate",
         validation_errors: errors,
         error_message: errors.join(" | "),
         duplicate_reason: "Trùng lặp trong file upload",
-        import_action: 'skip'
+        import_action: "skip",
       };
     }
     return row;
@@ -199,9 +221,9 @@ export function detectDuplicateInFile(rows: ParsedImportRow[]): ParsedImportRow[
 export function buildImportSummary(rows: ParsedImportRow[]) {
   return {
     total_rows: rows.length,
-    valid_rows: rows.filter(r => r.validation_status === 'valid').length,
-    invalid_rows: rows.filter(r => r.validation_status === 'invalid').length,
-    duplicate_rows: rows.filter(r => r.validation_status === 'duplicate').length,
-    warning_rows: rows.filter(r => r.validation_status === 'warning').length,
+    valid_rows: rows.filter((r) => r.validation_status === "valid").length,
+    invalid_rows: rows.filter((r) => r.validation_status === "invalid").length,
+    duplicate_rows: rows.filter((r) => r.validation_status === "duplicate").length,
+    warning_rows: rows.filter((r) => r.validation_status === "warning").length,
   };
 }

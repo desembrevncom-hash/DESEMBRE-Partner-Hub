@@ -21,7 +21,7 @@ import {
   Mail,
   MessageCircle,
   Shield,
-  ExternalLink
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -34,7 +34,7 @@ interface AddSenderWizardProps {
 export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWizardProps) {
   const [step, setStep] = useState(1);
   const [provider, setProvider] = useState<"gmail/google" | "resend" | "zalo_oa">("gmail/google");
-  
+
   // Fields Form
   const [name, setName] = useState("");
   const [senderEmail, setSenderEmail] = useState("");
@@ -46,16 +46,18 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
   const [gmailClientId, setGmailClientId] = useState("");
   const [gmailClientSecret, setGmailClientSecret] = useState("");
   const [gmailRefreshToken, setGmailRefreshToken] = useState("");
-  
+
   // Created sender ID (from step 2)
   const [createdSenderId, setCreatedSenderId] = useState<string | null>(null);
-  
+
   // States
   const [submitting, setSubmitting] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  
+
   // Verify states: 'healthy' | 'warning' | 'error' | 'requires_setup'
-  const [verifyState, setVerifyState] = useState<"healthy" | "warning" | "error" | "requires_setup" | null>(null);
+  const [verifyState, setVerifyState] = useState<
+    "healthy" | "warning" | "error" | "requires_setup" | null
+  >(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
 
   const resetForm = () => {
@@ -90,7 +92,9 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
 
     setSubmitting(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error("Phiên làm việc hết hạn");
 
       // Build payload for provisioning
@@ -101,16 +105,25 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
         auth_type: provider === "resend" ? "api_key" : "oauth_refresh_token",
         status: "pending_verification",
         health_status: "unknown",
-        sender_email: provider === "resend" ? senderEmail.trim() : (provider === "gmail/google" ? senderEmail.trim() : null),
+        sender_email:
+          provider === "resend"
+            ? senderEmail.trim()
+            : provider === "gmail/google"
+              ? senderEmail.trim()
+              : null,
         sender_name: senderName.trim() || null,
         domain: provider === "resend" ? domain.trim() : null,
         secret_prefix: provider === "gmail/google" ? "GOOGLE_DEFAULT" : null,
-        provider_secret: provider === "resend" ? resendApiKey.trim() : 
-                         (provider === "gmail/google" ? JSON.stringify({
-                           clientId: gmailClientId.trim(),
-                           clientSecret: gmailClientSecret.trim(),
-                           refreshToken: gmailRefreshToken.trim()
-                         }) : null)
+        provider_secret:
+          provider === "resend"
+            ? resendApiKey.trim()
+            : provider === "gmail/google"
+              ? JSON.stringify({
+                  clientId: gmailClientId.trim(),
+                  clientSecret: gmailClientSecret.trim(),
+                  refreshToken: gmailRefreshToken.trim(),
+                })
+              : null,
       };
 
       const res = await fetch(
@@ -118,18 +131,18 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
         {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${session.access_token}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify(payload),
-        }
+        },
       );
 
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Lỗi tạo tài khoản");
 
       setCreatedSenderId(json.data.id);
-      
+
       // Chuyển bước
       if (provider === "zalo_oa") {
         // Zalo OA đi thẳng sang luồng OAuth sau đó
@@ -137,7 +150,7 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
       } else {
         setVerifyState(null);
       }
-      
+
       setStep(3);
     } catch (e: any) {
       toast.error("Lỗi: " + e.message);
@@ -153,7 +166,9 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
     setVerifyError(null);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error("Phiên làm việc hết hạn");
 
       const res = await fetch(
@@ -161,19 +176,25 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
         {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${session.access_token}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ sender_id: createdSenderId, sender_type: "business" }),
-        }
+        },
       );
-      
+
       const json = await res.json();
-      
+
       // Nếu API không phản hồi tốt
       if (!res.ok) {
         // Check nếu thiếu cấu hình secret
-        if (json.error && (json.error.includes("không tồn tại") || json.error.includes("thiếu") || json.error.includes("oauth_refresh_token") || json.error.includes("OAuth"))) {
+        if (
+          json.error &&
+          (json.error.includes("không tồn tại") ||
+            json.error.includes("thiếu") ||
+            json.error.includes("oauth_refresh_token") ||
+            json.error.includes("OAuth"))
+        ) {
           setVerifyState("requires_setup");
           setVerifyError(json.error);
         } else {
@@ -189,7 +210,10 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
           setVerifyError(json.last_error || "Cảnh báo kết nối");
         } else {
           // Check nếu lỗi cấu hình thì chuyển sang setup
-          if (json.last_error && (json.last_error.includes("không tồn tại") || json.last_error.includes("thiếu"))) {
+          if (
+            json.last_error &&
+            (json.last_error.includes("không tồn tại") || json.last_error.includes("thiếu"))
+          ) {
             setVerifyState("requires_setup");
           } else {
             setVerifyState("error");
@@ -231,7 +255,7 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
           status: targetStatus,
           health_status: targetHealth,
           last_error: verifyError,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq("id", createdSenderId);
 
@@ -251,7 +275,9 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
   const handleStartZaloOAuth = async () => {
     setSubmitting(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error("Không tìm thấy session");
 
       const res = await fetch(
@@ -259,7 +285,7 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
         {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${session.access_token}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
@@ -287,7 +313,13 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) resetForm();
+        onOpenChange(v);
+      }}
+    >
       <DialogContent className="sm:max-w-xl bg-white rounded-3xl p-6 border-none shadow-2xl">
         <DialogHeader className="border-b border-slate-100 pb-3">
           <DialogTitle className="text-base font-black text-slate-900 flex items-center gap-2">
@@ -300,11 +332,23 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
 
         {/* Step indicator */}
         <div className="flex items-center justify-between px-4 py-2 bg-slate-50 rounded-xl mb-4 text-[11px] font-bold text-slate-400">
-          <span className={step === 1 ? "text-indigo-600 font-black" : step > 1 ? "text-slate-600" : ""}>1. Chọn loại</span>
+          <span
+            className={step === 1 ? "text-indigo-600 font-black" : step > 1 ? "text-slate-600" : ""}
+          >
+            1. Chọn loại
+          </span>
           <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
-          <span className={step === 2 ? "text-indigo-600 font-black" : step > 2 ? "text-slate-600" : ""}>2. Điền thông tin</span>
+          <span
+            className={step === 2 ? "text-indigo-600 font-black" : step > 2 ? "text-slate-600" : ""}
+          >
+            2. Điền thông tin
+          </span>
           <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
-          <span className={step === 3 ? "text-indigo-600 font-black" : step > 3 ? "text-slate-600" : ""}>3. Xác thực</span>
+          <span
+            className={step === 3 ? "text-indigo-600 font-black" : step > 3 ? "text-slate-600" : ""}
+          >
+            3. Xác thực
+          </span>
           <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
           <span className={step === 4 ? "text-indigo-600 font-black" : ""}>4. Hoàn tất</span>
         </div>
@@ -324,7 +368,9 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
                   <Mail className="w-5 h-5" />
                 </div>
                 <span className="text-xs font-black text-slate-800">Gmail / Google</span>
-                <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">Calendar Invite, Email Test, Gửi email giới hạn</p>
+                <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
+                  Calendar Invite, Email Test, Gửi email giới hạn
+                </p>
               </button>
 
               {/* Resend Card */}
@@ -337,7 +383,9 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
                   <Mail className="w-5 h-5" />
                 </div>
                 <span className="text-xs font-black text-slate-800">Resend Email</span>
-                <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">Email Campaign, tiếp thị hàng loạt hiệu năng cao</p>
+                <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
+                  Email Campaign, tiếp thị hàng loạt hiệu năng cao
+                </p>
               </button>
 
               {/* Zalo OA Card */}
@@ -350,7 +398,9 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
                   <MessageCircle className="w-5 h-5" />
                 </div>
                 <span className="text-xs font-black text-slate-800">Zalo OA</span>
-                <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">ZNS, OA Campaign, tiếp thị Zalo có kiểm soát</p>
+                <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
+                  ZNS, OA Campaign, tiếp thị Zalo có kiểm soát
+                </p>
               </button>
             </div>
           </div>
@@ -361,7 +411,12 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
           <div className="space-y-4 py-2">
             <div className="flex items-center gap-2 text-xs font-bold text-slate-800 mb-1">
               <span className="w-2 h-2 rounded-full bg-indigo-600"></span>
-              Cấu hình: {provider === "gmail/google" ? "Gmail Sender" : provider === "resend" ? "Resend Email" : "Zalo OA"}
+              Cấu hình:{" "}
+              {provider === "gmail/google"
+                ? "Gmail Sender"
+                : provider === "resend"
+                  ? "Resend Email"
+                  : "Zalo OA"}
             </div>
 
             <div className="space-y-3">
@@ -378,7 +433,9 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
               {provider === "resend" && (
                 <>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-slate-700">Địa chỉ Email gửi đi (From Email) *</Label>
+                    <Label className="text-xs font-bold text-slate-700">
+                      Địa chỉ Email gửi đi (From Email) *
+                    </Label>
                     <Input
                       value={senderEmail}
                       onChange={(e) => setSenderEmail(e.target.value)}
@@ -387,7 +444,9 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-slate-700">Tên hiển thị người gửi (Sender Name)</Label>
+                    <Label className="text-xs font-bold text-slate-700">
+                      Tên hiển thị người gửi (Sender Name)
+                    </Label>
                     <Input
                       value={senderName}
                       onChange={(e) => setSenderName(e.target.value)}
@@ -396,7 +455,9 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-slate-700">Tên miền xác thực (Domain) *</Label>
+                    <Label className="text-xs font-bold text-slate-700">
+                      Tên miền xác thực (Domain) *
+                    </Label>
                     <Input
                       value={domain}
                       onChange={(e) => setDomain(e.target.value)}
@@ -405,7 +466,9 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-slate-700">Khóa API Resend (API Key) *</Label>
+                    <Label className="text-xs font-bold text-slate-700">
+                      Khóa API Resend (API Key) *
+                    </Label>
                     <Input
                       type="password"
                       value={resendApiKey}
@@ -420,7 +483,9 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
               {provider === "gmail/google" && (
                 <>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-slate-700">Địa chỉ Gmail gửi đi *</Label>
+                    <Label className="text-xs font-bold text-slate-700">
+                      Địa chỉ Gmail gửi đi *
+                    </Label>
                     <Input
                       value={senderEmail}
                       onChange={(e) => setSenderEmail(e.target.value)}
@@ -462,7 +527,8 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
                       />
                     </div>
                     <p className="text-[10px] text-purple-600 leading-relaxed">
-                      Lấy từ Google Cloud Console → OAuth 2.0 → Credentials. Refresh Token lấy qua OAuth Playground.
+                      Lấy từ Google Cloud Console → OAuth 2.0 → Credentials. Refresh Token lấy qua
+                      OAuth Playground.
                     </p>
                   </div>
                 </>
@@ -480,7 +546,9 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-slate-700">Zalo OA ID (Tùy chọn)</Label>
+                    <Label className="text-xs font-bold text-slate-700">
+                      Zalo OA ID (Tùy chọn)
+                    </Label>
                     <Input
                       value={zaloOaId}
                       onChange={(e) => setZaloOaId(e.target.value)}
@@ -512,7 +580,12 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
               ) : (
                 <Button
                   onClick={handleCreateMetadata}
-                  disabled={submitting || !name.trim() || !senderEmail.trim() || (provider === "resend" && !domain.trim())}
+                  disabled={
+                    submitting ||
+                    !name.trim() ||
+                    !senderEmail.trim() ||
+                    (provider === "resend" && !domain.trim())
+                  }
                   className="flex-1 rounded-xl text-xs font-bold h-10 bg-indigo-600 hover:bg-indigo-700 text-white"
                 >
                   {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
@@ -526,16 +599,23 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
         {/* STEP 3: VERIFY CONNECTION */}
         {step === 3 && (
           <div className="space-y-4 py-2 text-center">
-            <p className="text-xs font-bold text-slate-500">Chạy kiểm nghiệm kết nối tài khoản gửi:</p>
-            
+            <p className="text-xs font-bold text-slate-500">
+              Chạy kiểm nghiệm kết nối tài khoản gửi:
+            </p>
+
             <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100 flex flex-col items-center justify-center space-y-3">
               {verifyState === null && (
                 <>
                   <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
                     <Info className="w-6 h-6 animate-pulse" />
                   </div>
-                  <p className="text-xs font-bold text-slate-700">Nhấn nút bên dưới để chạy xác thực</p>
-                  <p className="text-[10px] text-slate-400 max-w-xs leading-relaxed">Chúng tôi sẽ gọi thử các kết nối OAuth/API Key để kiểm nghiệm trạng thái kết nối.</p>
+                  <p className="text-xs font-bold text-slate-700">
+                    Nhấn nút bên dưới để chạy xác thực
+                  </p>
+                  <p className="text-[10px] text-slate-400 max-w-xs leading-relaxed">
+                    Chúng tôi sẽ gọi thử các kết nối OAuth/API Key để kiểm nghiệm trạng thái kết
+                    nối.
+                  </p>
                 </>
               )}
 
@@ -545,7 +625,9 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
                     <CheckCircle2 className="w-6 h-6" />
                   </div>
                   <p className="text-xs font-black text-emerald-700">KẾT NỐI HOÀN HẢO (HEALTHY)</p>
-                  <p className="text-[10px] text-emerald-600/80">Tài khoản kết nối tốt và sẵn sàng gửi tin.</p>
+                  <p className="text-[10px] text-emerald-600/80">
+                    Tài khoản kết nối tốt và sẵn sàng gửi tin.
+                  </p>
                 </>
               )}
 
@@ -564,9 +646,18 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
                   <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
                     <Shield className="w-6 h-6" />
                   </div>
-                  <p className="text-xs font-black text-blue-700">CẦN THIẾT LẬP EDGE SECRETS (REQUIRES SETUP)</p>
-                  <p className="text-[10px] text-blue-600/80">Tài khoản đã tạo nhưng cần cấu hình khóa API hoặc OAuth tương ứng trên backend secrets.</p>
-                  {verifyError && <p className="text-[9px] font-mono text-slate-400 bg-slate-100 p-1.5 rounded-lg w-full max-w-sm truncate">{verifyError}</p>}
+                  <p className="text-xs font-black text-blue-700">
+                    CẦN THIẾT LẬP EDGE SECRETS (REQUIRES SETUP)
+                  </p>
+                  <p className="text-[10px] text-blue-600/80">
+                    Tài khoản đã tạo nhưng cần cấu hình khóa API hoặc OAuth tương ứng trên backend
+                    secrets.
+                  </p>
+                  {verifyError && (
+                    <p className="text-[9px] font-mono text-slate-400 bg-slate-100 p-1.5 rounded-lg w-full max-w-sm truncate">
+                      {verifyError}
+                    </p>
+                  )}
                 </>
               )}
 
@@ -576,7 +667,9 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
                     <XCircle className="w-6 h-6" />
                   </div>
                   <p className="text-xs font-black text-rose-700">LỖI KẾT NỐI (FAILED/ERROR)</p>
-                  <p className="text-[10px] text-rose-600/80">{verifyError || "Kiểm nghiệm kết nối không thành công."}</p>
+                  <p className="text-[10px] text-rose-600/80">
+                    {verifyError || "Kiểm nghiệm kết nối không thành công."}
+                  </p>
                 </>
               )}
             </div>
@@ -617,9 +710,10 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
             </div>
             <h3 className="text-sm font-black text-slate-800">Cấu hình hoàn tất!</h3>
             <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
-              Tài khoản gửi tin đã được khởi tạo trong hệ thống. Trạng thái của tài khoản đã được đồng bộ tương ứng dựa trên kết quả xác thực.
+              Tài khoản gửi tin đã được khởi tạo trong hệ thống. Trạng thái của tài khoản đã được
+              đồng bộ tương ứng dựa trên kết quả xác thực.
             </p>
-            
+
             <div className="bg-slate-50 rounded-xl p-3 text-[11px] text-slate-600 max-w-xs mx-auto border border-slate-100 font-medium">
               <div className="flex justify-between py-1">
                 <span>Tên:</span>
@@ -631,10 +725,15 @@ export function AddSenderWizard({ open, onOpenChange, onSuccess }: AddSenderWiza
               </div>
               <div className="flex justify-between py-1">
                 <span>Xác thực:</span>
-                <span className={`font-black uppercase ${
-                  verifyState === "healthy" || verifyState === "warning" ? "text-emerald-600" :
-                  verifyState === "requires_setup" ? "text-blue-600" : "text-rose-600"
-                }`}>
+                <span
+                  className={`font-black uppercase ${
+                    verifyState === "healthy" || verifyState === "warning"
+                      ? "text-emerald-600"
+                      : verifyState === "requires_setup"
+                        ? "text-blue-600"
+                        : "text-rose-600"
+                  }`}
+                >
                   {verifyState || "unknown"}
                 </span>
               </div>

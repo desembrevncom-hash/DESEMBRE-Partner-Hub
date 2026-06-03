@@ -7,7 +7,9 @@ interface CustomerAutomationStatusProps {
   customerId: string;
 }
 
-export const CustomerAutomationStatus: React.FC<CustomerAutomationStatusProps> = ({ customerId }) => {
+export const CustomerAutomationStatus: React.FC<CustomerAutomationStatusProps> = ({
+  customerId,
+}) => {
   const [activeAutomations, setActiveAutomations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -20,12 +22,12 @@ export const CustomerAutomationStatus: React.FC<CustomerAutomationStatusProps> =
         // In a real system, there might be a dedicated automation_queue or similar
         // For MVP, we check automation_logs with status 'pending', 'scheduled' or 'running'
         const { data, error } = await supabase
-          .from('automation_logs')
-          .select('id, rule_id, status, error_message, rule:automation_rules(name, rule_type)')
-          .eq('customer_id', customerId)
-          .in('status', ['pending', 'running', 'scheduled'])
-          .order('created_at', { ascending: false });
-        
+          .from("automation_logs")
+          .select("id, rule_id, status, error_message, rule:automation_rules(name, rule_type)")
+          .eq("customer_id", customerId)
+          .in("status", ["pending", "running", "scheduled"])
+          .order("created_at", { ascending: false });
+
         if (isMounted && data) {
           setActiveAutomations(data);
         }
@@ -36,7 +38,9 @@ export const CustomerAutomationStatus: React.FC<CustomerAutomationStatusProps> =
       }
     };
     fetchAutomations();
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, [customerId]);
 
   if (!loading && activeAutomations.length === 0) {
@@ -49,7 +53,7 @@ export const CustomerAutomationStatus: React.FC<CustomerAutomationStatusProps> =
         <Zap className="w-4 h-4 text-amber-500" />
         Automation đang chạy
       </h4>
-      
+
       {loading ? (
         <div className="flex items-center text-sm text-muted-foreground gap-2">
           <Loader2 className="w-4 h-4 animate-spin" /> Kiểm tra trạng thái...
@@ -57,17 +61,23 @@ export const CustomerAutomationStatus: React.FC<CustomerAutomationStatusProps> =
       ) : (
         <div className="space-y-2">
           {activeAutomations.map((auto) => (
-            <div key={auto.id} className="flex flex-col gap-1 bg-background p-2 rounded border text-sm">
+            <div
+              key={auto.id}
+              className="flex flex-col gap-1 bg-background p-2 rounded border text-sm"
+            >
               <div className="flex items-center justify-between">
                 <span className="font-medium text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                   <Clock className="w-3 h-3 text-blue-500" />
                   {auto.rule?.name || "Workflow không xác định"}
                 </span>
-                <Badge variant="outline" className="text-[10px] uppercase bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
+                <Badge
+                  variant="outline"
+                  className="text-[10px] uppercase bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400"
+                >
                   {auto.status}
                 </Badge>
               </div>
-              {auto.status === 'error' && (
+              {auto.status === "error" && (
                 <div className="text-xs text-red-500 flex items-center gap-1 mt-1">
                   <AlertTriangle className="w-3 h-3" /> {auto.error_message || "Lỗi không xác định"}
                 </div>

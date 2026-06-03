@@ -20,9 +20,9 @@ async function decryptToken(encrypted: string, keyHex: string): Promise<string |
     const [ivHex, ciphertextB64] = encrypted.split(":");
     if (!ivHex || !ciphertextB64) return null;
     const keyBytes = hexToBytes(keyHex.padEnd(64, "0").slice(0, 64));
-    const key = await crypto.subtle.importKey(
-      "raw", keyBytes, { name: "AES-GCM" }, false, ["decrypt"],
-    );
+    const key = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, [
+      "decrypt",
+    ]);
     const iv = hexToBytes(ivHex);
     const ciphertext = Uint8Array.from(atob(ciphertextB64), (c) => c.charCodeAt(0));
     const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
@@ -45,17 +45,20 @@ serve(async (req) => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) {
     return new Response(JSON.stringify({ error: "Missing authorization header" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser(
-    authHeader.replace("Bearer ", "")
-  );
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
 
   if (authError || !user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
@@ -69,7 +72,8 @@ serve(async (req) => {
 
   if (!roleData) {
     return new Response(JSON.stringify({ error: "Forbidden: Admin or SubAdmin required" }), {
-      status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
@@ -79,14 +83,19 @@ serve(async (req) => {
 
     if (!sender_id || !sender_type) {
       return new Response(JSON.stringify({ error: "sender_id and sender_type are required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (!["business", "personal"].includes(sender_type)) {
-      return new Response(JSON.stringify({ error: "sender_type must be 'business' or 'personal'" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+      return new Response(
+        JSON.stringify({ error: "sender_type must be 'business' or 'personal'" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     let healthStatus: "healthy" | "warning" | "error" = "error";
@@ -118,9 +127,10 @@ serve(async (req) => {
           } else {
             // Light probe: check if key starts with re_ (Resend format)
             healthStatus = resendKey.startsWith("re_") ? "healthy" : "warning";
-            lastError = healthStatus === "warning"
-              ? "RESEND_API_KEY có định dạng không đúng (phải bắt đầu bằng re_)"
-              : null;
+            lastError =
+              healthStatus === "warning"
+                ? "RESEND_API_KEY có định dạng không đúng (phải bắt đầu bằng re_)"
+                : null;
           }
         } else if (provider === "zalo" || provider === "zalo_oa") {
           // ── Kiểm tra Zalo OA qua token trong sender_account_tokens ──────────
@@ -154,7 +164,10 @@ serve(async (req) => {
                   },
                   body: JSON.stringify({ sender_account_id: sender_id }),
                 });
-                const refreshData = await refreshRes.json() as { success?: boolean; error?: string };
+                const refreshData = (await refreshRes.json()) as {
+                  success?: boolean;
+                  error?: string;
+                };
                 if (!refreshData.success) {
                   healthStatus = "error";
                   lastError = `Refresh token thất bại: ${refreshData.error || "unknown"}. Cần kết nối lại OAuth.`;
@@ -185,9 +198,13 @@ serve(async (req) => {
             if (accessToken && !lastError) {
               try {
                 const oaRes = await fetch("https://openapi.zalo.me/v3.0/oa/getoa", {
-                  headers: { "access_token": accessToken },
+                  headers: { access_token: accessToken },
                 });
-                const oaData = await oaRes.json() as { error?: number; message?: string; data?: { oa_id?: string; name?: string } };
+                const oaData = (await oaRes.json()) as {
+                  error?: number;
+                  message?: string;
+                  data?: { oa_id?: string; name?: string };
+                };
 
                 if (oaData.error && oaData.error !== 0) {
                   healthStatus = "error";
@@ -197,9 +214,12 @@ serve(async (req) => {
                   lastError = null;
                   // Cập nhật display_name nếu lấy được từ Zalo
                   if (oaData.data?.name) {
-                    await supabase.from("sender_accounts").update({
-                      display_name: oaData.data.name,
-                    }).eq("id", sender_id);
+                    await supabase
+                      .from("sender_accounts")
+                      .update({
+                        display_name: oaData.data.name,
+                      })
+                      .eq("id", sender_id);
                   }
                 }
               } catch {
@@ -215,7 +235,7 @@ serve(async (req) => {
           }
         } else if (provider === "gmail/google" || provider === "google_calendar") {
           const prefix = sender.secret_prefix || "GOOGLE_DEFAULT";
-          
+
           let clientId = Deno.env.get(`${prefix}_CLIENT_ID`);
           let clientSecret = Deno.env.get(`${prefix}_CLIENT_SECRET`);
           let refreshToken = Deno.env.get(`${prefix}_REFRESH_TOKEN`);
@@ -269,12 +289,15 @@ serve(async (req) => {
       }
 
       // Update health status
-      await supabase.from("sender_accounts").update({
-        health_status: healthStatus,
-        last_checked_at: new Date().toISOString(),
-        last_error: lastError,
-        updated_at: new Date().toISOString(),
-      }).eq("id", sender_id);
+      await supabase
+        .from("sender_accounts")
+        .update({
+          health_status: healthStatus,
+          last_checked_at: new Date().toISOString(),
+          last_error: lastError,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", sender_id);
     }
 
     // ─── Personal Sender Test ───────────────────────────────────────────────
@@ -301,12 +324,15 @@ serve(async (req) => {
       }
 
       // Update health status
-      await supabase.from("user_communication_accounts").update({
-        health_status: healthStatus,
-        last_verified_at: new Date().toISOString(),
-        last_error: lastError,
-        updated_at: new Date().toISOString(),
-      }).eq("id", sender_id);
+      await supabase
+        .from("user_communication_accounts")
+        .update({
+          health_status: healthStatus,
+          last_verified_at: new Date().toISOString(),
+          last_error: lastError,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", sender_id);
     }
 
     // ─── Write Audit Log ────────────────────────────────────────────────────
@@ -319,15 +345,17 @@ serve(async (req) => {
       note: lastError || "Connection check completed",
     });
 
-    return new Response(JSON.stringify({
-      success: true,
-      health_status: healthStatus,
-      last_error: lastError,
-      checked_at: new Date().toISOString(),
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
-
+    return new Response(
+      JSON.stringify({
+        success: true,
+        health_status: healthStatus,
+        last_error: lastError,
+        checked_at: new Date().toISOString(),
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,

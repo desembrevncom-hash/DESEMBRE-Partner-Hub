@@ -4,13 +4,35 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import {
-  Loader2, Plus, ExternalLink, Copy, Target, CheckCircle2, AlertCircle,
-  RefreshCw, XCircle, Star, StarOff, ShoppingCart, HeadphonesIcon,
-  FileText, User, HelpCircle, Lock, Globe, Phone
+  Loader2,
+  Plus,
+  ExternalLink,
+  Copy,
+  Target,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+  XCircle,
+  Star,
+  StarOff,
+  ShoppingCart,
+  HeadphonesIcon,
+  FileText,
+  User,
+  HelpCircle,
+  Lock,
+  Globe,
+  Phone,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { createContactChannel } from "@/lib/contactChannels";
@@ -31,12 +53,12 @@ const CHANNEL_TYPE_ICONS: Record<string, string> = {
 };
 
 const PURPOSE_CONFIG: Record<string, { label: string; color: string; Icon: React.ElementType }> = {
-  sales:       { label: "Sales",       color: "bg-blue-100 text-blue-700",    Icon: ShoppingCart },
-  support:     { label: "Hỗ trợ",      color: "bg-teal-100 text-teal-700",    Icon: HeadphonesIcon },
-  remarketing: { label: "Remarketing", color: "bg-amber-100 text-amber-700",   Icon: Target },
-  invoice:     { label: "Hóa đơn",     color: "bg-violet-100 text-violet-700", Icon: FileText },
-  personal:    { label: "Cá nhân",     color: "bg-pink-100 text-pink-700",     Icon: User },
-  other:       { label: "Khác",        color: "bg-slate-100 text-slate-500",   Icon: HelpCircle },
+  sales: { label: "Sales", color: "bg-blue-100 text-blue-700", Icon: ShoppingCart },
+  support: { label: "Hỗ trợ", color: "bg-teal-100 text-teal-700", Icon: HeadphonesIcon },
+  remarketing: { label: "Remarketing", color: "bg-amber-100 text-amber-700", Icon: Target },
+  invoice: { label: "Hóa đơn", color: "bg-violet-100 text-violet-700", Icon: FileText },
+  personal: { label: "Cá nhân", color: "bg-pink-100 text-pink-700", Icon: User },
+  other: { label: "Khác", color: "bg-slate-100 text-slate-500", Icon: HelpCircle },
 };
 
 export function CustomerContactChannels({ customerId }: CustomerContactChannelsProps) {
@@ -54,7 +76,7 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
     scope: isAdmin || isSubAdmin ? "official" : "private",
     channelPurpose: "sales",
     isPrimary: false,
-    notes: ""
+    notes: "",
   });
 
   const fetchChannels = async () => {
@@ -109,7 +131,7 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
         channel_purpose: form.channelPurpose,
         is_primary: form.isPrimary,
         notes: form.notes,
-        user
+        user,
       });
 
       if (error) throw error;
@@ -120,17 +142,17 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
           .from("profiles")
           .select("id")
           .in("role", ["admin", "sub_admin"]);
-        
+
         if (admins) {
           for (const admin of admins) {
-            await supabase.rpc('create_notification_safe', {
+            await supabase.rpc("create_notification_safe", {
               p_recipient_user_id: admin.id,
-              p_notification_type: 'channel_approval_required',
-              p_title: 'Cần duyệt kênh liên hệ',
+              p_notification_type: "channel_approval_required",
+              p_title: "Cần duyệt kênh liên hệ",
               p_message: `Nhân viên vừa thêm kênh cá nhân: ${form.value}`,
               p_customer_id: customerId,
               p_actor_user_id: user?.id,
-              p_deep_link: `/customers?id=${customerId}`
+              p_deep_link: `/customers?id=${customerId}`,
             });
           }
         }
@@ -140,7 +162,7 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
       setForm((prev) => ({ ...prev, value: "", notes: "", isPrimary: false }));
       setShowAddForm(false);
       fetchChannels();
-      window.dispatchEvent(new Event('customer_timeline_refresh'));
+      window.dispatchEvent(new Event("customer_timeline_refresh"));
     } catch (err: any) {
       toast.error(err.message || "Không thể thêm kênh liên hệ");
     } finally {
@@ -187,7 +209,7 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
               return { ...c, is_primary: false };
             return c;
           })
-          .sort((a, b) => (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0))
+          .sort((a, b) => (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0)),
       );
     } catch (err: any) {
       toast.error("Lỗi: " + err.message);
@@ -197,7 +219,9 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
   };
 
   const handlePromoteChannel = async (channel: any) => {
-    const setPrimary = window.confirm("Bạn có muốn đặt kênh này làm KÊNH CHÍNH chính thức luôn không?\n\n- Bấm OK: Duyệt + Đặt làm kênh chính\n- Bấm Cancel: Chỉ duyệt thành chính thức");
+    const setPrimary = window.confirm(
+      "Bạn có muốn đặt kênh này làm KÊNH CHÍNH chính thức luôn không?\n\n- Bấm OK: Duyệt + Đặt làm kênh chính\n- Bấm Cancel: Chỉ duyệt thành chính thức",
+    );
 
     try {
       if (setPrimary) {
@@ -216,18 +240,18 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
           visibility: "official",
           owner_user_id: null,
           updated_by: user?.id,
-          is_primary: setPrimary ? true : channel.is_primary
+          is_primary: setPrimary ? true : channel.is_primary,
         })
         .eq("id", channel.id);
-      
+
       if (error) throw error;
 
       await supabase.from("customer_activities").insert({
-         customer_id: customerId,
-         created_by: user?.id,
-         activity_type: "system_update",
-         content: `Đã duyệt kênh liên hệ ${channel.channel_type} (${channel.channel_value}) thành chính thức`,
-         title: "Duyệt kênh liên hệ thành chính thức"
+        customer_id: customerId,
+        created_by: user?.id,
+        activity_type: "system_update",
+        content: `Đã duyệt kênh liên hệ ${channel.channel_type} (${channel.channel_value}) thành chính thức`,
+        title: "Duyệt kênh liên hệ thành chính thức",
       });
 
       toast.success("Đã duyệt thành kênh chính thức");
@@ -278,10 +302,9 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
     const icon = CHANNEL_TYPE_ICONS[c.channel_type] || "🔗";
     const isPrimary = !!c.is_primary;
     const isOfficial = c.scope === "official";
-    const canTogglePrimary =
-      isOfficial
-        ? isAdmin || isSubAdmin
-        : c.owner_user_id === user?.id || isAdmin || isSubAdmin;
+    const canTogglePrimary = isOfficial
+      ? isAdmin || isSubAdmin
+      : c.owner_user_id === user?.id || isAdmin || isSubAdmin;
 
     return (
       <div
@@ -294,10 +317,7 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xl leading-none">{icon}</span>
-              <div
-                className="text-lg font-black text-slate-800 truncate"
-                title={c.channel_value}
-              >
+              <div className="text-lg font-black text-slate-800 truncate" title={c.channel_value}>
                 {c.normalized_value || c.channel_value}
               </div>
             </div>
@@ -311,7 +331,9 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
               {!isOfficial && (
                 <Badge className="bg-slate-100 text-slate-600 border-none text-[10px] px-2 py-0.5">
                   <Lock className="w-2.5 h-2.5 mr-1" /> Riêng tư
-                  {(isAdmin || isSubAdmin) && c.created_by && ` (${profiles[c.created_by] || "Ẩn danh"})`}
+                  {(isAdmin || isSubAdmin) &&
+                    c.created_by &&
+                    ` (${profiles[c.created_by] || "Ẩn danh"})`}
                 </Badge>
               )}
               <span className="opacity-80 flex gap-1.5 items-center">
@@ -360,7 +382,7 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
                     (c.normalized_value || c.channel_value).startsWith("http")
                       ? c.normalized_value || c.channel_value
                       : `https://${c.normalized_value || c.channel_value}`,
-                    "_blank"
+                    "_blank",
                   )
                 }
               >
@@ -377,10 +399,7 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
                       variant="ghost"
                       size="icon"
                       className={`h-8 w-8 transition-colors hover:bg-slate-200
-                        ${isPrimary
-                          ? "text-indigo-500"
-                          : "text-slate-300 hover:text-indigo-500"
-                        }`}
+                        ${isPrimary ? "text-indigo-500" : "text-slate-300 hover:text-indigo-500"}`}
                       disabled={togglingPrimary === c.id}
                       onClick={() => handleSetPrimary(c)}
                     >
@@ -402,14 +421,14 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
 
             {/* Promote to Official */}
             {!isOfficial && (isAdmin || isSubAdmin) && (
-               <Button
-                 variant="outline"
-                 size="sm"
-                 className="h-8 px-2.5 ml-1 text-xs font-bold text-indigo-700 border-indigo-200 bg-indigo-50 hover:bg-indigo-100"
-                 onClick={() => handlePromoteChannel(c)}
-               >
-                 Duyệt kênh
-               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-2.5 ml-1 text-xs font-bold text-indigo-700 border-indigo-200 bg-indigo-50 hover:bg-indigo-100"
+                onClick={() => handlePromoteChannel(c)}
+              >
+                Duyệt kênh
+              </Button>
             )}
           </div>
         </div>
@@ -430,9 +449,9 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
         <h3 className="text-[13px] font-black text-slate-800 uppercase flex items-center gap-1.5">
           <Phone className="w-4 h-4 text-primary" /> KÊNH LIÊN HỆ ({channels.length})
         </h3>
-        <Button 
-          variant={showAddForm ? "outline" : "default"} 
-          size="sm" 
+        <Button
+          variant={showAddForm ? "outline" : "default"}
+          size="sm"
           onClick={() => setShowAddForm(!showAddForm)}
           className={`h-8 text-xs font-bold rounded-xl ${!showAddForm && "bg-slate-900 text-white hover:bg-primary"}`}
         >
@@ -510,10 +529,7 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
             {(isAdmin || isSubAdmin) && (
               <div className="col-span-12 sm:col-span-3 space-y-1.5">
                 <Label className="text-[10px] font-black text-slate-500 uppercase">Phạm vi</Label>
-                <Select
-                  value={form.scope}
-                  onValueChange={(v) => setForm({ ...form, scope: v })}
-                >
+                <Select value={form.scope} onValueChange={(v) => setForm({ ...form, scope: v })}>
                   <SelectTrigger className="h-9 text-xs rounded-xl bg-slate-50">
                     <SelectValue />
                   </SelectTrigger>

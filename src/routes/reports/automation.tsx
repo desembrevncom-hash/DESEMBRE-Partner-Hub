@@ -6,19 +6,19 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Loader2, 
-  Cpu, 
-  CheckCircle2, 
-  AlertTriangle, 
-  XCircle, 
-  CheckSquare, 
-  Bell, 
-  ArrowLeft, 
+import {
+  Loader2,
+  Cpu,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  CheckSquare,
+  Bell,
+  ArrowLeft,
   RefreshCw,
   Info,
   Calendar,
-  ExternalLink
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -53,7 +53,8 @@ function AutomationReportPage() {
       // Fetch logs of today
       const { data: logsData, error: logsErr } = await supabase
         .from("automation_logs")
-        .select(`
+        .select(
+          `
           id,
           automation_type,
           status,
@@ -64,16 +65,19 @@ function AutomationReportPage() {
           lead_id,
           customer:customers(facility_name, name),
           lead:leads(name)
-        `)
+        `,
+        )
         .gte("created_at", isoStart)
         .order("created_at", { ascending: false });
 
       if (logsErr) throw logsErr;
 
       const runsToday = logsData?.length || 0;
-      const success = logsData?.filter(l => l.status === "success").length ?? 0;
-      const partialFailed = logsData?.filter(l => l.status === "partial_failed").length ?? 0;
-      const failed = logsData?.filter(l => l.status !== "success" && l.status !== "partial_failed").length ?? 0;
+      const success = logsData?.filter((l) => l.status === "success").length ?? 0;
+      const partialFailed = logsData?.filter((l) => l.status === "partial_failed").length ?? 0;
+      const failed =
+        logsData?.filter((l) => l.status !== "success" && l.status !== "partial_failed").length ??
+        0;
 
       // Count tasks created today automatically (assigned_by is null)
       const { data: tasksData, error: tasksErr } = await supabase
@@ -99,7 +103,7 @@ function AutomationReportPage() {
         partialFailed,
         failed,
         tasksToday,
-        notificationsToday
+        notificationsToday,
       });
 
       setLogs(logsData || []);
@@ -144,7 +148,11 @@ function AutomationReportPage() {
         <div className="container mx-auto px-4 h-20 flex items-center justify-between max-w-7xl">
           <div className="flex items-center gap-4">
             <Link to="/">
-              <Button variant="ghost" size="icon" className="rounded-xl border border-slate-100 hover:bg-slate-50">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-xl border border-slate-100 hover:bg-slate-50"
+              >
                 <ArrowLeft className="w-4 h-4 text-slate-650" />
               </Button>
             </Link>
@@ -179,46 +187,46 @@ function AutomationReportPage() {
           <>
             {/* KPI Cards Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              <KpiCard 
-                title="Yêu cầu Automation chạy hôm nay" 
-                value={kpis.runsToday} 
-                icon={Cpu} 
-                color="indigo" 
+              <KpiCard
+                title="Yêu cầu Automation chạy hôm nay"
+                value={kpis.runsToday}
+                icon={Cpu}
+                color="indigo"
                 desc="Tổng số luồng automation được kích hoạt hôm nay"
               />
-              <KpiCard 
-                title="Automation Thành công" 
-                value={kpis.success} 
-                icon={CheckCircle2} 
-                color="emerald" 
+              <KpiCard
+                title="Automation Thành công"
+                value={kpis.success}
+                icon={CheckCircle2}
+                color="emerald"
                 desc="Số luồng hoàn thành toàn bộ các bước an toàn"
               />
-              <KpiCard 
-                title="Lỗi một phần (Warning)" 
-                value={kpis.partialFailed} 
-                icon={AlertTriangle} 
-                color="orange" 
+              <KpiCard
+                title="Lỗi một phần (Warning)"
+                value={kpis.partialFailed}
+                icon={AlertTriangle}
+                color="orange"
                 desc="Một số bước phụ (Task/Noti/Activity) thất bại nhưng không crash"
               />
-              <KpiCard 
-                title="Automation Thất bại" 
-                value={kpis.failed} 
-                icon={XCircle} 
-                color="rose" 
+              <KpiCard
+                title="Automation Thất bại"
+                value={kpis.failed}
+                icon={XCircle}
+                color="rose"
                 desc="Luồng chạy lỗi toàn phần hoặc gặp ngoại lệ"
               />
-              <KpiCard 
-                title="Task tự động tạo hôm nay" 
-                value={kpis.tasksToday} 
-                icon={CheckSquare} 
-                color="blue" 
+              <KpiCard
+                title="Task tự động tạo hôm nay"
+                value={kpis.tasksToday}
+                icon={CheckSquare}
+                color="blue"
                 desc="Số việc làm/nhắc nhở tự sinh từ hệ thống CRM"
               />
-              <KpiCard 
-                title="Notification tự động hôm nay" 
-                value={kpis.notificationsToday} 
-                icon={Bell} 
-                color="pink" 
+              <KpiCard
+                title="Notification tự động hôm nay"
+                value={kpis.notificationsToday}
+                icon={Bell}
+                color="pink"
                 desc="Số thông báo gửi cho nhân viên do hệ thống tự sinh"
               />
             </div>
@@ -227,7 +235,9 @@ function AutomationReportPage() {
             <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white">
               <CardHeader className="p-8 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <CardTitle className="text-lg font-black text-slate-900 tracking-tight">Chi tiết thực thi hôm nay</CardTitle>
+                  <CardTitle className="text-lg font-black text-slate-900 tracking-tight">
+                    Chi tiết thực thi hôm nay
+                  </CardTitle>
                   <p className="text-slate-500 text-xs mt-1 font-medium">
                     Danh sách các tiến trình automation chạy trong ngày hôm nay
                   </p>
@@ -249,14 +259,20 @@ function AutomationReportPage() {
                     <tbody className="divide-y divide-slate-50">
                       {logs.map((log) => {
                         const date = new Date(log.created_at);
-                        const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                        const timeStr = date.toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        });
                         const dateStr = date.toLocaleDateString();
 
                         return (
                           <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
                             <td className="px-6 py-4 whitespace-nowrap font-medium text-slate-650">
                               <span className="font-bold text-slate-900 block">{timeStr}</span>
-                              <span className="text-[9px] text-slate-400 font-bold block mt-0.5">{dateStr}</span>
+                              <span className="text-[9px] text-slate-400 font-bold block mt-0.5">
+                                {dateStr}
+                              </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap font-black text-slate-800">
                               <span className="px-2.5 py-1 bg-slate-100 rounded-lg text-slate-700 text-[10px] font-bold">
@@ -265,8 +281,8 @@ function AutomationReportPage() {
                             </td>
                             <td className="px-6 py-4">
                               {log.customer ? (
-                                <Link 
-                                  to={`/customers/${log.customer_id}`} 
+                                <Link
+                                  to={`/customers/${log.customer_id}`}
                                   className="font-bold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1"
                                 >
                                   {log.customer.facility_name || log.customer.name}
@@ -274,7 +290,10 @@ function AutomationReportPage() {
                                 </Link>
                               ) : log.lead ? (
                                 <span className="font-bold text-slate-700">
-                                  {log.lead.name} <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100 ml-1">Lead</span>
+                                  {log.lead.name}{" "}
+                                  <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100 ml-1">
+                                    Lead
+                                  </span>
                                 </span>
                               ) : (
                                 <span className="text-slate-400 italic">Không có</span>
@@ -295,9 +314,14 @@ function AutomationReportPage() {
                                 </Badge>
                               )}
                             </td>
-                            <td className="px-6 py-4 text-slate-500 font-medium max-w-xs truncate" title={log.error_message}>
+                            <td
+                              className="px-6 py-4 text-slate-500 font-medium max-w-xs truncate"
+                              title={log.error_message}
+                            >
                               {log.error_message ? (
-                                <span className="text-rose-600 font-semibold">{log.error_message}</span>
+                                <span className="text-rose-600 font-semibold">
+                                  {log.error_message}
+                                </span>
                               ) : (
                                 <span className="text-slate-400 italic">-</span>
                               )}
@@ -317,7 +341,10 @@ function AutomationReportPage() {
                       })}
                       {logs.length === 0 && (
                         <tr>
-                          <td colSpan={6} className="px-6 py-16 text-center text-slate-400 font-bold text-sm">
+                          <td
+                            colSpan={6}
+                            className="px-6 py-16 text-center text-slate-400 font-bold text-sm"
+                          >
                             Hôm nay chưa ghi nhận luồng chạy automation nào.
                           </td>
                         </tr>
@@ -334,12 +361,16 @@ function AutomationReportPage() {
                 <div className="bg-white w-full max-w-2xl rounded-[32px] overflow-hidden shadow-2xl border border-slate-100 flex flex-col max-h-[85vh]">
                   <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                     <div>
-                      <h3 className="text-base font-black text-slate-900">Chi tiết thực thi Automation</h3>
-                      <p className="text-[10px] text-slate-400 font-black uppercase mt-1 tracking-widest">{selectedLog.id}</p>
+                      <h3 className="text-base font-black text-slate-900">
+                        Chi tiết thực thi Automation
+                      </h3>
+                      <p className="text-[10px] text-slate-400 font-black uppercase mt-1 tracking-widest">
+                        {selectedLog.id}
+                      </p>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      onClick={() => setSelectedLog(null)} 
+                    <Button
+                      variant="ghost"
+                      onClick={() => setSelectedLog(null)}
                       className="rounded-xl border border-slate-150 h-8 px-3 text-[10px] font-bold text-slate-500"
                     >
                       Đóng
@@ -348,35 +379,51 @@ function AutomationReportPage() {
                   <div className="p-6 overflow-y-auto space-y-6 text-xs">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Loại Automation</span>
-                        <span className="font-bold text-slate-900 mt-1 block">{selectedLog.automation_type}</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                          Loại Automation
+                        </span>
+                        <span className="font-bold text-slate-900 mt-1 block">
+                          {selectedLog.automation_type}
+                        </span>
                       </div>
                       <div>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Thời gian chạy</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                          Thời gian chạy
+                        </span>
                         <span className="font-bold text-slate-900 mt-1 block">
                           {new Date(selectedLog.created_at).toLocaleString()}
                         </span>
                       </div>
                       <div>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Trạng thái</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                          Trạng thái
+                        </span>
                         <span className="mt-1 block">
                           {selectedLog.status === "success" ? (
-                            <Badge className="bg-emerald-100 text-emerald-700 shadow-none font-bold">Thành công</Badge>
+                            <Badge className="bg-emerald-100 text-emerald-700 shadow-none font-bold">
+                              Thành công
+                            </Badge>
                           ) : selectedLog.status === "partial_failed" ? (
-                            <Badge className="bg-orange-100 text-orange-700 shadow-none font-bold">Lỗi một phần</Badge>
+                            <Badge className="bg-orange-100 text-orange-700 shadow-none font-bold">
+                              Lỗi một phần
+                            </Badge>
                           ) : (
-                            <Badge className="bg-rose-100 text-rose-700 shadow-none font-bold">Thất bại</Badge>
+                            <Badge className="bg-rose-100 text-rose-700 shadow-none font-bold">
+                              Thất bại
+                            </Badge>
                           )}
                         </span>
                       </div>
                       <div>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Khách hàng / Lead</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                          Khách hàng / Lead
+                        </span>
                         <span className="font-bold text-slate-900 mt-1 block">
                           {selectedLog.customer
                             ? `${selectedLog.customer.facility_name || selectedLog.customer.name} (Khách)`
                             : selectedLog.lead
-                            ? `${selectedLog.lead.name} (Lead)`
-                            : "Không xác định"}
+                              ? `${selectedLog.lead.name} (Lead)`
+                              : "Không xác định"}
                         </span>
                       </div>
                     </div>
@@ -386,7 +433,9 @@ function AutomationReportPage() {
                         <span className="text-[10px] font-black text-rose-700 uppercase tracking-wider block mb-1">
                           Thông tin lỗi
                         </span>
-                        <p className="font-mono text-rose-600 whitespace-pre-wrap">{selectedLog.error_message}</p>
+                        <p className="font-mono text-rose-600 whitespace-pre-wrap">
+                          {selectedLog.error_message}
+                        </p>
                       </div>
                     )}
 
@@ -450,13 +499,15 @@ function KpiCard({ title, value, icon: Icon, color, desc }: any) {
   const currentTheme = colorMap[color] || colorMap.indigo;
 
   return (
-    <Card 
+    <Card
       className={`rounded-[28px] border border-slate-100 shadow-sm overflow-hidden bg-white transition-all duration-300 hover:shadow-md group`}
       title={desc}
     >
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all duration-355 group-hover:scale-110 ${currentTheme.icon}`}>
+          <div
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all duration-355 group-hover:scale-110 ${currentTheme.icon}`}
+          >
             <Icon className="w-5 h-5" />
           </div>
         </div>
@@ -464,13 +515,9 @@ function KpiCard({ title, value, icon: Icon, color, desc }: any) {
           {title}
         </p>
         <div className="flex items-baseline gap-1.5 mt-2">
-          <h3 className="text-3xl font-black text-slate-900 tracking-tighter">
-            {value}
-          </h3>
+          <h3 className="text-3xl font-black text-slate-900 tracking-tighter">{value}</h3>
         </div>
-        <p className="text-[9px] text-slate-400 font-medium mt-1.5 line-clamp-1">
-          {desc}
-        </p>
+        <p className="text-[9px] text-slate-400 font-medium mt-1.5 line-clamp-1">{desc}</p>
       </CardContent>
     </Card>
   );

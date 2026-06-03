@@ -16,7 +16,9 @@ function generateCodeVerifier(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   const arr = new Uint8Array(43);
   crypto.getRandomValues(arr);
-  return Array.from(arr).map((b) => chars[b % chars.length]).join("");
+  return Array.from(arr)
+    .map((b) => chars[b % chars.length])
+    .join("");
 }
 
 /**
@@ -39,13 +41,9 @@ async function generateCodeChallenge(verifier: string): Promise<string> {
  */
 async function encryptState(payload: Record<string, unknown>, keyHex: string): Promise<string> {
   const keyBytes = hexToBytes(keyHex.padEnd(64, "0").slice(0, 64));
-  const key = await crypto.subtle.importKey(
-    "raw",
-    keyBytes,
-    { name: "AES-GCM" },
-    false,
-    ["encrypt"],
-  );
+  const key = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, [
+    "encrypt",
+  ]);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(JSON.stringify(payload));
   const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
@@ -62,7 +60,9 @@ function hexToBytes(hex: string): Uint8Array {
 }
 
 function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 // ── Main Handler ─────────────────────────────────────────────────────────────
@@ -84,9 +84,10 @@ serve(async (req: Request) => {
     });
   }
 
-  const { data: { user }, error: authErr } = await adminClient.auth.getUser(
-    authHeader.replace("Bearer ", ""),
-  );
+  const {
+    data: { user },
+    error: authErr,
+  } = await adminClient.auth.getUser(authHeader.replace("Bearer ", ""));
 
   if (authErr || !user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -123,10 +124,10 @@ serve(async (req: Request) => {
   const { sender_name, app_id, oa_id = "", redirect_uri } = body;
 
   if (!sender_name?.trim() || !app_id?.trim()) {
-    return new Response(
-      JSON.stringify({ error: "sender_name and app_id are required" }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ error: "sender_name and app_id are required" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   // ── Build redirect_uri (callback phải được đăng ký trong Zalo Developers) ─
@@ -138,7 +139,8 @@ serve(async (req: Request) => {
   const codeChallenge = await generateCodeChallenge(codeVerifier);
 
   // ── Tạo state payload (sẽ được mã hóa để chống CSRF và relay code_verifier) ─
-  const stateEncKey = Deno.env.get("OAUTH_STATE_SECRET") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "fallback";
+  const stateEncKey =
+    Deno.env.get("OAUTH_STATE_SECRET") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "fallback";
   const statePayload = {
     user_id: user.id,
     sender_name: sender_name.trim(),

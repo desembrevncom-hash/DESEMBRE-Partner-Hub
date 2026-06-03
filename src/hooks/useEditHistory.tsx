@@ -64,7 +64,6 @@ export const EditHistoryProvider = ({ children, applyRestore }: Props) => {
       } else {
         const p = last.prev;
         const res = await saveProductOverride({
-
           no: p.no,
           image_url: p.image_url,
           link_url: p.link_url,

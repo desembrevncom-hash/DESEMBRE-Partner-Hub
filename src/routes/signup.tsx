@@ -74,9 +74,13 @@ function SignupPage() {
           {busy ? "Đang tạo…" : "Đăng ký"}
         </Button>
         <div className="text-xs text-center text-muted-foreground">
-          <Link to="/" className="hover:underline">← Về trang chủ</Link>
+          <Link to="/" className="hover:underline">
+            ← Về trang chủ
+          </Link>
           <span className="mx-2">·</span>
-          <Link to="/login" className="hover:underline">Đã có tài khoản? Đăng nhập</Link>
+          <Link to="/login" className="hover:underline">
+            Đã có tài khoản? Đăng nhập
+          </Link>
         </div>
       </form>
     </div>

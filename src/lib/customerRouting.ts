@@ -2,9 +2,9 @@
  * Thư viện tính toán tuyến chăm sóc khách hàng dựa trên khoảng cách
  */
 
-export type DistanceType = 'near_company' | 'same_city' | 'far_city' | 'province' | 'unknown';
-export type CustomerChannel = 'direct_sales' | 'hybrid' | 'tele_sales';
-export type CareModel = 'sale_owned' | 'tele_qualified_then_sale' | 'tele_owned';
+export type DistanceType = "near_company" | "same_city" | "far_city" | "province" | "unknown";
+export type CustomerChannel = "direct_sales" | "hybrid" | "tele_sales";
+export type CareModel = "sale_owned" | "tele_qualified_then_sale" | "tele_owned";
 
 export interface RoutingThresholds {
   nearKm: number;
@@ -21,17 +21,17 @@ export interface RoutingThresholds {
  * > farKm * 1000: province
  */
 export function getDistanceTypeFromMeters(
-  distanceMeters: number | null | undefined, 
-  thresholds: RoutingThresholds = { nearKm: 10, cityKm: 30, farKm: 80 }
+  distanceMeters: number | null | undefined,
+  thresholds: RoutingThresholds = { nearKm: 10, cityKm: 30, farKm: 80 },
 ): DistanceType {
   if (distanceMeters === null || distanceMeters === undefined) {
-    return 'unknown';
+    return "unknown";
   }
-  
-  if (distanceMeters <= thresholds.nearKm * 1000) return 'near_company';
-  if (distanceMeters <= thresholds.cityKm * 1000) return 'same_city';
-  if (distanceMeters <= thresholds.farKm * 1000) return 'far_city';
-  return 'province';
+
+  if (distanceMeters <= thresholds.nearKm * 1000) return "near_company";
+  if (distanceMeters <= thresholds.cityKm * 1000) return "same_city";
+  if (distanceMeters <= thresholds.farKm * 1000) return "far_city";
+  return "province";
 }
 
 /**
@@ -39,16 +39,16 @@ export function getDistanceTypeFromMeters(
  */
 export function getRecommendedCustomerChannel(distanceType: DistanceType): CustomerChannel {
   switch (distanceType) {
-    case 'near_company':
-    case 'same_city':
-      return 'direct_sales';
-    case 'far_city':
-    case 'unknown':
-      return 'hybrid';
-    case 'province':
-      return 'tele_sales';
+    case "near_company":
+    case "same_city":
+      return "direct_sales";
+    case "far_city":
+    case "unknown":
+      return "hybrid";
+    case "province":
+      return "tele_sales";
     default:
-      return 'hybrid';
+      return "hybrid";
   }
 }
 
@@ -57,16 +57,16 @@ export function getRecommendedCustomerChannel(distanceType: DistanceType): Custo
  */
 export function getRecommendedCareModel(distanceType: DistanceType): CareModel {
   switch (distanceType) {
-    case 'near_company':
-    case 'same_city':
-      return 'sale_owned';
-    case 'far_city':
-    case 'unknown':
-      return 'tele_qualified_then_sale';
-    case 'province':
-      return 'tele_owned';
+    case "near_company":
+    case "same_city":
+      return "sale_owned";
+    case "far_city":
+    case "unknown":
+      return "tele_qualified_then_sale";
+    case "province":
+      return "tele_owned";
     default:
-      return 'tele_qualified_then_sale';
+      return "tele_qualified_then_sale";
   }
 }
 
@@ -75,12 +75,12 @@ export function getRecommendedCareModel(distanceType: DistanceType): CareModel {
  */
 export function getRecommendedRoutingByDistance(
   distanceMeters: number | null | undefined,
-  thresholds: RoutingThresholds = { nearKm: 10, cityKm: 30, farKm: 80 }
+  thresholds: RoutingThresholds = { nearKm: 10, cityKm: 30, farKm: 80 },
 ) {
   const distanceType = getDistanceTypeFromMeters(distanceMeters, thresholds);
   return {
     distanceType,
     customerChannel: getRecommendedCustomerChannel(distanceType),
-    careModel: getRecommendedCareModel(distanceType)
+    careModel: getRecommendedCareModel(distanceType),
   };
 }

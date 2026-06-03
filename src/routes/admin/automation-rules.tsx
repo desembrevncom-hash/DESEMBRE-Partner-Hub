@@ -1,15 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { 
-  ShieldAlert, 
-  RefreshCw, 
-  Play, 
-  Activity, 
+import {
+  ShieldAlert,
+  RefreshCw,
+  Play,
+  Activity,
   Zap,
   CheckCircle2,
   XCircle,
   FileText,
-  Clock
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -27,7 +27,7 @@ export const Route = createFileRoute("/admin/automation-rules")({
 
 function AutomationRulesMVPPage() {
   const { user, isAdmin, isSubAdmin, loading: authLoading } = useAuth();
-  
+
   const [rules, setRules] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,8 +83,10 @@ function AutomationRulesMVPPage() {
         .eq("id", ruleId);
 
       if (error) throw error;
-      
-      setRules(prev => prev.map(r => r.id === ruleId ? { ...r, is_active: !currentStatus } : r));
+
+      setRules((prev) =>
+        prev.map((r) => (r.id === ruleId ? { ...r, is_active: !currentStatus } : r)),
+      );
       toast.success("Đã cập nhật trạng thái Rule.");
     } catch (err: any) {
       toast.error("Lỗi cập nhật: " + err.message);
@@ -98,7 +100,9 @@ function AutomationRulesMVPPage() {
       if (error) throw error;
 
       if (data?.success) {
-        toast.success(`Chạy thành công! Đã tạo ${data.action_count} actions trên ${data.matched_count} bản ghi.`);
+        toast.success(
+          `Chạy thành công! Đã tạo ${data.action_count} actions trên ${data.matched_count} bản ghi.`,
+        );
       } else {
         toast.error("Không thể chạy: " + data?.error_message);
       }
@@ -140,8 +144,13 @@ function AutomationRulesMVPPage() {
           <ShieldAlert className="w-8 h-8 text-rose-600" />
         </div>
         <h2 className="text-xl font-bold text-slate-800">Permission Denied</h2>
-        <p className="text-slate-500 text-sm mt-2">Bạn không có quyền truy cập Automation Rules MVP.</p>
-        <Link to="/workspace" className="mt-6 px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold">
+        <p className="text-slate-500 text-sm mt-2">
+          Bạn không có quyền truy cập Automation Rules MVP.
+        </p>
+        <Link
+          to="/workspace"
+          className="mt-6 px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold"
+        >
           Quay lại Workspace
         </Link>
       </div>
@@ -156,29 +165,38 @@ function AutomationRulesMVPPage() {
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Zap className="w-5 h-5 text-indigo-400" />
-                <h1 className="text-xl font-black uppercase tracking-widest text-slate-100">Automation Rules</h1>
-                <Badge className="bg-amber-500 text-white border-none ml-2 text-[9px] uppercase">MVP</Badge>
+                <h1 className="text-xl font-black uppercase tracking-widest text-slate-100">
+                  Automation Rules
+                </h1>
+                <Badge className="bg-amber-500 text-white border-none ml-2 text-[9px] uppercase">
+                  MVP
+                </Badge>
               </div>
               <p className="text-slate-400 text-sm font-medium max-w-xl leading-relaxed">
-                Nền tảng Tự động hóa CRM đơn giản. Tự động sinh công việc (Tasks) và Thông báo (Notifications) theo kịch bản.
+                Nền tảng Tự động hóa CRM đơn giản. Tự động sinh công việc (Tasks) và Thông báo
+                (Notifications) theo kịch bản.
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={loadData}
                 disabled={loading}
                 className="bg-transparent border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
               >
-                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
                 Làm mới
               </Button>
-              <Button 
+              <Button
                 onClick={runAllActiveRules}
                 disabled={loading || runningAll}
                 className="bg-indigo-600 text-white hover:bg-indigo-500 shadow-indigo-900/50"
               >
-                {runningAll ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
+                {runningAll ? (
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
                 Run All Active
               </Button>
             </div>
@@ -192,9 +210,11 @@ function AutomationRulesMVPPage() {
           <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
             <Activity className="w-4 h-4" /> Danh sách Rules
           </h2>
-          
+
           {loading && rules.length === 0 ? (
-            <div className="py-20 flex justify-center"><RefreshCw className="w-6 h-6 text-slate-300 animate-spin" /></div>
+            <div className="py-20 flex justify-center">
+              <RefreshCw className="w-6 h-6 text-slate-300 animate-spin" />
+            </div>
           ) : rules.length === 0 ? (
             <div className="bg-white rounded-2xl p-12 border border-slate-100 text-center shadow-sm">
               <FileText className="w-12 h-12 text-slate-200 mx-auto mb-4" />
@@ -202,67 +222,94 @@ function AutomationRulesMVPPage() {
             </div>
           ) : (
             rules.map((rule) => (
-              <Card key={rule.id} className="border-slate-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
+              <Card
+                key={rule.id}
+                className="border-slate-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden group"
+              >
                 <CardHeader className="bg-white pb-4 border-b border-slate-50 flex flex-row items-start justify-between">
                   <div className="space-y-1">
                     <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-3">
                       {rule.name}
-                      {!rule.is_active && <Badge variant="secondary" className="bg-slate-100 text-slate-500 text-[10px] uppercase">Inactive</Badge>}
+                      {!rule.is_active && (
+                        <Badge
+                          variant="secondary"
+                          className="bg-slate-100 text-slate-500 text-[10px] uppercase"
+                        >
+                          Inactive
+                        </Badge>
+                      )}
                     </CardTitle>
                     <CardDescription className="text-xs font-medium text-slate-500 line-clamp-2 max-w-lg">
                       {rule.description}
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-4 shrink-0 pl-4">
-                    <Switch 
-                      checked={rule.is_active} 
-                      onCheckedChange={() => toggleRuleActive(rule.id, rule.is_active)} 
+                    <Switch
+                      checked={rule.is_active}
+                      onCheckedChange={() => toggleRuleActive(rule.id, rule.is_active)}
                     />
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       onClick={() => runRule(rule.id)}
                       disabled={runningRuleId === rule.id || !rule.is_active}
                       className="bg-slate-900 text-white hover:bg-slate-800 h-8 text-xs font-bold w-[100px]"
                     >
-                      {runningRuleId === rule.id ? <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> : <Play className="w-3 h-3 mr-1" />}
+                      {runningRuleId === rule.id ? (
+                        <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                      ) : (
+                        <Play className="w-3 h-3 mr-1" />
+                      )}
                       Run Now
                     </Button>
                   </div>
                 </CardHeader>
                 <CardContent className="bg-slate-50/50 pt-4 flex flex-wrap gap-4 items-center">
-                   <div className="bg-white border border-slate-200 rounded-lg px-3 py-2 flex flex-col gap-1 shadow-sm">
-                     <span className="text-[9px] font-black uppercase text-slate-400">Trigger</span>
-                     <span className="text-xs font-bold text-slate-700">{rule.trigger_type}</span>
-                   </div>
-                   <div className="bg-white border border-slate-200 rounded-lg px-3 py-2 flex flex-col gap-1 shadow-sm">
-                     <span className="text-[9px] font-black uppercase text-slate-400">Action</span>
-                     <span className="text-xs font-bold text-indigo-600">{rule.action_type}</span>
-                   </div>
-                   <div className="bg-white border border-slate-200 rounded-lg px-3 py-2 flex flex-col gap-1 shadow-sm flex-1 min-w-[200px]">
-                     <span className="text-[9px] font-black uppercase text-slate-400">Lần chạy gần nhất</span>
-                     <div className="flex items-center justify-between">
-                       <span className="text-xs font-medium text-slate-600 flex items-center gap-1">
-                          {rule.last_run_at ? (
-                            <>
-                              <Clock className="w-3 h-3 text-slate-400" />
-                              {formatDistanceToNow(new Date(rule.last_run_at), { addSuffix: true, locale: vi })}
-                            </>
-                          ) : "Chưa từng chạy"}
-                       </span>
-                       {rule.last_status && (
-                         <span className="flex items-center gap-1">
-                           {rule.last_status === 'success' ? (
-                             <Badge className="bg-emerald-50 text-emerald-600 border-none px-1.5 py-0 rounded text-[9px]"><CheckCircle2 className="w-3 h-3 mr-1"/> Success</Badge>
-                           ) : (
-                             <Badge className="bg-rose-50 text-rose-600 border-none px-1.5 py-0 rounded text-[9px]"><XCircle className="w-3 h-3 mr-1"/> Failed</Badge>
-                           )}
-                           {rule.last_status === 'success' && (
-                             <span className="text-[10px] font-bold text-slate-400 ml-2">({rule.last_matched} match / {rule.last_action} act)</span>
-                           )}
-                         </span>
-                       )}
-                     </div>
-                   </div>
+                  <div className="bg-white border border-slate-200 rounded-lg px-3 py-2 flex flex-col gap-1 shadow-sm">
+                    <span className="text-[9px] font-black uppercase text-slate-400">Trigger</span>
+                    <span className="text-xs font-bold text-slate-700">{rule.trigger_type}</span>
+                  </div>
+                  <div className="bg-white border border-slate-200 rounded-lg px-3 py-2 flex flex-col gap-1 shadow-sm">
+                    <span className="text-[9px] font-black uppercase text-slate-400">Action</span>
+                    <span className="text-xs font-bold text-indigo-600">{rule.action_type}</span>
+                  </div>
+                  <div className="bg-white border border-slate-200 rounded-lg px-3 py-2 flex flex-col gap-1 shadow-sm flex-1 min-w-[200px]">
+                    <span className="text-[9px] font-black uppercase text-slate-400">
+                      Lần chạy gần nhất
+                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-slate-600 flex items-center gap-1">
+                        {rule.last_run_at ? (
+                          <>
+                            <Clock className="w-3 h-3 text-slate-400" />
+                            {formatDistanceToNow(new Date(rule.last_run_at), {
+                              addSuffix: true,
+                              locale: vi,
+                            })}
+                          </>
+                        ) : (
+                          "Chưa từng chạy"
+                        )}
+                      </span>
+                      {rule.last_status && (
+                        <span className="flex items-center gap-1">
+                          {rule.last_status === "success" ? (
+                            <Badge className="bg-emerald-50 text-emerald-600 border-none px-1.5 py-0 rounded text-[9px]">
+                              <CheckCircle2 className="w-3 h-3 mr-1" /> Success
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-rose-50 text-rose-600 border-none px-1.5 py-0 rounded text-[9px]">
+                              <XCircle className="w-3 h-3 mr-1" /> Failed
+                            </Badge>
+                          )}
+                          {rule.last_status === "success" && (
+                            <span className="text-[10px] font-bold text-slate-400 ml-2">
+                              ({rule.last_matched} match / {rule.last_action} act)
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             ))
@@ -279,26 +326,35 @@ function AutomationRulesMVPPage() {
             </div>
             <div className="p-0 overflow-y-auto max-h-[600px] no-scrollbar">
               {logs.length === 0 ? (
-                 <div className="p-8 text-center text-slate-400 text-xs">Chưa có lịch sử.</div>
+                <div className="p-8 text-center text-slate-400 text-xs">Chưa có lịch sử.</div>
               ) : (
                 <div className="divide-y divide-slate-100">
-                  {logs.map(log => (
+                  {logs.map((log) => (
                     <div key={log.id} className="p-4 hover:bg-slate-50 transition-colors">
                       <div className="flex items-start justify-between gap-2 mb-2">
-                         <span className="text-xs font-bold text-slate-800 line-clamp-1 flex-1" title={log.rule?.name || "Unknown Rule"}>
-                           {log.rule?.name || log.rule_id}
-                         </span>
-                         {log.status === 'success' ? (
-                           <span className="text-emerald-500 shrink-0"><CheckCircle2 className="w-4 h-4" /></span>
-                         ) : (
-                           <span className="text-rose-500 shrink-0"><XCircle className="w-4 h-4" /></span>
-                         )}
+                        <span
+                          className="text-xs font-bold text-slate-800 line-clamp-1 flex-1"
+                          title={log.rule?.name || "Unknown Rule"}
+                        >
+                          {log.rule?.name || log.rule_id}
+                        </span>
+                        {log.status === "success" ? (
+                          <span className="text-emerald-500 shrink-0">
+                            <CheckCircle2 className="w-4 h-4" />
+                          </span>
+                        ) : (
+                          <span className="text-rose-500 shrink-0">
+                            <XCircle className="w-4 h-4" />
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center justify-between text-[10px] font-medium text-slate-500">
-                         <span>
-                           Matched: <strong className="text-slate-800">{log.matched_count}</strong> &bull; Act: <strong className="text-indigo-600">{log.action_count}</strong>
-                         </span>
-                         <span>{new Date(log.created_at).toLocaleTimeString('vi-VN')}</span>
+                        <span>
+                          Matched: <strong className="text-slate-800">{log.matched_count}</strong>{" "}
+                          &bull; Act:{" "}
+                          <strong className="text-indigo-600">{log.action_count}</strong>
+                        </span>
+                        <span>{new Date(log.created_at).toLocaleTimeString("vi-VN")}</span>
                       </div>
                       {log.error_message && (
                         <div className="mt-2 text-[10px] bg-rose-50 text-rose-600 p-2 rounded border border-rose-100">

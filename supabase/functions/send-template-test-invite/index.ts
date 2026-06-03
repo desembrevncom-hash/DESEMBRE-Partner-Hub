@@ -21,7 +21,8 @@ serve(async (req) => {
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "";
+  const supabaseServiceKey =
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "";
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   let templateId = "";
@@ -46,10 +47,13 @@ serve(async (req) => {
     }
 
     const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") || "", {
-      global: { headers: { Authorization: authHeader } }
+      global: { headers: { Authorization: authHeader } },
     });
 
-    const { data: { user }, error: authErr } = await userClient.auth.getUser();
+    const {
+      data: { user },
+      error: authErr,
+    } = await userClient.auth.getUser();
     if (authErr || !user) {
       throw new Error("Phiên đăng nhập không hợp lệ hoặc đã hết hạn");
     }
@@ -64,7 +68,9 @@ serve(async (req) => {
 
     const role = userRoleData?.role || user.user_metadata?.role;
     if (role !== "admin" && role !== "sub_admin") {
-      throw new Error("Hành động bị từ chối: Chỉ Quản trị viên (Admin/Sub-Admin) mới có quyền gửi lịch thử nghiệm.");
+      throw new Error(
+        "Hành động bị từ chối: Chỉ Quản trị viên (Admin/Sub-Admin) mới có quyền gửi lịch thử nghiệm.",
+      );
     }
 
     // 2. Tra cứu dữ liệu Mẫu tin nhắn
@@ -92,10 +98,13 @@ serve(async (req) => {
 
     const finalVars = {
       ...defaultSampleVars,
-      ...(templateData.sample_variables || {})
+      ...(templateData.sample_variables || {}),
     };
 
-    const renderedSubject = renderTemplate(templateData.subject_template || "[Thử nghiệm] Thư mời: {{event_title}}", finalVars);
+    const renderedSubject = renderTemplate(
+      templateData.subject_template || "[Thử nghiệm] Thư mời: {{event_title}}",
+      finalVars,
+    );
     const renderedBody = renderTemplate(templateData.body_template, finalVars);
 
     // Thời điểm sự kiện: Sáng mai
@@ -128,10 +137,13 @@ serve(async (req) => {
     const clientId = Deno.env.get(`${prefix}_CLIENT_ID`);
     const clientSecret = Deno.env.get(`${prefix}_CLIENT_SECRET`);
     const refreshToken = Deno.env.get(`${prefix}_REFRESH_TOKEN`);
-    const targetCalendarId = Deno.env.get(`${prefix}_CALENDAR_ID`) || senderAcc.calendar_id || "primary";
+    const targetCalendarId =
+      Deno.env.get(`${prefix}_CALENDAR_ID`) || senderAcc.calendar_id || "primary";
 
     if (!clientId || !clientSecret || !refreshToken) {
-      throw new Error(`Hệ thống chưa được nạp đủ bộ bí mật OAuth cho tiền tố "${prefix}". Vui lòng khai báo các biến: ${prefix}_CLIENT_ID, ${prefix}_CLIENT_SECRET và ${prefix}_REFRESH_TOKEN trong Supabase Secrets.`);
+      throw new Error(
+        `Hệ thống chưa được nạp đủ bộ bí mật OAuth cho tiền tố "${prefix}". Vui lòng khai báo các biến: ${prefix}_CLIENT_ID, ${prefix}_CLIENT_SECRET và ${prefix}_REFRESH_TOKEN trong Supabase Secrets.`,
+      );
     }
 
     // 5. Xin cấp Access Token mới qua luồng OAuth2 Refresh Token
@@ -148,7 +160,9 @@ serve(async (req) => {
 
     const tokenData = await tokenResponse.json();
     if (!tokenResponse.ok) {
-      throw new Error(`Xác thực tài khoản "${senderAcc.name}" qua Refresh Token thất bại: ${tokenData.error_description || tokenData.error}`);
+      throw new Error(
+        `Xác thực tài khoản "${senderAcc.name}" qua Refresh Token thất bại: ${tokenData.error_description || tokenData.error}`,
+      );
     }
 
     const access_token = tokenData.access_token;
@@ -166,7 +180,7 @@ serve(async (req) => {
         useDefault: false,
         overrides: [
           { method: "email", minutes: 24 * 60 },
-          { method: "popup", minutes: 30 }
+          { method: "popup", minutes: 30 },
         ],
       },
     };
@@ -176,7 +190,7 @@ serve(async (req) => {
     const gcalResponse = await fetch(insertUrl, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${access_token}`,
+        Authorization: `Bearer ${access_token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(googleEventPayload),
@@ -189,47 +203,58 @@ serve(async (req) => {
       const errMsg = gcalData?.error?.message || JSON.stringify(gcalData);
 
       if (errStatus === 404 || errMsg.toLowerCase().includes("not found")) {
-        throw new Error(`Không tìm thấy lịch mang ID "${targetCalendarId}". Vui lòng đảm bảo tài khoản nguồn có quyền truy cập Lịch này.`);
+        throw new Error(
+          `Không tìm thấy lịch mang ID "${targetCalendarId}". Vui lòng đảm bảo tài khoản nguồn có quyền truy cập Lịch này.`,
+        );
       }
 
       throw new Error(`Google API Error (${errStatus}): ${errMsg}`);
     }
 
     // 8. Ghi Log thành công (lưu trực tiếp sender_account_id liên kết)
-    await supabase.from("template_test_logs").insert([{
-      template_id: templateId || null,
-      sender_account_id: senderAccountId || null,
-      tested_by: userId,
-      test_email: testEmail.trim(),
-      status: "sent",
-      provider_response: { 
-        ...gcalData, 
-        sender_prefix: prefix,
-        sender_email: senderAcc.sender_email
-      }
-    }]);
-
-    return new Response(JSON.stringify({ 
-      success: true, 
-      has_attendees: true,
-      google_event_id: gcalData.id, 
-      html_link: gcalData.htmlLink,
-      rendered_subject: renderedSubject
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-
-  } catch (error: any) {
-    // Ghi Log thất bại
-    if (userId) {
-      supabase.from("template_test_logs").insert([{
+    await supabase.from("template_test_logs").insert([
+      {
         template_id: templateId || null,
         sender_account_id: senderAccountId || null,
         tested_by: userId,
-        test_email: testEmail ? testEmail.trim() : "unknown",
-        status: "failed",
-        error_message: error.message
-      }]).then();
+        test_email: testEmail.trim(),
+        status: "sent",
+        provider_response: {
+          ...gcalData,
+          sender_prefix: prefix,
+          sender_email: senderAcc.sender_email,
+        },
+      },
+    ]);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        has_attendees: true,
+        google_event_id: gcalData.id,
+        html_link: gcalData.htmlLink,
+        rendered_subject: renderedSubject,
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
+  } catch (error: any) {
+    // Ghi Log thất bại
+    if (userId) {
+      supabase
+        .from("template_test_logs")
+        .insert([
+          {
+            template_id: templateId || null,
+            sender_account_id: senderAccountId || null,
+            tested_by: userId,
+            test_email: testEmail ? testEmail.trim() : "unknown",
+            status: "failed",
+            error_message: error.message,
+          },
+        ])
+        .then();
     }
 
     return new Response(JSON.stringify({ success: false, error: error.message }), {

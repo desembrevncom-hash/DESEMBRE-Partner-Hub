@@ -47,34 +47,36 @@ export async function saveProductOverride(payload: SavePayload) {
 
   // FALLBACK: Client-side logic
   let imageUrl = payload.image_url;
-  
+
   if (payload.image_data_url) {
     try {
-      const base64Data = payload.image_data_url.split(',')[1];
+      const base64Data = payload.image_data_url.split(",")[1];
       const byteCharacters = atob(base64Data);
       const byteNumbers = new Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
       }
       const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: 'image/jpeg' });
-      
+      const blob = new Blob([byteArray], { type: "image/jpeg" });
+
       const fileName = `${payload.no}_${Date.now()}.jpg`;
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('product-images')
+        .from("product-images")
         .upload(fileName, blob, { upsert: true });
-        
+
       if (!uploadError && uploadData) {
-        const { data: publicUrlData } = supabase.storage.from('product-images').getPublicUrl(fileName);
+        const { data: publicUrlData } = supabase.storage
+          .from("product-images")
+          .getPublicUrl(fileName);
         imageUrl = publicUrlData.publicUrl;
       } else {
         imageUrl = payload.image_data_url; // fallback to base64
       }
-    } catch(e) {
+    } catch (e) {
       imageUrl = payload.image_data_url;
     }
   } else if (payload.image_data_url === null) {
-      imageUrl = null;
+    imageUrl = null;
   }
 
   const upsertData: any = { no: payload.no };
@@ -90,12 +92,16 @@ export async function saveProductOverride(payload: SavePayload) {
   if (payload.deleted !== undefined) upsertData.deleted = payload.deleted;
 
   if (payload.original_no && payload.original_no !== payload.no) {
-    await supabase.from('product_overrides').delete().eq('no', payload.original_no);
+    await supabase.from("product_overrides").delete().eq("no", payload.original_no);
   }
 
-  const { data, error } = await supabase.from('product_overrides').upsert(upsertData).select().single();
+  const { data, error } = await supabase
+    .from("product_overrides")
+    .upsert(upsertData)
+    .select()
+    .single();
   if (error) {
-     return { ok: false as const, error: error.message };
+    return { ok: false as const, error: error.message };
   }
 
   // Mirror CRUD operation directly into the core DB catalog tables as requested
@@ -128,7 +134,7 @@ export async function saveProductOverride(payload: SavePayload) {
       isCustom: payload.action === "create" || false,
       isDeleted: payload.deleted || false,
       variants: variantsArr.length > 0 ? variantsArr : undefined,
-    }).catch(err => console.warn("Direct core DB save sync failed", err));
+    }).catch((err) => console.warn("Direct core DB save sync failed", err));
   }
 
   return { ok: true as const, row: data as OverrideRow };

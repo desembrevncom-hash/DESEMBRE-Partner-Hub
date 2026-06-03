@@ -34,7 +34,10 @@ export function SystemSettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<SystemSettings>(defaultSettings);
 
   useEffect(() => {
-    supabase.from('system_settings').select('*').maybeSingle()
+    supabase
+      .from("system_settings")
+      .select("*")
+      .maybeSingle()
       .then(({ data }: { data: any }) => {
         if (data) {
           const vat = (data.vat_rate || 10) / 100;
@@ -56,11 +59,7 @@ export function SystemSettingsProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
-  return (
-    <SettingsContext.Provider value={settings}>
-      {children}
-    </SettingsContext.Provider>
-  );
+  return <SettingsContext.Provider value={settings}>{children}</SettingsContext.Provider>;
 }
 
 export function useSystemSettings() {

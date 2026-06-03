@@ -17,17 +17,23 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
-      return new Response(JSON.stringify({ error: "missing_config" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "missing_config" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // ─── 1. Auth check ──────────────────────────────────────────────────────────
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
+      global: { headers: { Authorization: authHeader } },
     });
 
     const authResult = await supabaseClient.auth.getUser();
@@ -35,18 +41,24 @@ serve(async (req) => {
     const authError = authResult.error;
 
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized", details: authError?.message }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Unauthorized", details: authError?.message }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const { data: roleData } = await supabaseClient
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .in('role', ['admin', 'sub_admin'])
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .in("role", ["admin", "sub_admin"])
       .single();
 
     if (!roleData) {
-      return new Response(JSON.stringify({ error: "Forbidden: Admins only" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Forbidden: Admins only" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Use admin client for DB queries
@@ -57,12 +69,18 @@ serve(async (req) => {
     const zaloWorkerEnabled = Deno.env.get("ZALO_WEBHOOK_WORKER_ENABLED") === "true";
     const prodSendingEnabled = Deno.env.get("MARKETING_PRODUCTION_SENDING_ENABLED") === "true";
     const providerMode = Deno.env.get("MARKETING_PROVIDER_MODE") || "unknown";
-    const resendWorkerCronSecretPresent = Deno.env.get("RESEND_WEBHOOK_WORKER_CRON_SECRET") !== undefined && Deno.env.get("RESEND_WEBHOOK_WORKER_CRON_SECRET") !== "";
-    const zaloWorkerCronSecretPresent = Deno.env.get("ZALO_WEBHOOK_WORKER_CRON_SECRET") !== undefined && Deno.env.get("ZALO_WEBHOOK_WORKER_CRON_SECRET") !== "";
-    const zaloWorkerEnabledPresent = Deno.env.get("ZALO_WEBHOOK_WORKER_ENABLED") !== undefined && Deno.env.get("ZALO_WEBHOOK_WORKER_ENABLED") !== "";
+    const resendWorkerCronSecretPresent =
+      Deno.env.get("RESEND_WEBHOOK_WORKER_CRON_SECRET") !== undefined &&
+      Deno.env.get("RESEND_WEBHOOK_WORKER_CRON_SECRET") !== "";
+    const zaloWorkerCronSecretPresent =
+      Deno.env.get("ZALO_WEBHOOK_WORKER_CRON_SECRET") !== undefined &&
+      Deno.env.get("ZALO_WEBHOOK_WORKER_CRON_SECRET") !== "";
+    const zaloWorkerEnabledPresent =
+      Deno.env.get("ZALO_WEBHOOK_WORKER_ENABLED") !== undefined &&
+      Deno.env.get("ZALO_WEBHOOK_WORKER_ENABLED") !== "";
 
     // ─── 3. DB Queries ──────────────────────────────────────────────────────────
-    
+
     // Webhook Events
     const { count: pendingResendCount } = await adminClient
       .from("webhook_events")
@@ -77,7 +95,12 @@ serve(async (req) => {
       .in("provider", ["zalo", "zalo_zbs"])
       .eq("signature_valid", true)
       .eq("status", "received")
-      .in("event_type", ["user_received_message", "zns_delivered", "zns_failed", "user_seen_message"]);
+      .in("event_type", [
+        "user_received_message",
+        "zns_delivered",
+        "zns_failed",
+        "user_seen_message",
+      ]);
 
     // Zalo Inbound Events (received non-delivery Zalo events)
     const { count: inboundZaloCount } = await adminClient
@@ -86,7 +109,11 @@ serve(async (req) => {
       .in("provider", ["zalo", "zalo_zbs"])
       .eq("signature_valid", true)
       .eq("status", "received")
-      .not("event_type", "in", '("user_received_message","zns_delivered","zns_failed","user_seen_message")');
+      .not(
+        "event_type",
+        "in",
+        '("user_received_message","zns_delivered","zns_failed","user_seen_message")',
+      );
 
     const { count: failedWebhookCount } = await adminClient
       .from("webhook_events")
@@ -120,7 +147,7 @@ serve(async (req) => {
       .from("sender_accounts")
       .select("*", { count: "exact", head: true })
       .eq("status", "active");
-      
+
     const { count: errorSenderCount } = await adminClient
       .from("sender_accounts")
       .select("*", { count: "exact", head: true })
@@ -138,7 +165,7 @@ serve(async (req) => {
         cron_scheduler_status: "manual_verified",
         resend_worker_cron_secret_present: resendWorkerCronSecretPresent,
         zalo_worker_cron_secret_present: zaloWorkerCronSecretPresent,
-        zalo_worker_enabled_present: zaloWorkerEnabledPresent
+        zalo_worker_enabled_present: zaloWorkerEnabledPresent,
       },
       counts: {
         pending_resend_events: pendingResendCount || 0,
@@ -147,24 +174,23 @@ serve(async (req) => {
         failed_webhook_events: failedWebhookCount || 0,
         active_email_suppressions: activeEmailSuppressions || 0,
         healthy_sender_count: healthySenderCount || 0,
-        error_sender_count: errorSenderCount || 0
+        error_sender_count: errorSenderCount || 0,
       },
       timestamps: {
         latest_webhook_received_at: latestWebhook?.received_at || null,
-        last_delivery_log_at: lastDeliveryLog?.created_at || null
+        last_delivery_log_at: lastDeliveryLog?.created_at || null,
       },
-      message: "Read-only operations status. No secrets returned."
+      message: "Read-only operations status. No secrets returned.",
     };
 
-    return new Response(JSON.stringify(response), { 
-      status: 200, 
-      headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    return new Response(JSON.stringify(response), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-    
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { 
-      status: 500, 
-      headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

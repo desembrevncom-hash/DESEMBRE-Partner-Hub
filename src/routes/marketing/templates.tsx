@@ -1,18 +1,18 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useMemo } from "react";
-import { 
-  ArrowLeft, 
-  Megaphone, 
-  Plus, 
-  Pencil, 
-  Trash2, 
-  Send, 
-  Save, 
-  CheckCircle2, 
-  AlertCircle, 
-  Calendar, 
-  Layers, 
-  Eye, 
+import {
+  ArrowLeft,
+  Megaphone,
+  Plus,
+  Pencil,
+  Trash2,
+  Send,
+  Save,
+  CheckCircle2,
+  AlertCircle,
+  Calendar,
+  Layers,
+  Eye,
   Sparkles,
   HelpCircle,
   Clock,
@@ -20,7 +20,7 @@ import {
   FlaskConical,
   Rocket,
   Mail,
-  Building2
+  Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -152,10 +152,7 @@ function AdminTemplatesPage() {
         .eq("user_id", user.id)
         .eq("platform", "email")
         .eq("is_active", true);
-      setPersonalSenders(
-        (personalAccs || []).filter((a: any) => !!a.provider_secret)
-      );
-
+      setPersonalSenders((personalAccs || []).filter((a: any) => !!a.provider_secret));
     } catch (err: any) {
       toast.error("Lỗi nạp dữ liệu: " + err.message);
     } finally {
@@ -174,11 +171,11 @@ function AdminTemplatesPage() {
     try {
       const nextState = !tpl.is_active;
       // Độc quyền kích hoạt trên kênh (tùy chọn để tránh sale nhầm lẫn)
-      if (nextState && tpl.channel === 'calendar_invite') {
+      if (nextState && tpl.channel === "calendar_invite") {
         await supabase
           .from("message_templates")
           .update({ is_active: false })
-          .eq("channel", 'calendar_invite')
+          .eq("channel", "calendar_invite")
           .neq("id", tpl.id);
       }
 
@@ -188,7 +185,7 @@ function AdminTemplatesPage() {
         .eq("id", tpl.id);
 
       if (error) throw error;
-      toast.success(`Đã ${nextState ? 'kích hoạt' : 'tạm dừng'} mẫu "${tpl.name}"`);
+      toast.success(`Đã ${nextState ? "kích hoạt" : "tạm dừng"} mẫu "${tpl.name}"`);
       loadData();
     } catch (err: any) {
       toast.error("Lỗi cập nhật trạng thái: " + err.message);
@@ -207,7 +204,9 @@ function AdminTemplatesPage() {
     setFormIncludeUnsubscribe(false);
     setFormMaxFrequency("");
     setFormSubject("[DESEMBRE] Thư mời: {{event_title}}");
-    setFormBody(`Kính gửi Quý đối tác / Khách mời: {{customer_name}}\n\nCông ty {{company_name}} trân trọng kính mời Quý khách tham dự chương trình đào tạo và chuyển giao phác đồ chuyên sâu.\n\n📌 THÔNG TIN SỰ KIỆN:\n- Chủ đề: {{event_title}}\n- Thời gian: {{event_time}}\n- Địa điểm: {{event_location}}\n- Link trực tuyến: {{meeting_url}}\n\nChuyên viên phụ trách: {{sale_name}}\nLink nạp nhanh vào Lịch Google: {{calendar_link}}\n\nSự hiện diện của Quý khách là niềm vinh hạnh lớn cho công ty chúng tôi.\nTrân trọng,\nBan Giám Đốc DESEMBRE Partner Hub`);
+    setFormBody(
+      `Kính gửi Quý đối tác / Khách mời: {{customer_name}}\n\nCông ty {{company_name}} trân trọng kính mời Quý khách tham dự chương trình đào tạo và chuyển giao phác đồ chuyên sâu.\n\n📌 THÔNG TIN SỰ KIỆN:\n- Chủ đề: {{event_title}}\n- Thời gian: {{event_time}}\n- Địa điểm: {{event_location}}\n- Link trực tuyến: {{meeting_url}}\n\nChuyên viên phụ trách: {{sale_name}}\nLink nạp nhanh vào Lịch Google: {{calendar_link}}\n\nSự hiện diện của Quý khách là niềm vinh hạnh lớn cho công ty chúng tôi.\nTrân trọng,\nBan Giám Đốc DESEMBRE Partner Hub`,
+    );
     setFormBannerImageUrl("");
     setFormCtaLabel("");
     setFormCtaUrl("");
@@ -252,7 +251,7 @@ function AdminTemplatesPage() {
       let finalIncludeUnsub = formIncludeUnsubscribe;
       let finalFreqVal: number | null = !isNaN(freqVal) && freqVal > 0 ? freqVal : null;
 
-      if (formPurpose === 'marketing_campaign') {
+      if (formPurpose === "marketing_campaign") {
         finalRequiresOptIn = true;
         finalIncludeUnsub = true;
         if (finalFreqVal === null) finalFreqVal = 30;
@@ -282,8 +281,8 @@ function AdminTemplatesPage() {
           meeting_url: "https://zoom.us/j/demo123",
           sale_name: "Hà Trần",
           company_name: "DESEMBRE Việt Nam",
-          calendar_link: "https://calendar.google.com/..."
-        }
+          calendar_link: "https://calendar.google.com/...",
+        },
       };
 
       if (editingTemplate) {
@@ -294,13 +293,13 @@ function AdminTemplatesPage() {
         if (error) throw error;
         toast.success("Đã cập nhật mẫu tin nhắn thành công");
       } else {
-        const { error } = await supabase
-          .from("message_templates")
-          .insert([{
+        const { error } = await supabase.from("message_templates").insert([
+          {
             ...payload,
             created_by: user?.id,
-            platform: "email"
-          }]);
+            platform: "email",
+          },
+        ]);
         if (error) throw error;
         toast.success("Đã tạo mới mẫu tin nhắn thành công");
       }
@@ -316,17 +315,14 @@ function AdminTemplatesPage() {
 
   // Xóa Template
   const handleDeleteTemplate = async (tpl: MessageTemplate) => {
-    if (tpl.key === 'calendar_invite_default') {
+    if (tpl.key === "calendar_invite_default") {
       toast.error("Hệ thống bảo vệ từ chối xóa mẫu mặc định gốc!");
       return;
     }
     if (!confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn mẫu "${tpl.name}"?`)) return;
 
     try {
-      const { error } = await supabase
-        .from("message_templates")
-        .delete()
-        .eq("id", tpl.id);
+      const { error } = await supabase.from("message_templates").delete().eq("id", tpl.id);
       if (error) throw error;
       toast.success("Đã xóa mẫu tin nhắn");
       loadData();
@@ -334,7 +330,6 @@ function AdminTemplatesPage() {
       toast.error("Lỗi xóa: " + err.message);
     }
   };
-
 
   // Nạp chuỗi mô phỏng
   const renderSamplePreview = (tpl: MessageTemplate) => {
@@ -346,17 +341,17 @@ function AdminTemplatesPage() {
       meeting_url: "https://meet.google.com/abc-defg-hij",
       sale_name: "Hà Trần",
       company_name: "DESEMBRE Partner Hub",
-      calendar_link: "https://calendar.google.com/..."
+      calendar_link: "https://calendar.google.com/...",
     };
     return {
       subject: renderTemplate(tpl.subject_template || "", vars),
-      body: renderTemplate(tpl.body_template, vars)
+      body: renderTemplate(tpl.body_template, vars),
     };
   };
 
   // Chèn nhanh từ khóa vào vùng text
   const insertVariableToBody = (varName: string) => {
-    setFormBody(prev => prev + `{{${varName}}}`);
+    setFormBody((prev) => prev + `{{${varName}}}`);
     toast.success(`Đã chèn từ khóa {{${varName}}} vào cuối nội dung`);
   };
 
@@ -372,24 +367,32 @@ function AdminTemplatesPage() {
       toast.warning("Đường dẫn này đã được thêm vào danh sách");
       return;
     }
-    setFormAttachmentUrls(prev => [...prev, val]);
+    setFormAttachmentUrls((prev) => [...prev, val]);
     setFormAttachmentInput("");
     toast.success("Đã đính kèm liên kết tệp");
   };
 
   const handleRemoveAttachmentUrl = (urlToRemove: string) => {
-    setFormAttachmentUrls(prev => prev.filter(u => u !== urlToRemove));
+    setFormAttachmentUrls((prev) => prev.filter((u) => u !== urlToRemove));
   };
 
   // Gửi test email qua Business Sender hoặc Personal Gmail
   const handleTestSend = async () => {
-    if (!testRecipientEmail.trim()) { toast.error("Vui lòng nhập email nhận test"); return; }
-    if (!testSenderId) { toast.error("Vui lòng chọn tài khoản gửi"); return; }
+    if (!testRecipientEmail.trim()) {
+      toast.error("Vui lòng nhập email nhận test");
+      return;
+    }
+    if (!testSenderId) {
+      toast.error("Vui lòng chọn tài khoản gửi");
+      return;
+    }
     if (!testTemplate) return;
 
     setTestSending(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       const token = session?.access_token;
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -397,7 +400,7 @@ function AdminTemplatesPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           customerId: "00000000-0000-0000-0000-000000000001",
@@ -412,7 +415,7 @@ function AdminTemplatesPage() {
         }),
       });
 
-      const result = await resp.json() as any;
+      const result = (await resp.json()) as any;
       if (result.status === "sent" || result.allowed || result.success) {
         toast.success(`✅ Email test đã gửi đến ${testRecipientEmail}`);
         setTestModalOpen(false);
@@ -426,7 +429,10 @@ function AdminTemplatesPage() {
     }
   };
 
-  const activeTemplatesCount = useMemo(() => templates.filter(t => t.is_active).length, [templates]);
+  const activeTemplatesCount = useMemo(
+    () => templates.filter((t) => t.is_active).length,
+    [templates],
+  );
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-12 flex flex-col">
@@ -435,7 +441,10 @@ function AdminTemplatesPage() {
         <div className="container mx-auto px-4 md:px-6 h-20 flex items-center justify-between">
           <div className="flex flex-col justify-center">
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 mb-1">
-              <Link to="/" className="hover:text-purple-600 inline-flex items-center gap-1 transition-colors">
+              <Link
+                to="/"
+                className="hover:text-purple-600 inline-flex items-center gap-1 transition-colors"
+              >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 Trang chủ
               </Link>
@@ -444,29 +453,42 @@ function AdminTemplatesPage() {
             </div>
             <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-3">
               <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-                <Megaphone className="w-6 h-6 text-purple-600" /> Thư viện Mẫu tin nhắn (Template Library)
+                <Megaphone className="w-6 h-6 text-purple-600" /> Thư viện Mẫu tin nhắn (Template
+                Library)
               </h1>
               <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-purple-500/10 text-purple-600 border border-purple-500/20 self-start sm:self-auto">
                 Model Marketing CRM
               </span>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2 flex-wrap justify-end">
             {isManager && (
-              <Button asChild variant="outline" className="border-purple-200 hover:bg-purple-50 hover:text-purple-700 font-bold h-10 px-3 rounded-xl bg-purple-50/20 text-purple-700 hidden sm:inline-flex">
+              <Button
+                asChild
+                variant="outline"
+                className="border-purple-200 hover:bg-purple-50 hover:text-purple-700 font-bold h-10 px-3 rounded-xl bg-purple-50/20 text-purple-700 hidden sm:inline-flex"
+              >
                 <Link to="/admin/sender-accounts">⚙️ Quản lý tài khoản gửi</Link>
               </Button>
             )}
-            <Button asChild variant="outline" className="border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 font-bold h-10 px-3 rounded-xl bg-indigo-50/20 text-indigo-700 hidden sm:inline-flex">
+            <Button
+              asChild
+              variant="outline"
+              className="border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 font-bold h-10 px-3 rounded-xl bg-indigo-50/20 text-indigo-700 hidden sm:inline-flex"
+            >
               <Link to="/marketing/campaigns">🚀 Phát hành Campaign</Link>
             </Button>
-            <Button asChild variant="outline" className="border-pink-200 hover:bg-pink-50 hover:text-pink-700 font-bold h-10 px-3 rounded-xl bg-pink-50/20 text-pink-700 hidden sm:inline-flex">
+            <Button
+              asChild
+              variant="outline"
+              className="border-pink-200 hover:bg-pink-50 hover:text-pink-700 font-bold h-10 px-3 rounded-xl bg-pink-50/20 text-pink-700 hidden sm:inline-flex"
+            >
               <Link to="/marketing/reports">📊 Báo cáo CRM</Link>
             </Button>
             {canEdit && (
-              <Button 
-                onClick={handleOpenCreate} 
+              <Button
+                onClick={handleOpenCreate}
                 className="bg-purple-600 hover:bg-purple-700 shadow-sm font-bold text-white h-10 px-4 rounded-xl"
               >
                 <Plus className="w-4 h-4 mr-2.5" /> Thêm mẫu mới
@@ -481,7 +503,9 @@ function AdminTemplatesPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs relative overflow-hidden">
             <div className="absolute right-0 bottom-0 translate-x-4 translate-y-4 w-24 h-24 bg-purple-50 rounded-full -z-0"></div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Kho mẫu khả dụng</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">
+              Kho mẫu khả dụng
+            </span>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-black text-slate-900">{templates.length}</span>
               <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
@@ -490,9 +514,14 @@ function AdminTemplatesPage() {
             </div>
           </div>
 
-          <Link to="/admin/sender-accounts" className="bg-white p-5 rounded-2xl border border-slate-200/80 hover:border-purple-300 shadow-2xs relative overflow-hidden group transition-all">
+          <Link
+            to="/admin/sender-accounts"
+            className="bg-white p-5 rounded-2xl border border-slate-200/80 hover:border-purple-300 shadow-2xs relative overflow-hidden group transition-all"
+          >
             <div className="absolute right-0 bottom-0 translate-x-4 translate-y-4 w-24 h-24 bg-purple-50/50 group-hover:bg-purple-50 rounded-full -z-0 transition-colors"></div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Tài khoản gửi tin</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">
+              Tài khoản gửi tin
+            </span>
             <div className="flex items-baseline justify-between mt-1">
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-black text-slate-900">{senderAccounts.length}</span>
@@ -506,7 +535,9 @@ function AdminTemplatesPage() {
 
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs relative overflow-hidden">
             <div className="absolute right-0 bottom-0 translate-x-4 translate-y-4 w-24 h-24 bg-amber-50 rounded-full -z-0"></div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Cơ chế phát hành</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">
+              Cơ chế phát hành
+            </span>
             <div className="flex items-baseline gap-2">
               <span className="text-lg font-black text-slate-800">Tự động & Sao chép</span>
             </div>
@@ -517,14 +548,15 @@ function AdminTemplatesPage() {
 
       {/* Main Content Layout */}
       <main className="container mx-auto px-4 md:px-6 pt-6 flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
         {/* Lưới Quản lý Danh sách Mẫu (2 cột lớn) */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
               <Layers className="w-4 h-4 text-purple-600" /> Danh sách Template đã triển khai
             </h2>
-            <span className="text-xs text-slate-500">Tự động ánh xạ sang màn hình Xem trước của Sale</span>
+            <span className="text-xs text-slate-500">
+              Tự động ánh xạ sang màn hình Xem trước của Sale
+            </span>
           </div>
 
           {loading ? (
@@ -535,31 +567,39 @@ function AdminTemplatesPage() {
           ) : templates.length === 0 ? (
             <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500">
               <p className="text-sm font-bold mb-1">Chưa có Mẫu tin nhắn nào</p>
-              <p className="text-xs text-slate-400 mb-4">Bấm nút "Thêm mẫu mới" ở góc trên để bắt đầu khởi tạo cấu trúc.</p>
-              <Button onClick={handleOpenCreate} size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
+              <p className="text-xs text-slate-400 mb-4">
+                Bấm nút "Thêm mẫu mới" ở góc trên để bắt đầu khởi tạo cấu trúc.
+              </p>
+              <Button
+                onClick={handleOpenCreate}
+                size="sm"
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+              >
                 Khởi tạo ngay
               </Button>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4">
-              {templates.map(tpl => {
+              {templates.map((tpl) => {
                 const isActive = tpl.is_active;
-                const isDefault = tpl.key === 'calendar_invite_default';
+                const isDefault = tpl.key === "calendar_invite_default";
 
                 return (
-                  <div 
-                    key={tpl.id} 
+                  <div
+                    key={tpl.id}
                     className={`bg-white rounded-2xl border transition-all p-5 ${
-                      isActive 
-                        ? 'border-purple-200 shadow-xs ring-1 ring-purple-100' 
-                        : 'border-slate-200 opacity-75 hover:opacity-100'
+                      isActive
+                        ? "border-purple-200 shadow-xs ring-1 ring-purple-100"
+                        : "border-slate-200 opacity-75 hover:opacity-100"
                     }`}
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-slate-100">
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100">
-                            {tpl.channel === 'calendar_invite' ? 'Google Calendar Invite' : tpl.channel}
+                            {tpl.channel === "calendar_invite"
+                              ? "Google Calendar Invite"
+                              : tpl.channel}
                           </span>
                           {isDefault && (
                             <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
@@ -578,29 +618,40 @@ function AdminTemplatesPage() {
                             type="button"
                             onClick={() => handleToggleActive(tpl)}
                             className={`h-8 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                              isActive 
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100' 
-                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                              isActive
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                             }`}
                             title="Bấm để chuyển đổi trạng thái"
                           >
-                            <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
-                            {isActive ? 'Đang kích hoạt' : 'Đang tắt'}
+                            <span
+                              className={`w-2 h-2 rounded-full ${isActive ? "bg-emerald-500" : "bg-slate-400"}`}
+                            ></span>
+                            {isActive ? "Đang kích hoạt" : "Đang tắt"}
                           </button>
                         )}
                         {!canModifyTemplate(tpl) && (
-                          <span className={`h-8 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 ${
-                            isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'
-                          }`}>
-                            <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
-                            {isActive ? 'Đang kích hoạt' : 'Đang tắt'}
+                          <span
+                            className={`h-8 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 ${
+                              isActive
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : "bg-slate-100 text-slate-500"
+                            }`}
+                          >
+                            <span
+                              className={`w-2 h-2 rounded-full ${isActive ? "bg-emerald-500" : "bg-slate-400"}`}
+                            ></span>
+                            {isActive ? "Đang kích hoạt" : "Đang tắt"}
                           </span>
                         )}
 
                         {/* Nút Xem trước */}
                         <button
                           type="button"
-                          onClick={() => { setPreviewTemplate(tpl); setPreviewOpen(true); }}
+                          onClick={() => {
+                            setPreviewTemplate(tpl);
+                            setPreviewOpen(true);
+                          }}
                           className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 flex items-center justify-center transition-all"
                           title="Xem trước kết xuất mẫu"
                         >
@@ -608,13 +659,19 @@ function AdminTemplatesPage() {
                         </button>
 
                         {/* Nút Test Gửi (chỉ Manager/Admin) */}
-                        {isManager && (tpl.channel === 'email' || tpl.channel === 'marketing_email' || tpl.channel === 'email_campaign' || tpl.channel === 'event_follow_up_email') ? (
+                        {isManager &&
+                        (tpl.channel === "email" ||
+                          tpl.channel === "marketing_email" ||
+                          tpl.channel === "email_campaign" ||
+                          tpl.channel === "event_follow_up_email") ? (
                           <button
                             type="button"
                             onClick={() => {
                               setTestTemplate(tpl);
                               setTestSenderType("business");
-                              const resendSender = senderAccounts.find(a => a.provider === "resend" || a.provider === "email");
+                              const resendSender = senderAccounts.find(
+                                (a) => a.provider === "resend" || a.provider === "email",
+                              );
                               setTestSenderId(resendSender?.id || "");
                               setTestRecipientEmail("");
                               setTestModalOpen(true);
@@ -629,7 +686,12 @@ function AdminTemplatesPage() {
                         {/* Nút Tạo chiến dịch (mọi role) */}
                         <button
                           type="button"
-                          onClick={() => navigate({ to: "/marketing/campaigns", search: { template_id: tpl.id } as any })}
+                          onClick={() =>
+                            navigate({
+                              to: "/marketing/campaigns",
+                              search: { template_id: tpl.id } as any,
+                            })
+                          }
                           className="h-8 px-2.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold flex items-center gap-1.5 transition-all"
                           title="Tạo chiến dịch từ mẫu này"
                         >
@@ -670,11 +732,17 @@ function AdminTemplatesPage() {
 
                     <div className="pt-3 space-y-2">
                       <div className="text-xs">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase block">Tiêu đề xuất bản:</span>
-                        <p className="font-bold text-slate-800">{tpl.subject_template || "[Không có tiêu đề]"}</p>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase block">
+                          Tiêu đề xuất bản:
+                        </span>
+                        <p className="font-bold text-slate-800">
+                          {tpl.subject_template || "[Không có tiêu đề]"}
+                        </p>
                       </div>
                       <div className="text-xs">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase block">Nội dung động (Body preview):</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase block">
+                          Nội dung động (Body preview):
+                        </span>
                         <p className="font-mono text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 line-clamp-3 whitespace-pre-wrap leading-relaxed">
                           {tpl.body_template}
                         </p>
@@ -689,7 +757,6 @@ function AdminTemplatesPage() {
 
         {/* Phân hệ Quản lý tài khoản gửi (1 cột phải) */}
         <div className="space-y-6">
-          
           {/* Card liên kết chéo sang Sender Accounts */}
           {isManager && (
             <div className="bg-white rounded-2xl border border-purple-200 p-6 shadow-2xs space-y-4">
@@ -697,9 +764,13 @@ function AdminTemplatesPage() {
                 ⚙️ Quản lý tài khoản gửi
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                Toàn bộ hạ tầng gửi tin (Gmail, Resend, Zalo OA), cấu hình xác thực, theo dõi daily quota và delivery logs đã được tập trung quản lý tại mục **Sender Accounts**.
+                Toàn bộ hạ tầng gửi tin (Gmail, Resend, Zalo OA), cấu hình xác thực, theo dõi daily
+                quota và delivery logs đã được tập trung quản lý tại mục **Sender Accounts**.
               </p>
-              <Button asChild className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl h-10 shadow-xs flex items-center justify-center gap-1.5 group">
+              <Button
+                asChild
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl h-10 shadow-xs flex items-center justify-center gap-1.5 group"
+              >
                 <Link to="/admin/sender-accounts">
                   Đi đến Sender Accounts
                   <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
@@ -712,22 +783,28 @@ function AdminTemplatesPage() {
           <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-2xl p-5 text-white shadow-sm space-y-2">
             <div className="flex items-center gap-2">
               <HelpCircle className="w-4 h-4 text-purple-400" />
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Từ khóa hỗ trợ</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                Từ khóa hỗ trợ
+              </span>
             </div>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Các từ khóa dưới đây sẽ tự động lấp đầy dữ liệu thực tế khi gửi lời mời cho Khách hàng:
+              Các từ khóa dưới đây sẽ tự động lấp đầy dữ liệu thực tế khi gửi lời mời cho Khách
+              hàng:
             </p>
             <div className="flex flex-wrap gap-1.5 pt-1">
-              {SUPPORTED_TEMPLATE_VARIABLES.map(v => (
-                <span key={v} className="text-[10px] font-mono bg-white/10 text-purple-200 px-2 py-0.5 rounded border border-white/5">
-                  {"{{"}{v}{"}}"}
+              {SUPPORTED_TEMPLATE_VARIABLES.map((v) => (
+                <span
+                  key={v}
+                  className="text-[10px] font-mono bg-white/10 text-purple-200 px-2 py-0.5 rounded border border-white/5"
+                >
+                  {"{{"}
+                  {v}
+                  {"}}"}
                 </span>
               ))}
             </div>
           </div>
-
         </div>
-
       </main>
 
       {/* Modal Form Tạo/Sửa Template */}
@@ -749,19 +826,21 @@ function AdminTemplatesPage() {
                   <Label className="text-xs font-bold text-slate-700">Mã định danh (Key) *</Label>
                   <Input
                     value={formKey}
-                    onChange={e => setFormKey(e.target.value)}
-                    disabled={editingTemplate?.key === 'calendar_invite_default'}
+                    onChange={(e) => setFormKey(e.target.value)}
+                    disabled={editingTemplate?.key === "calendar_invite_default"}
                     placeholder="vd: calendar_invite_workshop"
                     className="h-10 text-xs rounded-xl mt-1 font-mono"
                   />
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">Phải viết liền không dấu.</span>
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">
+                    Phải viết liền không dấu.
+                  </span>
                 </div>
 
                 <div>
                   <Label className="text-xs font-bold text-slate-700">Kênh hỗ trợ</Label>
                   <select
                     value={formChannel}
-                    onChange={e => setFormChannel(e.target.value)}
+                    onChange={(e) => setFormChannel(e.target.value)}
                     className="w-full h-10 px-3 text-xs rounded-xl border border-slate-200 bg-slate-50 mt-1 font-medium focus:outline-none"
                   >
                     <option value="calendar_invite">Google Calendar Invite</option>
@@ -778,13 +857,13 @@ function AdminTemplatesPage() {
                 <span className="text-[10px] font-black text-purple-950 uppercase tracking-wider block">
                   ⚙️ Phân loại Tiếp thị & Chống Spam
                 </span>
-                
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs font-bold text-slate-700">Mục đích (Purpose)</Label>
                     <select
                       value={formPurpose}
-                      onChange={e => setFormPurpose(e.target.value)}
+                      onChange={(e) => setFormPurpose(e.target.value)}
                       className="w-full h-9 px-2 text-xs rounded-lg border border-purple-200 bg-white mt-1 font-medium focus:outline-none"
                     >
                       <option value="transactional">Giao dịch (Transactional)</option>
@@ -800,12 +879,14 @@ function AdminTemplatesPage() {
                   </div>
 
                   <div>
-                    <Label className="text-xs font-bold text-slate-700">Tần suất tối đa (Ngày/Lần)</Label>
+                    <Label className="text-xs font-bold text-slate-700">
+                      Tần suất tối đa (Ngày/Lần)
+                    </Label>
                     <Input
                       type="number"
                       placeholder="vd: 30"
                       value={formMaxFrequency}
-                      onChange={e => setFormMaxFrequency(e.target.value)}
+                      onChange={(e) => setFormMaxFrequency(e.target.value)}
                       className="h-9 text-xs rounded-lg bg-white mt-1"
                     />
                   </div>
@@ -816,7 +897,7 @@ function AdminTemplatesPage() {
                     <input
                       type="checkbox"
                       checked={formRequiresOptIn}
-                      onChange={e => setFormRequiresOptIn(e.target.checked)}
+                      onChange={(e) => setFormRequiresOptIn(e.target.checked)}
                       className="w-4 h-4 rounded text-purple-600 border-purple-300 focus:ring-purple-500"
                     />
                     Bắt buộc Opt-in
@@ -826,7 +907,7 @@ function AdminTemplatesPage() {
                     <input
                       type="checkbox"
                       checked={formIncludeUnsubscribe}
-                      onChange={e => setFormIncludeUnsubscribe(e.target.checked)}
+                      onChange={(e) => setFormIncludeUnsubscribe(e.target.checked)}
                       className="w-4 h-4 rounded text-purple-600 border-purple-300 focus:ring-purple-500"
                     />
                     Kèm link Hủy đăng ký
@@ -838,27 +919,31 @@ function AdminTemplatesPage() {
                 <Label className="text-xs font-bold text-slate-700">Tên hiển thị nội bộ *</Label>
                 <Input
                   value={formName}
-                  onChange={e => setFormName(e.target.value)}
+                  onChange={(e) => setFormName(e.target.value)}
                   placeholder="vd: Thư mời chuẩn sự kiện Chuyển giao Nám"
                   className="h-10 text-xs rounded-xl mt-1"
                 />
               </div>
 
               <div>
-                <Label className="text-xs font-bold text-slate-700">Mô tả công năng (Tùy chọn)</Label>
+                <Label className="text-xs font-bold text-slate-700">
+                  Mô tả công năng (Tùy chọn)
+                </Label>
                 <Input
                   value={formDesc}
-                  onChange={e => setFormDesc(e.target.value)}
+                  onChange={(e) => setFormDesc(e.target.value)}
                   placeholder="Ghi chú nội bộ dành cho bộ phận Quản lý..."
                   className="h-9 text-xs rounded-xl mt-1 text-slate-600"
                 />
               </div>
 
               <div>
-                <Label className="text-xs font-bold text-slate-700">Tiêu đề Gửi đi (Subject Template)</Label>
+                <Label className="text-xs font-bold text-slate-700">
+                  Tiêu đề Gửi đi (Subject Template)
+                </Label>
                 <Input
                   value={formSubject}
-                  onChange={e => setFormSubject(e.target.value)}
+                  onChange={(e) => setFormSubject(e.target.value)}
                   placeholder="vd: [DESEMBRE] Thư mời tham dự: {{event_title}}"
                   className="h-10 text-xs rounded-xl mt-1 font-bold text-purple-950 bg-purple-50/50 border-purple-100"
                 />
@@ -866,14 +951,16 @@ function AdminTemplatesPage() {
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs font-bold text-slate-700">Nội dung thư chính (Body Template) *</Label>
+                  <Label className="text-xs font-bold text-slate-700">
+                    Nội dung thư chính (Body Template) *
+                  </Label>
                   <span className="text-[10px] text-slate-400">Hỗ trợ ngắt dòng tự động</span>
                 </div>
 
                 {/* Thanh tiện ích chèn biến */}
                 <div className="flex flex-wrap items-center gap-1 p-1.5 bg-slate-50 rounded-lg border border-slate-200">
                   <span className="text-[10px] font-bold text-slate-400 px-1">Chèn nhanh:</span>
-                  {SUPPORTED_TEMPLATE_VARIABLES.map(v => (
+                  {SUPPORTED_TEMPLATE_VARIABLES.map((v) => (
                     <button
                       key={v}
                       type="button"
@@ -887,7 +974,7 @@ function AdminTemplatesPage() {
 
                 <Textarea
                   value={formBody}
-                  onChange={e => setFormBody(e.target.value)}
+                  onChange={(e) => setFormBody(e.target.value)}
                   placeholder="Kính gửi {{customer_name}},..."
                   className="min-h-[180px] text-xs font-mono rounded-xl p-3 leading-relaxed mt-1"
                 />
@@ -900,7 +987,7 @@ function AdminTemplatesPage() {
                 </Label>
                 <Input
                   value={formBannerImageUrl}
-                  onChange={e => setFormBannerImageUrl(e.target.value)}
+                  onChange={(e) => setFormBannerImageUrl(e.target.value)}
                   placeholder="Nhập URL ảnh banner (https://...)"
                   className="h-9 text-xs rounded-lg"
                 />
@@ -910,8 +997,8 @@ function AdminTemplatesPage() {
                       src={formBannerImageUrl.trim()}
                       alt="Banner preview"
                       className="w-full h-full object-cover"
-                      onError={e => {
-                        (e.target as HTMLElement).style.display = 'none';
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = "none";
                       }}
                     />
                     <span className="absolute inset-0 flex items-center justify-center text-[10px] text-rose-500 font-medium bg-rose-50/90">
@@ -919,7 +1006,9 @@ function AdminTemplatesPage() {
                     </span>
                   </div>
                 ) : (
-                  <span className="text-[10px] text-slate-400 italic block">Chưa có ảnh banner. Email sẽ hiển thị dạng văn bản thuần túy.</span>
+                  <span className="text-[10px] text-slate-400 italic block">
+                    Chưa có ảnh banner. Email sẽ hiển thị dạng văn bản thuần túy.
+                  </span>
                 )}
               </div>
 
@@ -930,19 +1019,23 @@ function AdminTemplatesPage() {
                 </Label>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-[10px] font-bold text-slate-600">Nhãn hiển thị (Label)</Label>
+                    <Label className="text-[10px] font-bold text-slate-600">
+                      Nhãn hiển thị (Label)
+                    </Label>
                     <Input
                       value={formCtaLabel}
-                      onChange={e => setFormCtaLabel(e.target.value)}
+                      onChange={(e) => setFormCtaLabel(e.target.value)}
                       placeholder="vd: Đăng ký ngay"
                       className="h-9 text-xs rounded-lg mt-1"
                     />
                   </div>
                   <div>
-                    <Label className="text-[10px] font-bold text-slate-600">Đường dẫn đích (URL)</Label>
+                    <Label className="text-[10px] font-bold text-slate-600">
+                      Đường dẫn đích (URL)
+                    </Label>
                     <Input
                       value={formCtaUrl}
-                      onChange={e => setFormCtaUrl(e.target.value)}
+                      onChange={(e) => setFormCtaUrl(e.target.value)}
                       placeholder="https://..."
                       className="h-9 text-xs rounded-lg mt-1"
                     />
@@ -950,12 +1043,15 @@ function AdminTemplatesPage() {
                 </div>
                 {formCtaLabel.trim() && !formCtaUrl.trim() && (
                   <p className="text-[10px] text-amber-600 bg-amber-50 p-1.5 rounded border border-amber-200">
-                    ⚠ Cảnh báo: Bạn đã nhập Nhãn nút nhưng chưa điền Link đích. Nút CTA sẽ không thể nhấp được.
+                    ⚠ Cảnh báo: Bạn đã nhập Nhãn nút nhưng chưa điền Link đích. Nút CTA sẽ không thể
+                    nhấp được.
                   </p>
                 )}
                 {!formCtaLabel.trim() && formCtaUrl.trim() && (
                   <p className="text-[10px] text-slate-500 italic">
-                    💡 Gợi ý: Hệ thống sẽ tự động hiển thị nhãn mặc định là <strong className="text-purple-700">"Xem chi tiết"</strong> nếu bạn bỏ trống nhãn.
+                    💡 Gợi ý: Hệ thống sẽ tự động hiển thị nhãn mặc định là{" "}
+                    <strong className="text-purple-700">"Xem chi tiết"</strong> nếu bạn bỏ trống
+                    nhãn.
                   </p>
                 )}
               </div>
@@ -968,7 +1064,7 @@ function AdminTemplatesPage() {
                 <div className="flex gap-2">
                   <Input
                     value={formAttachmentInput}
-                    onChange={e => setFormAttachmentInput(e.target.value)}
+                    onChange={(e) => setFormAttachmentInput(e.target.value)}
                     placeholder="https://... (link file pdf, docx, ảnh...)"
                     className="h-9 text-xs rounded-lg flex-1"
                   />
@@ -982,9 +1078,14 @@ function AdminTemplatesPage() {
                 </div>
                 {formAttachmentUrls.length > 0 ? (
                   <div className="space-y-1.5 pt-1">
-                    <span className="text-[10px] font-bold text-slate-500 block">Danh sách đính kèm:</span>
+                    <span className="text-[10px] font-bold text-slate-500 block">
+                      Danh sách đính kèm:
+                    </span>
                     {formAttachmentUrls.map((url, idx) => (
-                      <div key={idx} className="flex items-center justify-between bg-white p-1.5 rounded border border-slate-200 text-[10px] font-mono">
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between bg-white p-1.5 rounded border border-slate-200 text-[10px] font-mono"
+                      >
                         <span className="truncate max-w-[400px] text-indigo-600">{url}</span>
                         <button
                           type="button"
@@ -997,17 +1098,25 @@ function AdminTemplatesPage() {
                     ))}
                   </div>
                 ) : (
-                  <span className="text-[10px] text-slate-400 italic block">Chưa có tài liệu đính kèm.</span>
+                  <span className="text-[10px] text-slate-400 italic block">
+                    Chưa có tài liệu đính kèm.
+                  </span>
                 )}
               </div>
 
               {/* Section 4: Footer email */}
               <div className="space-y-1.5 p-3 bg-slate-50 rounded-xl border border-slate-200">
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs font-bold text-slate-700">Chân trang (Footer Template)</Label>
+                  <Label className="text-xs font-bold text-slate-700">
+                    Chân trang (Footer Template)
+                  </Label>
                   <button
                     type="button"
-                    onClick={() => setFormFooterTemplate("Nếu Anh/Chị không muốn nhận thông tin chương trình từ DESEMBRE, vui lòng phản hồi “DỪNG”.")}
+                    onClick={() =>
+                      setFormFooterTemplate(
+                        "Nếu Anh/Chị không muốn nhận thông tin chương trình từ DESEMBRE, vui lòng phản hồi “DỪNG”.",
+                      )
+                    }
                     className="text-[9px] text-purple-600 hover:underline font-bold"
                   >
                     💡 Dùng mẫu chuẩn Opt-out
@@ -1015,7 +1124,7 @@ function AdminTemplatesPage() {
                 </div>
                 <Textarea
                   value={formFooterTemplate}
-                  onChange={e => setFormFooterTemplate(e.target.value)}
+                  onChange={(e) => setFormFooterTemplate(e.target.value)}
                   placeholder="Thông tin liên hệ, cam kết bảo mật hoặc hướng dẫn từ chối nhận thư..."
                   className="h-16 text-xs font-mono rounded-lg p-2 leading-relaxed"
                 />
@@ -1029,16 +1138,22 @@ function AdminTemplatesPage() {
 
                 <div className="bg-white text-slate-900 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
                   {/* Banner */}
-                  {formChannel !== 'calendar_invite' && formBannerImageUrl.trim() && (
+                  {formChannel !== "calendar_invite" && formBannerImageUrl.trim() && (
                     <div className="w-full h-32 bg-slate-100 border-b border-slate-100">
-                      <img src={formBannerImageUrl.trim()} alt="Banner" className="w-full h-full object-cover" />
+                      <img
+                        src={formBannerImageUrl.trim()}
+                        alt="Banner"
+                        className="w-full h-full object-cover"
+                      />
                     </div>
                   )}
 
                   <div className="p-4 space-y-3">
                     {/* Subject */}
                     <div className="border-b border-slate-100 pb-2">
-                      <span className="text-[9px] font-bold text-slate-400 block uppercase">Tiêu đề (Subject):</span>
+                      <span className="text-[9px] font-bold text-slate-400 block uppercase">
+                        Tiêu đề (Subject):
+                      </span>
                       <h4 className="text-xs font-bold text-purple-950">
                         {renderTemplate(formSubject || "[Không tiêu đề]", {
                           customer_name: "Chị Lan Anh",
@@ -1048,7 +1163,7 @@ function AdminTemplatesPage() {
                           meeting_url: "https://zoom.us/j/demo123",
                           sale_name: "Hà Trần",
                           company_name: "DESEMBRE Việt Nam",
-                          calendar_link: "https://calendar.google.com/..."
+                          calendar_link: "https://calendar.google.com/...",
                         })}
                       </h4>
                     </div>
@@ -1063,31 +1178,40 @@ function AdminTemplatesPage() {
                         meeting_url: "https://zoom.us/j/demo123",
                         sale_name: "Hà Trần",
                         company_name: "DESEMBRE Việt Nam",
-                        calendar_link: "https://calendar.google.com/..."
+                        calendar_link: "https://calendar.google.com/...",
                       })}
                     </div>
 
                     {/* CTA */}
-                    {formChannel !== 'calendar_invite' && (formCtaLabel.trim() || formCtaUrl.trim()) && (
-                      <div className="pt-2">
-                        <a
-                          href={formCtaUrl.trim() || "#"}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-block px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold rounded-lg shadow-xs hover:opacity-95"
-                        >
-                          {formCtaLabel.trim() || "Xem chi tiết"}
-                        </a>
-                      </div>
-                    )}
+                    {formChannel !== "calendar_invite" &&
+                      (formCtaLabel.trim() || formCtaUrl.trim()) && (
+                        <div className="pt-2">
+                          <a
+                            href={formCtaUrl.trim() || "#"}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-block px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold rounded-lg shadow-xs hover:opacity-95"
+                          >
+                            {formCtaLabel.trim() || "Xem chi tiết"}
+                          </a>
+                        </div>
+                      )}
 
                     {/* Attachments */}
-                    {formChannel !== 'calendar_invite' && formAttachmentUrls.length > 0 && (
+                    {formChannel !== "calendar_invite" && formAttachmentUrls.length > 0 && (
                       <div className="pt-2 border-t border-slate-100 space-y-1">
-                        <span className="text-[10px] font-bold text-slate-500 block">📎 Tệp đính kèm:</span>
+                        <span className="text-[10px] font-bold text-slate-500 block">
+                          📎 Tệp đính kèm:
+                        </span>
                         <div className="flex flex-wrap gap-1.5">
                           {formAttachmentUrls.map((u, i) => (
-                            <a key={i} href={u} target="_blank" rel="noreferrer" className="text-[10px] text-indigo-600 bg-indigo-50 hover:underline px-2 py-1 rounded border border-indigo-100 block truncate max-w-[200px]">
+                            <a
+                              key={i}
+                              href={u}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[10px] text-indigo-600 bg-indigo-50 hover:underline px-2 py-1 rounded border border-indigo-100 block truncate max-w-[200px]"
+                            >
                               Tài liệu {i + 1}
                             </a>
                           ))}
@@ -1096,15 +1220,17 @@ function AdminTemplatesPage() {
                     )}
 
                     {/* Footer */}
-                    {formChannel !== 'calendar_invite' && formFooterTemplate.trim() && (
+                    {formChannel !== "calendar_invite" && formFooterTemplate.trim() && (
                       <div className="pt-3 border-t border-slate-100 text-[10px] text-slate-400 italic">
                         {renderTemplate(formFooterTemplate, { company_name: "DESEMBRE Việt Nam" })}
                       </div>
                     )}
 
-                    {formChannel === 'calendar_invite' && (
+                    {formChannel === "calendar_invite" && (
                       <p className="text-[9px] text-amber-600 bg-amber-50 p-1.5 rounded italic">
-                        💡 Chế độ <strong>Google Calendar Invite</strong>: Thư mời phát hành ngầm qua Lịch Google Server, các thành phần Banner/CTA chuyên biệt sẽ được nén về định dạng sự kiện tiêu chuẩn.
+                        💡 Chế độ <strong>Google Calendar Invite</strong>: Thư mời phát hành ngầm
+                        qua Lịch Google Server, các thành phần Banner/CTA chuyên biệt sẽ được nén về
+                        định dạng sự kiện tiêu chuẩn.
                       </p>
                     )}
                   </div>
@@ -1145,20 +1271,23 @@ function AdminTemplatesPage() {
             </p>
           </DialogHeader>
 
-          {previewTemplate && (() => {
-            const res = renderSamplePreview(previewTemplate);
-            return (
-              <div className="space-y-3 py-2 text-xs">
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block mb-0.5">Tiêu đề (Subject):</span>
-                  <p className="font-bold text-slate-900">{res.subject || "[Trống]"}</p>
+          {previewTemplate &&
+            (() => {
+              const res = renderSamplePreview(previewTemplate);
+              return (
+                <div className="space-y-3 py-2 text-xs">
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block mb-0.5">
+                      Tiêu đề (Subject):
+                    </span>
+                    <p className="font-bold text-slate-900">{res.subject || "[Trống]"}</p>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-2xs font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-slate-800 max-h-[320px] overflow-y-auto custom-scrollbar">
+                    {res.body}
+                  </div>
                 </div>
-                <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-2xs font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-slate-800 max-h-[320px] overflow-y-auto custom-scrollbar">
-                  {res.body}
-                </div>
-              </div>
-            );
-          })()}
+              );
+            })()}
 
           <div className="pt-3 border-t border-slate-100 flex items-center justify-end">
             <Button
@@ -1192,7 +1321,9 @@ function AdminTemplatesPage() {
                   type="button"
                   onClick={() => {
                     setTestSenderType("business");
-                    const resendSender = senderAccounts.find(a => a.provider === "resend" || a.provider === "email");
+                    const resendSender = senderAccounts.find(
+                      (a) => a.provider === "resend" || a.provider === "email",
+                    );
                     setTestSenderId(resendSender?.id || "");
                   }}
                   className={`flex items-center gap-2 p-3 rounded-xl border text-left transition-all ${testSenderType === "business" ? "border-indigo-400 bg-indigo-50 ring-1 ring-indigo-300" : "border-slate-200 hover:border-slate-300 bg-slate-50"}`}
@@ -1205,7 +1336,10 @@ function AdminTemplatesPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setTestSenderType("personal"); setTestSenderId(personalSenders[0]?.id || ""); }}
+                  onClick={() => {
+                    setTestSenderType("personal");
+                    setTestSenderId(personalSenders[0]?.id || "");
+                  }}
                   disabled={personalSenders.length === 0}
                   className={`flex items-center gap-2 p-3 rounded-xl border text-left transition-all ${personalSenders.length === 0 ? "opacity-50 cursor-not-allowed border-slate-200 bg-slate-50" : testSenderType === "personal" ? "border-emerald-400 bg-emerald-50 ring-1 ring-emerald-300" : "border-slate-200 hover:border-slate-300 bg-slate-50"}`}
                 >
@@ -1213,7 +1347,9 @@ function AdminTemplatesPage() {
                   <div>
                     <p className="text-xs font-bold text-slate-800">Gmail cá nhân</p>
                     <p className="text-[10px] text-slate-500">
-                      {personalSenders.length === 0 ? "Chưa cấu hình" : personalSenders[0]?.account_identifier}
+                      {personalSenders.length === 0
+                        ? "Chưa cấu hình"
+                        : personalSenders[0]?.account_identifier}
                     </p>
                   </div>
                 </button>
@@ -1221,30 +1357,40 @@ function AdminTemplatesPage() {
             </div>
 
             {/* Chọn tài khoản cụ thể */}
-            {testSenderType === "business" && senderAccounts.filter(a => a.provider === "resend" || a.provider === "email").length > 0 && (
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Tài khoản Business Sender</label>
-                <select
-                  value={testSenderId}
-                  onChange={e => setTestSenderId(e.target.value)}
-                  className="w-full h-10 px-3 text-xs rounded-xl border border-slate-200 bg-slate-50 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                >
-                  {senderAccounts.filter(a => a.provider === "resend" || a.provider === "email").map(a => (
-                    <option key={a.id} value={a.id}>{a.name} ({a.sender_email})</option>
-                  ))}
-                </select>
-              </div>
-            )}
+            {testSenderType === "business" &&
+              senderAccounts.filter((a) => a.provider === "resend" || a.provider === "email")
+                .length > 0 && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">
+                    Tài khoản Business Sender
+                  </label>
+                  <select
+                    value={testSenderId}
+                    onChange={(e) => setTestSenderId(e.target.value)}
+                    className="w-full h-10 px-3 text-xs rounded-xl border border-slate-200 bg-slate-50 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                  >
+                    {senderAccounts
+                      .filter((a) => a.provider === "resend" || a.provider === "email")
+                      .map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name} ({a.sender_email})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
             {testSenderType === "personal" && personalSenders.length > 1 && (
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700">Tài khoản Gmail cá nhân</label>
                 <select
                   value={testSenderId}
-                  onChange={e => setTestSenderId(e.target.value)}
+                  onChange={(e) => setTestSenderId(e.target.value)}
                   className="w-full h-10 px-3 text-xs rounded-xl border border-slate-200 bg-slate-50 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-400"
                 >
                   {personalSenders.map((a: any) => (
-                    <option key={a.id} value={a.id}>{a.account_name} ({a.account_identifier})</option>
+                    <option key={a.id} value={a.id}>
+                      {a.account_name} ({a.account_identifier})
+                    </option>
                   ))}
                 </select>
               </div>
@@ -1256,16 +1402,22 @@ function AdminTemplatesPage() {
               <input
                 type="email"
                 value={testRecipientEmail}
-                onChange={e => setTestRecipientEmail(e.target.value)}
+                onChange={(e) => setTestRecipientEmail(e.target.value)}
                 placeholder="Nhập địa chỉ email để nhận mail test..."
                 className="w-full h-10 px-3 text-xs rounded-xl border border-slate-200 bg-white font-medium focus:outline-none focus:ring-1 focus:ring-amber-400"
               />
-              <p className="text-[10px] text-slate-400">Email này sẽ nhận bản thử nghiệm của mẫu với dữ liệu mô phỏng.</p>
+              <p className="text-[10px] text-slate-400">
+                Email này sẽ nhận bản thử nghiệm của mẫu với dữ liệu mô phỏng.
+              </p>
             </div>
           </div>
 
           <DialogFooter className="pt-2 border-t border-slate-100 flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => setTestModalOpen(false)} className="h-9 px-4 rounded-xl text-xs font-bold">
+            <Button
+              variant="outline"
+              onClick={() => setTestModalOpen(false)}
+              className="h-9 px-4 rounded-xl text-xs font-bold"
+            >
               Hủy
             </Button>
             <Button
@@ -1274,15 +1426,19 @@ function AdminTemplatesPage() {
               className="h-9 px-5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl flex items-center gap-2"
             >
               {testSending ? (
-                <><div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> Đang gửi...</>
+                <>
+                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />{" "}
+                  Đang gửi...
+                </>
               ) : (
-                <><Send className="w-3.5 h-3.5" /> Gửi Test</>
+                <>
+                  <Send className="w-3.5 h-3.5" /> Gửi Test
+                </>
               )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }

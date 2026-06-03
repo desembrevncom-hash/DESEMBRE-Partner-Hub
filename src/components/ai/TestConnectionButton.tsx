@@ -23,7 +23,7 @@ export const TestConnectionButton: React.FC<Props> = ({ settings, onSuccess }) =
         body: {
           provider: settings.provider || "openai",
           model: settings.chat_model || "gpt-4o-mini",
-          openai_api_key: settings.openai_api_key || ""
+          openai_api_key: settings.openai_api_key || "",
         },
       });
       if (error) {

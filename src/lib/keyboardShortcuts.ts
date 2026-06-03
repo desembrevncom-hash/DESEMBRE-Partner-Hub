@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect } from "react";
 
 export interface CRMShortcutHandlers {
   onSearchFocus?: () => void;
@@ -26,66 +26,66 @@ export function useCRMShortcuts(handlers: CRMShortcutHandlers, isActive: boolean
         (e.target as HTMLElement).isContentEditable
       ) {
         // Special case: Esc can still close or blur
-        if (e.key === 'Escape' && handlers.onClose) {
-           handlers.onClose();
-           (e.target as HTMLElement).blur();
+        if (e.key === "Escape" && handlers.onClose) {
+          handlers.onClose();
+          (e.target as HTMLElement).blur();
         }
         return;
       }
 
       switch (e.key) {
-        case '/':
+        case "/":
           e.preventDefault();
           handlers.onSearchFocus?.();
           break;
-        case 'g':
-        case 'G':
+        case "g":
+        case "G":
           e.preventDefault();
           if (e.shiftKey) handlers.onFocusQueue?.();
           else handlers.onCallFocus?.();
           break;
-        case 'z':
-        case 'Z':
+        case "z":
+        case "Z":
           e.preventDefault();
           handlers.onZaloFocus?.();
           break;
-        case 'n':
-        case 'N':
+        case "n":
+        case "N":
           e.preventDefault();
           handlers.onNoteFocus?.();
           break;
-        case 'q':
-        case 'Q':
+        case "q":
+        case "Q":
           e.preventDefault();
           handlers.onQuickLogFocus?.();
           break;
-        case 'A':
-        case 'a':
+        case "A":
+        case "a":
           if (e.shiftKey) {
             e.preventDefault();
             handlers.onAssign?.();
           }
           break;
-        case 'M':
-        case 'm':
+        case "M":
+        case "m":
           if (e.shiftKey) {
             e.preventDefault();
             handlers.onMoveStage?.();
           }
           break;
-        case 'ArrowRight':
+        case "ArrowRight":
           handlers.onNextCustomer?.();
           break;
-        case 'ArrowLeft':
+        case "ArrowLeft":
           handlers.onPrevCustomer?.();
           break;
-        case 'Escape':
+        case "Escape":
           handlers.onClose?.();
           break;
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handlers, isActive]);
 }

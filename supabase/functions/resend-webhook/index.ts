@@ -4,7 +4,8 @@ import { Webhook } from "https://esm.sh/svix@1.15.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, svix-id, svix-signature, svix-timestamp",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, svix-id, svix-signature, svix-timestamp",
 };
 
 serve(async (req) => {
@@ -15,12 +16,15 @@ serve(async (req) => {
   try {
     const resendWebhookSecret = Deno.env.get("RESEND_WEBHOOK_SECRET");
     if (!resendWebhookSecret) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: "missing_config",
-        step: "env",
-        details: "RESEND_WEBHOOK_SECRET is not configured."
-      }), { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "missing_config",
+          step: "env",
+          details: "RESEND_WEBHOOK_SECRET is not configured.",
+        }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      );
     }
 
     const payloadString = await req.text();
@@ -29,12 +33,15 @@ serve(async (req) => {
     const svix_signature = req.headers.get("svix-signature");
 
     if (!svix_id || !svix_timestamp || !svix_signature) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: "missing_signature_headers",
-        step: "signature",
-        details: "Missing Svix headers."
-      }), { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "missing_signature_headers",
+          step: "signature",
+          details: "Missing Svix headers.",
+        }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      );
     }
 
     const wh = new Webhook(resendWebhookSecret);
@@ -46,24 +53,30 @@ serve(async (req) => {
         "svix-signature": svix_signature,
       });
     } catch (err: any) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: "invalid_signature",
-        step: "signature",
-        details: err.message
-      }), { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "invalid_signature",
+          step: "signature",
+          details: err.message,
+        }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      );
     }
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!supabaseUrl || !supabaseServiceKey) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: "missing_config",
-        step: "env",
-        details: "Supabase ENV missing."
-      }), { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "missing_config",
+          step: "env",
+          details: "Supabase ENV missing.",
+        }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      );
     }
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
@@ -72,7 +85,7 @@ serve(async (req) => {
     const dedupe_key = svix_id;
     const provider = "resend";
     const related_message_id = payload.data?.email_id || null;
-    
+
     // Extract non-sensitive headers
     const redactedHeaders: Record<string, string> = {};
     req.headers.forEach((value, key) => {
@@ -93,39 +106,46 @@ serve(async (req) => {
       headers_redacted: redactedHeaders,
       signature_valid: true,
       status: "received",
-      received_at: new Date().toISOString()
+      received_at: new Date().toISOString(),
     };
 
-    const { error: insertError } = await supabaseAdmin
-      .from("webhook_events")
-      .insert(insertData);
+    const { error: insertError } = await supabaseAdmin.from("webhook_events").insert(insertData);
 
     if (insertError) {
-      if (insertError.code === '23505') { // Unique violation
-        return new Response(JSON.stringify({
-          success: true,
-          message: "duplicate_ignored"
-        }), { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } });
+      if (insertError.code === "23505") {
+        // Unique violation
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: "duplicate_ignored",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
+        );
       }
-      return new Response(JSON.stringify({
-        success: false,
-        error: "db_insert_failed",
-        step: "db_insert",
-        details: insertError.message
-      }), { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "db_insert_failed",
+          step: "db_insert",
+          details: insertError.message,
+        }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      );
     }
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
-      headers: { "Content-Type": "application/json", ...corsHeaders }
+      headers: { "Content-Type": "application/json", ...corsHeaders },
     });
-
   } catch (error: any) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: "internal_error",
-      step: "parse",
-      details: error.message
-    }), { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: "internal_error",
+        step: "parse",
+        details: error.message,
+      }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
+    );
   }
 });

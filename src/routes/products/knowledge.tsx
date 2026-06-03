@@ -20,13 +20,19 @@ import {
   X,
   RefreshCw,
   MessageCircle,
-  HelpCircle
+  HelpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/products/knowledge")({
   component: ProductLearningCenter,
@@ -56,8 +62,16 @@ interface ProductObjection {
 }
 
 function ProductLearningCenter() {
-  const { user, isSale, isTeleLead, isTelesale, isAdmin, isSubAdmin, loading: authLoading } = useAuth();
-  
+  const {
+    user,
+    isSale,
+    isTeleLead,
+    isTelesale,
+    isAdmin,
+    isSubAdmin,
+    loading: authLoading,
+  } = useAuth();
+
   const [knowledgeList, setKnowledgeList] = useState<ProductKnowledge[]>([]);
   const [objectionsMap, setObjectionsMap] = useState<Record<number, ProductObjection[]>>({});
   const [loading, setLoading] = useState(true);
@@ -82,11 +96,13 @@ function ProductLearningCenter() {
         // Fetch approved & active knowledge
         const { data: pkData, error: pkError } = await supabase
           .from("product_knowledge")
-          .select(`
+          .select(
+            `
             id, product_id, benefits, skin_concerns, suitable_spa_types,
             usage_instructions, sales_pitch, warnings, restock_cycle_days,
             product:products(name, category)
-          `)
+          `,
+          )
           .eq("is_active", true)
           .eq("qa_status", "approved");
 
@@ -117,37 +133,44 @@ function ProductLearningCenter() {
         setLoading(false);
       }
     }
-    
+
     if (!authLoading) fetchData();
   }, [isAuthorized, authLoading]);
 
   // Derived filter options
   const allSkinConcerns = useMemo(() => {
     const set = new Set<string>();
-    knowledgeList.forEach(k => k.skin_concerns?.forEach(c => set.add(c)));
+    knowledgeList.forEach((k) => k.skin_concerns?.forEach((c) => set.add(c)));
     return Array.from(set).sort();
   }, [knowledgeList]);
 
   const allSpaTypes = useMemo(() => {
     const set = new Set<string>();
-    knowledgeList.forEach(k => k.suitable_spa_types?.forEach(s => set.add(s)));
+    knowledgeList.forEach((k) => k.suitable_spa_types?.forEach((s) => set.add(s)));
     return Array.from(set).sort();
   }, [knowledgeList]);
 
   const allCategories = useMemo(() => {
     const set = new Set<string>();
-    knowledgeList.forEach(k => { if (k.product?.category) set.add(k.product.category); });
+    knowledgeList.forEach((k) => {
+      if (k.product?.category) set.add(k.product.category);
+    });
     return Array.from(set).sort();
   }, [knowledgeList]);
 
   const filteredList = useMemo(() => {
-    return knowledgeList.filter(k => {
-      const matchSearch = searchTerm === "" || 
-        k.product?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    return knowledgeList.filter((k) => {
+      const matchSearch =
+        searchTerm === "" ||
+        k.product?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         k.benefits?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchSkin = selectedSkinConcern === "all" || (k.skin_concerns && k.skin_concerns.includes(selectedSkinConcern));
-      const matchSpa = selectedSpaType === "all" || (k.suitable_spa_types && k.suitable_spa_types.includes(selectedSpaType));
+
+      const matchSkin =
+        selectedSkinConcern === "all" ||
+        (k.skin_concerns && k.skin_concerns.includes(selectedSkinConcern));
+      const matchSpa =
+        selectedSpaType === "all" ||
+        (k.suitable_spa_types && k.suitable_spa_types.includes(selectedSpaType));
       const matchCategory = selectedCategory === "all" || k.product?.category === selectedCategory;
 
       return matchSearch && matchSkin && matchSpa && matchCategory;
@@ -169,7 +192,9 @@ function ProductLearningCenter() {
     return (
       <div className="min-h-[80vh] flex flex-col items-center justify-center bg-slate-50 gap-2">
         <RefreshCw className="h-8 w-8 animate-spin text-indigo-500" />
-        <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Đang tải học liệu...</p>
+        <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">
+          Đang tải học liệu...
+        </p>
       </div>
     );
   }
@@ -181,14 +206,15 @@ function ProductLearningCenter() {
           <ShieldAlert className="w-8 h-8 text-rose-600" />
         </div>
         <h2 className="text-xl font-bold text-slate-800">Không có quyền truy cập</h2>
-        <p className="text-slate-500 text-sm max-w-sm mt-2">Khu vực này dành riêng cho đội ngũ Sales & Tư vấn viên.</p>
+        <p className="text-slate-500 text-sm max-w-sm mt-2">
+          Khu vực này dành riêng cho đội ngũ Sales & Tư vấn viên.
+        </p>
       </div>
     );
   }
 
   return (
     <div className="max-w-6xl mx-auto p-6 animate-in fade-in duration-500">
-      
       {/* HEADER */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8 bg-gradient-to-r from-indigo-900 to-indigo-700 p-8 rounded-3xl text-white shadow-xl">
         <div>
@@ -200,7 +226,8 @@ function ProductLearningCenter() {
             Sales Learning Center
           </h1>
           <p className="text-indigo-200 text-sm font-medium mt-2 max-w-2xl leading-relaxed">
-            Kho tri thức sản phẩm chuẩn hóa dành cho Sales. Nơi cung cấp USP, kịch bản chốt sale và hướng dẫn xử lý từ chối đã được QA phê duyệt duyệt.
+            Kho tri thức sản phẩm chuẩn hóa dành cho Sales. Nơi cung cấp USP, kịch bản chốt sale và
+            hướng dẫn xử lý từ chối đã được QA phê duyệt duyệt.
           </p>
         </div>
       </div>
@@ -209,40 +236,52 @@ function ProductLearningCenter() {
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-8 flex flex-col md:flex-row gap-4 items-center">
         <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input 
-            placeholder="Tìm theo tên sản phẩm, công dụng..." 
+          <Input
+            placeholder="Tìm theo tên sản phẩm, công dụng..."
             className="pl-9 bg-slate-50 border-slate-200 h-11 rounded-xl"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        
+
         <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
-          <select 
+          <select
             className="h-11 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm font-medium text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 min-w-[140px]"
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
           >
             <option value="all">Tất cả Nhóm SP</option>
-            {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
+            {allCategories.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
           </select>
 
-          <select 
+          <select
             className="h-11 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm font-medium text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 min-w-[140px]"
             value={selectedSkinConcern}
             onChange={(e) => setSelectedSkinConcern(e.target.value)}
           >
             <option value="all">Mọi Vấn Đề Da</option>
-            {allSkinConcerns.map(c => <option key={c} value={c}>{c}</option>)}
+            {allSkinConcerns.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
           </select>
 
-          <select 
+          <select
             className="h-11 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm font-medium text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 min-w-[140px]"
             value={selectedSpaType}
             onChange={(e) => setSelectedSpaType(e.target.value)}
           >
             <option value="all">Mọi Loại Spa</option>
-            {allSpaTypes.map(c => <option key={c} value={c}>{c}</option>)}
+            {allSpaTypes.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -254,9 +293,11 @@ function ProductLearningCenter() {
             <Search className="w-8 h-8 text-slate-300" />
           </div>
           <h3 className="text-lg font-bold text-slate-700">Không tìm thấy tài liệu phù hợp</h3>
-          <p className="text-slate-500 text-sm mt-1">Hãy thử thay đổi từ khóa hoặc bộ lọc tìm kiếm.</p>
-          <Button 
-            variant="outline" 
+          <p className="text-slate-500 text-sm mt-1">
+            Hãy thử thay đổi từ khóa hoặc bộ lọc tìm kiếm.
+          </p>
+          <Button
+            variant="outline"
             className="mt-6 rounded-xl text-indigo-600 border-indigo-200 hover:bg-indigo-50"
             onClick={() => {
               setSearchTerm("");
@@ -270,30 +311,40 @@ function ProductLearningCenter() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6">
-          {filteredList.map(pk => (
+          {filteredList.map((pk) => (
             <Card key={pk.id} className="border-slate-200 shadow-sm overflow-hidden rounded-3xl">
               <div className="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
-                
                 {/* Left Column: Basic Info & Badges */}
                 <div className="lg:col-span-4 flex flex-col">
                   <div>
-                    <Badge variant="outline" className="mb-3 text-[10px] font-black uppercase tracking-widest text-indigo-600 border-indigo-200 bg-indigo-50">
+                    <Badge
+                      variant="outline"
+                      className="mb-3 text-[10px] font-black uppercase tracking-widest text-indigo-600 border-indigo-200 bg-indigo-50"
+                    >
                       {pk.product?.category || "Sản phẩm"}
                     </Badge>
                     <h2 className="text-xl md:text-2xl font-black text-slate-900 leading-tight mb-2">
                       {pk.product?.name}
                     </h2>
-                    
+
                     <div className="flex flex-wrap gap-1 mt-4">
                       {pk.skin_concerns?.map((s, i) => (
-                        <Badge key={i} variant="secondary" className="bg-rose-50 text-rose-700 text-[10px] font-bold hover:bg-rose-100">
+                        <Badge
+                          key={i}
+                          variant="secondary"
+                          className="bg-rose-50 text-rose-700 text-[10px] font-bold hover:bg-rose-100"
+                        >
                           <HeartPulse className="w-3 h-3 mr-1" /> {s}
                         </Badge>
                       ))}
                     </div>
                     <div className="flex flex-wrap gap-1 mt-2">
                       {pk.suitable_spa_types?.map((s, i) => (
-                        <Badge key={i} variant="secondary" className="bg-emerald-50 text-emerald-700 text-[10px] font-bold hover:bg-emerald-100">
+                        <Badge
+                          key={i}
+                          variant="secondary"
+                          className="bg-emerald-50 text-emerald-700 text-[10px] font-bold hover:bg-emerald-100"
+                        >
                           <Target className="w-3 h-3 mr-1" /> {s}
                         </Badge>
                       ))}
@@ -306,7 +357,7 @@ function ProductLearningCenter() {
                         <Clock className="w-3.5 h-3.5" /> Chu kỳ Nhắc Repurchase
                       </p>
                       <p className="text-sm font-bold text-slate-800">
-                        {pk.restock_cycle_days ? `${pk.restock_cycle_days} ngày` : 'Chưa thiết lập'}
+                        {pk.restock_cycle_days ? `${pk.restock_cycle_days} ngày` : "Chưa thiết lập"}
                       </p>
                     </div>
 
@@ -325,15 +376,18 @@ function ProductLearningCenter() {
 
                 {/* Right Column: Detailed Knowledge */}
                 <div className="lg:col-span-8 flex flex-col gap-6">
-                  
                   {/* Benefits */}
                   <div>
                     <h3 className="text-sm font-black text-slate-900 flex items-center gap-2 mb-2">
-                      <Sparkles className="w-4 h-4 text-amber-500" /> Giá trị / Công dụng chính (Benefits)
+                      <Sparkles className="w-4 h-4 text-amber-500" /> Giá trị / Công dụng chính
+                      (Benefits)
                     </h3>
                     <div className="text-sm text-slate-700 leading-relaxed bg-white p-4 rounded-2xl border border-slate-100">
-                      {pk.benefits.split('\n').map((line, i) => (
-                        <span key={i}>{line}<br /></span>
+                      {pk.benefits.split("\n").map((line, i) => (
+                        <span key={i}>
+                          {line}
+                          <br />
+                        </span>
                       ))}
                     </div>
                   </div>
@@ -342,11 +396,12 @@ function ProductLearningCenter() {
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                        <MessageCircle className="w-4 h-4 text-indigo-500" /> Kịch bản chốt Sale (Sales Pitch)
+                        <MessageCircle className="w-4 h-4 text-indigo-500" /> Kịch bản chốt Sale
+                        (Sales Pitch)
                       </h3>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
+                      <Button
+                        size="sm"
+                        variant="ghost"
                         className="h-7 text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg px-3"
                         onClick={() => handleCopy(pk.sales_pitch, "Kịch bản chốt sale")}
                       >
@@ -365,9 +420,9 @@ function ProductLearningCenter() {
                         <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
                           <Leaf className="w-4 h-4 text-emerald-500" /> Hướng dẫn sử dụng
                         </h3>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
+                        <Button
+                          size="sm"
+                          variant="ghost"
                           className="h-7 text-[10px] font-bold text-slate-500 hover:text-slate-800 rounded-lg px-2"
                           onClick={() => handleCopy(pk.usage_instructions, "Hướng dẫn sử dụng")}
                         >
@@ -378,18 +433,18 @@ function ProductLearningCenter() {
                         {pk.usage_instructions}
                       </div>
                     </div>
-                    
+
                     {/* Actions */}
                     <div className="flex flex-col justify-end gap-3">
-                      <Button 
+                      <Button
                         onClick={() => openObjections(pk)}
                         className="w-full h-12 rounded-xl bg-slate-900 hover:bg-black text-white font-bold shadow-lg shadow-slate-200"
                       >
-                        <HelpCircle className="w-4 h-4 mr-2" /> Xử lý từ chối ({(objectionsMap[pk.product_id] || []).length})
+                        <HelpCircle className="w-4 h-4 mr-2" /> Xử lý từ chối (
+                        {(objectionsMap[pk.product_id] || []).length})
                       </Button>
                     </div>
                   </div>
-
                 </div>
               </div>
             </Card>
@@ -403,7 +458,7 @@ function ProductLearningCenter() {
           <div className="p-6 bg-white border-b border-slate-100 flex items-start justify-between">
             <div>
               <DialogTitle className="text-xl font-black text-slate-900 flex items-center gap-2">
-                <HelpCircle className="w-6 h-6 text-rose-500" /> 
+                <HelpCircle className="w-6 h-6 text-rose-500" />
                 Xử lý từ chối (Objection Handling)
               </DialogTitle>
               <DialogDescription className="mt-2 text-slate-500 font-medium">
@@ -411,54 +466,73 @@ function ProductLearningCenter() {
               </DialogDescription>
             </div>
           </div>
-          
+
           <div className="p-6 max-h-[60vh] overflow-y-auto">
-            {selectedProductObj && (!objectionsMap[selectedProductObj.product_id] || objectionsMap[selectedProductObj.product_id].length === 0) ? (
+            {selectedProductObj &&
+            (!objectionsMap[selectedProductObj.product_id] ||
+              objectionsMap[selectedProductObj.product_id].length === 0) ? (
               <div className="text-center py-10">
                 <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
                   <CheckCircle2 className="w-6 h-6 text-slate-300" />
                 </div>
-                <p className="text-sm font-bold text-slate-600">Chưa có kịch bản xử lý từ chối nào được QA duyệt cho sản phẩm này.</p>
+                <p className="text-sm font-bold text-slate-600">
+                  Chưa có kịch bản xử lý từ chối nào được QA duyệt cho sản phẩm này.
+                </p>
               </div>
             ) : (
               <div className="space-y-4">
-                {selectedProductObj && objectionsMap[selectedProductObj.product_id]?.map(obj => (
-                  <div key={obj.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                    <div className="p-4 bg-rose-50/50 border-b border-rose-100/50">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge variant="outline" className="bg-white text-rose-600 border-rose-200 text-[10px] font-black uppercase">
-                          {obj.objection_type === 'price' ? 'Về giá' : 
-                           obj.objection_type === 'competition' ? 'Đối thủ' :
-                           obj.objection_type === 'efficacy' ? 'Hiệu quả' : 'Khác'}
-                        </Badge>
+                {selectedProductObj &&
+                  objectionsMap[selectedProductObj.product_id]?.map((obj) => (
+                    <div
+                      key={obj.id}
+                      className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm"
+                    >
+                      <div className="p-4 bg-rose-50/50 border-b border-rose-100/50">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge
+                            variant="outline"
+                            className="bg-white text-rose-600 border-rose-200 text-[10px] font-black uppercase"
+                          >
+                            {obj.objection_type === "price"
+                              ? "Về giá"
+                              : obj.objection_type === "competition"
+                                ? "Đối thủ"
+                                : obj.objection_type === "efficacy"
+                                  ? "Hiệu quả"
+                                  : "Khác"}
+                          </Badge>
+                        </div>
+                        <p className="text-sm font-bold text-rose-950 italic">
+                          "{obj.customer_statement}"
+                        </p>
                       </div>
-                      <p className="text-sm font-bold text-rose-950 italic">
-                        "{obj.customer_statement}"
-                      </p>
+                      <div className="p-4 bg-white relative group">
+                        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-1.5 mb-2">
+                          <MessageCircle className="w-3.5 h-3.5" /> Gợi ý trả lời
+                        </p>
+                        <p className="text-sm font-medium text-slate-700 leading-relaxed whitespace-pre-wrap pr-10">
+                          {obj.suggested_response}
+                        </p>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="absolute right-2 bottom-2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-xl"
+                          onClick={() => handleCopy(obj.suggested_response, "Câu trả lời")}
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="p-4 bg-white relative group">
-                      <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-1.5 mb-2">
-                        <MessageCircle className="w-3.5 h-3.5" /> Gợi ý trả lời
-                      </p>
-                      <p className="text-sm font-medium text-slate-700 leading-relaxed whitespace-pre-wrap pr-10">
-                        {obj.suggested_response}
-                      </p>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="absolute right-2 bottom-2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-xl"
-                        onClick={() => handleCopy(obj.suggested_response, "Câu trả lời")}
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             )}
           </div>
           <div className="p-4 bg-white border-t border-slate-100 flex justify-end">
-            <Button variant="outline" onClick={() => setIsObjectionDialogOpen(false)} className="rounded-xl font-bold">
+            <Button
+              variant="outline"
+              onClick={() => setIsObjectionDialogOpen(false)}
+              className="rounded-xl font-bold"
+            >
               Đóng
             </Button>
           </div>
