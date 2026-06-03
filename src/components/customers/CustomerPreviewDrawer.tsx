@@ -62,7 +62,10 @@ import {
   CalendarClock,
   ArrowRightLeft,
   Navigation,
-  Crosshair
+  Crosshair,
+  Camera,
+  CheckCircle2,
+  Trash2
 } from "lucide-react";
 import { 
   getCustomerChannelLabel, 
@@ -146,7 +149,63 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   const [checkinNote, setCheckinNote] = useState("");
   const [checkinSubmitting, setCheckinSubmitting] = useState(false);
   const [showCheckinDialog, setShowCheckinDialog] = useState(false);
+  const [checkinPhotos, setCheckinPhotos] = useState<File[]>([]);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
+
+  const compressPhoto = (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const maxDim = 1280;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(file);
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const compressedFile = new File([blob], `${file.name.replace(/\.[^/.]+$/, "")}.webp`, {
+                  type: "image/webp",
+                  lastModified: Date.now(),
+                });
+                resolve(compressedFile);
+              } else {
+                resolve(file);
+              }
+            },
+            "image/webp",
+            0.75
+          );
+        };
+        img.onerror = () => resolve(file);
+      };
+      reader.onerror = () => resolve(file);
+    });
+  };
   
   const [showEditLocationDialog, setShowEditLocationDialog] = useState(false);
   const [editLocationMethod, setEditLocationMethod] = useState<"gps" | "manual" | "url">("gps");
@@ -831,8 +890,8 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     const toastId = toast.loading("Đang ghi nhận lượt check-in...");
 
     try {
-      // 1. Insert customer_visit_checkins
-      const { error: checkinErr } = await supabase
+      // 1. Insert customer_visit_checkins and fetch created row ID
+      const { data: checkinData, error: checkinErr } = await supabase
         .from("customer_visit_checkins")
         .insert({
           customer_id: customer.id,
@@ -846,11 +905,93 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           is_valid_location: isValid,
           valid_radius_meters: 200,
           note: checkinNote
-        });
+        })
+        .select("id")
+        .single();
 
       if (checkinErr) throw checkinErr;
+      if (!checkinData) throw new Error("Không thể khởi tạo mã check-in.");
 
-      // 2. Insert customer_activities (direct_visit)
+      // 2. Upload photos if any selected
+      const uploadedPaths: string[] = [];
+      const photoMetadataRecords: any[] = [];
+
+      if (checkinPhotos.length > 0) {
+        toast.loading("Đang nén và tải lên ảnh minh chứng...", { id: toastId });
+
+        for (let i = 0; i < checkinPhotos.length; i++) {
+          const originalFile = checkinPhotos[i];
+          const compressedFile = await compressPhoto(originalFile);
+
+          const photoId = crypto.randomUUID();
+          // relative path to bucket: {customer_id}/{checkin_id}/{photo_id}.webp
+          const storagePath = `${customer.id}/${checkinData.id}/${photoId}.webp`;
+
+          const { data: uploadData, error: uploadErr } = await supabase.storage
+            .from("visit-photos")
+            .upload(storagePath, compressedFile, {
+              cacheControl: "3600",
+              upsert: false
+            });
+
+          if (uploadErr) {
+            // Rollback already uploaded files
+            for (const path of uploadedPaths) {
+              await supabase.storage.from("visit-photos").remove([path]);
+            }
+            // Cascade delete the check-in record
+            await supabase.from("customer_visit_checkins").delete().eq("id", checkinData.id);
+            throw new Error(`Lỗi tải ảnh lên Storage: ${uploadErr.message}`);
+          }
+
+          uploadedPaths.push(storagePath);
+
+          // Get image dimensions
+          const dimensions = await new Promise<{ width: number; height: number } | null>((resolve) => {
+            const r = new FileReader();
+            r.readAsDataURL(compressedFile);
+            r.onload = (e) => {
+              const im = new Image();
+              im.src = e.target?.result as string;
+              im.onload = () => resolve({ width: im.width, height: im.height });
+              im.onerror = () => resolve(null);
+            };
+            r.onerror = () => resolve(null);
+          });
+
+          photoMetadataRecords.push({
+            id: photoId,
+            checkin_id: checkinData.id,
+            customer_id: customer.id,
+            uploaded_by: user?.id,
+            storage_bucket: "visit-photos",
+            storage_path: storagePath,
+            file_name: originalFile.name,
+            mime_type: compressedFile.type,
+            file_size_bytes: compressedFile.size,
+            width: dimensions?.width || null,
+            height: dimensions?.height || null,
+            photo_type: i === 0 ? "storefront" : "other"
+          });
+        }
+
+        // Insert metadata records into public.customer_visit_photos
+        const { error: metaErr } = await supabase
+          .from("customer_visit_photos")
+          .insert(photoMetadataRecords);
+
+        if (metaErr) {
+          // Metadata fail rollback: Delete uploaded storage files
+          for (const path of uploadedPaths) {
+            await supabase.storage.from("visit-photos").remove([path]);
+          }
+          // Delete inserted check-in record to maintain transaction consistency
+          await supabase.from("customer_visit_checkins").delete().eq("id", checkinData.id);
+          throw new Error(`Lỗi lưu thông tin ảnh vào DB: ${metaErr.message}`);
+        }
+      }
+
+      // 3. Insert customer_activities (direct_visit)
       const distanceLabel = distance !== null ? `${Math.round(distance)}m` : "Chưa xác định";
       const statusLabel = isValid ? "Đúng vị trí (< 200m)" : "Ngoại lệ (Sai lệch hoặc chưa ghim)";
       const { error: actErr } = await supabase
@@ -860,12 +1001,13 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           created_by: user?.id,
           activity_type: "direct_visit",
           title: `Check-in tại khách hàng${isValid ? "" : " (Ngoại lệ)"}`,
-          content: `Nhân viên check-in: ${user?.email || "Staff"}\nKhoảng cách: ${distanceLabel}\nTrạng thái: ${statusLabel}\nGhi chú: ${checkinNote || "Không có"}`
+          content: `Nhân viên check-in: ${user?.email || "Staff"}\nKhoảng cách: ${distanceLabel}\nTrạng thái: ${statusLabel}\nSố ảnh đính kèm: ${checkinPhotos.length}\nGhi chú: ${checkinNote || "Không có"}`,
+          metadata: { checkin_id: checkinData.id }
         });
 
       if (actErr) throw actErr;
 
-      // 3. Update customer last interaction metadata
+      // 4. Update customer last interaction metadata
       await supabase
         .from("customers")
         .update({
@@ -874,14 +1016,15 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
         .eq("id", customer.id);
 
       toast.dismiss(toastId);
-      toast.success("Check-in thành công!");
+      toast.success("Check-in và lưu ảnh minh chứng thành công!");
       setShowCheckinDialog(false);
       setCurrentGps(null);
       setCheckinNote("");
+      setCheckinPhotos([]); // Reset files
       fetchCustomerDetails();
     } catch (err: any) {
       toast.dismiss(toastId);
-      toast.error("Không thể check-in: " + err.message);
+      toast.error("Không thể hoàn tất check-in: " + err.message);
     } finally {
       setCheckinSubmitting(false);
     }
@@ -2302,6 +2445,13 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
             </div>
           )}
 
+          {currentGps && currentGps.accuracy > 150 && (
+            <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-[11px] font-bold flex items-start gap-2 leading-relaxed">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <span>Độ chính xác GPS thấp ({Math.round(currentGps.accuracy)}m &gt; 150m). Vui lòng đứng gần vị trí khách hơn hoặc nhập ghi chú ngoại lệ.</span>
+            </div>
+          )}
+
           {/* Form ghi chú check-in */}
           <div className="space-y-1.5">
             <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
@@ -2315,6 +2465,100 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
             />
           </div>
 
+          {/* Tải ảnh minh chứng check-in (Tối đa 2 ảnh) */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                Ảnh minh chứng ({checkinPhotos.length}/2)
+              </Label>
+              <span className="text-[9px] font-semibold text-slate-400">
+                JPEG, PNG, WebP (Tối đa 1.5MB)
+              </span>
+            </div>
+            
+            {checkinPhotos.length < 2 ? (
+              <div className="relative">
+                <input
+                  type="file"
+                  id="checkin-photo-upload"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  onChange={(e) => {
+                    if (e.target.files) {
+                      const selectedFiles = Array.from(e.target.files);
+                      const totalFiles = checkinPhotos.length + selectedFiles.length;
+                      
+                      if (totalFiles > 2) {
+                        toast.error("Mỗi lần check-in chỉ được tải tối đa 2 ảnh.");
+                        return;
+                      }
+                      
+                      const oversized = selectedFiles.some(f => f.size > 1500000);
+                      if (oversized) {
+                        toast.error("File ảnh quá lớn. Dung lượng tối đa là 1.5MB.");
+                        return;
+                      }
+
+                      setCheckinPhotos(prev => [...prev, ...selectedFiles]);
+                    }
+                  }}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="checkin-photo-upload"
+                  className="flex flex-col items-center justify-center gap-1.5 py-3 px-2 rounded-xl border border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/50 hover:bg-emerald-50/10 cursor-pointer transition-all text-center group"
+                >
+                  <Camera className="w-5 h-5 text-slate-400 group-hover:text-emerald-600 transition-colors" />
+                  <span className="text-[11px] font-black text-slate-600 group-hover:text-emerald-700 transition-colors">
+                    Chụp ảnh hoặc Chọn ảnh minh chứng
+                  </span>
+                  <span className="text-[9px] font-semibold text-slate-400 leading-none">
+                    Khuyến nghị: 1 ảnh storefront (mặt tiền)
+                  </span>
+                </label>
+              </div>
+            ) : (
+              <div className="py-2 px-3 rounded-xl bg-emerald-50/30 border border-emerald-100/50 text-[10px] font-black text-emerald-700 flex items-center gap-1.5 justify-center">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Đã chọn đủ số lượng ảnh tối đa (2/2)
+              </div>
+            )}
+
+            {/* Xem trước ảnh (Previews) */}
+            {checkinPhotos.length > 0 && (
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                {checkinPhotos.map((file, idx) => {
+                  const url = URL.createObjectURL(file);
+                  return (
+                    <div key={idx} className="relative group rounded-xl overflow-hidden border border-slate-200 aspect-video bg-slate-900 shadow-sm">
+                      <img
+                        src={url}
+                        alt={`Preview ${idx + 1}`}
+                        className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-300"
+                        onLoad={() => URL.revokeObjectURL(url)}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end justify-between p-2">
+                        <span className="text-[9px] font-black text-white px-1.5 py-0.5 rounded bg-black/40 backdrop-blur-3xs">
+                          {idx === 0 ? "Ảnh 1 (Mặt tiền)" : "Ảnh 2 (Bổ sung)"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCheckinPhotos(prev => prev.filter((_, i) => i !== idx));
+                          }}
+                          className="p-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white shadow transition-all hover:scale-105"
+                          title="Xóa ảnh"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           <DialogFooter className="grid grid-cols-2 gap-3.5 sm:space-x-0 pt-2">
             <Button
               variant="outline"
@@ -2322,6 +2566,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 setShowCheckinDialog(false);
                 setCurrentGps(null);
                 setCheckinNote("");
+                setCheckinPhotos([]);
               }}
               className="w-full text-xs font-bold"
             >

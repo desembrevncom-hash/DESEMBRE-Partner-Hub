@@ -34,6 +34,7 @@ import {
   getCareModelLabel
 } from "@/lib/customerOwnership";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 export const Route = createFileRoute("/reports/routing")({
   component: RoutingReportPage,
@@ -433,7 +434,7 @@ function RoutingReportPage() {
               <KpiCard title="Khách gần chưa có Sale" value={reportData.stats.missingSale} total={companyLocation ? reportData.stats.withCoords : 0} icon={UserPlus} color="blue" />
               <KpiCard title="Khách xa chưa có Tele" value={reportData.stats.missingTele} total={companyLocation ? reportData.stats.withCoords : 0} icon={PhoneCall} color="amber" />
               <KpiCard title="Phân tuyến chuẩn" value={reportData.stats.matched} total={companyLocation ? reportData.stats.withCoords : 0} icon={CheckCircle2} color="emerald" />
-              <KpiCard title="Lệch phân tuyến / Thiếu" value={reportData.stats.mismatched} total={companyLocation ? reportData.stats.total : 0} icon={AlertTriangle} color="orange" />
+              <KpiCard title="Lệch / Thiếu dữ liệu phân tuyến" value={reportData.stats.mismatched} total={companyLocation ? reportData.stats.total : 0} icon={AlertTriangle} color="orange" description="Bao gồm khách có tọa độ nhưng lệch rule phân tuyến, hoặc khách thiếu GPS nên chưa thể tính tuyến." />
             </div>
 
             {/* TABLE */}
@@ -651,7 +652,7 @@ function RoutingReportPage() {
   );
 }
 
-function KpiCard({ title, value, total, icon: Icon, color }: any) {
+function KpiCard({ title, value, total, icon: Icon, color, description }: any) {
   const isString = typeof value === 'string';
   const displayColor = isString ? 'rose' : color;
 
@@ -666,8 +667,8 @@ function KpiCard({ title, value, total, icon: Icon, color }: any) {
 
   const percentage = (typeof value === 'number' && total > 0) ? Math.round((value / total) * 100) : 0;
 
-  return (
-    <Card className="rounded-[28px] border-none shadow-sm overflow-hidden bg-white hover:shadow-md transition-all group">
+  const cardContent = (
+    <Card className={`rounded-[28px] border-none shadow-sm overflow-hidden bg-white hover:shadow-md transition-all group ${description ? 'cursor-help' : ''}`}>
        <CardContent className="p-6">
           <div className="flex items-center justify-between mb-4">
              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all group-hover:scale-110 ${colorClasses[displayColor]}`}>
@@ -688,4 +689,21 @@ function KpiCard({ title, value, total, icon: Icon, color }: any) {
        </CardContent>
     </Card>
   );
+
+  if (description) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {cardContent}
+          </TooltipTrigger>
+          <TooltipContent className="max-w-[280px] p-3 text-center bg-slate-900 text-white rounded-xl text-xs font-semibold leading-relaxed shadow-lg z-[9999]">
+            {description}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  return cardContent;
 }

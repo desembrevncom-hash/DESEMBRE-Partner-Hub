@@ -211,6 +211,7 @@ function CustomerMapPage() {
   const isManager = isAdmin || isSubAdmin;
   const canRoute = isSale || isAdmin || isSubAdmin;
   
+  const [mobileView, setMobileView] = useState<'map' | 'list'>('map');
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<any[]>([]);
   const [staffMap, setStaffMap] = useState<StaffMap>({});
@@ -719,22 +720,24 @@ function CustomerMapPage() {
   return (
     <div className="flex flex-col h-screen bg-[#f8fafc] font-sans antialiased overflow-hidden">
       {/* HEADER */}
-      <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shrink-0 z-30 shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-md">
-            <Compass className="w-5.5 h-5.5 animate-spin-slow" />
-          </div>
-          <div>
-            <h1 className="text-md font-black text-slate-900 tracking-tight flex items-center gap-1.5">
-              Bản đồ Khách hàng
-            </h1>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-              Định vị hoạt động & check-in spa thực địa
-            </p>
+      <header className="bg-white border-b border-slate-200 h-auto md:h-16 py-3.5 md:py-0 flex flex-col md:flex-row items-center justify-between px-4 sm:px-6 shrink-0 z-30 shadow-xs gap-3">
+        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-md">
+              <Compass className="w-5.5 h-5.5 animate-spin-slow" />
+            </div>
+            <div>
+              <h1 className="text-md font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+                Bản đồ Khách hàng
+              </h1>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                Định vị hoạt động & check-in spa thực địa
+              </p>
+            </div>
           </div>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-center md:justify-end gap-2 sm:gap-3 w-full md:w-auto">
           <Badge variant="outline" className="border-slate-200 bg-slate-50 text-[10px] font-bold px-2.5 py-1">
             Đang lọc: {filteredCustomers.length} / {customers.length} KH
           </Badge>
@@ -778,7 +781,9 @@ function CustomerMapPage() {
       {/* WORKSPACE CONTENT */}
       <div className="flex flex-1 overflow-hidden relative">
         {/* SIDEBAR */}
-        <aside className="w-80 sm:w-96 bg-white border-r border-slate-200 flex flex-col shrink-0 z-20 shadow-lg">
+        <aside className={`${
+          mobileView === 'list' ? 'flex w-full' : 'hidden'
+        } md:flex w-80 sm:w-96 bg-white border-r border-slate-200 flex-col shrink-0 z-20 shadow-lg`}>
           {/* LANDMARK OFFICE BANNER */}
           <div className="p-4 border-b border-slate-100 bg-slate-50/30">
             {loadingLocation ? (
@@ -1285,7 +1290,9 @@ function CustomerMapPage() {
         </aside>
 
         {/* MAP PANEL */}
-        <main className="flex-1 h-full relative z-10">
+        <main className={`${
+          mobileView === 'map' ? 'block' : 'hidden'
+        } md:block flex-1 h-full relative z-10`}>
           <MapContainer
             center={[16.047079, 108.206230]}
             zoom={6}
@@ -1474,6 +1481,25 @@ function CustomerMapPage() {
             />
           </MapContainer>
         </main>
+
+        {/* FLOATING TOGGLE BUTTON FOR MOBILE */}
+        <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[1000] shadow-xl">
+          <Button
+            onClick={() => setMobileView(mobileView === 'map' ? 'list' : 'map')}
+            className="rounded-full bg-slate-900 hover:bg-slate-850 text-white font-black text-xs uppercase px-5 py-2.5 h-11 flex items-center gap-2 border border-slate-850 tracking-wider shadow-lg active:scale-95 transition-all"
+          >
+            {mobileView === 'map' ? (
+              <>
+                <ListFilter className="w-4 h-4" /> Danh sách ({filteredCustomers.length})
+              </>
+            ) : (
+              <>
+                <Map className="w-4 h-4" /> Xem Bản đồ
+              </>
+            )}
+          </Button>
+        </div>
+
       </div>
 
       {/* PREVIEW CUSTOMER DRAWER */}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { TimelineItem as ITimelineItem } from '@/types/customerTimeline';
 import { 
   FileText, 
@@ -9,11 +9,14 @@ import {
   Clock,
   User,
   ChevronRight,
-  MessageSquare
+  MessageSquare,
+  Eye,
+  Loader2
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
   item: ITimelineItem;
@@ -22,6 +25,53 @@ interface Props {
 
 export const TimelineItem: React.FC<Props> = ({ item, onClick }) => {
   const isClickable = !!onClick && ['order', 'calendar', 'channel', 'task'].includes(item.source);
+  const [photos, setPhotos] = useState<{ id: string; file_name: string; url: string }[]>([]);
+  const [loadingPhotos, setLoadingPhotos] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+
+  const checkinId = item.source === 'activity' && item.metadata && typeof item.metadata === 'object'
+    ? (item.metadata as any).checkin_id
+    : null;
+
+  useEffect(() => {
+    if (!checkinId) return;
+
+    const fetchSignedPhotos = async () => {
+      setLoadingPhotos(true);
+      try {
+        const { data: dbPhotos, error: dbErr } = await supabase
+          .from('customer_visit_photos')
+          .select('id, storage_path, file_name')
+          .eq('checkin_id', checkinId);
+
+        if (dbErr) throw dbErr;
+
+        if (dbPhotos && dbPhotos.length > 0) {
+          const loadedPhotos = [];
+          for (const p of dbPhotos) {
+            const { data: signData, error: signErr } = await supabase.storage
+              .from('visit-photos')
+              .createSignedUrl(p.storage_path, 900);
+
+            if (!signErr && signData?.signedUrl) {
+              loadedPhotos.push({
+                id: p.id,
+                file_name: p.file_name,
+                url: signData.signedUrl
+              });
+            }
+          }
+          setPhotos(loadedPhotos);
+        }
+      } catch (err) {
+        console.error('Error fetching checkin photos:', err);
+      } finally {
+        setLoadingPhotos(false);
+      }
+    };
+
+    fetchSignedPhotos();
+  }, [checkinId]);
 
   const getIconConfig = () => {
     switch (item.source) {
@@ -52,7 +102,7 @@ export const TimelineItem: React.FC<Props> = ({ item, onClick }) => {
       <div className="absolute left-[19px] top-10 bottom-[-16px] w-0.5 bg-slate-100 group-last:hidden"></div>
 
       {/* Icon */}
-      <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center border-2 shrink-0 ${config.bg} ${config.border}`}>
+      <div className={`relative z-10 z-index-timeline-icon w-10 h-10 rounded-full flex items-center justify-center border-2 shrink-0 ${config.bg} ${config.border}`}>
         {config.icon}
       </div>
 
@@ -91,6 +141,80 @@ export const TimelineItem: React.FC<Props> = ({ item, onClick }) => {
           {item.description && (
             <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 whitespace-pre-wrap">
               {item.description}
+            </div>
+          )}
+
+          {/* Ảnh minh chứng check-in di động */}
+          {checkinId && (
+            <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+              {loadingPhotos ? (
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-bold">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Đang tải ảnh minh chứng...
+                </div>
+              ) : photos.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Ảnh minh chứng ({photos.length}/2)
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5 max-w-sm">
+                    {photos.map((p, index) => (
+                      <div 
+                        key={p.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedPhoto(p.url);
+                        }}
+                        className="relative group rounded-xl overflow-hidden aspect-video border border-slate-200 cursor-pointer shadow-3xs bg-slate-900"
+                      >
+                        <img 
+                          src={p.url} 
+                          alt={p.file_name} 
+                          className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-103 transition-all duration-300"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                          <Eye className="w-5 h-5 text-white animate-pulse" />
+                        </div>
+                        <span className="absolute bottom-1.5 left-1.5 text-[9px] font-black text-white px-1 py-0.5 rounded bg-black/45 backdrop-blur-3xs">
+                          {index === 0 ? "Mặt tiền" : "Bổ sung"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          {/* Hộp xem ảnh phóng to Lightbox */}
+          {selectedPhoto && (
+            <div 
+              className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedPhoto(null);
+              }}
+            >
+              <div 
+                className="relative max-w-2xl w-full max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <img 
+                  src={selectedPhoto} 
+                  alt="Ảnh minh chứng phóng to" 
+                  className="w-full h-auto max-h-[85vh] object-contain rounded-2xl" 
+                />
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPhoto(null);
+                  }}
+                  className="absolute top-3 right-3 bg-black/60 hover:bg-black/80 text-white rounded-full px-3 py-1.5 text-xs font-black shadow-lg transition-transform hover:scale-105"
+                >
+                  Đóng
+                </button>
+              </div>
             </div>
           )}
 
