@@ -48,7 +48,7 @@ export function PilotFeedbackButton() {
     <>
       <Button 
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-24 rounded-full h-12 px-5 shadow-xl shadow-indigo-200 bg-indigo-600 hover:bg-indigo-700 text-white z-50 transition-all hover:scale-105 flex items-center gap-2"
+        className="fixed bottom-6 left-6 rounded-full h-12 px-5 shadow-xl shadow-indigo-200 bg-indigo-600 hover:bg-indigo-700 text-white z-50 transition-all hover:scale-105 flex items-center gap-2"
       >
         <MessageSquarePlus className="w-5 h-5" />
         <span className="font-bold text-sm">Báo lỗi / Góp ý</span>
