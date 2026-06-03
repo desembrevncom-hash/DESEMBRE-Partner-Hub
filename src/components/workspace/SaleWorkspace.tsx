@@ -11,6 +11,7 @@ import { WorkspaceKpiCards } from "./WorkspaceKpiCards";
 import { WorkspacePriorityList } from "./WorkspacePriorityList";
 import { WorkspaceTimeline } from "./WorkspaceTimeline";
 import { WorkspaceSmartAlerts } from "./WorkspaceSmartAlerts";
+import { WorkspaceBirthdayWidget } from "./WorkspaceBirthdayWidget";
 
 import { 
   Phone, 
@@ -322,6 +323,9 @@ export const SaleWorkspace: React.FC = () => {
               alerts={dashData?.smart_alerts} 
               loading={dashLoading} 
             />
+          </div>
+          <div className="h-[300px]">
+            <WorkspaceBirthdayWidget onOpenCustomer={handleOpenPreviewDrawer} />
           </div>
         </div>
       </div>

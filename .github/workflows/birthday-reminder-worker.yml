@@ -1,0 +1,23 @@
+name: Birthday Reminder Worker Scheduler
+
+on:
+  workflow_dispatch:
+    # Allows manual trigger from GitHub UI
+  schedule:
+    # Run daily at 01:00 UTC (08:00 Indochina Time)
+    - cron: "0 1 * * *"
+
+jobs:
+  run-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    steps:
+      - name: Trigger Birthday Reminder Edge Function
+        run: |
+          curl -X POST "${{ secrets.BIRTHDAY_REMINDER_WORKER_URL }}" \
+            -H "Content-Type: application/json" \
+            -H "X-Worker-Secret: ${{ secrets.BIRTHDAY_REMINDER_WORKER_CRON_SECRET }}" \
+            -d '{ "confirm": "PROCESS_BIRTHDAY_REMINDERS" }' \
+            --fail-with-body

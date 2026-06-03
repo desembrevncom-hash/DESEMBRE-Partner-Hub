@@ -55,4 +55,5 @@ verify_jwt = false
 [functions.process-resend-webhook-events]
 verify_jwt = false
 
-
+[functions.process-birthday-reminders]
+verify_jwt = false

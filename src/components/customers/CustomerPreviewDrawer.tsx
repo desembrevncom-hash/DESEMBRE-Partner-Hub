@@ -5,6 +5,7 @@ import { CustomerKnowledgeUpsell } from "./CustomerKnowledgeUpsell";
 import { ProductKnowledgeBook } from "./ProductKnowledgeBook";
 import { CustomerAISummary } from "./CustomerAISummary";
 import { CustomerContactChannels } from "./CustomerContactChannels";
+import { CustomerContacts } from "./CustomerContacts";
 import { CustomerTimelineFeed } from "./timeline/CustomerTimelineFeed";
 import { CustomerAiSuggestions } from "./ai/CustomerAiSuggestions";
 import { AISuggestionCard } from "../ai/AISuggestionCard";
@@ -2059,6 +2060,11 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
             </section>
           </div>
         </details>
+
+        {/* CUSTOMER CONTACTS SECTION */}
+        <section className="space-y-4">
+          <CustomerContacts customerId={customer.id} />
+        </section>
 
         {/* CONTACT CHANNELS & REMARKETING SECTION */}
             <section className="space-y-4">
