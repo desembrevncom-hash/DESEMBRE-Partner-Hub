@@ -304,76 +304,91 @@ export const SaleWorkspace: React.FC = () => {
         </Button>
       </div>
 
-      <WorkspaceKpiCards counters={dashData?.counters} loading={dashLoading} />
+      <div className="flex flex-col gap-6 xl:grid xl:grid-cols-3 xl:gap-8">
+        {/* 1. KPI Cards (Mobile 3, Desktop 1) */}
+        <div className="order-3 xl:order-1 xl:col-span-3">
+          <WorkspaceKpiCards counters={dashData?.counters} loading={dashLoading} />
+        </div>
 
-      {/* PERSONAL SENDER STATUS — read-only, sale-only view */}
-      {!loadingAccounts && (
-        <div className="rounded-2xl border border-slate-100 bg-white p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              Kênh liên lạc cá nhân
-            </span>
-          </div>
-          {personalAccounts.length === 0 ? (
-            <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-3 py-2 rounded-xl">
-              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-              <span className="text-xs font-bold">
-                Bạn chưa cấu hình kênh cá nhân nào. Liên hệ Admin để thiết lập.
+        {/* 2. PERSONAL SENDER STATUS (Mobile 6, Desktop 2) */}
+        {!loadingAccounts && (
+          <div className="order-6 xl:order-2 xl:col-span-3 rounded-2xl border border-slate-100 bg-white p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                Kênh liên lạc cá nhân
               </span>
             </div>
-          ) : (
-            <div className="flex flex-wrap gap-3">
-              {["zalo", "email", "phone"].map((ch) => {
-                const acc = personalAccounts.find((a) => a.platform?.toLowerCase().includes(ch));
-                const isOk =
-                  acc?.is_active &&
-                  (acc?.health_status === "healthy" || acc?.health_status === "unknown");
-                const label = ch === "zalo" ? "Zalo" : ch === "email" ? "Email" : "Phone";
-                const Icon = ch === "email" ? Mail : ch === "zalo" ? MessageCircle : Phone;
-                return (
-                  <div
-                    key={ch}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold ${
-                      !acc
-                        ? "bg-slate-50 border-slate-100 text-slate-400"
-                        : isOk
-                          ? "bg-emerald-50 border-emerald-100 text-emerald-700"
-                          : "bg-amber-50 border-amber-100 text-amber-700"
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    {label}:
-                    {!acc ? (
-                      <span>Chưa cấu hình</span>
-                    ) : isOk ? (
-                      <span className="flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" />
-                        Đã cấu hình
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1">
-                        <AlertTriangle className="w-3 h-3" />
-                        Cần kiểm tra
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+            {personalAccounts.length === 0 ? (
+              <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-3 py-2 rounded-xl">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                <span className="text-xs font-bold">
+                  Bạn chưa cấu hình kênh cá nhân nào. Liên hệ Admin để thiết lập.
+                </span>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                {["zalo", "email", "phone"].map((ch) => {
+                  const acc = personalAccounts.find((a) => a.platform?.toLowerCase().includes(ch));
+                  const isOk =
+                    acc?.is_active &&
+                    (acc?.health_status === "healthy" || acc?.health_status === "unknown");
+                  const label = ch === "zalo" ? "Zalo" : ch === "email" ? "Email" : "Phone";
+                  const Icon = ch === "email" ? Mail : ch === "zalo" ? MessageCircle : Phone;
+                  return (
+                    <div
+                      key={ch}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold ${
+                        !acc
+                          ? "bg-slate-50 border-slate-100 text-slate-400"
+                          : isOk
+                            ? "bg-emerald-50 border-emerald-100 text-emerald-700"
+                            : "bg-amber-50 border-amber-100 text-amber-700"
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      {label}:
+                      {!acc ? (
+                        <span>Chưa cấu hình</span>
+                      ) : isOk ? (
+                        <span className="flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Đã cấu hình
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          Cần kiểm tra
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        {/* CỘT TRÁI (2 phần) - Ưu tiên hôm nay & Lịch */}
-        <div className="xl:col-span-2 space-y-8">
+        {/* 3. PRIORITY LIST (Mobile 1, Desktop 3) */}
+        <div className="order-1 xl:order-3 xl:col-span-2">
           <WorkspacePriorityList
             priorities={dashData?.today_priorities || []}
             teamRisks={dashData?.team_risks}
             loading={dashLoading}
             onOpenCustomer={handleOpenPreviewDrawer}
           />
+        </div>
 
+        {/* 4. TIMELINE (Mobile 2, Desktop 4) */}
+        <div className="order-2 xl:order-4 xl:col-span-1 h-[400px]">
+          <WorkspaceTimeline
+            events={dashData?.upcoming_timeline || []}
+            loading={dashLoading}
+            onOpenCustomer={handleOpenPreviewDrawer}
+          />
+        </div>
+
+        {/* 5. CALENDAR (Mobile 7, Desktop 5) */}
+        <div className="order-7 xl:order-5 xl:col-span-2">
           <WorkspaceCalendarCard
             events={[
               ...data.allTasks.map((t: any) => ({ ...t, _ui_type: "task" })),
@@ -384,21 +399,14 @@ export const SaleWorkspace: React.FC = () => {
           />
         </div>
 
-        {/* CỘT PHẢI (1 phần) - Smart Alerts & Timeline */}
-        <div className="space-y-8">
-          <div className="h-[400px]">
-            <WorkspaceTimeline
-              events={dashData?.upcoming_timeline || []}
-              loading={dashLoading}
-              onOpenCustomer={handleOpenPreviewDrawer}
-            />
-          </div>
-          <div className="h-[350px]">
-            <WorkspaceSmartAlerts alerts={dashData?.smart_alerts} loading={dashLoading} />
-          </div>
-          <div className="h-[300px]">
-            <WorkspaceBirthdayWidget onOpenCustomer={handleOpenPreviewDrawer} />
-          </div>
+        {/* 6. SMART ALERTS (Mobile 4, Desktop 6) */}
+        <div className="order-4 xl:order-6 xl:col-span-1 h-[350px]">
+          <WorkspaceSmartAlerts alerts={dashData?.smart_alerts} loading={dashLoading} />
+        </div>
+
+        {/* 7. BIRTHDAY WIDGET (Mobile 5, Desktop 7) */}
+        <div className="order-5 xl:order-7 xl:col-start-3 xl:col-span-1 h-[300px]">
+          <WorkspaceBirthdayWidget onOpenCustomer={handleOpenPreviewDrawer} />
         </div>
       </div>
 

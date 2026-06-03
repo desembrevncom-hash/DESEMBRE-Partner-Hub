@@ -1,6 +1,8 @@
 import React from "react";
 import { AlertCircle, Clock, Share2, ShieldAlert } from "lucide-react";
 import { WorkspaceSmartAlerts as SmartAlertsData } from "@/types/workspace";
+import { useNavigate } from "@tanstack/react-router";
+import { workspaceAlertToRoute } from "@/lib/workspaceFilterMapping";
 
 interface Props {
   alerts?: SmartAlertsData;
@@ -8,6 +10,15 @@ interface Props {
 }
 
 export const WorkspaceSmartAlerts: React.FC<Props> = ({ alerts, loading }) => {
+  const navigate = useNavigate();
+
+  const handleAlertClick = (type: string) => {
+    const route = workspaceAlertToRoute(type);
+    if (!route) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    navigate({ to: route.path as any, search: route.search as any });
+  };
+
   if (loading) {
     return (
       <div className="bg-white rounded-3xl border border-slate-200/60 p-6 shadow-xs h-full animate-pulse">
@@ -38,7 +49,12 @@ export const WorkspaceSmartAlerts: React.FC<Props> = ({ alerts, loading }) => {
       ) : (
         <div className="grid grid-cols-2 gap-3 flex-1">
           {/* Stale Customers */}
-          <div className="bg-slate-50 hover:bg-indigo-50/50 rounded-2xl p-4 border border-slate-100 transition-colors group cursor-pointer">
+          <button
+            type="button"
+            onClick={() => handleAlertClick("data_stale")}
+            aria-label="Xem khách ngủ đông"
+            className="bg-slate-50 hover:bg-indigo-50/50 rounded-2xl p-4 border border-slate-100 transition-colors group cursor-pointer text-left min-h-[44px] focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-1"
+          >
             <div className="flex items-start justify-between mb-2">
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-indigo-600">
                 Khách ngủ đông
@@ -53,10 +69,15 @@ export const WorkspaceSmartAlerts: React.FC<Props> = ({ alerts, loading }) => {
               {alerts?.stale_customers_count || 0}
             </div>
             <p className="text-[9px] text-slate-400 mt-1 font-medium">&gt; 7 ngày chưa tương tác</p>
-          </div>
+          </button>
 
           {/* Missing Social */}
-          <div className="bg-slate-50 hover:bg-sky-50/50 rounded-2xl p-4 border border-slate-100 transition-colors group cursor-pointer">
+          <button
+            type="button"
+            onClick={() => handleAlertClick("no_social")}
+            aria-label="Xem khách thiếu MXH"
+            className="bg-slate-50 hover:bg-sky-50/50 rounded-2xl p-4 border border-slate-100 transition-colors group cursor-pointer text-left min-h-[44px] focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-1"
+          >
             <div className="flex items-start justify-between mb-2">
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-sky-600">
                 Thiếu MXH
@@ -71,10 +92,15 @@ export const WorkspaceSmartAlerts: React.FC<Props> = ({ alerts, loading }) => {
               {alerts?.customers_missing_social_count || 0}
             </div>
             <p className="text-[9px] text-slate-400 mt-1 font-medium">Chưa có FB/Zalo</p>
-          </div>
+          </button>
 
           {/* Duplicate Risk */}
-          <div className="bg-slate-50 hover:bg-rose-50/50 rounded-2xl p-4 border border-slate-100 transition-colors group cursor-pointer">
+          <button
+            type="button"
+            onClick={() => handleAlertClick("duplicate_phone")}
+            aria-label="Xem khách trùng dữ liệu"
+            className="bg-slate-50 hover:bg-rose-50/50 rounded-2xl p-4 border border-slate-100 transition-colors group cursor-pointer text-left min-h-[44px] focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-1"
+          >
             <div className="flex items-start justify-between mb-2">
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-rose-600">
                 Trùng dữ liệu
@@ -89,10 +115,15 @@ export const WorkspaceSmartAlerts: React.FC<Props> = ({ alerts, loading }) => {
               {alerts?.duplicate_channel_risk_count || 0}
             </div>
             <p className="text-[9px] text-slate-400 mt-1 font-medium">Trùng SĐT / Kênh</p>
-          </div>
+          </button>
 
           {/* Overdue Followup */}
-          <div className="bg-slate-50 hover:bg-amber-50/50 rounded-2xl p-4 border border-slate-100 transition-colors group cursor-pointer">
+          <button
+            type="button"
+            onClick={() => handleAlertClick("overdue")}
+            aria-label="Xem khách lỡ follow-up"
+            className="bg-slate-50 hover:bg-amber-50/50 rounded-2xl p-4 border border-slate-100 transition-colors group cursor-pointer text-left min-h-[44px] focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-1"
+          >
             <div className="flex items-start justify-between mb-2">
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-amber-600">
                 Lỡ Follow-up
@@ -107,7 +138,7 @@ export const WorkspaceSmartAlerts: React.FC<Props> = ({ alerts, loading }) => {
               {alerts?.overdue_followups_count || 0}
             </div>
             <p className="text-[9px] text-slate-400 mt-1 font-medium">Quá hạn chăm sóc</p>
-          </div>
+          </button>
         </div>
       )}
     </div>

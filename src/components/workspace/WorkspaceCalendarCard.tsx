@@ -61,6 +61,7 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isMobileCollapsed, setIsMobileCollapsed] = useState(true);
 
   // Quick detail preview
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
@@ -79,7 +80,7 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({
       if (!user) return;
 
       let fetchedCustomers: any[] = [];
-      let query = supabase
+      const query = supabase
         .from("customers")
         .select("id, name, facility_name")
         .is("deleted_at", null);
@@ -272,7 +273,23 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({
         </div>
       </div>
 
-      <div className="flex-1 p-2 grid grid-cols-7 gap-px bg-slate-100">
+      {/* Mobile Collapse Toggle */}
+      <button
+        className="xl:hidden w-full p-3 bg-slate-50 text-[11px] font-bold text-slate-600 flex items-center justify-center gap-2 border-b"
+        onClick={() => setIsMobileCollapsed(!isMobileCollapsed)}
+        aria-expanded={!isMobileCollapsed}
+        aria-controls="calendar-grid"
+      >
+        {isMobileCollapsed ? "Hiển thị lịch tháng" : "Ẩn lịch tháng"}
+        <ChevronRight
+          className={`w-4 h-4 transition-transform ${isMobileCollapsed ? "" : "rotate-90"}`}
+        />
+      </button>
+
+      <div
+        id="calendar-grid"
+        className={`flex-1 p-2 grid-cols-7 gap-px bg-slate-100 ${isMobileCollapsed ? "hidden xl:grid" : "grid"}`}
+      >
         {/* Weekday headers */}
         {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((day) => (
           <div

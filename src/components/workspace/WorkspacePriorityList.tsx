@@ -131,13 +131,11 @@ export const WorkspacePriorityList: React.FC<Props> = ({
         </div>
 
         {priorities.length === 0 ? (
-          <div className="py-12 text-center flex flex-col items-center justify-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+          <div className="py-10 text-center flex flex-col items-center justify-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 px-4">
             <span className="text-4xl mb-3">🎉</span>
-            <h4 className="text-sm font-black text-slate-700">
-              Tuyệt vời! Không có việc khẩn cấp.
-            </h4>
-            <p className="text-xs text-slate-500 mt-1">
-              Bạn đang làm rất tốt, mọi công việc đều đã hoàn tất đúng hạn.
+            <h4 className="text-sm font-black text-slate-700">Không có việc khẩn cấp.</h4>
+            <p className="text-xs text-slate-500 mt-1 max-w-xs">
+              Bạn có thể check-in nhanh, thêm khách mới hoặc tạo lịch follow-up.
             </p>
           </div>
         ) : (

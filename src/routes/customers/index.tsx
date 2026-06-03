@@ -52,6 +52,7 @@ import {
   getPipelineStageLabel,
   mapLegacyStageToNew,
 } from "@/lib/salesPipeline";
+import { customerRiskLabels } from "@/lib/workspaceFilterMapping";
 import { classifyCustomerLifecycle } from "@/lib/customerOwnership";
 import { getCustomerVisualState } from "@/lib/customerVisualState";
 import { getCustomerConversationState } from "@/lib/customerConversationState";
@@ -101,6 +102,7 @@ function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<any[]>([]);
   const [staffMap, setStaffMap] = useState<StaffMap>({});
+  const [customerTasks, setCustomerTasks] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"kanban" | "list">(() => {
     if (typeof window !== "undefined") {
@@ -438,6 +440,21 @@ function CustomersPage() {
       const { data, error } = await query;
       if (error) throw error;
 
+      // Fetch pending tasks to support KPI filter linkage
+      if (user?.id) {
+        let tasksQuery = supabase
+          .from("customer_tasks")
+          .select("customer_id, task_type, title, status")
+          .eq("status", "pending");
+
+        if (!isAdmin && !isSubAdmin) {
+          tasksQuery = tasksQuery.eq("assigned_to", user.id);
+        }
+
+        const { data: tasksData } = await tasksQuery;
+        setCustomerTasks(tasksData || []);
+      }
+
       // Apply hierarchical lifecycle classification to ensure data integrity
       const processed = (data || []).map((c: any) => ({
         ...c,
@@ -587,6 +604,38 @@ function CustomersPage() {
           !c.channel_summary?.has_tiktok
         );
       });
+    } else if (smartFilter === "leads_to_call") {
+      // Customers that have at least one pending call/phone task assigned to current user
+      const callCustomerIds = new Set(
+        customerTasks
+          .filter((t) => ["call", "phone_call", "cold_call"].includes(t.task_type))
+          .map((t) => t.customer_id),
+      );
+      result = result.filter((c) => callCustomerIds.has(c.id));
+    } else if (smartFilter === "checkin_today") {
+      // Customers with pending visit / check-in task
+      const checkinCustomerIds = new Set(
+        customerTasks
+          .filter((t) => ["visit", "check_in", "checkin"].includes(t.task_type))
+          .map((t) => t.customer_id),
+      );
+      result = result.filter((c) => checkinCustomerIds.has(c.id));
+    } else if (smartFilter === "quotation_pending") {
+      // Customers with pending quotation / quote_follow_up task
+      const quotationCustomerIds = new Set(
+        customerTasks
+          .filter((t) =>
+            ["quotation", "quote", "quote_follow_up", "quotation_follow_up"].includes(t.task_type),
+          )
+          .map((t) => t.customer_id),
+      );
+      result = result.filter((c) => quotationCustomerIds.has(c.id));
+    } else if (smartFilter === "duplicate_phone") {
+      // Customers flagged as having duplicate channel risk
+      result = result.filter((c) => {
+        const intel = c.sales_intelligence;
+        return intel?.duplicate_phone_risk || intel?.duplicate_channel_risk;
+      });
     } else if (smartFilter.startsWith("has_") || smartFilter === "no_primary") {
       result = result.filter((c) => {
         if (!c.channel_summary) return false;
@@ -604,7 +653,7 @@ function CustomersPage() {
     }
 
     return result.sort((a, b) => getPriorityScore(b) - getPriorityScore(a));
-  }, [customers, searchQuery, activeStage, cityFilter, smartFilter]);
+  }, [customers, searchQuery, activeStage, cityFilter, smartFilter, customerTasks]);
 
   useEffect(() => {
     trackSearch(searchQuery, filteredCustomers.length);
@@ -766,6 +815,19 @@ function CustomersPage() {
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-7xl space-y-8">
+        {/* ACTIVE SMART FILTER LABEL BANNER */}
+        {smartFilter !== "all" && customerRiskLabels[smartFilter] && (
+          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-bold">
+            <Filter className="w-3.5 h-3.5 shrink-0" />
+            <span>Đang lọc: {customerRiskLabels[smartFilter]}</span>
+            <button
+              onClick={() => setSmartFilter("all")}
+              className="ml-auto text-indigo-400 hover:text-indigo-700 transition-colors text-[10px] font-black uppercase tracking-wider"
+            >
+              Xoá lọc ✕
+            </button>
+          </div>
+        )}
         {/* EXECUTIVE CONTROL CENTER (ADMIN & SUB-ADMIN ONLY) */}
         {isManager && adminStats && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

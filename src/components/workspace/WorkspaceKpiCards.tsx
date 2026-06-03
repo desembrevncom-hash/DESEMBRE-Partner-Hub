@@ -2,6 +2,7 @@ import React from "react";
 import { Phone, Clock, UserCheck, FileText, Package, AlertCircle } from "lucide-react";
 import { WorkspaceCounters } from "@/types/workspace";
 import { useNavigate } from "@tanstack/react-router";
+import { workspaceKpiToRoute } from "@/lib/workspaceFilterMapping";
 
 interface Props {
   counters?: WorkspaceCounters;
@@ -12,27 +13,10 @@ export const WorkspaceKpiCards: React.FC<Props> = ({ counters, loading }) => {
   const navigate = useNavigate();
 
   const handleCardClick = (type: string) => {
-    // Navigate with query params for filtering (simplified for P1A)
-    switch (type) {
-      case "lead":
-        navigate({ to: "/customers", search: { filter: "leads_to_call" } as any });
-        break;
-      case "followup":
-        navigate({ to: "/customers", search: { filter: "follow_up_today" } as any });
-        break;
-      case "checkin":
-        navigate({ to: "/customers", search: { filter: "checkin_today" } as any });
-        break;
-      case "quotation":
-        navigate({ to: "/customers", search: { filter: "quotation_pending" } as any });
-        break;
-      case "draft_order":
-        navigate({ to: "/orders", search: { filter: "draft" } as any });
-        break;
-      case "overdue":
-        navigate({ to: "/customers", search: { filter: "overdue" } as any });
-        break;
-    }
+    const route = workspaceKpiToRoute(type);
+    if (!route) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    navigate({ to: route.path as any, search: route.search as any });
   };
 
   const kpiItems = [
@@ -100,47 +84,54 @@ export const WorkspaceKpiCards: React.FC<Props> = ({ counters, loading }) => {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-        {[...Array(6)].map((_, i) => (
-          <div
-            key={i}
-            className="bg-white rounded-2xl border border-slate-100 p-4 h-28 animate-pulse"
-          >
-            <div className="h-3 bg-slate-200 rounded w-1/2 mb-4"></div>
-            <div className="h-8 bg-slate-200 rounded w-1/4"></div>
-            <div className="absolute right-4 bottom-4 w-10 h-10 bg-slate-100 rounded-full"></div>
-          </div>
-        ))}
+      <div className="w-full overflow-x-auto pb-4 md:pb-0 hide-scrollbar">
+        <div className="flex md:grid md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 w-max md:w-auto">
+          {[...Array(6)].map((_, i) => (
+            <div
+              key={i}
+              className="w-[140px] md:w-auto shrink-0 bg-white rounded-2xl border border-slate-100 p-3 md:p-4 h-24 md:h-28 animate-pulse relative"
+            >
+              <div className="h-3 bg-slate-200 rounded w-1/2 mb-4"></div>
+              <div className="h-8 bg-slate-200 rounded w-1/4"></div>
+              <div className="absolute right-3 bottom-3 md:right-4 md:bottom-4 w-8 h-8 md:w-10 md:h-10 bg-slate-100 rounded-full"></div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-      {kpiItems.map((item) => (
-        <div
-          key={item.id}
-          onClick={() => handleCardClick(item.id)}
-          className={`bg-white rounded-2xl border border-slate-100 p-4 relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/50 ${item.bgHover} cursor-pointer group`}
-        >
-          <div className="relative z-10 flex flex-col h-full justify-between">
-            <h3 className={`text-[10px] font-black tracking-wider uppercase mb-2 ${item.color}`}>
-              {item.title}
-            </h3>
-            <div className="flex items-end justify-between">
-              <span
-                className={`text-4xl font-black tracking-tighter ${item.value > 0 ? "text-slate-800" : "text-slate-300"}`}
+    <div className="w-full overflow-x-auto pb-4 md:pb-0 mb-2 xl:mb-0 hide-scrollbar">
+      <div className="flex md:grid md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 w-max md:w-auto px-1 md:px-0">
+        {kpiItems.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => handleCardClick(item.id)}
+            className={`w-[140px] md:w-auto shrink-0 bg-white rounded-2xl border border-slate-100 p-3 md:p-4 h-24 md:h-28 relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/50 ${item.bgHover} cursor-pointer group text-left focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-1`}
+          >
+            <div className="relative z-10 flex flex-col h-full justify-between">
+              <h3
+                className={`text-[9px] md:text-[10px] font-black tracking-wider uppercase mb-1 md:mb-2 ${item.color}`}
               >
-                {item.value}
-              </span>
-              <span className="text-[10px] font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                Xem
-              </span>
+                {item.title}
+              </h3>
+              <div className="flex items-end justify-between">
+                <span
+                  className={`text-3xl md:text-4xl font-black tracking-tighter ${item.value > 0 ? "text-slate-800" : "text-slate-300"}`}
+                >
+                  {item.value}
+                </span>
+                <span className="text-[10px] font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Xem
+                </span>
+              </div>
             </div>
-          </div>
-          {item.icon}
-        </div>
-      ))}
+            {item.icon}
+          </button>
+        ))}
+      </div>
     </div>
   );
 };
