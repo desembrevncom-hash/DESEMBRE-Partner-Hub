@@ -105,9 +105,9 @@ function RootLayout() {
                   alt="Desembre Logo" 
                   className="w-10 h-10 rounded-xl object-contain shadow-lg shadow-slate-200 transition-transform group-hover:scale-110" 
                 />
-                <div className="hidden md:block">
-                   <span className="text-lg font-black text-slate-900 tracking-tighter">DESEMBRE</span>
-                   <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest leading-none mt-0.5">Partner Hub OS</p>
+                <div className="hidden md:flex flex-col justify-center">
+                   <span className="text-lg font-black text-slate-900 tracking-tighter leading-none whitespace-nowrap">DESEMBRE</span>
+                   <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest leading-none mt-1 whitespace-nowrap">Partner Hub OS</p>
                 </div>
              </Link>
 
