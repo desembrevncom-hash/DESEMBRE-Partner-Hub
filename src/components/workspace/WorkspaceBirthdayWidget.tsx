@@ -4,6 +4,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { Cake, ChevronRight, Loader2, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { CRMCard } from "@/components/crm/CRMCard";
+import { CRMEmptyState } from "@/components/crm/CRMEmptyState";
+import { CRMLoadingState } from "@/components/crm/CRMLoadingState";
 
 interface Props {
   onOpenCustomer: (id: string) => void;
@@ -119,33 +122,28 @@ export const WorkspaceBirthdayWidget: React.FC<Props> = ({ onOpenCustomer }) => 
 
   if (loading) {
     return (
-      <div className="bg-white rounded-3xl border border-slate-200/60 p-5 shadow-xs h-full animate-pulse flex flex-col justify-between">
-        <div className="h-5 w-1/2 bg-slate-200 rounded mb-4"></div>
-        <div className="space-y-3 flex-1">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-12 bg-slate-100 rounded-2xl w-full"></div>
-          ))}
-        </div>
-      </div>
+      <CRMCard className="h-full">
+        <CRMLoadingState type="list" rows={2} />
+      </CRMCard>
     );
   }
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200/60 p-5 shadow-xs h-full flex flex-col">
-      <div className="flex items-center gap-2 mb-4">
-        <Cake className="w-5 h-5 text-indigo-500" />
-        <h3 className="text-sm font-black uppercase tracking-wider text-slate-950">
+    <CRMCard className="h-full flex flex-col p-5 md:p-6">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+          <Cake className="w-5 h-5" />
+        </div>
+        <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">
           Sinh nhật sắp tới (7 ngày)
         </h3>
       </div>
 
       {upcomingBirthdays.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center py-6 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-          <span className="text-2xl mb-1.5">🎉</span>
-          <p className="text-[11px] font-bold text-slate-400 uppercase">
-            Không có sinh nhật nào sắp diễn ra
-          </p>
-        </div>
+        <CRMEmptyState
+          title="Không có sinh nhật nào sắp diễn ra"
+          icon={<span className="text-2xl">🎉</span>}
+        />
       ) : (
         <ScrollArea className="flex-1 -mr-2 pr-2">
           <div className="space-y-2.5">
@@ -162,35 +160,39 @@ export const WorkspaceBirthdayWidget: React.FC<Props> = ({ onOpenCustomer }) => 
               return (
                 <div
                   key={c.id}
-                  onClick={() => c.customer?.id && onOpenCustomer(c.customer.id)}
-                  className="flex items-center justify-between p-3 rounded-2xl border border-indigo-100 bg-indigo-50/40 hover:bg-indigo-50 hover:shadow-xs transition-all cursor-pointer group"
+                  className="flex items-center justify-between p-4 rounded-2xl border border-indigo-50 bg-white hover:border-indigo-200 hover:shadow-md hover:shadow-indigo-900/5 transition-all group"
                 >
-                  <div className="space-y-0.5 min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="space-y-1 min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-extrabold text-xs text-slate-900 truncate max-w-[130px]">
                         {c.full_name}
                       </span>
                       {c.role_title && (
-                        <span className="text-[9px] font-bold bg-white text-slate-500 border border-slate-100 px-1.5 py-0.2 rounded-full">
+                        <span className="text-[9px] font-bold bg-slate-50 text-slate-600 border border-slate-100 px-2 py-0.5 rounded-full">
                           {c.role_title}
                         </span>
                       )}
                     </div>
                     {c.customer && (
-                      <p className="text-[10px] text-slate-500 font-medium truncate">
-                        🏢 {c.customer.name}
+                      <p className="text-[10px] text-slate-500 font-medium truncate flex items-center gap-1">
+                        <User className="w-3 h-3" /> {c.customer.name}
                       </p>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-3 shrink-0">
                     <div className="text-right">
                       <p className="text-xs font-black text-indigo-700">{dateLabel}</p>
                       <p className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider">
                         {relativeLabel}
                       </p>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-indigo-400 group-hover:translate-x-0.5 transition-transform" />
+                    <button
+                      onClick={() => c.customer?.id && onOpenCustomer(c.customer.id)}
+                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm transition-all active:scale-95"
+                    >
+                      Mở
+                    </button>
                   </div>
                 </div>
               );
@@ -198,6 +200,6 @@ export const WorkspaceBirthdayWidget: React.FC<Props> = ({ onOpenCustomer }) => 
           </div>
         </ScrollArea>
       )}
-    </div>
+    </CRMCard>
   );
 };

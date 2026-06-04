@@ -41,6 +41,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { CRMPageContainer } from "@/components/crm/CRMPageContainer";
+import { CRMPageHeader } from "@/components/crm/CRMPageHeader";
+import { CRMCard } from "@/components/crm/CRMCard";
+import { CRMStatusBadge } from "@/components/crm/CRMStatusBadge";
+import { CRMLoadingState } from "@/components/crm/CRMLoadingState";
+import { CRMEmptyState } from "@/components/crm/CRMEmptyState";
 
 import {
   canSendMarketingMessage,
@@ -1587,36 +1593,17 @@ function MarketingCampaignsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 pb-16 font-sans antialiased selection:bg-purple-500 selection:text-white">
-      {/* Thanh Header Điều hướng Siêu cấp */}
-      <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-30">
-        <div className="container mx-auto px-4 py-4 md:px-6 h-auto md:h-20 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <Link
-              to="/marketing/templates"
-              className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-all shrink-0"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-purple-500 to-indigo-500 text-white">
-                  B2B Automation
-                </span>
-                <span className="text-xs text-slate-500 font-mono">v2.4-Compliance</span>
-              </div>
-              <h1 className="text-xl font-black tracking-tight text-white flex items-center gap-2 mt-0.5">
-                Bộ điều khiển Chiến dịch Tiếp thị{" "}
-                <span className="text-purple-400">(Dispatch Engine)</span>
-              </h1>
-            </div>
-          </div>
-
-          <div className="flex items-center flex-wrap gap-2 w-full md:w-auto justify-end">
+    <CRMPageContainer>
+      <CRMPageHeader
+        title="Bộ điều khiển Chiến dịch Tiếp thị (Dispatch Engine)"
+        badgeText="B2B Automation v2.4-Compliance"
+        backTo="/marketing/templates"
+        actions={
+          <div className="flex items-center flex-wrap gap-2">
             <Button
               variant="outline"
               onClick={loadAllData}
-              className="h-10 px-3 bg-slate-900 border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 shrink-0"
+              className="h-10 px-3 shrink-0"
               title="Làm mới dữ liệu"
             >
               <RefreshCw className="w-4 h-4" />
@@ -1626,7 +1613,7 @@ function MarketingCampaignsPage() {
               <Link to="/marketing/logs" className="shrink-0">
                 <Button
                   variant="outline"
-                  className="h-10 px-4 bg-slate-900 border-slate-800 text-rose-400 hover:text-rose-300 hover:bg-slate-800"
+                  className="h-10 px-4 text-rose-600 border-rose-200 hover:bg-rose-50"
                   title="Quản lý Suppression List & Delivery Logs"
                 >
                   <ShieldAlert className="w-4 h-4 mr-2" />
@@ -1637,7 +1624,7 @@ function MarketingCampaignsPage() {
             {isAdminOrSubAdmin && (
               <Button
                 onClick={() => setDraftDialogOpen(true)}
-                className="h-10 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-lg shrink-0"
+                className="h-10 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-sm shrink-0"
               >
                 <Plus className="w-4 h-4 mr-2" /> Create Draft Campaign
               </Button>
@@ -1645,65 +1632,65 @@ function MarketingCampaignsPage() {
             <Button
               disabled
               title="Coming soon"
-              className="h-10 px-5 rounded-xl bg-slate-800 text-slate-400 font-bold cursor-not-allowed shrink-0"
+              className="h-10 px-5 rounded-xl bg-slate-100 text-slate-400 font-bold cursor-not-allowed shrink-0"
             >
-              <Rocket className="w-4 h-4 mr-2" /> Khởi tạo Chiến dịch (Coming soon)
+              <Rocket className="w-4 h-4 mr-2" /> Khởi tạo Chiến dịch
             </Button>
           </div>
-        </div>
-      </header>
+        }
+      />
 
-      <div className="container mx-auto px-4 md:px-6 pt-6">
-        <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 p-3 rounded-xl text-sm font-medium flex items-center gap-2 mb-6">
+      <div className="mt-6">
+        <div className="bg-amber-50 text-amber-600 border border-amber-200 p-3 rounded-xl text-sm font-medium flex items-center gap-2 mb-6">
           <AlertTriangle className="w-5 h-5 flex-shrink-0" />
           <span>Campaign approval chỉ là duyệt nội bộ. Hệ thống chưa gửi Email/Zalo thật.</span>
         </div>
       </div>
 
-      <main className="container mx-auto px-4 md:px-6 mt-8 space-y-8">
+      <div className="space-y-8 mt-4">
         {/* Dải Banner Thống kê Hiệu năng Toàn hệ thống */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-xl group-hover:bg-purple-500/10 transition-all" />
-            <span className="text-xs font-bold text-slate-400 block uppercase tracking-wider">
+          <CRMCard className="p-5 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-xl group-hover:bg-indigo-500/10 transition-all" />
+            <span className="text-xs font-bold text-slate-500 block uppercase tracking-wider">
               Tổng số Chiến dịch
             </span>
             <div className="flex items-baseline gap-2 mt-2">
-              <span className="text-3xl font-black tracking-tight text-white">{stats.total}</span>
+              <span className="text-3xl font-black tracking-tight text-slate-800">{stats.total}</span>
               <span className="text-xs font-medium text-slate-500">lịch sử</span>
             </div>
             <div className="mt-3 flex items-center gap-2 text-[11px] text-slate-400">
-              <span className="w-2 h-2 rounded-full bg-purple-500" /> Cập nhật tự động
+              <span className="w-2 h-2 rounded-full bg-indigo-500" /> Cập nhật tự động
             </div>
-          </div>
+          </CRMCard>
 
-          <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 relative overflow-hidden group">
+          <CRMCard className="p-5 relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl group-hover:bg-emerald-500/10 transition-all" />
-            <span className="text-xs font-bold text-slate-400 block uppercase tracking-wider">
+            <span className="text-xs font-bold text-slate-500 block uppercase tracking-wider">
               Đã Phát hành Hoàn tất
             </span>
             <div className="flex items-baseline gap-2 mt-2">
-              <span className="text-3xl font-black tracking-tight text-emerald-400">
+              <span className="text-3xl font-black tracking-tight text-emerald-600">
                 {stats.completed}
               </span>
               <span className="text-xs font-medium text-slate-500">campaigns</span>
             </div>
-            <div className="mt-3 flex items-center gap-1.5 text-[11px] text-emerald-500 font-medium">
+            <div className="mt-3 flex items-center gap-1.5 text-[11px] text-emerald-600 font-medium">
               <CheckCircle2 className="w-3.5 h-3.5" /> Tiếp cận {stats.totalSentTargets} đối tác
             </div>
-          </div>
+          </CRMCard>
 
-          <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 relative overflow-hidden">
-            <span className="text-xs font-bold text-slate-400 block uppercase tracking-wider">
+          <CRMCard className="p-5 relative overflow-hidden">
+            <span className="text-xs font-bold text-slate-500 block uppercase tracking-wider">
               Đang gửi / Đã duyệt / Tạm dừng
             </span>
             <div className="flex items-baseline gap-2 mt-2">
-              <span className="text-3xl font-black tracking-tight text-amber-400">
+              <span className="text-3xl font-black tracking-tight text-amber-600">
                 {stats.sending + stats.paused + stats.approved}
               </span>
               <span className="text-xs font-medium text-slate-500">luồng</span>
             </div>
-            <div className="mt-3 flex items-center gap-3 text-[11px] text-amber-400/90 font-medium">
+            <div className="mt-3 flex items-center gap-3 text-[11px] text-amber-600 font-medium">
               <span className="flex items-center gap-1">
                 <Play className="w-3 h-3 animate-pulse" /> {stats.sending} Đang gửi
               </span>
@@ -1711,35 +1698,35 @@ function MarketingCampaignsPage() {
                 <Pause className="w-3 h-3" /> {stats.paused} Tạm dừng
               </span>
             </div>
-          </div>
+          </CRMCard>
 
-          <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 relative overflow-hidden">
-            <span className="text-xs font-bold text-slate-400 block uppercase tracking-wider">
+          <CRMCard className="p-5 relative overflow-hidden">
+            <span className="text-xs font-bold text-slate-500 block uppercase tracking-wider">
               Bản nháp / Chờ duyệt
             </span>
             <div className="flex items-baseline gap-2 mt-2">
-              <span className="text-3xl font-black tracking-tight text-purple-400">
+              <span className="text-3xl font-black tracking-tight text-indigo-600">
                 {stats.draft + stats.pendingReview}
               </span>
               <span className="text-xs font-medium text-slate-500">campaigns</span>
             </div>
-            <div className="mt-3 flex items-center gap-1.5 text-[11px] text-purple-400 font-medium">
+            <div className="mt-3 flex items-center gap-1.5 text-[11px] text-indigo-600 font-medium">
               <FileText className="w-3.5 h-3.5" /> Chờ Admin duyệt: {stats.pendingReview}
             </div>
-          </div>
+          </CRMCard>
         </div>
 
         {/* Khu vực Bộ lọc & Danh sách Chiến dịch */}
-        <div className="p-6 rounded-3xl bg-slate-950 border border-slate-800 space-y-6">
+        <CRMCard className="space-y-6 p-6">
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
             <div className="flex items-center gap-2 w-full md:w-auto">
               <div className="relative flex-1 md:w-80">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
                   placeholder="Tìm kiếm chiến dịch..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 h-10 bg-slate-900 border-slate-800 text-white placeholder:text-slate-600 rounded-xl w-full"
+                  className="pl-9 h-10 bg-white border-slate-200 text-slate-800 placeholder:text-slate-400 rounded-xl w-full"
                 />
               </div>
             </div>
@@ -1763,8 +1750,8 @@ function MarketingCampaignsPage() {
                   onClick={() => setStatusFilter(tab.value)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
                     statusFilter === tab.value
-                      ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
-                      : "bg-slate-900 text-slate-400 hover:text-white border border-transparent"
+                      ? "bg-indigo-50 text-indigo-600 border border-indigo-200"
+                      : "bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-800 border border-slate-200"
                   }`}
                 >
                   {tab.label}
@@ -1776,20 +1763,13 @@ function MarketingCampaignsPage() {
           {/* Dải thẻ danh sách */}
           <div className="space-y-3">
             {loading ? (
-              <div className="p-12 text-center text-slate-500 space-y-3">
-                <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-500" />
-                <p className="text-xs">Đang truy xuất nhật ký hệ thống phát hành...</p>
-              </div>
+              <CRMLoadingState description="Đang truy xuất nhật ký hệ thống phát hành..." />
             ) : filteredCampaigns.length === 0 ? (
-              <div className="p-12 text-center bg-slate-900/50 rounded-2xl border border-slate-800/80 space-y-2">
-                <Layers className="w-8 h-8 mx-auto text-slate-600" />
-                <p className="text-xs font-bold text-slate-400">
-                  Không tìm thấy chiến dịch nào tương thích
-                </p>
-                <p className="text-[11px] text-slate-600">
-                  Thử thay đổi từ khóa tìm kiếm hoặc tạo mới chiến dịch đầu tiên.
-                </p>
-              </div>
+              <CRMEmptyState
+                icon={<Layers className="w-8 h-8 text-slate-400" />}
+                title="Không tìm thấy chiến dịch nào tương thích"
+                description="Thử thay đổi từ khóa tìm kiếm hoặc tạo mới chiến dịch đầu tiên."
+              />
             ) : (
               filteredCampaigns.map((c: any) => {
                 const totalTargets = c.metrics?.total_targets || c.estimated_recipients || 0;
@@ -1807,24 +1787,24 @@ function MarketingCampaignsPage() {
                   ? "ZNS"
                   : c.message_templates?.channel?.toUpperCase() || "EMAIL";
 
-                const getStatusBadgeClass = (status: string) => {
+                const getStatusMap = (status: string): "success" | "warning" | "danger" | "info" | "neutral" => {
                   switch (status) {
                     case "completed":
-                      return "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+                      return "success";
                     case "sending":
-                      return "bg-purple-500/10 text-purple-400 border border-purple-500/20 animate-pulse";
+                      return "info";
                     case "paused":
-                      return "bg-amber-500/10 text-amber-400 border border-amber-500/20";
+                      return "warning";
                     case "pending_review":
-                      return "bg-blue-500/10 text-blue-400 border border-blue-500/20";
+                      return "info";
                     case "approved":
-                      return "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20";
+                      return "success";
                     case "cancelled":
-                      return "bg-rose-500/10 text-rose-400 border border-rose-500/20";
+                      return "neutral";
                     case "failed":
-                      return "bg-rose-600/15 text-rose-500 border border-rose-600/25";
+                      return "danger";
                     default:
-                      return "bg-slate-800 text-slate-400 border border-slate-700";
+                      return "neutral";
                   }
                 };
 
@@ -1851,16 +1831,16 @@ function MarketingCampaignsPage() {
                   }
                 };
 
-                const getApprovalBadgeClass = (approval_status: string) => {
+                const getApprovalStatusMap = (approval_status: string): "success" | "warning" | "danger" | "neutral" => {
                   switch (approval_status) {
                     case "pending_approval":
-                      return "bg-amber-500/10 text-amber-400 border border-amber-500/20";
+                      return "warning";
                     case "approved":
-                      return "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+                      return "success";
                     case "rejected":
-                      return "bg-rose-500/10 text-rose-400 border border-rose-500/20";
+                      return "danger";
                     default:
-                      return "bg-slate-800 text-slate-400 border border-slate-700"; // draft or null
+                      return "neutral"; // draft or null
                   }
                 };
 
@@ -1878,28 +1858,26 @@ function MarketingCampaignsPage() {
                 };
 
                 return (
-                  <div
+                  <CRMCard
                     key={c.id}
                     onClick={() => {
                       setSelectedCampaign(c);
                       loadSnapshots(c.id);
                       setDetailDialogOpen(true);
                     }}
-                    className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/80 hover:border-slate-700 hover:bg-slate-900 transition-all space-y-4 cursor-pointer relative group"
+                    className="p-5 hover:border-slate-300 hover:shadow-md transition-all space-y-4 cursor-pointer relative group"
                   >
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${getApprovalBadgeClass(c.approval_status)}`}
-                          >
-                            {getApprovalLabel(c.approval_status)}
-                          </span>
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${getStatusBadgeClass(c.status)}`}
-                          >
-                            {getStatusLabel(c.status)}
-                          </span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <CRMStatusBadge
+                            status={getApprovalStatusMap(c.approval_status)}
+                            label={getApprovalLabel(c.approval_status)}
+                          />
+                          <CRMStatusBadge
+                            status={getStatusMap(c.status)}
+                            label={getStatusLabel(c.status)}
+                          />
                           <span className="text-[11px] text-slate-500 font-mono">
                             {new Date(c.created_at).toLocaleDateString("vi-VN", {
                               hour: "2-digit",
@@ -1907,12 +1885,12 @@ function MarketingCampaignsPage() {
                             })}
                           </span>
                           {c.approved_at && (
-                            <span className="text-[11px] text-emerald-500/70 font-mono italic">
+                            <span className="text-[11px] text-emerald-600 font-mono italic">
                               Duyệt: {new Date(c.approved_at).toLocaleDateString("vi-VN")}
                             </span>
                           )}
                         </div>
-                        <h3 className="text-sm font-bold text-white tracking-wide group-hover:text-purple-400 transition-colors">
+                        <h3 className="text-sm font-bold text-slate-800 tracking-wide group-hover:text-indigo-600 transition-colors">
                           {c.name}
                         </h3>
                       </div>
@@ -1922,7 +1900,7 @@ function MarketingCampaignsPage() {
                           <span className="text-[10px] text-slate-500 block uppercase">
                             Nguồn phát hành
                           </span>
-                          <span className="font-medium text-slate-300">
+                          <span className="font-medium text-slate-700">
                             {c.sender_accounts?.name || "Hệ thống CRM"}
                           </span>
                         </div>
@@ -1930,7 +1908,7 @@ function MarketingCampaignsPage() {
                           <span className="text-[10px] text-slate-500 block uppercase">
                             Kênh / Khuôn mẫu
                           </span>
-                          <span className="font-medium text-purple-400 font-mono">
+                          <span className="font-medium text-indigo-600 font-mono">
                             [{channelLabel}] {templateName || "Tùy chỉnh"}
                           </span>
                         </div>
@@ -1938,34 +1916,34 @@ function MarketingCampaignsPage() {
                     </div>
 
                     {/* Thanh tiến độ */}
-                    <div className="space-y-1.5 pt-2 border-t border-slate-800/60">
+                    <div className="space-y-1.5 pt-2 border-t border-slate-100">
                       <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-slate-400 flex items-center gap-1.5">
-                          <Users className="w-3.5 h-3.5 text-slate-500" /> Phân khúc đích:{" "}
-                          <strong className="text-slate-200">
+                        <span className="text-slate-500 flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5 text-slate-400" /> Phân khúc đích:{" "}
+                          <strong className="text-slate-700">
                             {c.customer_segments?.name || "Tùy chọn"}
                           </strong>{" "}
                           ({totalTargets} Đối tác)
                         </span>
                         <div className="flex items-center gap-3">
-                          <span className="text-emerald-400 font-medium">{sentCount} Đã gửi</span>
+                          <span className="text-emerald-600 font-medium">{sentCount} Đã gửi</span>
                           {failedCount > 0 && (
-                            <span className="text-rose-400 font-medium">{failedCount} Lỗi</span>
+                            <span className="text-rose-600 font-medium">{failedCount} Lỗi</span>
                           )}
                           <span className="text-slate-500 font-mono">{progressPercent}%</span>
                         </div>
                       </div>
 
-                      <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden">
+                      <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all duration-500 ${
                             c.status === "completed"
                               ? "bg-gradient-to-r from-emerald-500 to-teal-400"
                               : c.status === "sending"
-                                ? "bg-gradient-to-r from-purple-500 to-indigo-500"
+                                ? "bg-gradient-to-r from-indigo-500 to-blue-500"
                                 : c.status === "paused"
                                   ? "bg-amber-500"
-                                  : "bg-slate-800"
+                                  : "bg-slate-300"
                           }`}
                           style={{ width: `${progressPercent}%` }}
                         />
@@ -1973,24 +1951,24 @@ function MarketingCampaignsPage() {
                     </div>
 
                     {c.scheduled_at && c.status === "draft" && (
-                      <div className="p-2 rounded-lg bg-amber-500/5 border border-amber-500/10 text-[11px] text-amber-400 flex items-center gap-1.5">
+                      <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-700 flex items-center gap-1.5">
                         <Clock className="w-3.5 h-3.5" /> Hẹn kích hoạt tự động vào:{" "}
                         <strong className="font-mono">
                           {new Date(c.scheduled_at).toLocaleString("vi-VN")}
                         </strong>
                       </div>
                     )}
-                  </div>
+                  </CRMCard>
                 );
               })
             )}
           </div>
-        </div>
-      </main>
+        </CRMCard>
+      </div>
 
       {/* Modal Khởi tạo Chiến dịch Đa tầng (Wizard Dialog) */}
       <Dialog open={wizardOpen} onOpenChange={setWizardOpen}>
-        <DialogContent className="sm:max-w-[700px] bg-slate-950 text-slate-100 border-slate-800 p-0 overflow-hidden rounded-3xl shadow-2xl">
+        <DialogContent className="sm:max-w-[700px] bg-white text-slate-900 p-0 overflow-hidden rounded-3xl shadow-2xl">
           {/* Thanh Tiến độ Wizard */}
           <div className="bg-slate-900 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
             <div>
@@ -2628,7 +2606,7 @@ function MarketingCampaignsPage() {
 
       {/* MODAL CHI TIẾT CHIẾN DỊCH & BẢNG ĐIỀU KHIỂN GỬI (PROGRESS CONSOLE) */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="sm:max-w-[900px] bg-slate-950 text-slate-100 border-slate-800 p-0 overflow-hidden rounded-3xl shadow-2xl">
+        <DialogContent className="sm:max-w-[900px] bg-white text-slate-900 p-0 overflow-hidden rounded-3xl shadow-2xl">
           <div className="bg-slate-900 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
             <div>
               <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 block">
@@ -3258,8 +3236,8 @@ function MarketingCampaignsPage() {
 
       {/* Dialog Gửi Test Sandbox Email */}
       <Dialog open={testDialogOpen} onOpenChange={setTestDialogOpen}>
-        <DialogContent className="sm:max-w-[450px] bg-slate-950 text-slate-100 border-slate-800 p-6 rounded-3xl shadow-2xl">
-          <DialogTitle className="text-lg font-black text-white flex items-center gap-2 mb-4">
+        <DialogContent className="sm:max-w-[450px] bg-white text-slate-900 p-6 rounded-3xl shadow-2xl">
+          <DialogTitle className="text-lg font-black text-slate-800 flex items-center gap-2 mb-4">
             <Mail className="w-5 h-5 text-blue-400" />
             Send Test Email (Sandbox)
           </DialogTitle>
@@ -3308,8 +3286,8 @@ function MarketingCampaignsPage() {
 
       {/* Dialog Gửi Test Sandbox Zalo */}
       <Dialog open={testZaloDialogOpen} onOpenChange={setTestZaloDialogOpen}>
-        <DialogContent className="sm:max-w-[450px] bg-slate-950 text-slate-100 border-slate-800 p-6 rounded-3xl shadow-2xl">
-          <DialogTitle className="text-lg font-black text-white flex items-center gap-2 mb-4">
+        <DialogContent className="sm:max-w-[450px] bg-white text-slate-900 p-6 rounded-3xl shadow-2xl">
+          <DialogTitle className="text-lg font-black text-slate-800 flex items-center gap-2 mb-4">
             <Send className="w-5 h-5 text-sky-400" />
             Send Test Zalo OA (Sandbox)
           </DialogTitle>
@@ -3355,6 +3333,6 @@ function MarketingCampaignsPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </CRMPageContainer>
   );
 }

@@ -25,7 +25,11 @@ import {
   Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CRMPageContainer } from "@/components/crm/CRMPageContainer";
+import { CRMPageHeader } from "@/components/crm/CRMPageHeader";
+import { CRMCard } from "@/components/crm/CRMCard";
+import { CRMTableWrapper } from "@/components/crm/CRMTableWrapper";
+import { CRMStatusBadge } from "@/components/crm/CRMStatusBadge";
 
 export const Route = createFileRoute("/admin/crm-health")({
   component: CRMHealthPage,
@@ -578,77 +582,74 @@ function CRMHealthPage() {
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-5xl mx-auto p-6 animate-in fade-in duration-500">
+    <CRMPageContainer>
       {/* Header */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <ActivitySquare className="w-7 h-7 text-rose-500" />
-            CRM Health Dashboard
-          </h1>
-          <p className="text-sm text-slate-500 font-medium mt-1">
-            Kiểm tra chất lượng dữ liệu trước khi rollout nội bộ. Chỉ đọc — không tự sửa dữ liệu.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {lastRefreshed && (
-            <span className="text-[11px] text-slate-400 font-medium hidden md:block">
-              Cập nhật: {lastRefreshed.toLocaleTimeString("vi-VN")}
-            </span>
-          )}
-          <Button
-            variant="outline"
-            onClick={handleExport}
-            disabled={lastRefreshed === null}
-            className="rounded-xl border-slate-200 text-slate-700"
-          >
-            <Download className="w-4 h-4 mr-2" /> Export JSON
-          </Button>
-          <Button
-            onClick={runAllChecks}
-            disabled={globalLoading}
-            className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-lg shadow-rose-200"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${globalLoading ? "animate-spin" : ""}`} />
-            {globalLoading ? "Đang kiểm tra..." : "Chạy kiểm tra"}
-          </Button>
-        </div>
-      </div>
+      <CRMPageHeader
+        title="CRM Health Dashboard"
+        icon={<ActivitySquare className="w-7 h-7 text-rose-500" />}
+        description="Kiểm tra chất lượng dữ liệu trước khi rollout nội bộ. Chỉ đọc — không tự sửa dữ liệu."
+        breadcrumbs={[{ label: "Admin Hub", href: "/admin/hub" }, { label: "CRM Health" }]}
+        actionButtons={
+          <div className="flex items-center gap-2">
+            {lastRefreshed && (
+              <span className="text-[11px] text-slate-400 font-medium hidden md:block">
+                Cập nhật: {lastRefreshed.toLocaleTimeString("vi-VN")}
+              </span>
+            )}
+            <Button
+              variant="outline"
+              onClick={handleExport}
+              disabled={lastRefreshed === null}
+              className="rounded-xl border-slate-200 text-slate-700"
+            >
+              <Download className="w-4 h-4 mr-2" /> Export JSON
+            </Button>
+            <Button
+              onClick={runAllChecks}
+              disabled={globalLoading}
+              className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-lg shadow-rose-200"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${globalLoading ? "animate-spin" : ""}`} />
+              {globalLoading ? "Đang kiểm tra..." : "Chạy kiểm tra"}
+            </Button>
+          </div>
+        }
+      />
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <Card className="border-slate-200 shadow-none">
-          <CardContent className="p-4 flex flex-col items-center text-center">
+        <CRMCard className="border-slate-200 shadow-none p-0">
+          <div className="p-4 flex flex-col items-center text-center">
             <span className="text-3xl font-black text-slate-800">{totalChecks}</span>
             <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">
               Total Checks
             </span>
-          </CardContent>
-        </Card>
-        <Card className="border-emerald-100 bg-emerald-50/50 shadow-none">
-          <CardContent className="p-4 flex flex-col items-center text-center">
+          </div>
+        </CRMCard>
+        <CRMCard className="border-emerald-100 bg-emerald-50/50 shadow-none p-0">
+          <div className="p-4 flex flex-col items-center text-center">
             <span className="text-3xl font-black text-emerald-600">{okCount}</span>
             <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600/70 mt-1">
               Passed
             </span>
-          </CardContent>
-        </Card>
-        <Card className="border-amber-100 bg-amber-50/50 shadow-none">
-          <CardContent className="p-4 flex flex-col items-center text-center">
+          </div>
+        </CRMCard>
+        <CRMCard className="border-amber-100 bg-amber-50/50 shadow-none p-0">
+          <div className="p-4 flex flex-col items-center text-center">
             <span className="text-3xl font-black text-amber-600">{warnCount}</span>
             <span className="text-[10px] font-bold uppercase tracking-widest text-amber-600/70 mt-1">
               Warnings
             </span>
-          </CardContent>
-        </Card>
-        <Card className="border-rose-100 bg-rose-50/50 shadow-none relative overflow-hidden">
-          <CardContent className="p-4 flex flex-col items-center text-center">
+          </div>
+        </CRMCard>
+        <CRMCard className="border-rose-100 bg-rose-50/50 shadow-none p-0 relative overflow-hidden">
+          <div className="p-4 flex flex-col items-center text-center">
             <span className="text-3xl font-black text-rose-600">{totalIssues}</span>
             <span className="text-[10px] font-bold uppercase tracking-widest text-rose-600/70 mt-1">
               Total Issues
             </span>
-          </CardContent>
-        </Card>
+          </div>
+        </CRMCard>
       </div>
 
       {/* CTA if never run */}
@@ -671,10 +672,10 @@ function CRMHealthPage() {
           const modLoading = mod.loading || globalLoading;
 
           return (
-            <Card key={mod.id} className="border-slate-200 shadow-sm overflow-hidden">
+            <CRMCard key={mod.id} className="border-slate-200 shadow-sm overflow-hidden p-0">
               {/* Module header */}
               <button className="w-full text-left" onClick={() => toggleExpand(mod.id)}>
-                <CardHeader className="py-4 px-5 flex flex-row items-center justify-between gap-2 cursor-pointer hover:bg-slate-50 transition-colors">
+                <div className="py-4 px-5 flex flex-row items-center justify-between gap-2 cursor-pointer hover:bg-slate-50 transition-colors">
                   <div className="flex items-center gap-3">
                     <div
                       className={`w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100 ${mod.color}`}
@@ -682,7 +683,7 @@ function CRMHealthPage() {
                       {mod.icon}
                     </div>
                     <div>
-                      <CardTitle className="text-sm font-bold text-slate-800">{mod.name}</CardTitle>
+                      <h3 className="text-sm font-bold text-slate-800">{mod.name}</h3>
                       <p className="text-[11px] text-slate-400 font-medium mt-0.5">
                         {mod.checks.length} checks
                         {lastRefreshed !== null && (
@@ -705,117 +706,119 @@ function CRMHealthPage() {
                       <ChevronRight className="w-4 h-4 text-slate-400" />
                     )}
                   </div>
-                </CardHeader>
+                </div>
               </button>
 
               {/* Module checks */}
               {mod.expanded && (
-                <CardContent className="p-0 border-t border-slate-100">
-                  {/* Table header */}
-                  <div className="grid grid-cols-12 gap-3 px-5 py-2 bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                    <div className="col-span-1">Status</div>
-                    <div className="col-span-4">Check</div>
-                    <div className="col-span-4">Mô tả</div>
-                    <div className="col-span-2 text-center">Số lượng</div>
-                    <div className="col-span-1 text-right">SQL</div>
-                  </div>
+                <div className="p-0 border-t border-slate-100 overflow-x-auto">
+                  <div className="min-w-[800px]">
+                    {/* Table header */}
+                    <div className="grid grid-cols-12 gap-3 px-5 py-2 bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                      <div className="col-span-1">Status</div>
+                      <div className="col-span-4">Check</div>
+                      <div className="col-span-4">Mô tả</div>
+                      <div className="col-span-2 text-center">Số lượng</div>
+                      <div className="col-span-1 text-right">SQL</div>
+                    </div>
 
-                  <div className="divide-y divide-slate-100">
-                    {mod.checks.map((check) => {
-                      const isLoading = check.status === "loading" || modLoading;
-                      const isOk = check.status === "ok";
-                      const isWarn = check.status === "warning";
-                      const isUnavail = check.status === "unavailable";
+                    <div className="divide-y divide-slate-100">
+                      {mod.checks.map((check) => {
+                        const isLoading = check.status === "loading" || modLoading;
+                        const isOk = check.status === "ok";
+                        const isWarn = check.status === "warning";
+                        const isUnavail = check.status === "unavailable";
 
-                      return (
-                        <div
-                          key={check.id}
-                          className="grid grid-cols-12 gap-3 px-5 py-3 items-center hover:bg-slate-50/50 transition-colors"
-                        >
-                          {/* Status icon */}
-                          <div className="col-span-1">
-                            {isLoading ? (
-                              <RefreshCw className="w-4 h-4 animate-spin text-slate-300" />
-                            ) : isOk ? (
-                              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                            ) : isWarn ? (
-                              <AlertTriangle className="w-4 h-4 text-amber-500" />
-                            ) : (
-                              <div title="Module chưa khả dụng">
-                                <Info className="w-4 h-4 text-slate-300" />
-                              </div>
-                            )}
-                          </div>
+                        return (
+                          <div
+                            key={check.id}
+                            className="grid grid-cols-12 gap-3 px-5 py-3 items-center hover:bg-slate-50/50 transition-colors"
+                          >
+                            {/* Status icon */}
+                            <div className="col-span-1">
+                              {isLoading ? (
+                                <RefreshCw className="w-4 h-4 animate-spin text-slate-300" />
+                              ) : isOk ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                              ) : isWarn ? (
+                                <AlertTriangle className="w-4 h-4 text-amber-500" />
+                              ) : (
+                                <div title="Module chưa khả dụng">
+                                  <Info className="w-4 h-4 text-slate-300" />
+                                </div>
+                              )}
+                            </div>
 
-                          {/* Label */}
-                          <div className="col-span-4">
-                            <span className="text-sm font-semibold text-slate-800">
-                              {check.label}
-                            </span>
-                          </div>
-
-                          {/* Description */}
-                          <div className="col-span-4">
-                            <span className="text-xs text-slate-400 font-mono">
-                              {check.description}
-                            </span>
-                          </div>
-
-                          {/* Count badge */}
-                          <div className="col-span-2 flex justify-center">
-                            {isLoading ? (
-                              <span className="text-xs text-slate-300 font-bold">—</span>
-                            ) : isUnavail ? (
-                              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-400 text-[10px] font-bold">
-                                N/A
+                            {/* Label */}
+                            <div className="col-span-4">
+                              <span className="text-sm font-semibold text-slate-800">
+                                {check.label}
                               </span>
-                            ) : (
-                              <span
-                                className={`px-3 py-0.5 rounded-full text-xs font-black ${
-                                  check.count === 0
-                                    ? "bg-emerald-100 text-emerald-700"
-                                    : "bg-amber-100 text-amber-700"
-                                }`}
-                              >
-                                {check.count?.toLocaleString("vi-VN")}
+                            </div>
+
+                            {/* Description */}
+                            <div className="col-span-4">
+                              <span className="text-xs text-slate-400 font-mono">
+                                {check.description}
                               </span>
-                            )}
-                          </div>
+                            </div>
 
-                          {/* SQL tooltip / copy */}
-                          <div className="col-span-1 flex justify-end">
-                            {check.sql && (
-                              <button
-                                title={check.sql}
-                                onClick={() => {
-                                  navigator.clipboard.writeText(check.sql!);
-                                  toast.success("Đã copy SQL");
-                                }}
-                                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
-                              >
-                                <Copy className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                            {/* Count badge */}
+                            <div className="col-span-2 flex justify-center">
+                              {isLoading ? (
+                                <span className="text-xs text-slate-300 font-bold">—</span>
+                              ) : isUnavail ? (
+                                <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-400 text-[10px] font-bold">
+                                  N/A
+                                </span>
+                              ) : (
+                                <span
+                                  className={`px-3 py-0.5 rounded-full text-xs font-black ${
+                                    check.count === 0
+                                      ? "bg-emerald-100 text-emerald-700"
+                                      : "bg-amber-100 text-amber-700"
+                                  }`}
+                                >
+                                  {check.count?.toLocaleString("vi-VN")}
+                                </span>
+                              )}
+                            </div>
 
-                  {/* Per-module refresh */}
-                  <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/30 flex justify-end">
-                    <button
-                      onClick={() => runCheckForModule(mod.id)}
-                      disabled={mod.loading || globalLoading}
-                      className="text-[11px] font-bold text-slate-400 hover:text-slate-700 flex items-center gap-1.5 transition-colors"
-                    >
-                      <RefreshCw className={`w-3 h-3 ${mod.loading ? "animate-spin" : ""}`} />
-                      Làm mới module này
-                    </button>
+                            {/* SQL tooltip / copy */}
+                            <div className="col-span-1 flex justify-end">
+                              {check.sql && (
+                                <button
+                                  title={check.sql}
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(check.sql!);
+                                    toast.success("Đã copy SQL");
+                                  }}
+                                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Per-module refresh */}
+                    <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/30 flex justify-end">
+                      <button
+                        onClick={() => runCheckForModule(mod.id)}
+                        disabled={mod.loading || globalLoading}
+                        className="text-[11px] font-bold text-slate-400 hover:text-slate-700 flex items-center gap-1.5 transition-colors"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${mod.loading ? "animate-spin" : ""}`} />
+                        Làm mới module này
+                      </button>
+                    </div>
                   </div>
-                </CardContent>
+                </div>
               )}
-            </Card>
+            </CRMCard>
           );
         })}
       </div>
@@ -825,6 +828,6 @@ function CRMHealthPage() {
         <p>Chỉ đọc — Không tự sửa dữ liệu. Phase C - CRM Rollout Readiness.</p>
         {lastRefreshed && <p>Lần cuối: {lastRefreshed.toLocaleString("vi-VN")}</p>}
       </div>
-    </div>
+    </CRMPageContainer>
   );
 }

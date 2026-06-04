@@ -6,6 +6,8 @@ import { TimelineSource, TimelineItem } from "@/types/customerTimeline";
 import { Loader2, Zap } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { CRMLoadingState } from "@/components/crm/CRMLoadingState";
+import { CRMEmptyState } from "@/components/crm/CRMEmptyState";
 
 interface Props {
   customerId: string;
@@ -70,21 +72,20 @@ export const CustomerTimelineFeed: React.FC<Props> = ({ customerId }) => {
       <TimelineFilters activeFilter={activeFilter} onFilterChange={setActiveFilter} />
 
       {loading && data.length === 0 ? (
-        <div className="flex justify-center items-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-slate-300" />
+        <div className="py-12">
+          <CRMLoadingState type="list" rows={3} />
         </div>
       ) : filteredData.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">
-          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center border-2 border-slate-100 mb-4">
-            <Zap className="w-6 h-6 text-slate-300" />
-          </div>
-          <h3 className="text-sm font-black text-slate-800 mb-1">Chưa có hoạt động nào</h3>
-          <p className="text-xs text-slate-500 max-w-[250px]">
-            {activeFilter === "all"
+        <CRMEmptyState
+          icon={<Zap className="w-10 h-10 text-slate-300" />}
+          title="Chưa có hoạt động nào"
+          description={
+            activeFilter === "all"
               ? "Hãy bắt đầu tương tác bằng cách tạo ghi chú, lịch hẹn hoặc thêm kênh liên hệ đầu tiên."
-              : "Không tìm thấy dữ liệu phù hợp với bộ lọc hiện tại."}
-          </p>
-        </div>
+              : "Không tìm thấy dữ liệu phù hợp với bộ lọc hiện tại."
+          }
+          className="mt-4"
+        />
       ) : (
         <div className="space-y-0 pl-1 pb-10">
           {filteredData.map((item) => (

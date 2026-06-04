@@ -3,7 +3,11 @@ import React, { useState, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CRMPageContainer } from "@/components/crm/CRMPageContainer";
+import { CRMPageHeader } from "@/components/crm/CRMPageHeader";
+import { CRMCard } from "@/components/crm/CRMCard";
+import { CRMStatusBadge, CRMStatusBadgeVariant } from "@/components/crm/CRMStatusBadge";
+import { CRMEmptyState } from "@/components/crm/CRMEmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -164,32 +168,40 @@ function AdminProductKnowledge() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto flex flex-col md:flex-row gap-6 h-auto md:h-[calc(100vh-6rem)]">
-      {/* Left Sidebar: Product List */}
-      <Card className="w-full md:w-1/3 flex flex-col h-[400px] md:h-full">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-indigo-500" /> Catalog Sản Phẩm
-          </CardTitle>
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-            <Input
-              placeholder="Tìm ID sản phẩm..."
-              className="pl-9"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+    <CRMPageContainer>
+      <CRMPageHeader
+        title="Quản lý Tri thức Sản phẩm (AI RAG)"
+        icon={<BookOpen className="w-7 h-7 text-indigo-500" />}
+        description="Quản lý dữ liệu chuyên sâu để AI Sales bot trả lời chính xác về sản phẩm."
+        breadcrumbs={[{ label: "Admin Hub", href: "/admin/hub" }, { label: "Tri thức Sản phẩm" }]}
+      />
+
+      <div className="flex flex-col md:flex-row gap-6 mt-4 h-auto md:h-[calc(100vh-10rem)]">
+        {/* Left Sidebar: Product List */}
+        <CRMCard className="w-full md:w-1/3 flex flex-col p-0 h-[400px] md:h-full overflow-hidden">
+          <div className="p-4 border-b border-slate-100 shrink-0">
+            <h3 className="text-sm font-bold flex items-center gap-2 mb-3">
+              <BookOpen className="w-4 h-4 text-indigo-500" /> Catalog Sản Phẩm
+            </h3>
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+              <Input
+                placeholder="Tìm ID sản phẩm..."
+                className="pl-9 h-9 text-xs"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
           </div>
-        </CardHeader>
-        <CardContent className="flex-1 overflow-y-auto space-y-2">
+          <div className="flex-1 overflow-y-auto p-2 space-y-1">
           {products
             .filter((p) => p.product_id.toString().includes(searchQuery))
             .map((p) => {
-              const statusColor: Record<string, string> = {
-                draft: "bg-slate-100 text-slate-500",
-                review: "bg-amber-100 text-amber-700",
-                approved: "bg-emerald-100 text-emerald-700",
-                archived: "bg-rose-100 text-rose-500",
+              const statusVariant: Record<string, CRMStatusBadgeVariant> = {
+                draft: "neutral",
+                review: "warning",
+                approved: "success",
+                archived: "error",
               };
               const statusLabel: Record<string, string> = {
                 draft: "Nháp",
@@ -201,25 +213,29 @@ function AdminProductKnowledge() {
                 <div
                   key={p.id}
                   onClick={() => handleSelectProduct(p)}
-                  className={`p-3 rounded-xl border cursor-pointer transition-colors ${selectedProduct?.id === p.id ? "bg-indigo-50 border-indigo-200" : "hover:bg-slate-50"}`}
+                  className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                    selectedProduct?.id === p.id 
+                      ? "bg-indigo-50/50 border-indigo-200 shadow-sm" 
+                      : "border-transparent hover:bg-slate-50"
+                  }`}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="font-bold text-slate-800">Sản phẩm ID: {p.product_id}</div>
-                    <span
-                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${statusColor[p.qa_status] || statusColor.draft}`}
-                    >
+                    <div className="text-xs font-bold text-slate-800">SP ID: {p.product_id}</div>
+                    <CRMStatusBadge variant={statusVariant[p.qa_status] || "neutral"}>
                       {statusLabel[p.qa_status] || p.qa_status}
-                    </span>
+                    </CRMStatusBadge>
                   </div>
-                  <div className="text-xs text-slate-500 truncate mt-1">{p.benefits}</div>
+                  <div className="text-[11px] text-slate-500 truncate mt-1">
+                    {p.benefits || "Chưa có benefits..."}
+                  </div>
                 </div>
               );
             })}
-        </CardContent>
-      </Card>
+          </div>
+        </CRMCard>
 
-      {/* Right Content: CMS Editor */}
-      <Card className="w-full md:w-2/3 flex flex-col h-[600px] md:h-full overflow-hidden">
+        {/* Right Content: CMS Editor */}
+        <CRMCard className="w-full md:w-2/3 flex flex-col p-0 h-[600px] md:h-full overflow-hidden">
         {selectedProduct ? (
           <div className="flex flex-col h-full">
             <div className="p-5 border-b border-slate-100 bg-slate-50/50">
@@ -416,12 +432,16 @@ function AdminProductKnowledge() {
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
-            <BookOpen className="w-12 h-12 mb-4 text-slate-200" />
-            <p>Chọn một sản phẩm bên trái để quản lý Tri thức</p>
+          <div className="flex-1 flex flex-col items-center justify-center p-8">
+            <CRMEmptyState 
+              title="Chọn sản phẩm" 
+              description="Chọn một sản phẩm bên trái để bắt đầu quản lý Tri thức Sản phẩm (AI RAG)"
+              icon={<BookOpen className="w-12 h-12 text-slate-200" />}
+            />
           </div>
         )}
-      </Card>
-    </div>
+        </CRMCard>
+      </div>
+    </CRMPageContainer>
   );
 }

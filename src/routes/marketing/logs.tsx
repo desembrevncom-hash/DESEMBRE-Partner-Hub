@@ -20,6 +20,11 @@ import {
   FileText,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { CRMPageContainer } from "@/components/crm/CRMPageContainer";
+import { CRMPageHeader } from "@/components/crm/CRMPageHeader";
+import { CRMCard } from "@/components/crm/CRMCard";
+import { CRMTableWrapper } from "@/components/crm/CRMTableWrapper";
+import { CRMStatusBadge } from "@/components/crm/CRMStatusBadge";
 
 export const Route = createFileRoute("/marketing/logs")({
   validateSearch: (search: Record<string, unknown>) => {
@@ -220,43 +225,26 @@ function MarketingLogsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 font-sans selection:bg-purple-500 selection:text-white">
-      <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-xl sticky top-0 z-30">
-        <div className="container mx-auto px-4 py-4 md:px-6 h-auto md:h-20 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <Link
-              to="/marketing/campaigns"
-              className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-all shrink-0"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/20">
-                  Infrastructure
-                </span>
-              </div>
-              <h1 className="text-xl font-black tracking-tight text-white flex items-center gap-2 mt-0.5">
-                Delivery Logs & Suppression
-              </h1>
-            </div>
-          </div>
-        </div>
-      </header>
+    <CRMPageContainer>
+      <CRMPageHeader
+        title="Delivery Logs & Suppression"
+        badgeText="Infrastructure"
+        backTo="/marketing/campaigns"
+      />
 
-      <main className="container mx-auto px-4 md:px-6 mt-8 space-y-6">
+      <div className="space-y-6 mt-6">
         {/* Tabs */}
-        <div className="flex gap-2 border-b border-slate-800 pb-px">
+        <div className="flex gap-2 border-b border-slate-200 pb-px">
           <button
             onClick={() => setActiveTab("logs")}
-            className={`px-4 py-2 text-sm font-bold border-b-2 transition-all ${activeTab === "logs" ? "border-purple-500 text-purple-400" : "border-transparent text-slate-500 hover:text-slate-300"}`}
+            className={`px-4 py-2 text-sm font-bold border-b-2 transition-all ${activeTab === "logs" ? "border-indigo-500 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
           >
             Delivery Logs
           </button>
           {(isAdmin || isSubAdmin) && (
             <button
               onClick={() => setActiveTab("suppression")}
-              className={`px-4 py-2 text-sm font-bold border-b-2 transition-all ${activeTab === "suppression" ? "border-rose-500 text-rose-400" : "border-transparent text-slate-500 hover:text-slate-300"}`}
+              className={`px-4 py-2 text-sm font-bold border-b-2 transition-all ${activeTab === "suppression" ? "border-rose-500 text-rose-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
             >
               Suppression List (Admin)
             </button>
@@ -267,12 +255,12 @@ function MarketingLogsPage() {
         {activeTab === "logs" && (
           <div className="space-y-4">
             {activeCampaignFilter && (
-              <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-3 flex items-center justify-between">
+              <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span>
-                  <span className="text-xs font-bold text-purple-300">
+                  <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                  <span className="text-xs font-bold text-indigo-700">
                     Đang lọc theo Campaign:{" "}
-                    <span className="font-mono text-purple-200 bg-purple-900/50 px-1.5 py-0.5 rounded">
+                    <span className="font-mono text-indigo-800 bg-indigo-100/50 px-1.5 py-0.5 rounded">
                       {activeCampaignFilter.substring(0, 12)}
                     </span>
                   </span>
@@ -280,7 +268,7 @@ function MarketingLogsPage() {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-7 px-2 text-[10px] border-purple-500/30 text-purple-300 hover:bg-purple-500/20 hover:text-white"
+                  className="h-7 px-2 text-[10px] border-indigo-200 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-800"
                   onClick={() => {
                     setActiveCampaignFilter(null);
                     setLogSearchQuery("");
@@ -291,59 +279,49 @@ function MarketingLogsPage() {
               </div>
             )}
 
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <CRMCard className="p-4">
               <span className="text-[10px] font-black uppercase text-slate-500 block mb-3">
                 {activeCampaignFilter ? "Tổng quan chiến dịch này" : "Tổng quan trang hiện tại"}
               </span>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                <div className="bg-slate-950 border border-slate-800 p-3 rounded-lg">
-                  <span className="text-[10px] text-slate-400 block mb-1 uppercase font-bold">
-                    Gửi thử
-                  </span>
-                  <span className="text-xl font-black text-white">{stats.test}</span>
+                <div className="bg-slate-50 border border-slate-100 p-3 rounded-lg">
+                  <span className="text-[10px] text-slate-500 block mb-1 uppercase font-bold">Gửi thử</span>
+                  <span className="text-xl font-black text-slate-800">{stats.test}</span>
                 </div>
-                <div className="bg-slate-950 border border-slate-800 p-3 rounded-lg">
-                  <span className="text-[10px] text-slate-400 block mb-1 uppercase font-bold">
-                    Giả lập
-                  </span>
-                  <span className="text-xl font-black text-white">{stats.mock}</span>
+                <div className="bg-slate-50 border border-slate-100 p-3 rounded-lg">
+                  <span className="text-[10px] text-slate-500 block mb-1 uppercase font-bold">Giả lập</span>
+                  <span className="text-xl font-black text-slate-800">{stats.mock}</span>
                 </div>
-                <div className="bg-slate-950 border border-slate-800 p-3 rounded-lg">
-                  <span className="text-[10px] text-slate-400 block mb-1 uppercase font-bold">
-                    Pilot Nội bộ
-                  </span>
-                  <span className="text-xl font-black text-white">{stats.pilot}</span>
+                <div className="bg-slate-50 border border-slate-100 p-3 rounded-lg">
+                  <span className="text-[10px] text-slate-500 block mb-1 uppercase font-bold">Pilot Nội bộ</span>
+                  <span className="text-xl font-black text-slate-800">{stats.pilot}</span>
                 </div>
-                <div className="bg-slate-950 border border-slate-800 p-3 rounded-lg">
-                  <span className="text-[10px] text-rose-400 block mb-1 uppercase font-bold">
-                    Lỗi / Chặn
-                  </span>
-                  <span className="text-xl font-black text-rose-500">{stats.failed}</span>
+                <div className="bg-rose-50 border border-rose-100 p-3 rounded-lg">
+                  <span className="text-[10px] text-rose-500 block mb-1 uppercase font-bold">Lỗi / Chặn</span>
+                  <span className="text-xl font-black text-rose-600">{stats.failed}</span>
                 </div>
-                <div className="bg-slate-950 border border-slate-800 p-3 rounded-lg">
-                  <span className="text-[10px] text-indigo-400 block mb-1 uppercase font-bold">
-                    Tổng hiển thị
-                  </span>
-                  <span className="text-xl font-black text-indigo-500">{stats.total}</span>
+                <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-lg">
+                  <span className="text-[10px] text-indigo-500 block mb-1 uppercase font-bold">Tổng hiển thị</span>
+                  <span className="text-xl font-black text-indigo-600">{stats.total}</span>
                 </div>
               </div>
-            </div>
+            </CRMCard>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <CRMCard className="p-4 flex flex-wrap items-center gap-2">
               <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <Input
                   value={logSearchQuery}
                   onChange={(e) => setLogSearchQuery(e.target.value)}
                   placeholder="Tìm Campaign ID hoặc Email/Zalo..."
-                  className="w-64 pl-9 bg-slate-900 border-slate-800 h-9 text-xs"
+                  className="w-64 pl-9 bg-white border-slate-200 h-9 text-xs"
                   onKeyDown={(e) => e.key === "Enter" && loadLogs()}
                 />
               </div>
               <select
                 value={logChannelFilter}
                 onChange={(e) => setLogChannelFilter(e.target.value)}
-                className="h-9 rounded-md bg-slate-900 border border-slate-800 px-3 text-xs text-slate-300 outline-none focus:ring-1 focus:ring-purple-500"
+                className="h-9 rounded-md bg-white border border-slate-200 px-3 text-xs text-slate-600 outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="all">Tất cả kênh</option>
                 <option value="email">Email</option>
@@ -353,7 +331,7 @@ function MarketingLogsPage() {
               <select
                 value={logModeFilter}
                 onChange={(e) => setLogModeFilter(e.target.value)}
-                className="h-9 rounded-md bg-slate-900 border border-slate-800 px-3 text-xs text-slate-300 outline-none focus:ring-1 focus:ring-purple-500"
+                className="h-9 rounded-md bg-white border border-slate-200 px-3 text-xs text-slate-600 outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="all">Tất cả Mode</option>
                 <option value="test">Gửi thử</option>
@@ -363,7 +341,7 @@ function MarketingLogsPage() {
               <select
                 value={logStatusFilter}
                 onChange={(e) => setLogStatusFilter(e.target.value)}
-                className="h-9 rounded-md bg-slate-900 border border-slate-800 px-3 text-xs text-slate-300 outline-none focus:ring-1 focus:ring-purple-500"
+                className="h-9 rounded-md bg-white border border-slate-200 px-3 text-xs text-slate-600 outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="all">Tất cả trạng thái</option>
                 <option value="test_sent">Gửi thử thành công</option>
@@ -372,29 +350,25 @@ function MarketingLogsPage() {
                 <option value="failed">Lỗi</option>
                 <option value="blocked">Bị chặn</option>
               </select>
-              <Button
-                onClick={loadLogs}
-                variant="outline"
-                className="h-9 px-3 bg-slate-900 border-slate-800"
-              >
+              <Button onClick={loadLogs} variant="outline" className="h-9 px-3">
                 <RefreshCw className="w-4 h-4" />
               </Button>
-            </div>
+            </CRMCard>
 
-            <div className="rounded-xl border border-slate-800 bg-slate-900/50 overflow-hidden">
-              <div className="overflow-x-auto w-full max-w-full">
+            <CRMCard className="p-0 overflow-hidden">
+              <CRMTableWrapper>
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-900 border-b border-slate-800 text-slate-400">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
                     <tr>
-                      <th className="px-4 py-3 font-medium">Thời gian</th>
-                      <th className="px-4 py-3 font-medium">Channel</th>
-                      <th className="px-4 py-3 font-medium">Recipient</th>
-                      <th className="px-4 py-3 font-medium">Status / Mode</th>
-                      <th className="px-4 py-3 font-medium">Campaign ID</th>
-                      <th className="px-4 py-3 font-medium">Reason</th>
+                      <th className="px-4 py-3 font-medium uppercase text-[10px] tracking-wider">Thời gian</th>
+                      <th className="px-4 py-3 font-medium uppercase text-[10px] tracking-wider">Channel</th>
+                      <th className="px-4 py-3 font-medium uppercase text-[10px] tracking-wider">Recipient</th>
+                      <th className="px-4 py-3 font-medium uppercase text-[10px] tracking-wider">Status / Mode</th>
+                      <th className="px-4 py-3 font-medium uppercase text-[10px] tracking-wider">Campaign ID</th>
+                      <th className="px-4 py-3 font-medium uppercase text-[10px] tracking-wider">Reason</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/50">
+                  <tbody className="divide-y divide-slate-100">
                     {loadingLogs ? (
                       <tr>
                         <td colSpan={6} className="text-center py-8">
@@ -409,58 +383,58 @@ function MarketingLogsPage() {
                       </tr>
                     ) : (
                       logs.map((log) => (
-                        <tr key={log.id} className="hover:bg-slate-800/30">
+                        <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
                           <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
                             {new Date(log.created_at).toLocaleString("vi-VN")}
                           </td>
                           <td className="px-4 py-3">
-                            <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px] uppercase">
+                            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-mono text-[10px] uppercase">
                               {log.channel}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-slate-300">
+                          <td className="px-4 py-3 text-slate-700">
                             {log.delivery_metadata?.to ||
                               log.delivery_metadata?.email ||
                               log.delivery_metadata?.phone ||
                               "-"}
                           </td>
                           <td className="px-4 py-3">
-                            <div className="flex flex-col gap-1">
-                              <span
-                                className={`w-fit px-2 py-0.5 rounded text-[10px] font-bold ${
+                            <div className="flex flex-col gap-1 items-start">
+                              <CRMStatusBadge
+                                status={
                                   log.status?.includes("failed") || log.status === "blocked"
-                                    ? "bg-rose-500/20 text-rose-400"
-                                    : log.status?.includes("sent")
-                                      ? "bg-emerald-500/20 text-emerald-400"
-                                      : "bg-slate-800 text-slate-400"
-                                }`}
-                              >
-                                {getStatusLabel(log.status)}
-                              </span>
+                                    ? "error"
+                                    : log.status?.includes("sent") || log.status?.includes("delivered")
+                                      ? "success"
+                                      : log.status?.includes("skipped") || log.status?.includes("suppressed")
+                                        ? "warning"
+                                        : "info"
+                                }
+                                label={getStatusLabel(log.status)}
+                              />
                               {log.delivery_metadata?.mode && (
-                                <span className="text-[9px] text-slate-400 bg-slate-800/50 px-1.5 py-0.5 rounded-sm w-fit uppercase font-bold tracking-widest">
+                                <span className="text-[9px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-sm uppercase font-bold tracking-widest border border-slate-200">
                                   {getModeLabel(log.delivery_metadata.mode)}
                                 </span>
                               )}
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-slate-500 font-mono text-[10px]">
-                            {log.campaign_id?.substring(0, 8)}...
+                          <td className="px-4 py-3 text-slate-600 font-mono text-[10px]">
+                            {log.campaign_id?.substring(0, 8) || "-"}
                           </td>
-                          <td className="px-4 py-3 text-slate-400 text-[11px] max-w-[200px]">
+                          <td className="px-4 py-3 text-slate-600 text-[11px] max-w-[200px]">
                             <div className="truncate mb-1" title={log.reason}>
                               {log.reason || "-"}
                             </div>
                             {log.delivery_metadata?.provider_message_id && (
-                              <div className="text-[9px] text-slate-500 mb-1 font-mono bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800/50 w-fit">
-                                Mã NSX: {log.delivery_metadata.provider_message_id.substring(0, 16)}
-                                ...
+                              <div className="text-[9px] text-slate-500 mb-1 font-mono bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200 w-fit">
+                                Mã NSX: {log.delivery_metadata.provider_message_id.substring(0, 16)}...
                               </div>
                             )}
                             {log.delivery_metadata && (
                               <button
                                 onClick={() => setMetadataLogId(log)}
-                                className="text-[9px] text-purple-400 hover:text-purple-300 underline font-bold"
+                                className="text-[9px] text-indigo-500 hover:text-indigo-600 underline font-bold"
                               >
                                 Xem chi tiết kỹ thuật
                               </button>
@@ -471,8 +445,8 @@ function MarketingLogsPage() {
                     )}
                   </tbody>
                 </table>
-              </div>
-            </div>
+              </CRMTableWrapper>
+            </CRMCard>
           </div>
         )}
 
@@ -494,7 +468,7 @@ function MarketingLogsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {loadingSuppression ? (
                 <div className="col-span-full py-8 text-center">
-                  <Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-500" />
+                  <Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-400" />
                 </div>
               ) : suppressionList.length === 0 ? (
                 <div className="col-span-full py-8 text-center text-slate-500 text-sm">
@@ -502,9 +476,9 @@ function MarketingLogsPage() {
                 </div>
               ) : (
                 suppressionList.map((s) => (
-                  <div
+                  <CRMCard
                     key={s.id}
-                    className={`p-4 rounded-xl border ${s.is_active ? "bg-slate-900 border-rose-500/30" : "bg-slate-900/50 border-slate-800 opacity-60"} space-y-3`}
+                    className={`${s.is_active ? "border-rose-200" : "opacity-60"} space-y-3`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
@@ -527,53 +501,53 @@ function MarketingLogsPage() {
                     </div>
 
                     <div>
-                      <strong className="text-sm font-mono text-white break-all">
+                      <strong className="text-sm font-mono text-slate-800 break-all">
                         {s.normalized_contact_value}
                       </strong>
                     </div>
 
-                    <div className="bg-slate-950 rounded p-2 text-[10px] space-y-1">
-                      <div className="flex justify-between text-slate-400">
+                    <div className="bg-slate-50 rounded p-2 text-[10px] space-y-1">
+                      <div className="flex justify-between text-slate-500">
                         <span>Lý do:</span>
-                        <span className="text-rose-400 font-medium">{s.reason}</span>
+                        <span className="text-rose-600 font-medium">{s.reason}</span>
                       </div>
-                      <div className="flex justify-between text-slate-400">
+                      <div className="flex justify-between text-slate-500">
                         <span>Nguồn:</span>
-                        <span>{s.source}</span>
+                        <span className="text-slate-700 font-medium">{s.source}</span>
                       </div>
                       <div className="flex justify-between text-slate-500">
                         <span>Ngày tạo:</span>
-                        <span>{new Date(s.created_at).toLocaleDateString("vi-VN")}</span>
+                        <span className="text-slate-700 font-medium">{new Date(s.created_at).toLocaleDateString("vi-VN")}</span>
                       </div>
                     </div>
                     {s.note && (
-                      <p className="text-[10px] text-slate-500 italic mt-2 text-center border-t border-slate-800 pt-2">
+                      <p className="text-[10px] text-slate-500 italic mt-2 text-center border-t border-slate-100 pt-2">
                         {s.note}
                       </p>
                     )}
-                  </div>
+                  </CRMCard>
                 ))
               )}
             </div>
           </div>
         )}
-      </main>
+      </div>
 
       {/* Modal Add Suppression */}
       <Dialog open={isAddSuppressionOpen} onOpenChange={setIsAddSuppressionOpen}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-slate-100 sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle className="text-rose-400 font-bold flex items-center gap-2">
+            <DialogTitle className="text-rose-600 font-bold flex items-center gap-2">
               <ShieldAlert className="w-5 h-5" /> Thêm Danh sách đen
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-300">Channel</label>
+              <label className="text-xs font-bold text-slate-700">Channel</label>
               <select
                 value={newSuppression.channel}
                 onChange={(e) => setNewSuppression({ ...newSuppression, channel: e.target.value })}
-                className="w-full h-9 rounded-md bg-slate-950 border border-slate-800 px-3 text-sm text-slate-300 outline-none focus:ring-1 focus:ring-rose-500"
+                className="w-full h-9 rounded-md bg-white border border-slate-200 px-3 text-sm text-slate-700 outline-none focus:ring-1 focus:ring-rose-500"
               >
                 <option value="email">Email</option>
                 <option value="phone">Phone</option>
@@ -581,22 +555,22 @@ function MarketingLogsPage() {
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-300">Contact Value</label>
+              <label className="text-xs font-bold text-slate-700">Contact Value</label>
               <Input
                 value={newSuppression.contact_value}
                 onChange={(e) =>
                   setNewSuppression({ ...newSuppression, contact_value: e.target.value })
                 }
                 placeholder="Email hoặc Zalo ID"
-                className="h-9 bg-slate-950 border-slate-800 text-sm focus-visible:ring-rose-500"
+                className="h-9"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-300">Reason</label>
+              <label className="text-xs font-bold text-slate-700">Reason</label>
               <select
                 value={newSuppression.reason}
                 onChange={(e) => setNewSuppression({ ...newSuppression, reason: e.target.value })}
-                className="w-full h-9 rounded-md bg-slate-950 border border-slate-800 px-3 text-sm text-slate-300 outline-none focus:ring-1 focus:ring-rose-500"
+                className="w-full h-9 rounded-md bg-white border border-slate-200 px-3 text-sm text-slate-700 outline-none focus:ring-1 focus:ring-rose-500"
               >
                 <option value="bounced">Bounced (Lỗi gửi)</option>
                 <option value="complaint">Complaint (Báo cáo Spam)</option>
@@ -606,12 +580,12 @@ function MarketingLogsPage() {
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-300">Note (Optional)</label>
+              <label className="text-xs font-bold text-slate-700">Note (Optional)</label>
               <Input
                 value={newSuppression.note}
                 onChange={(e) => setNewSuppression({ ...newSuppression, note: e.target.value })}
                 placeholder="Ghi chú thêm..."
-                className="h-9 bg-slate-950 border-slate-800 text-sm focus-visible:ring-rose-500"
+                className="h-9"
               />
             </div>
             <Button
@@ -625,17 +599,17 @@ function MarketingLogsPage() {
       </Dialog>
 
       <Dialog open={!!metadataLogId} onOpenChange={(open) => !open && setMetadataLogId(null)}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-slate-100 sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle className="text-white font-bold text-sm flex items-center gap-2">
-              <FileText className="w-4 h-4 text-purple-400" /> Chi tiết Metadata
+            <DialogTitle className="font-bold text-sm flex items-center gap-2">
+              <FileText className="w-4 h-4 text-indigo-500" /> Chi tiết Metadata
             </DialogTitle>
           </DialogHeader>
-          <div className="mt-4 bg-black p-3 rounded-xl border border-slate-800 text-slate-300 font-mono text-[10px] overflow-auto max-h-[60vh] whitespace-pre-wrap">
+          <div className="mt-4 bg-slate-900 p-3 rounded-xl border border-slate-800 text-slate-300 font-mono text-[10px] overflow-auto max-h-[60vh] whitespace-pre-wrap">
             {metadataLogId ? JSON.stringify(metadataLogId.delivery_metadata, null, 2) : ""}
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </CRMPageContainer>
   );
 }

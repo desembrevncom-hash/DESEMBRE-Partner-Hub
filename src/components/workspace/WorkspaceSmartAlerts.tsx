@@ -3,6 +3,9 @@ import { AlertCircle, Clock, Share2, ShieldAlert } from "lucide-react";
 import { WorkspaceSmartAlerts as SmartAlertsData } from "@/types/workspace";
 import { useNavigate } from "@tanstack/react-router";
 import { workspaceAlertToRoute } from "@/lib/workspaceFilterMapping";
+import { CRMCard } from "@/components/crm/CRMCard";
+import { CRMEmptyState } from "@/components/crm/CRMEmptyState";
+import { CRMLoadingState } from "@/components/crm/CRMLoadingState";
 
 interface Props {
   alerts?: SmartAlertsData;
@@ -21,33 +24,31 @@ export const WorkspaceSmartAlerts: React.FC<Props> = ({ alerts, loading }) => {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-3xl border border-slate-200/60 p-6 shadow-xs h-full animate-pulse">
-        <div className="h-6 w-1/2 bg-slate-200 rounded mb-6"></div>
-        <div className="grid grid-cols-2 gap-3">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-24 bg-slate-100 rounded-2xl"></div>
-          ))}
-        </div>
-      </div>
+      <CRMCard className="h-full">
+        <CRMLoadingState type="card" rows={4} className="grid-cols-2" />
+      </CRMCard>
     );
   }
 
   const hasAlerts = alerts && Object.values(alerts).some((val) => (val || 0) > 0);
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200/60 p-6 shadow-xs h-full flex flex-col">
-      <div className="flex items-center gap-2 mb-6">
-        <ShieldAlert className="w-5 h-5 text-indigo-500" />
-        <h3 className="text-sm font-black uppercase tracking-wider text-slate-950">Smart Alerts</h3>
+    <CRMCard className="h-full flex flex-col p-0">
+      <div className="p-5 md:p-6 flex items-center gap-2">
+        <ShieldAlert className="w-5 h-5 text-indigo-600" />
+        <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">Smart Alerts</h3>
       </div>
 
       {!hasAlerts ? (
-        <div className="flex-1 flex flex-col items-center justify-center py-6 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-          <span className="text-3xl mb-2">✨</span>
-          <p className="text-xs font-bold text-slate-600">Tuyệt vời, không có cảnh báo nào!</p>
+        <div className="px-5 pb-5 flex-1">
+          <CRMEmptyState
+            title="Tuyệt vời, không có cảnh báo nào!"
+            icon={<span className="text-3xl">✨</span>}
+            className="h-full"
+          />
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 flex-1">
+        <div className="grid grid-cols-2 gap-3 flex-1 px-5 pb-5">
           {/* Stale Customers */}
           <button
             type="button"
@@ -141,6 +142,6 @@ export const WorkspaceSmartAlerts: React.FC<Props> = ({ alerts, loading }) => {
           </button>
         </div>
       )}
-    </div>
+    </CRMCard>
   );
 };

@@ -39,6 +39,13 @@ import {
   ListFilter,
   RefreshCcw,
 } from "lucide-react";
+import { CRMPageContainer } from "@/components/crm/CRMPageContainer";
+import { CRMPageHeader } from "@/components/crm/CRMPageHeader";
+import { CRMSection } from "@/components/crm/CRMSection";
+import { CRMCard } from "@/components/crm/CRMCard";
+import { CRMStatusBadge } from "@/components/crm/CRMStatusBadge";
+import { CRMTableWrapper } from "@/components/crm/CRMTableWrapper";
+import { CRMEmptyState } from "@/components/crm/CRMEmptyState";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -154,32 +161,16 @@ function HealthBadge({
   lastError?: string | null;
 }) {
   if (status === "healthy") {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[11px] font-black uppercase tracking-wider">
-        <CheckCircle2 className="w-3.5 h-3.5" /> Sẵn sàng
-      </span>
-    );
+    return <CRMStatusBadge variant="success">Sẵn sàng</CRMStatusBadge>;
   }
   if (status === "warning") {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 text-[11px] font-black uppercase tracking-wider">
-        <AlertTriangle className="w-3.5 h-3.5" /> Domain chưa xác thực
-      </span>
-    );
+    return <CRMStatusBadge variant="warning">Domain chưa xác thực</CRMStatusBadge>;
   }
   if (status === "error") {
     const isMissingApiKey = lastError && lastError.toLowerCase().includes("thiếu cấu hình");
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 text-[11px] font-black uppercase tracking-wider">
-        <XCircle className="w-3.5 h-3.5" /> {isMissingApiKey ? "Thiếu API Key" : "Lỗi"}
-      </span>
-    );
+    return <CRMStatusBadge variant="danger">{isMissingApiKey ? "Thiếu API Key" : "Lỗi"}</CRMStatusBadge>;
   }
-  return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 text-[11px] font-black uppercase tracking-wider">
-      <HelpCircle className="w-3.5 h-3.5" /> Chưa rõ
-    </span>
-  );
+  return <CRMStatusBadge variant="neutral">Chưa rõ</CRMStatusBadge>;
 }
 
 function ChannelIcon({ channel }: { channel: string }) {
@@ -835,21 +826,23 @@ function SenderAccountsPage() {
 
   if (!isAdmin && !isSubAdmin) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 text-center">
-        <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mb-4">
-          <Lock className="w-8 h-8 text-rose-600" />
+      <CRMPageContainer>
+        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 text-center">
+          <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mb-4">
+            <Lock className="w-8 h-8 text-rose-600" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-800">Không có quyền truy cập</h2>
+          <p className="text-slate-500 text-sm max-w-sm mt-2">
+            Trang Sender Accounts chỉ dành riêng cho Admin và Sub Admin.
+          </p>
+          <Link
+            to="/workspace"
+            className="mt-6 px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-black transition-all"
+          >
+            Quay lại Workspace
+          </Link>
         </div>
-        <h2 className="text-xl font-bold text-slate-800">Không có quyền truy cập</h2>
-        <p className="text-slate-500 text-sm max-w-sm mt-2">
-          Trang Sender Accounts chỉ dành riêng cho Admin và Sub Admin.
-        </p>
-        <Link
-          to="/workspace"
-          className="mt-6 px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-black transition-all"
-        >
-          Quay lại Workspace
-        </Link>
-      </div>
+      </CRMPageContainer>
     );
   }
 
@@ -864,22 +857,13 @@ function SenderAccountsPage() {
   ).length;
 
   return (
-    <div className="min-h-screen bg-[#f0f4ff] pb-20 font-sans">
-      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
-      <header className="bg-white/90 border-b border-slate-200 sticky top-0 z-20 backdrop-blur-xl">
-        <div className="container mx-auto px-6 py-4 h-auto md:h-20 flex flex-col md:flex-row md:items-center justify-between gap-4 max-w-7xl">
-          <div className="flex items-center gap-4 w-full md:w-auto">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200 shrink-0">
-              <Shield className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-xl font-black text-slate-900 tracking-tight">Sender Accounts</h1>
-              <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest flex items-center gap-1">
-                <Zap className="w-3 h-3 fill-indigo-500" /> Quản lý kênh gửi tin
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center flex-wrap gap-2 w-full md:w-auto justify-end">
+    <CRMPageContainer>
+      <CRMPageHeader
+        title="Sender Accounts"
+        subtitle="Quản lý kênh gửi tin"
+        icon={Zap}
+        actions={
+          <>
             <Button
               asChild
               variant="outline"
@@ -915,9 +899,9 @@ function SenderAccountsPage() {
             >
               Admin Hub <ChevronRight className="w-3 h-3" />
             </Link>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <main className="container mx-auto px-6 py-8 max-w-7xl space-y-8">
         {/* ── SUMMARY STRIP ──────────────────────────────────────────────────── */}
@@ -929,28 +913,28 @@ function SenderAccountsPage() {
         </div>
 
         {/* ── ROUTING RULES READ-ONLY ─────────────────────────────────────────── */}
-        <Card className="rounded-2xl border-none shadow-sm bg-white overflow-hidden">
-          <CardHeader className="pb-3 border-b border-slate-50">
+        <CRMCard className="rounded-2xl border-none shadow-sm bg-white overflow-hidden">
+          <div className="pb-3 border-b border-slate-50 p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center">
                   <Info className="w-4 h-4 text-slate-500" />
                 </div>
                 <div>
-                  <CardTitle className="text-sm font-black text-slate-800">
+                  <h3 className="text-sm font-black text-slate-800">
                     Luồng Phân Tuyến (Routing Rules)
-                  </CardTitle>
-                  <CardDescription className="text-xs">
+                  </h3>
+                  <p className="text-xs text-slate-500">
                     Chỉ xem — Logic phân tuyến kênh gửi mặc định
-                  </CardDescription>
+                  </p>
                 </div>
               </div>
               <Badge className="bg-slate-100 text-slate-500 border-none text-[10px] font-black uppercase">
                 MẶC ĐỊNH
               </Badge>
             </div>
-          </CardHeader>
-          <CardContent className="p-4">
+          </div>
+          <div className="p-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {[
                 {
@@ -990,8 +974,8 @@ function SenderAccountsPage() {
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </CRMCard>
 
         {/* ── TABS ─────────────────────────────────────────────────────────────── */}
         <div className="flex gap-2 border-b border-slate-200 overflow-x-auto pb-1 no-scrollbar">
@@ -1351,15 +1335,15 @@ function SenderAccountsPage() {
               </div>
             </div>
 
-            <Card className="rounded-2xl border-none shadow-sm bg-white overflow-hidden">
-              <CardHeader className="pb-4 border-b border-slate-50 flex flex-row items-center justify-between flex-wrap gap-2">
+            <CRMCard className="rounded-2xl border-none shadow-sm bg-white overflow-hidden">
+              <div className="pb-4 border-b border-slate-50 flex flex-row items-center justify-between flex-wrap gap-2 p-4">
                 <div>
-                  <CardTitle className="text-base font-black text-slate-900">
+                  <h3 className="text-base font-black text-slate-900">
                     Business Senders
-                  </CardTitle>
-                  <CardDescription className="text-xs">
+                  </h3>
+                  <p className="text-xs text-slate-500">
                     Tài khoản gửi tổ chức — Email, Zalo OA, SMS
-                  </CardDescription>
+                  </p>
                 </div>
                 <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-xl">
                   <input
@@ -1376,15 +1360,15 @@ function SenderAccountsPage() {
                     Hiển thị tài khoản lưu trữ (Show archived)
                   </label>
                 </div>
-              </CardHeader>
-              <CardContent className="p-0">
+              </div>
+              <div className="p-0">
                 {loadingData ? (
                   <LoadingSkeleton rows={3} />
                 ) : businessSenders.filter((s) => (showArchived ? true : s.status !== "archived"))
                     .length === 0 ? (
-                  <EmptyState message="Chưa có Business Sender nào khớp cấu hình lọc" />
+                  <CRMEmptyState title="Chưa có Business Sender nào khớp cấu hình lọc" />
                 ) : (
-                  <div className="overflow-x-auto">
+                  <CRMTableWrapper>
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-slate-50/80 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">
@@ -1662,10 +1646,10 @@ function SenderAccountsPage() {
                           ))}
                       </tbody>
                     </table>
-                  </div>
+                  </CRMTableWrapper>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </CRMCard>
           </div>
         )}
 
@@ -1834,22 +1818,22 @@ function SenderAccountsPage() {
               </div>
             </div>
 
-            <Card className="rounded-2xl border-none shadow-sm bg-white overflow-hidden">
-              <CardHeader className="pb-4 border-b border-slate-50">
-                <CardTitle className="text-base font-black text-slate-900">
+            <CRMCard className="rounded-2xl border-none shadow-sm bg-white overflow-hidden">
+              <div className="pb-4 border-b border-slate-50 p-4">
+                <h3 className="text-base font-black text-slate-900">
                   Personal Senders
-                </CardTitle>
-                <CardDescription className="text-xs">
+                </h3>
+                <p className="text-xs text-slate-500">
                   Tài khoản cá nhân của nhân viên — Zalo, Email, Phone
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
+                </p>
+              </div>
+              <div className="p-0">
                 {loadingData ? (
                   <LoadingSkeleton rows={5} />
                 ) : personalSenders.length === 0 ? (
-                  <EmptyState message="Chưa có nhân viên nào cấu hình tài khoản cá nhân" />
+                  <CRMEmptyState title="Chưa có nhân viên nào cấu hình tài khoản cá nhân" />
                 ) : (
-                  <div className="overflow-x-auto">
+                  <CRMTableWrapper>
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-slate-50/80 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">
@@ -1980,27 +1964,27 @@ function SenderAccountsPage() {
                         ))}
                       </tbody>
                     </table>
-                  </div>
+                  </CRMTableWrapper>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </CRMCard>
           </div>
         )}
 
         {/* ── AUDIT LOGS ──────────────────────────────────────────────────────── */}
         {activeTab === "logs" && (
-          <Card className="rounded-2xl border-none shadow-sm bg-white overflow-hidden">
-            <CardHeader className="pb-4 border-b border-slate-50">
-              <CardTitle className="text-base font-black text-slate-900">Audit Log</CardTitle>
-              <CardDescription className="text-xs">
+          <CRMCard className="rounded-2xl border-none shadow-sm bg-white overflow-hidden">
+            <div className="pb-4 border-b border-slate-50 p-4">
+              <h3 className="text-base font-black text-slate-900">Audit Log</h3>
+              <p className="text-xs text-slate-500">
                 50 hành động gần nhất của Admin trên Sender Accounts
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
+              </p>
+            </div>
+            <div className="p-0">
               {loadingData ? (
                 <LoadingSkeleton rows={5} />
               ) : auditLogs.length === 0 ? (
-                <EmptyState message="Chưa có hành động nào được ghi nhận" />
+                <CRMEmptyState title="Chưa có hành động nào được ghi nhận" />
               ) : (
                 <div className="divide-y divide-slate-50">
                   {auditLogs.map((log) => (
@@ -2047,8 +2031,8 @@ function SenderAccountsPage() {
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </CRMCard>
         )}
 
         {/* ── DELIVERY LOGS TABLE (ENHANCED) ────────────────────────────────────── */}
@@ -3136,7 +3120,7 @@ function SenderAccountsPage() {
         sender={editSenderData}
         onSuccess={fetchData}
       />
-    </div>
+    </CRMPageContainer>
   );
 }
 

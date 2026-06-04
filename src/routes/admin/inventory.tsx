@@ -34,6 +34,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { CRMPageContainer } from "@/components/crm/CRMPageContainer";
+import { CRMPageHeader } from "@/components/crm/CRMPageHeader";
+import { CRMCard } from "@/components/crm/CRMCard";
+import { CRMEmptyState } from "@/components/crm/CRMEmptyState";
+import { CRMLoadingState } from "@/components/crm/CRMLoadingState";
 
 export const Route = createFileRoute("/admin/inventory")({
   component: InventoryManagementPage,
@@ -134,63 +139,42 @@ function InventoryManagementPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center font-sans antialiased">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            Đang xác thực quyền truy cập...
-          </p>
-        </div>
-      </div>
+      <CRMPageContainer>
+        <CRMPageHeader title="Quản lý Kho hàng" />
+        <CRMLoadingState type="card" rows={6} message="Đang xác thực quyền truy cập..." />
+      </CRMPageContainer>
     );
   }
 
   if (!isAdminOrSubAdmin) {
     return (
-      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4 font-sans antialiased">
-        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100 max-w-md w-full text-center space-y-6">
-          <div className="w-16 h-16 bg-rose-50 border border-rose-100 rounded-2xl flex items-center justify-center mx-auto text-rose-500">
-            <Lock className="w-8 h-8" />
-          </div>
-          <div className="space-y-2">
-            <h2 className="text-lg font-black text-slate-900 tracking-tight">
-              Không có quyền truy cập
-            </h2>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Trang này chỉ dành cho Quản trị viên (Admin) hoặc Sub-admin. Vui lòng quay lại khu vực
-              làm việc của bạn.
-            </p>
-          </div>
-          <Link to="/workspace">
-            <Button className="w-full rounded-xl bg-slate-900 hover:bg-black font-black text-[10px] h-11 tracking-widest mt-2">
-              QUAY LẠI WORKSPACE
-            </Button>
-          </Link>
-        </div>
-      </div>
+      <CRMPageContainer>
+        <CRMEmptyState 
+          icon={<Lock className="w-10 h-10 text-rose-600" />}
+          title="Không có quyền truy cập"
+          description="Trang này chỉ dành cho Quản trị viên (Admin) hoặc Sub-admin. Vui lòng quay lại khu vực làm việc của bạn."
+          action={
+            <Link to="/workspace">
+              <Button className="rounded-xl bg-slate-900 hover:bg-black font-black text-[10px] h-11 tracking-widest mt-2">
+                QUAY LẠI WORKSPACE
+              </Button>
+            </Link>
+          }
+        />
+      </CRMPageContainer>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] pb-20 font-sans antialiased">
+    <CRMPageContainer>
       {/* HEADER */}
-      <header className="bg-white/80 border-b border-slate-200 sticky top-0 z-20 backdrop-blur-md">
-        <div className="container mx-auto px-4 py-4 h-auto md:h-20 flex flex-col md:flex-row md:items-center justify-between gap-4 max-w-7xl">
-          <div className="flex items-center gap-4 w-full md:w-auto">
-            <Link
-              to="/workspace"
-              className="p-2.5 hover:bg-slate-100 rounded-xl transition-all text-slate-400 hover:text-slate-900 border border-transparent hover:border-slate-200 shrink-0"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div>
-              <h1 className="text-xl font-black text-slate-900 tracking-tight">Quản lý Kho hàng</h1>
-              <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-1">
-                <Package className="w-3 h-3 fill-amber-500" /> Inventory & Catalog Center
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+      <CRMPageHeader
+        title="Quản lý Kho hàng"
+        icon={<Package className="w-7 h-7 text-amber-500" />}
+        description="Inventory & Catalog Center"
+        backTo="/workspace"
+        actions={
+          <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" className="rounded-xl text-slate-400 shrink-0">
               <BarChart3 className="w-4 h-4" />
             </Button>
@@ -198,10 +182,10 @@ function InventoryManagementPage() {
               <Plus className="w-4 h-4 mr-2 shrink-0" /> THÊM SẢN PHẨM
             </Button>
           </div>
-        </div>
-      </header>
+        }
+      />
 
-      <main className="container mx-auto px-4 py-8 max-w-7xl space-y-8">
+      <div className="space-y-8 mt-4">
         {/* INVENTORY STATS */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <InventoryStatCard
@@ -226,7 +210,7 @@ function InventoryManagementPage() {
         </div>
 
         {/* FILTERS & SEARCH */}
-        <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+        <CRMCard className="flex flex-col md:flex-row gap-4 items-center justify-between p-4">
           <div className="relative w-full md:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
@@ -260,30 +244,27 @@ function InventoryManagementPage() {
               </Button>
             ))}
           </div>
-        </div>
+        </CRMCard>
 
         {/* PRODUCT GRID */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {loading ? (
-            <div className="col-span-full py-20 text-center space-y-4">
-              <div className="w-10 h-10 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin mx-auto"></div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                Đang kiểm kê kho hàng...
-              </p>
+            <div className="col-span-full">
+              <CRMLoadingState type="card" rows={8} message="Đang kiểm kê kho hàng..." />
             </div>
           ) : filteredProducts.length === 0 ? (
-            <div className="col-span-full py-20 text-center bg-white rounded-[32px] border border-dashed border-slate-200">
-              <Package className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-              <h3 className="text-sm font-bold text-slate-900">Không tìm thấy sản phẩm nào</h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Hãy thử điều chỉnh bộ lọc hoặc tìm kiếm lại.
-              </p>
+            <div className="col-span-full">
+              <CRMEmptyState 
+                icon={<Package className="w-12 h-12 text-slate-200" />}
+                title="Không tìm thấy sản phẩm nào"
+                description="Hãy thử điều chỉnh bộ lọc hoặc tìm kiếm lại."
+              />
             </div>
           ) : (
             filteredProducts.map((product) => (
-              <Card
+              <CRMCard
                 key={product.id}
-                className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white hover:shadow-xl hover:-translate-y-2 transition-all duration-500 group"
+                className="p-0 overflow-hidden hover:shadow-xl hover:-translate-y-2 transition-all duration-500 group"
               >
                 <div className="relative aspect-square overflow-hidden bg-slate-100">
                   <img
@@ -314,7 +295,7 @@ function InventoryManagementPage() {
                     </Button>
                   </div>
                 </div>
-                <CardContent className="p-6 space-y-4">
+                <div className="p-6 space-y-4">
                   <div>
                     <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1">
                       {product.categories?.name || "Chưa phân loại"}
@@ -349,13 +330,13 @@ function InventoryManagementPage() {
                       NHẬP KHO <ArrowUpRight className="w-3 h-3 ml-1" />
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </CRMCard>
             ))
           )}
         </div>
-      </main>
-    </div>
+      </div>
+    </CRMPageContainer>
   );
 }
 
@@ -367,8 +348,8 @@ function InventoryStatCard({ title, value, icon: Icon, color }: any) {
     emerald: "bg-emerald-50 text-emerald-600 border-emerald-100",
   };
   return (
-    <Card className="rounded-[28px] border-none shadow-sm overflow-hidden bg-white hover:shadow-md transition-all group">
-      <CardContent className="p-6 flex items-center justify-between">
+    <CRMCard className="p-0 overflow-hidden hover:shadow-md transition-all group">
+      <div className="p-6 flex items-center justify-between">
         <div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{title}</p>
           <h3 className="text-3xl font-black text-slate-900 tracking-tighter mt-1">{value}</h3>
@@ -378,7 +359,7 @@ function InventoryStatCard({ title, value, icon: Icon, color }: any) {
         >
           <Icon className="w-6 h-6" />
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </CRMCard>
   );
 }

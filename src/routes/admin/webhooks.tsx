@@ -17,6 +17,11 @@ import {
   Inbox,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { CRMPageContainer } from "@/components/crm/CRMPageContainer";
+import { CRMPageHeader } from "@/components/crm/CRMPageHeader";
+import { CRMCard } from "@/components/crm/CRMCard";
+import { CRMTableWrapper } from "@/components/crm/CRMTableWrapper";
+import { CRMStatusBadge } from "@/components/crm/CRMStatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -161,25 +166,17 @@ function WebhookInbox() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] p-6 font-sans antialiased">
+    <CRMPageContainer>
       <div className="max-w-[1400px] mx-auto space-y-6">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <Link
-              to="/admin/hub"
-              className="text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors"
-            >
-              &larr; Admin Hub
-            </Link>
-          </div>
-          <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2">
-            <Inbox className="w-6 h-6 text-indigo-500" />
-            Webhook Inbox
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Nơi tập kết mọi sự kiện Webhook từ Resend & Zalo trước khi xử lý Logic.
-          </p>
-        </div>
+        <CRMPageHeader
+          title="Webhook Inbox"
+          icon={<Inbox className="w-6 h-6 text-indigo-500" />}
+          description="Nơi tập kết mọi sự kiện Webhook từ Resend & Zalo trước khi xử lý Logic."
+          breadcrumbs={[
+            { label: "Admin Hub", href: "/admin/hub" },
+            { label: "Webhook Inbox" },
+          ]}
+        />
 
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3 items-start">
           <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
@@ -196,51 +193,51 @@ function WebhookInbox() {
         <ResendProcessorPanel onProcessed={() => fetchEvents()} />
 
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-          <Card className="shadow-sm border-slate-200">
-            <CardContent className="p-4 text-center">
+          <CRMCard className="shadow-sm border-slate-200 p-0">
+            <div className="p-4 text-center">
               <div className="text-xs font-semibold text-slate-500 uppercase">Total Shown</div>
               <div className="text-2xl font-black text-slate-900 mt-1">{summary.total}</div>
               <div className="text-[10px] text-slate-400 mt-1">Trang hiện tại</div>
-            </CardContent>
-          </Card>
-          <Card className="shadow-sm border-slate-200">
-            <CardContent className="p-4 text-center">
+            </div>
+          </CRMCard>
+          <CRMCard className="shadow-sm border-slate-200 p-0">
+            <div className="p-4 text-center">
               <div className="text-xs font-semibold text-slate-500 uppercase">Received</div>
               <div className="text-2xl font-black text-emerald-600 mt-1">{summary.received}</div>
               <div className="text-[10px] text-slate-400 mt-1">Trang hiện tại</div>
-            </CardContent>
-          </Card>
-          <Card className="shadow-sm border-slate-200">
-            <CardContent className="p-4 text-center">
+            </div>
+          </CRMCard>
+          <CRMCard className="shadow-sm border-slate-200 p-0">
+            <div className="p-4 text-center">
               <div className="text-xs font-semibold text-slate-500 uppercase">Failed</div>
               <div className="text-2xl font-black text-rose-600 mt-1">{summary.failed}</div>
               <div className="text-[10px] text-slate-400 mt-1">Trang hiện tại</div>
-            </CardContent>
-          </Card>
-          <Card className="shadow-sm border-slate-200">
-            <CardContent className="p-4 text-center">
+            </div>
+          </CRMCard>
+          <CRMCard className="shadow-sm border-slate-200 p-0">
+            <div className="p-4 text-center">
               <div className="text-xs font-semibold text-slate-500 uppercase">Valid Sig</div>
               <div className="text-2xl font-black text-indigo-600 mt-1">{summary.validSig}</div>
               <div className="text-[10px] text-slate-400 mt-1">Trang hiện tại</div>
-            </CardContent>
-          </Card>
-          <Card className="shadow-sm border-slate-200">
-            <CardContent className="p-4 text-center">
+            </div>
+          </CRMCard>
+          <CRMCard className="shadow-sm border-slate-200 p-0">
+            <div className="p-4 text-center">
               <div className="text-xs font-semibold text-slate-500 uppercase">Resend</div>
               <div className="text-2xl font-black text-slate-900 mt-1">{summary.resend}</div>
               <div className="text-[10px] text-slate-400 mt-1">Trang hiện tại</div>
-            </CardContent>
-          </Card>
-          <Card className="shadow-sm border-slate-200">
-            <CardContent className="p-4 text-center">
+            </div>
+          </CRMCard>
+          <CRMCard className="shadow-sm border-slate-200 p-0">
+            <div className="p-4 text-center">
               <div className="text-xs font-semibold text-slate-500 uppercase">Zalo</div>
               <div className="text-2xl font-black text-blue-600 mt-1">{summary.zalo}</div>
               <div className="text-[10px] text-slate-400 mt-1">Trang hiện tại</div>
-            </CardContent>
-          </Card>
+            </div>
+          </CRMCard>
         </div>
 
-        <Card className="shadow-sm border-slate-200 bg-white overflow-hidden">
+        <CRMCard className="shadow-sm border-slate-200 bg-white p-0 overflow-hidden">
           <div className="p-4 border-b border-slate-100 flex flex-wrap gap-4 items-center justify-between bg-slate-50/50">
             <div className="flex gap-3 items-center w-full md:w-auto">
               <div className="relative w-full md:w-64">
@@ -337,18 +334,16 @@ function WebhookInbox() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={`font-semibold capitalize ${
+                        <CRMStatusBadge
+                          status={
                             event.status === "received"
-                              ? "border-emerald-200 text-emerald-700 bg-emerald-50"
+                              ? "success"
                               : event.status === "failed"
-                                ? "border-rose-200 text-rose-700 bg-rose-50"
-                                : "border-slate-200 text-slate-700 bg-slate-50"
-                          }`}
-                        >
-                          {event.status}
-                        </Badge>
+                                ? "danger"
+                                : "neutral"
+                          }
+                          label={event.status}
+                        />
                       </TableCell>
                       <TableCell>
                         {event.signature_valid ? (
@@ -393,7 +388,7 @@ function WebhookInbox() {
               </Button>
             </div>
           )}
-        </Card>
+        </CRMCard>
 
         <Dialog open={!!selectedEvent} onOpenChange={(open) => !open && setSelectedEvent(null)}>
           <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col p-0 gap-0 rounded-xl">
@@ -516,6 +511,6 @@ function WebhookInbox() {
           </DialogContent>
         </Dialog>
       </div>
-    </div>
+    </CRMPageContainer>
   );
 }

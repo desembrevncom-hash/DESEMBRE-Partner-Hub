@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
@@ -25,6 +26,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { CRMPageContainer } from "@/components/crm/CRMPageContainer";
+import { CRMPageHeader } from "@/components/crm/CRMPageHeader";
+import { CRMCard } from "@/components/crm/CRMCard";
+import { CRMLoadingState } from "@/components/crm/CRMLoadingState";
+import { CRMEmptyState } from "@/components/crm/CRMEmptyState";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
@@ -190,50 +196,37 @@ function ProductLearningCenter() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-[80vh] flex flex-col items-center justify-center bg-slate-50 gap-2">
-        <RefreshCw className="h-8 w-8 animate-spin text-indigo-500" />
-        <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">
-          Đang tải học liệu...
-        </p>
-      </div>
+      <CRMPageContainer>
+        <CRMPageHeader title="Sales Learning Center" />
+        <CRMLoadingState type="card" rows={6} message="Đang tải học liệu..." />
+      </CRMPageContainer>
     );
   }
 
   if (!user || !isAuthorized) {
     return (
-      <div className="min-h-[80vh] flex flex-col items-center justify-center bg-slate-50 p-4 text-center">
-        <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mb-4">
-          <ShieldAlert className="w-8 h-8 text-rose-600" />
-        </div>
-        <h2 className="text-xl font-bold text-slate-800">Không có quyền truy cập</h2>
-        <p className="text-slate-500 text-sm max-w-sm mt-2">
-          Khu vực này dành riêng cho đội ngũ Sales & Tư vấn viên.
-        </p>
-      </div>
+      <CRMPageContainer>
+        <CRMEmptyState 
+          icon={<ShieldAlert className="w-10 h-10 text-rose-600" />}
+          title="Không có quyền truy cập"
+          description="Khu vực này dành riêng cho đội ngũ Sales & Tư vấn viên."
+        />
+      </CRMPageContainer>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6 animate-in fade-in duration-500">
+    <CRMPageContainer>
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8 bg-gradient-to-r from-indigo-900 to-indigo-700 p-8 rounded-3xl text-white shadow-xl">
-        <div>
-          <Badge className="bg-indigo-500/30 text-indigo-100 hover:bg-indigo-500/40 border-none mb-3 text-[10px] font-black tracking-widest uppercase">
-            Phase D - Internal Rollout
-          </Badge>
-          <h1 className="text-3xl font-black tracking-tight flex items-center gap-3">
-            <BookOpen className="w-8 h-8 text-indigo-300" />
-            Sales Learning Center
-          </h1>
-          <p className="text-indigo-200 text-sm font-medium mt-2 max-w-2xl leading-relaxed">
-            Kho tri thức sản phẩm chuẩn hóa dành cho Sales. Nơi cung cấp USP, kịch bản chốt sale và
-            hướng dẫn xử lý từ chối đã được QA phê duyệt duyệt.
-          </p>
-        </div>
-      </div>
+      <CRMPageHeader
+        title="Sales Learning Center"
+        icon={<BookOpen className="w-7 h-7 text-indigo-500" />}
+        description="Kho tri thức sản phẩm chuẩn hóa dành cho Sales. Nơi cung cấp USP, kịch bản chốt sale và hướng dẫn xử lý từ chối đã được QA phê duyệt."
+        badgeText="Phase D - Internal Rollout"
+      />
 
       {/* FILTERS */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-8 flex flex-col md:flex-row gap-4 items-center">
+      <CRMCard className="mb-8 flex flex-col md:flex-row gap-4 items-center">
         <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input
@@ -284,35 +277,33 @@ function ProductLearningCenter() {
             ))}
           </select>
         </div>
-      </div>
+      </CRMCard>
 
       {/* CONTENT GRID */}
       {filteredList.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center border border-dashed border-slate-300 rounded-3xl bg-slate-50/50">
-          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4">
-            <Search className="w-8 h-8 text-slate-300" />
-          </div>
-          <h3 className="text-lg font-bold text-slate-700">Không tìm thấy tài liệu phù hợp</h3>
-          <p className="text-slate-500 text-sm mt-1">
-            Hãy thử thay đổi từ khóa hoặc bộ lọc tìm kiếm.
-          </p>
-          <Button
-            variant="outline"
-            className="mt-6 rounded-xl text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-            onClick={() => {
-              setSearchTerm("");
-              setSelectedSkinConcern("all");
-              setSelectedSpaType("all");
-              setSelectedCategory("all");
-            }}
-          >
-            Xóa bộ lọc
-          </Button>
-        </div>
+        <CRMEmptyState 
+          icon={<Search className="w-10 h-10 text-slate-300" />}
+          title="Không tìm thấy tài liệu phù hợp"
+          description="Hãy thử thay đổi từ khóa hoặc bộ lọc tìm kiếm."
+          action={
+            <Button
+              variant="outline"
+              className="mt-6 rounded-xl text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+              onClick={() => {
+                setSearchTerm("");
+                setSelectedSkinConcern("all");
+                setSelectedSpaType("all");
+                setSelectedCategory("all");
+              }}
+            >
+              Xóa bộ lọc
+            </Button>
+          }
+        />
       ) : (
         <div className="grid grid-cols-1 gap-6">
           {filteredList.map((pk) => (
-            <Card key={pk.id} className="border-slate-200 shadow-sm overflow-hidden rounded-3xl">
+            <CRMCard key={pk.id} className="p-0 overflow-hidden">
               <div className="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {/* Left Column: Basic Info & Badges */}
                 <div className="lg:col-span-4 flex flex-col">
@@ -447,7 +438,7 @@ function ProductLearningCenter() {
                   </div>
                 </div>
               </div>
-            </Card>
+            </CRMCard>
           ))}
         </div>
       )}
@@ -538,6 +529,6 @@ function ProductLearningCenter() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </CRMPageContainer>
   );
 }

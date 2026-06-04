@@ -14,6 +14,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CRMPageContainer } from "@/components/crm/CRMPageContainer";
+import { CRMPageHeader } from "@/components/crm/CRMPageHeader";
+import { CRMCard } from "@/components/crm/CRMCard";
+import { CRMSection } from "@/components/crm/CRMSection";
+import { CRMStatusBadge } from "@/components/crm/CRMStatusBadge";
+import { CRMTableWrapper } from "@/components/crm/CRMTableWrapper";
+import { CRMLoadingState } from "@/components/crm/CRMLoadingState";
+import { CRMEmptyState } from "@/components/crm/CRMEmptyState";
 import {
   Calendar as CalendarIcon,
   Plus,
@@ -1600,32 +1608,13 @@ function CalendarPage() {
   const currentSyncStatus = currentActiveCompEv?.google_sync_status || "not_synced";
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-12 flex flex-col">
-      <header className="bg-white border-b border-slate-200 relative z-30 shadow-xs">
-        <div className="container mx-auto px-4 md:px-6 h-20 flex items-center justify-between">
-          <div className="flex flex-col justify-center">
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 mb-1">
-              <Link
-                to="/"
-                className="hover:text-primary inline-flex items-center gap-1 transition-colors"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                Trang chủ
-              </Link>
-              <span>/</span>
-              <span className="text-slate-800">Lịch hẹn</span>
-            </div>
-            <div className="flex items-baseline gap-3">
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                Lịch hẹn & Follow-up
-              </h1>
-              <p className="text-xs text-slate-500 hidden sm:inline-block border-l border-slate-200 pl-3">
-                Quản lý nhắc việc, lịch hẹn tư vấn và check-in khách hàng
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
+    <CRMPageContainer>
+      <CRMPageHeader
+        title="Lịch hẹn & Follow-up"
+        subtitle="Quản lý nhắc việc, lịch hẹn tư vấn và check-in khách hàng"
+        breadcrumbs={[{ label: "Trang chủ", href: "/" }, { label: "Lịch hẹn" }]}
+        actions={
+          <>
             <Button
               variant="outline"
               size="icon"
@@ -1650,13 +1639,13 @@ function CalendarPage() {
             >
               <Plus className="w-4 h-4 mr-2" /> Tạo lịch hẹn
             </Button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <main className="container mx-auto px-4 md:px-6 mt-6 space-y-6 flex-1">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-2xs hover:shadow-sm transition-all relative overflow-hidden">
+          <CRMCard className="relative overflow-hidden p-4">
             <div className="absolute top-0 left-0 w-1 h-full bg-blue-600"></div>
             <div className="flex items-center justify-between">
               <p className="text-xs font-bold text-blue-700 uppercase tracking-wider">Hôm nay</p>
@@ -1664,9 +1653,9 @@ function CalendarPage() {
             </div>
             <p className="text-2xl font-black text-slate-900 mt-2">{stats.todayCount}</p>
             <p className="text-[10px] text-slate-500 mt-0.5">Sự kiện cần xử lý</p>
-          </div>
+          </CRMCard>
 
-          <div className="bg-white p-4 rounded-xl border border-rose-100 shadow-2xs hover:shadow-sm transition-all relative overflow-hidden">
+          <CRMCard className="relative overflow-hidden p-4">
             <div className="absolute top-0 left-0 w-1 h-full bg-rose-600"></div>
             <div className="flex items-center justify-between">
               <p className="text-xs font-bold text-rose-700 uppercase tracking-wider">Quá hạn</p>
@@ -1674,9 +1663,9 @@ function CalendarPage() {
             </div>
             <p className="text-2xl font-black text-rose-600 mt-2">{stats.overdueCount}</p>
             <p className="text-[10px] text-rose-500/80 mt-0.5">Cần liên hệ khẩn cấp</p>
-          </div>
+          </CRMCard>
 
-          <div className="bg-white p-4 rounded-xl border border-amber-100 shadow-2xs hover:shadow-sm transition-all relative overflow-hidden">
+          <CRMCard className="relative overflow-hidden p-4">
             <div className="absolute top-0 left-0 w-1 h-full bg-amber-600"></div>
             <div className="flex items-center justify-between">
               <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">Sắp tới</p>
@@ -1684,9 +1673,9 @@ function CalendarPage() {
             </div>
             <p className="text-2xl font-black text-slate-900 mt-2">{stats.upcomingCount}</p>
             <p className="text-[10px] text-slate-500 mt-0.5">Lịch hẹn tương lai</p>
-          </div>
+          </CRMCard>
 
-          <div className="bg-white p-4 rounded-xl border border-emerald-100 shadow-2xs hover:shadow-sm transition-all relative overflow-hidden">
+          <CRMCard className="relative overflow-hidden p-4">
             <div className="absolute top-0 left-0 w-1 h-full bg-emerald-600"></div>
             <div className="flex items-center justify-between">
               <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider">
@@ -1696,7 +1685,7 @@ function CalendarPage() {
             </div>
             <p className="text-2xl font-black text-emerald-700 mt-2">{stats.completedCount}</p>
             <p className="text-[10px] text-slate-500 mt-0.5">Đã đóng giao dịch</p>
-          </div>
+          </CRMCard>
         </div>
 
         {/* Dashboard Chiến dịch (Dành cho Quản lý) */}
@@ -1987,7 +1976,7 @@ function CalendarPage() {
           </div>
         )}
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-wrap gap-3 items-center justify-between">
+        <CRMCard className="flex flex-wrap gap-3 items-center justify-between p-4">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-lg border border-slate-200">
               <span className="text-xs font-bold text-slate-500 px-2">Trạng thái:</span>
@@ -2052,23 +2041,17 @@ function CalendarPage() {
             Hiển thị <span className="font-bold text-slate-800">{filteredEvents.length}</span> sự
             kiện
           </div>
-        </div>
+        </CRMCard>
 
         {loading ? (
-          <div className="bg-white rounded-xl border border-slate-200 p-12 text-center space-y-3">
-            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="text-xs text-slate-500 font-medium">
-              Đang tải danh sách lịch hẹn từ hệ thống…
-            </p>
-          </div>
+          <CRMLoadingState message="Đang tải danh sách lịch hẹn từ hệ thống…" />
         ) : error ? (
-          <div className="bg-rose-50 rounded-xl border border-rose-200 p-8 text-center space-y-2">
-            <AlertCircle className="w-8 h-8 text-rose-600 mx-auto" />
-            <p className="text-xs font-bold text-rose-800">{error}</p>
-            <Button variant="outline" size="sm" onClick={loadEvents} className="mt-2 bg-white">
-              Thử lại
-            </Button>
-          </div>
+          <CRMEmptyState
+            icon={AlertCircle}
+            title="Lỗi tải dữ liệu"
+            description={error}
+            action={{ label: "Thử lại", onClick: loadEvents }}
+          />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
             <div className="lg:col-span-1 space-y-3">
@@ -2200,7 +2183,7 @@ function CalendarPage() {
               </div>
             </div>
 
-            <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 p-4 shadow-2xs overflow-hidden">
+            <CRMCard className="lg:col-span-3 overflow-hidden p-4">
               <style>{`
                 .fc .fc-toolbar-title { font-size: 1.1rem !important; font-weight: 700; color: #0f172a; }
                 .fc .fc-button-primary { background-color: #0ea5e9 !important; border-color: #0ea5e9 !important; font-size: 0.75rem !important; font-weight: 600; text-transform: capitalize; padding: 0.35rem 0.75rem !important; border-radius: 0.5rem !important; }
@@ -2252,7 +2235,7 @@ function CalendarPage() {
                   eventDisplay="block"
                 />
               </div>
-            </div>
+            </CRMCard>
           </div>
         )}
       </main>
@@ -2872,9 +2855,9 @@ function CalendarPage() {
                                 const canModify = isManager || reg.assigned_sale_id === user?.id;
 
                                 return (
-                                  <div
+                                  <CRMCard
                                     key={reg.id}
-                                    className={`p-3 rounded-xl border transition-all ${reg.status === "converted" ? "bg-yellow-50/30 border-yellow-200" : reg.status === "attended" ? "bg-emerald-50/30 border-emerald-200" : "bg-white border-slate-100 shadow-sm"}`}
+                                    className={`p-3 transition-all ${reg.status === "converted" ? "bg-yellow-50/30 border-yellow-200" : reg.status === "attended" ? "bg-emerald-50/30 border-emerald-200" : "border-slate-100 shadow-sm"}`}
                                   >
                                     <div className="flex items-start justify-between gap-2">
                                       <div className="space-y-1 flex-1">
@@ -3192,7 +3175,7 @@ function CalendarPage() {
                                         📋 <span className="hidden sm:inline">Copy tin nhắn</span>
                                       </button>
                                     </div>
-                                  </div>
+                                  </CRMCard>
                                 );
                               })}
                             </div>
@@ -3371,6 +3354,6 @@ function CalendarPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </CRMPageContainer>
   );
 }

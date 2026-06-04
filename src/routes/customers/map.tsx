@@ -5,6 +5,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { buildStaffMap, getStaffDisplayName, StaffMap } from "@/lib/staffDisplay";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
 import { RoutingReviewDialog } from "@/components/customers/RoutingReviewDialog";
+import { CRMCard } from "@/components/crm/CRMCard";
+import { CRMStatusBadge } from "@/components/crm/CRMStatusBadge";
+import { CRMEmptyState } from "@/components/crm/CRMEmptyState";
+import { CRMLoadingState } from "@/components/crm/CRMLoadingState";
 import {
   MapPin,
   Search,
@@ -48,6 +52,13 @@ import {
   parseGoogleMapsUrlToCoordinates,
 } from "@/lib/geo";
 import { RouteScheduleDialog } from "@/components/customers/RouteScheduleDialog";
+import { getSaleMarkerColor, FREE_POOL_COLOR } from "@/lib/mapOwnerColor";
+import {
+  applyOwnerFilter,
+  getOwnerLegendItems,
+  toggleOwnerFilter,
+  FREE_POOL_FILTER,
+} from "@/lib/mapOwnerFilter";
 import {
   Dialog,
   DialogContent,
@@ -71,31 +82,53 @@ export const Route = createFileRoute("/customers/map")({
 });
 
 // Custom L.divIcon helper based on ownership status and channel
-const getMarkerIcon = (status: string, isTeleSales: boolean, isSelected: boolean = false) => {
+const getMarkerIcon = (
+  status: string,
+  isTeleSales: boolean,
+  isSelected: boolean = false,
+  colorMode: "status" | "owner" = "status",
+  ownerSaleId?: string | null,
+) => {
   let color = "bg-blue-600";
   let ringColor = "ring-blue-100";
 
-  if (isTeleSales) {
-    color = "bg-purple-600";
-    ringColor = "ring-purple-100";
+  if (colorMode === "owner") {
+    const ownerColorObj = getSaleMarkerColor(ownerSaleId);
+    color = ownerColorObj.color;
+
+    // Preserve risk/status via ring
+    if (status === "at_risk") {
+      ringColor = "ring-amber-500";
+    } else if (status === "free_pool") {
+      ringColor = "ring-slate-300";
+    } else if (status === "reclaimable") {
+      ringColor = "ring-rose-500";
+    } else {
+      ringColor = ownerColorObj.ring;
+    }
   } else {
-    switch (status) {
-      case "at_risk":
-        color = "bg-amber-500";
-        ringColor = "ring-amber-100";
-        break;
-      case "reclaimable":
-        color = "bg-rose-600";
-        ringColor = "ring-rose-100";
-        break;
-      case "free_pool":
-        color = "bg-emerald-600";
-        ringColor = "ring-emerald-100";
-        break;
-      default:
-        color = "bg-blue-600";
-        ringColor = "ring-blue-100";
-        break;
+    if (isTeleSales) {
+      color = "bg-purple-600";
+      ringColor = "ring-purple-100";
+    } else {
+      switch (status) {
+        case "at_risk":
+          color = "bg-amber-500";
+          ringColor = "ring-amber-100";
+          break;
+        case "reclaimable":
+          color = "bg-rose-600";
+          ringColor = "ring-rose-100";
+          break;
+        case "free_pool":
+          color = "bg-emerald-600";
+          ringColor = "ring-emerald-100";
+          break;
+        default:
+          color = "bg-blue-600";
+          ringColor = "ring-blue-100";
+          break;
+      }
     }
   }
 
@@ -224,6 +257,12 @@ function CustomerMapPage() {
   const [cityFilter, setCityFilter] = useState<string>("all");
   const [cityOpen, setCityOpen] = useState(false);
   const [citySearch, setCitySearch] = useState("");
+
+  const [colorMode, setColorMode] = useState<"status" | "owner">(
+    isAdmin || isSubAdmin || isTeleLead ? "owner" : "status",
+  );
+  const [isLegendCollapsed, setIsLegendCollapsed] = useState(true);
+  const [activeOwnerFilter, setActiveOwnerFilter] = useState<string | null>(null);
 
   // States cho tính năng Lập tuyến đi
   const [routeMode, setRouteMode] = useState(false);
@@ -627,7 +666,7 @@ function CustomerMapPage() {
   }, [user, isManager, isTeleLead, isSale, isTelesale]);
 
   // Compute filtered customers based on selected filter and search query
-  const filteredCustomers = useMemo(() => {
+  const baseFilteredCustomers = useMemo(() => {
     return customers.filter((c) => {
       // 1. Search Query
       const searchLower = searchQuery.toLowerCase();
@@ -636,8 +675,6 @@ function CustomerMapPage() {
         (c.name || "").toLowerCase().includes(searchLower) ||
         (c.phone || "").toLowerCase().includes(searchLower) ||
         (c.address || "").toLowerCase().includes(searchLower);
-
-      (c.address || "").toLowerCase().includes(searchLower);
 
       if (!matchSearch) return false;
       if (cityFilter !== "all" && c.city !== cityFilter) return false;
@@ -670,22 +707,36 @@ function CustomerMapPage() {
     });
   }, [customers, searchQuery, activeFilter, user, cityFilter]);
 
+  // Apply owner filter on top of base filters
+  const ownerFilteredCustomers = useMemo(() => {
+    return applyOwnerFilter(baseFilteredCustomers, activeOwnerFilter);
+  }, [baseFilteredCustomers, activeOwnerFilter]);
+
   // Split filtered customers into geo (has coordinates) and non-geo (lacks coordinates)
+  const mapCustomersBase = useMemo(() => {
+    return baseFilteredCustomers.filter((c) => c.latitude && c.longitude);
+  }, [baseFilteredCustomers]);
+
   const mapCustomers = useMemo(() => {
-    return filteredCustomers.filter((c) => c.latitude && c.longitude);
-  }, [filteredCustomers]);
+    return ownerFilteredCustomers.filter((c) => c.latitude && c.longitude);
+  }, [ownerFilteredCustomers]);
 
   const unlocatedCustomers = useMemo(() => {
-    return filteredCustomers.filter((c) => !c.latitude || !c.longitude);
-  }, [filteredCustomers]);
+    return ownerFilteredCustomers.filter((c) => !c.latitude || !c.longitude);
+  }, [ownerFilteredCustomers]);
 
   // Danh sách hiển thị ở Sidebar (Lập tuyến đưa các điểm tối ưu lên trước)
   const sidebarCustomers = useMemo(() => {
-    if (!routeMode) return filteredCustomers;
+    if (!routeMode) return ownerFilteredCustomers;
     const orderedIds = orderedRouteCustomers.map((c) => c.id);
-    const remaining = filteredCustomers.filter((c) => !orderedIds.includes(c.id));
+    const remaining = ownerFilteredCustomers.filter((c) => !orderedIds.includes(c.id));
     return [...orderedRouteCustomers, ...remaining];
-  }, [routeMode, filteredCustomers, orderedRouteCustomers]);
+  }, [routeMode, ownerFilteredCustomers, orderedRouteCustomers]);
+
+  const legendItems = useMemo(() => {
+    if (colorMode !== "owner") return [];
+    return getOwnerLegendItems(mapCustomersBase, staffMap);
+  }, [mapCustomersBase, colorMode, staffMap]);
 
   // Helper to safely select/deselect a customer for route planning
   const toggleCustomerSelection = (customer: any) => {
@@ -726,29 +777,13 @@ function CustomerMapPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "at_risk":
-        return (
-          <Badge className="bg-amber-100 text-amber-700 border-none font-bold text-[9px] uppercase">
-            At Risk
-          </Badge>
-        );
+        return <CRMStatusBadge variant="warning">At Risk</CRMStatusBadge>;
       case "reclaimable":
-        return (
-          <Badge className="bg-rose-100 text-rose-700 border-none font-bold text-[9px] uppercase">
-            Reclaimable
-          </Badge>
-        );
+        return <CRMStatusBadge variant="error">Reclaimable</CRMStatusBadge>;
       case "free_pool":
-        return (
-          <Badge className="bg-emerald-100 text-emerald-700 border-none font-bold text-[9px] uppercase">
-            Tự do
-          </Badge>
-        );
+        return <CRMStatusBadge variant="success">Tự do</CRMStatusBadge>;
       default:
-        return (
-          <Badge className="bg-blue-100 text-blue-700 border-none font-bold text-[9px] uppercase">
-            Assigned
-          </Badge>
-        );
+        return <CRMStatusBadge variant="info">Assigned</CRMStatusBadge>;
     }
   };
 
@@ -776,12 +811,9 @@ function CustomerMapPage() {
         </div>
 
         <div className="flex flex-wrap items-center justify-center md:justify-end gap-2 sm:gap-3 w-full md:w-auto">
-          <Badge
-            variant="outline"
-            className="border-slate-200 bg-slate-50 text-[10px] font-bold px-2.5 py-1"
-          >
-            Đang lọc: {filteredCustomers.length} / {customers.length} KH
-          </Badge>
+          <CRMStatusBadge variant="neutral">
+            Đang lọc: {ownerFilteredCustomers.length} / {customers.length} KH
+          </CRMStatusBadge>
           {canRoute && (
             <Button
               variant={routeMode ? "default" : "outline"}
@@ -1118,6 +1150,31 @@ function CustomerMapPage() {
                 </Button>
               </div>
             </div>
+
+            {/* COLOR MODE TOGGLE */}
+            <div className="space-y-1.5 pt-3 border-t border-slate-100">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                <Layers className="w-3.5 h-3.5 text-slate-400" /> Chế độ hiển thị màu Marker
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <Button
+                  variant={colorMode === "status" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setColorMode("status")}
+                  className={`rounded-lg text-[10px] font-black h-11 md:h-8 flex items-center justify-center ${colorMode === "status" ? "bg-slate-900 text-white" : ""}`}
+                >
+                  Theo Trạng thái
+                </Button>
+                <Button
+                  variant={colorMode === "owner" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setColorMode("owner")}
+                  className={`rounded-lg text-[10px] font-black h-11 md:h-8 flex items-center justify-center ${colorMode === "owner" ? "bg-slate-900 text-white" : ""}`}
+                >
+                  Theo Phụ trách
+                </Button>
+              </div>
+            </div>
           </div>
 
           {/* ROUTE PLANNING PANEL (Chỉ hiển thị khi bật Lập tuyến) */}
@@ -1128,9 +1185,9 @@ function CustomerMapPage() {
                   <Navigation className="w-3.5 h-3.5 text-indigo-600 animate-pulse" /> Lộ trình tối
                   ưu
                 </div>
-                <Badge className="bg-indigo-650 text-white font-black text-[9px] px-2 py-0.5 rounded-md">
+                <CRMStatusBadge variant="premium">
                   Đang chọn {selectedCustomerIds.length} khách
-                </Badge>
+                </CRMStatusBadge>
               </div>
 
               {/* Selector điểm xuất phát (Phase 4) */}
@@ -1297,19 +1354,14 @@ function CustomerMapPage() {
           {/* LIST ITEMS */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
             {loading ? (
-              <div className="h-40 flex flex-col items-center justify-center text-slate-400 gap-2">
-                <Compass className="w-8 h-8 animate-spin text-slate-350" />
-                <p className="text-[10px] font-bold uppercase tracking-widest animate-pulse">
-                  Đang tải khách hàng...
-                </p>
+              <div className="py-4">
+                <CRMLoadingState type="list" rows={3} />
               </div>
             ) : sidebarCustomers.length === 0 ? (
-              <div className="h-40 flex flex-col items-center justify-center text-slate-400 gap-2 border-2 border-dashed border-slate-200 rounded-2xl">
-                <HelpCircle className="w-8 h-8 text-slate-300" />
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  Không tìm thấy khách hàng nào
-                </p>
-              </div>
+              <CRMEmptyState
+                icon={<HelpCircle className="w-10 h-10 text-slate-300" />}
+                title="Không tìm thấy khách hàng nào"
+              />
             ) : (
               <>
                 {/* Section title */}
@@ -1324,10 +1376,11 @@ function CustomerMapPage() {
                   const isSelectedInRoute = routeIndex !== -1;
 
                   return (
-                    <Card
+                    <CRMCard
+                      variant="inner"
                       key={customer.id}
                       onClick={() => handleSelectCustomer(customer)}
-                      className={`rounded-2xl border border-slate-100 hover:border-slate-350 shadow-2xs hover:shadow-md transition-all cursor-pointer bg-white group overflow-hidden ${
+                      className={`transition-all cursor-pointer group overflow-hidden ${
                         isSelectedInRoute
                           ? "ring-2 ring-indigo-650 border-transparent bg-indigo-50/20"
                           : focusCustomer?.id === customer.id
@@ -1335,7 +1388,7 @@ function CustomerMapPage() {
                             : ""
                       } ${routeMode && !hasCoords ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
-                      <CardContent className="p-4 space-y-2.5">
+                      <div className="p-4 space-y-2.5">
                         <div className="flex justify-between items-start gap-2">
                           <div className="flex items-start gap-2.5">
                             {routeMode && (
@@ -1383,18 +1436,15 @@ function CustomerMapPage() {
 
                         <div className="flex items-center justify-between pt-1 border-t border-slate-50">
                           <div className="flex gap-1.5">
-                            <Badge
-                              variant="outline"
-                              className={`text-[8px] font-bold ${hasCoords ? "bg-indigo-50 border-indigo-150 text-indigo-750" : "bg-rose-50 border-rose-150 text-rose-700 border-dashed"}`}
-                            >
-                              {hasCoords
-                                ? "📍 Đã định vị"
-                                : "⚠️ Chưa có tọa độ — hãy ghim vị trí trước"}
-                            </Badge>
+                            {hasCoords ? (
+                              <CRMStatusBadge variant="info">📍 Đã định vị</CRMStatusBadge>
+                            ) : (
+                              <CRMStatusBadge variant="error">⚠️ Chưa có tọa độ</CRMStatusBadge>
+                            )}
                             {routeMode && isSelectedInRoute && (
-                              <Badge className="bg-indigo-600 text-white border-none font-bold text-[8px] uppercase">
+                              <CRMStatusBadge variant="premium">
                                 Chặng {routeIndex + 1}
-                              </Badge>
+                              </CRMStatusBadge>
                             )}
                           </div>
 
@@ -1410,8 +1460,8 @@ function CustomerMapPage() {
                             XEM CHI TIẾT →
                           </Button>
                         </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </CRMCard>
                   );
                 })}
               </>
@@ -1510,6 +1560,8 @@ function CustomerMapPage() {
                 customer.ownership_status,
                 isTeleSales || isFilterTeleActive,
                 isSelected,
+                colorMode,
+                customer.owner_sale_id,
               );
 
               // Tính khoảng cách đến văn phòng mặc định
@@ -1549,6 +1601,20 @@ function CustomerMapPage() {
 
                       <div className="space-y-1 text-[9px] text-slate-500 font-bold">
                         <p>👤 {customer.contact_name || customer.name}</p>
+                        <p>
+                          Sale phụ trách:{" "}
+                          <span className="text-slate-900">
+                            {getStaffDisplayName(customer.owner_sale_id, staffMap)}
+                          </span>
+                        </p>
+                        {customer.owner_tele_id && (
+                          <p>
+                            Tele phụ trách:{" "}
+                            <span className="text-slate-900">
+                              {getStaffDisplayName(customer.owner_tele_id, staffMap)}
+                            </span>
+                          </p>
+                        )}
                         {customer.phone && <p>📞 {customer.phone}</p>}
                         {customer.address && (
                           <p className="line-clamp-2 leading-relaxed">📍 {customer.address}</p>
@@ -1563,9 +1629,7 @@ function CustomerMapPage() {
                       </div>
 
                       <div className="flex items-center justify-between pt-1 gap-1.5">
-                        <Badge className="text-[8px] font-bold bg-slate-100 text-slate-600 border-none uppercase shrink-0">
-                          {customer.ownership_status}
-                        </Badge>
+                        {getStatusBadge(customer.ownership_status)}
                         <div className="flex gap-1">
                           {routeMode && (
                             <Button
@@ -1628,6 +1692,93 @@ function CustomerMapPage() {
 
             <MapController customers={mapCustomers} selectedCustomer={focusCustomer} />
           </MapContainer>
+
+          {/* MAP LEGEND OVERLAY */}
+          {colorMode === "owner" && legendItems.length > 0 && (
+            <CRMCard className="absolute bottom-6 right-2 md:bottom-8 md:right-6 z-[1000] bg-white/95 backdrop-blur-md shadow-xl w-56 sm:w-64 max-h-[50vh] flex flex-col overflow-hidden transition-all p-0 border-slate-200">
+              <div
+                className="p-3 border-b border-slate-100 flex items-center justify-between cursor-pointer bg-slate-50/50"
+                onClick={() => setIsLegendCollapsed(!isLegendCollapsed)}
+              >
+                <div className="flex items-center gap-1.5">
+                  <Layers className="w-4 h-4 text-slate-500" />
+                  <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">
+                    Sale Phụ Trách ({legendItems.length})
+                  </span>
+                </div>
+                <button className="text-slate-400 hover:text-slate-600">
+                  {isLegendCollapsed ? (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 15l7-7 7 7"
+                      />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  )}
+                </button>
+              </div>
+
+              {!isLegendCollapsed && (
+                <div className="p-2 overflow-y-auto max-h-[calc(50vh-45px)] space-y-1 hide-scrollbar">
+                  <button
+                    onClick={() => setActiveOwnerFilter(null)}
+                    className={`w-full flex items-center justify-between py-1.5 px-2 hover:bg-slate-50 rounded-lg transition-colors border-b border-slate-100 ${
+                      activeOwnerFilter === null ? "bg-slate-100 ring-1 ring-slate-200" : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-3.5 h-3.5 rounded-full bg-slate-800 shadow-sm shrink-0 ring-2 ring-white flex items-center justify-center">
+                        <span className="text-[6px] text-white font-bold">ALL</span>
+                      </div>
+                      <span className="text-[10px] font-black text-slate-900">
+                        Tất cả Khách hàng
+                      </span>
+                    </div>
+                    <CRMStatusBadge variant="neutral">{mapCustomersBase.length}</CRMStatusBadge>
+                  </button>
+                  {legendItems.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setActiveOwnerFilter(toggleOwnerFilter(activeOwnerFilter, item.id));
+                        setColorMode("owner"); // Ensure map visual matches filter
+                      }}
+                      className={`w-full flex items-center justify-between py-1.5 px-2 hover:bg-slate-50 rounded-lg transition-colors ${
+                        activeOwnerFilter === item.id ? "bg-indigo-50 ring-1 ring-indigo-200" : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <div
+                          className={`w-3.5 h-3.5 rounded-full ${item.color} shadow-sm shrink-0 ring-2 ring-white`}
+                        />
+                        <span
+                          className={`text-[10px] truncate ${activeOwnerFilter === item.id ? "font-black text-indigo-700" : "font-bold text-slate-700"}`}
+                        >
+                          {item.name}
+                        </span>
+                      </div>
+                      <CRMStatusBadge
+                        variant={activeOwnerFilter === item.id ? "premium" : "neutral"}
+                      >
+                        {item.count}
+                      </CRMStatusBadge>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </CRMCard>
+          )}
         </main>
 
         {/* FLOATING TOGGLE BUTTON FOR MOBILE */}
@@ -1638,7 +1789,7 @@ function CustomerMapPage() {
           >
             {mobileView === "map" ? (
               <>
-                <ListFilter className="w-4 h-4" /> Danh sách ({filteredCustomers.length})
+                <ListFilter className="w-4 h-4" /> Danh sách ({ownerFilteredCustomers.length})
               </>
             ) : (
               <>

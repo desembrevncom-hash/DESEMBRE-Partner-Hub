@@ -16,6 +16,9 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { CRMCard } from "@/components/crm/CRMCard";
+import { CRMEmptyState } from "@/components/crm/CRMEmptyState";
+import { CRMStatusBadge } from "@/components/crm/CRMStatusBadge";
 import {
   Loader2,
   Plus,
@@ -329,15 +332,13 @@ export function CustomerContacts({ customerId }: CustomerContactsProps) {
           <Loader2 className="w-6 h-6 animate-spin text-slate-300" />
         </div>
       ) : contacts.length === 0 ? (
-        <div className="text-sm text-slate-400 italic px-4 py-8 bg-slate-50 rounded-2xl border border-slate-100 border-dashed text-center">
-          Chưa có thông tin người liên hệ tại Spa này.
-        </div>
+        <CRMEmptyState title="Chưa có thông tin người liên hệ tại Spa này." className="py-8" />
       ) : (
         <div className="grid grid-cols-1 gap-3">
           {contacts.map((c) => (
-            <div
+            <CRMCard
               key={c.id}
-              className={`p-4 rounded-2xl border bg-white hover:shadow-md transition-all relative overflow-hidden ${
+              className={`p-4 hover:shadow-md transition-all relative overflow-hidden ${
                 c.is_primary ? "border-indigo-300 ring-2 ring-indigo-50" : "border-slate-200"
               }`}
             >
@@ -352,9 +353,9 @@ export function CustomerContacts({ customerId }: CustomerContactsProps) {
                       </span>
                     )}
                     {c.is_primary && (
-                      <Badge className="bg-indigo-600 text-white border-none text-[9px] px-1.5 py-0.2">
+                      <CRMStatusBadge variant="premium">
                         <Star className="w-2.5 h-2.5 mr-0.5 fill-white" /> Liên hệ chính
-                      </Badge>
+                      </CRMStatusBadge>
                     )}
                   </div>
 
@@ -416,29 +417,17 @@ export function CustomerContacts({ customerId }: CustomerContactsProps) {
               {/* Badges/Settings state footer */}
               <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-slate-100 text-[10px] font-bold text-slate-500">
                 <span className="mr-1">Thiết lập:</span>
-                <Badge
-                  className={`border-none px-2 py-0.5 text-[9px] ${
-                    c.birthday_reminder_enabled
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "bg-slate-100 text-slate-400"
-                  }`}
-                >
+                <CRMStatusBadge variant={c.birthday_reminder_enabled ? "success" : "neutral"}>
                   {c.birthday_reminder_enabled ? "✓ Nhắc sinh nhật" : "✕ Tắt nhắc sinh nhật"}
-                </Badge>
+                </CRMStatusBadge>
 
-                <Badge
-                  className={`border-none px-2 py-0.5 text-[9px] ${
-                    c.birthday_offer_opt_in
-                      ? "bg-indigo-50 text-indigo-700"
-                      : "bg-slate-100 text-slate-400"
-                  }`}
-                >
+                <CRMStatusBadge variant={c.birthday_offer_opt_in ? "premium" : "neutral"}>
                   {c.birthday_offer_opt_in ? "✓ Nhận ưu đãi" : "✕ Chưa nhận ưu đãi"}
-                </Badge>
+                </CRMStatusBadge>
 
-                <Badge className="bg-slate-100 text-slate-700 border-none px-2 py-0.5 text-[9px]">
+                <CRMStatusBadge variant="neutral">
                   Kênh ưu tiên: {PREFERRED_CHANNEL_LABELS[c.preferred_channel]}
-                </Badge>
+                </CRMStatusBadge>
               </div>
 
               {/* Note */}
@@ -450,7 +439,7 @@ export function CustomerContacts({ customerId }: CustomerContactsProps) {
                   {c.note}
                 </div>
               )}
-            </div>
+            </CRMCard>
           ))}
         </div>
       )}

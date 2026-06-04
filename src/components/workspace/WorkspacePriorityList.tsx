@@ -12,7 +12,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { WorkspacePriorityItem, WorkspaceTeamRisk } from "@/types/workspace";
 import { useNavigate } from "@tanstack/react-router";
-
+import { CRMCard } from "@/components/crm/CRMCard";
+import { CRMStatusBadge, CRMStatusBadgeVariant } from "@/components/crm/CRMStatusBadge";
+import { CRMEmptyState } from "@/components/crm/CRMEmptyState";
+import { CRMLoadingState } from "@/components/crm/CRMLoadingState";
 interface Props {
   priorities: WorkspacePriorityItem[];
   teamRisks?: WorkspaceTeamRisk[];
@@ -20,18 +23,17 @@ interface Props {
   onOpenCustomer: (id: string, action?: "note" | "task" | "followup" | "call") => void;
 }
 
-const getPriorityColor = (priority: string) => {
+const getPriorityColor = (priority: string): CRMStatusBadgeVariant => {
   switch (priority) {
     case "urgent":
-      return "bg-rose-100 text-rose-700 border-rose-200";
+      return "danger";
     case "high":
-      return "bg-amber-100 text-amber-700 border-amber-200";
+      return "warning";
     case "medium":
-      return "bg-blue-100 text-blue-700 border-blue-200";
+      return "info";
     case "low":
-      return "bg-slate-100 text-slate-700 border-slate-200";
     default:
-      return "bg-slate-100 text-slate-700 border-slate-200";
+      return "neutral";
   }
 };
 
@@ -62,6 +64,8 @@ export const WorkspacePriorityList: React.FC<Props> = ({
 }) => {
   const navigate = useNavigate();
 
+  const hasUrgent = priorities.some((p) => p.priority === "urgent");
+
   const handleAction = (item: WorkspacePriorityItem) => {
     if (item.action_type === "open_customer" && item.customer_id) {
       onOpenCustomer(item.customer_id);
@@ -70,20 +74,16 @@ export const WorkspacePriorityList: React.FC<Props> = ({
     } else if (item.action_type === "open_calendar") {
       navigate({ to: "/calendar" });
     } else if (item.deep_link) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       navigate({ to: item.deep_link as any });
     }
   };
 
   if (loading) {
     return (
-      <div className="bg-white rounded-3xl border border-slate-200/60 p-6 shadow-xs mb-8 animate-pulse">
-        <div className="h-6 w-1/4 bg-slate-200 rounded mb-6"></div>
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-16 bg-slate-100 rounded-xl"></div>
-          ))}
-        </div>
-      </div>
+      <CRMCard className="mb-8">
+        <CRMLoadingState type="list" rows={3} />
+      </CRMCard>
     );
   }
 
@@ -118,26 +118,23 @@ export const WorkspacePriorityList: React.FC<Props> = ({
         </div>
       )}
 
-      {/* TODAY PRIORITIES */}
-      <div className="bg-white rounded-3xl border border-slate-200/60 p-6 shadow-xs">
-        <div className="flex items-center gap-2 mb-6">
-          <Zap className="w-5 h-5 text-amber-500" />
-          <h3 className="text-sm font-black uppercase tracking-wider text-slate-950">
-            Việc ưu tiên hôm nay
-          </h3>
-          <span className="ml-2 px-2.5 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px] font-bold">
-            {priorities.length} việc
-          </span>
+      {/* PRIORITY TASKS */}
+      <CRMCard>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Zap className="w-5 h-5 text-indigo-600" />
+            <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">
+              Priority Focus
+            </h3>
+          </div>
+          {hasUrgent && <CRMStatusBadge variant="danger">Urgent</CRMStatusBadge>}
         </div>
 
         {priorities.length === 0 ? (
-          <div className="py-10 text-center flex flex-col items-center justify-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 px-4">
-            <span className="text-4xl mb-3">🎉</span>
-            <h4 className="text-sm font-black text-slate-700">Không có việc khẩn cấp.</h4>
-            <p className="text-xs text-slate-500 mt-1 max-w-xs">
-              Bạn có thể check-in nhanh, thêm khách mới hoặc tạo lịch follow-up.
-            </p>
-          </div>
+          <CRMEmptyState
+            title="Không có việc khẩn cấp"
+            description="Bạn có thể check-in nhanh, thêm khách mới hoặc tạo lịch follow-up."
+          />
         ) : (
           <div className="space-y-3">
             {priorities.map((item) => (
@@ -149,24 +146,22 @@ export const WorkspacePriorityList: React.FC<Props> = ({
                   <div className="p-2.5 bg-slate-50 rounded-xl group-hover:bg-blue-50 transition-colors">
                     {getTypeIcon(item.type)}
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <h4 className="text-sm font-bold text-slate-900">{item.title}</h4>
-                      <span
-                        className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${getPriorityColor(item.priority)}`}
-                      >
-                        {item.priority}
-                      </span>
+                      <CRMStatusBadge variant={getPriorityColor(item.priority)}>
+                        {item.priority === "urgent"
+                          ? "Khẩn"
+                          : item.priority === "high"
+                            ? "Cao"
+                            : "Thường"}
+                      </CRMStatusBadge>
+                      <h4 className="text-sm font-bold text-slate-900 truncate">{item.title}</h4>
                     </div>
-                    <div className="text-xs text-slate-500 flex items-center gap-1.5 flex-wrap">
-                      {item.customer_name && (
-                        <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">
-                          {item.customer_name}
-                        </span>
-                      )}
-                      <span>•</span>
-                      <span>{item.reason}</span>
-                    </div>
+                    {item.customer_name && (
+                      <p className="text-xs font-medium text-slate-500 truncate mt-0.5 max-w-[200px] sm:max-w-xs md:max-w-md">
+                        {item.customer_name} • {item.reason}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -183,7 +178,7 @@ export const WorkspacePriorityList: React.FC<Props> = ({
             ))}
           </div>
         )}
-      </div>
+      </CRMCard>
     </div>
   );
 };

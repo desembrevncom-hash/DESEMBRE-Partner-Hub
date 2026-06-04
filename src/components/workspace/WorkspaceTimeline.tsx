@@ -3,6 +3,9 @@ import { CalendarClock, MapPin } from "lucide-react";
 import { WorkspaceTimelineEvent } from "@/types/workspace";
 import { format } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { CRMCard } from "@/components/crm/CRMCard";
+import { CRMEmptyState } from "@/components/crm/CRMEmptyState";
+import { CRMLoadingState } from "@/components/crm/CRMLoadingState";
 
 interface Props {
   events: WorkspaceTimelineEvent[];
@@ -13,36 +16,21 @@ interface Props {
 export const WorkspaceTimeline: React.FC<Props> = ({ events, loading, onOpenCustomer }) => {
   if (loading) {
     return (
-      <div className="bg-white rounded-3xl border border-slate-200/60 p-6 shadow-xs h-full animate-pulse">
-        <div className="h-6 w-1/3 bg-slate-200 rounded mb-6"></div>
-        <div className="space-y-6">
-          {[1, 2].map((i) => (
-            <div key={i} className="flex gap-4">
-              <div className="w-12 h-4 bg-slate-200 rounded mt-1"></div>
-              <div className="flex-1 h-16 bg-slate-100 rounded-xl"></div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <CRMCard className="h-full">
+        <CRMLoadingState type="list" rows={2} />
+      </CRMCard>
     );
   }
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200/60 p-6 shadow-xs h-full flex flex-col">
-      <div className="flex items-center gap-2 mb-6">
-        <CalendarClock className="w-5 h-5 text-purple-500" />
-        <h3 className="text-sm font-black uppercase tracking-wider text-slate-950">
-          Lịch trình hôm nay
-        </h3>
+    <CRMCard className="h-full flex flex-col">
+      <div className="flex items-center gap-2 mb-4">
+        <CalendarClock className="w-5 h-5 text-indigo-600" />
+        <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">Schedule</h3>
       </div>
 
       {events.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center py-6 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-          <span className="text-3xl mb-2">☕</span>
-          <p className="text-xs font-bold text-slate-600">
-            Trống lịch, hãy tập trung xử lý công việc!
-          </p>
-        </div>
+        <CRMEmptyState title="Trống lịch, hãy tập trung xử lý công việc!" />
       ) : (
         <ScrollArea className="flex-1 pr-2 -mr-2 no-scrollbar">
           <div className="relative pb-2">
@@ -97,6 +85,6 @@ export const WorkspaceTimeline: React.FC<Props> = ({ events, loading, onOpenCust
           </div>
         </ScrollArea>
       )}
-    </div>
+    </CRMCard>
   );
 };

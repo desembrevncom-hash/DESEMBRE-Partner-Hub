@@ -109,17 +109,17 @@ export const WorkspaceKpiCards: React.FC<Props> = ({ counters, loading }) => {
             key={item.id}
             type="button"
             onClick={() => handleCardClick(item.id)}
-            className={`w-[140px] md:w-auto shrink-0 bg-white rounded-2xl border border-slate-100 p-3 md:p-4 h-24 md:h-28 relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/50 ${item.bgHover} cursor-pointer group text-left focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-1`}
+            className={`w-[145px] md:w-auto shrink-0 bg-white rounded-3xl border border-slate-200/70 p-4 md:p-5 h-28 md:h-32 relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg shadow-sm ${item.bgHover} cursor-pointer group text-left focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-1`}
           >
             <div className="relative z-10 flex flex-col h-full justify-between">
               <h3
-                className={`text-[9px] md:text-[10px] font-black tracking-wider uppercase mb-1 md:mb-2 ${item.color}`}
+                className={`text-[10px] font-black uppercase tracking-widest mb-1 md:mb-2 ${item.color}`}
               >
                 {item.title}
               </h3>
               <div className="flex items-end justify-between">
                 <span
-                  className={`text-3xl md:text-4xl font-black tracking-tighter ${item.value > 0 ? "text-slate-800" : "text-slate-300"}`}
+                  className={`text-3xl font-black ${item.value > 0 ? "text-slate-900" : "text-slate-300"}`}
                 >
                   {item.value}
                 </span>

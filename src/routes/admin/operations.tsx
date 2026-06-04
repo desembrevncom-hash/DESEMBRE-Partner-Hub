@@ -5,6 +5,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { ResendProcessorPanel } from "@/components/admin/ResendProcessorPanel";
 import { ZaloProcessorPanel } from "@/components/admin/ZaloProcessorPanel";
+import { CRMPageContainer } from "@/components/crm/CRMPageContainer";
+import { CRMPageHeader } from "@/components/crm/CRMPageHeader";
+import { CRMCard } from "@/components/crm/CRMCard";
+import { CRMSection } from "@/components/crm/CRMSection";
+import { CRMStatusBadge } from "@/components/crm/CRMStatusBadge";
 import {
   Lock,
   RefreshCw,
@@ -23,7 +28,6 @@ import {
   Clock,
   Copy,
 } from "lucide-react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -84,56 +88,26 @@ function StatusBadge({
   neutralOnFalse?: boolean;
 }) {
   if (value === null || value === undefined) {
-    return (
-      <Badge
-        variant="outline"
-        className="bg-slate-50 border-slate-300 text-slate-500 font-semibold gap-1 text-xs"
-      >
-        <HelpCircle className="w-3 h-3" /> Chưa xác minh
-      </Badge>
-    );
+    return <CRMStatusBadge status="warning" label="Chưa xác minh" />;
   }
   if (typeof value === "boolean") {
     if (value) {
       return (
-        <Badge
-          variant="outline"
-          className={`${dangerOnTrue ? "bg-rose-50 border-rose-300 text-rose-700" : "bg-emerald-50 border-emerald-300 text-emerald-700"} font-bold gap-1 text-xs`}
-        >
-          {dangerOnTrue ? (
-            <AlertCircle className="w-3 h-3" />
-          ) : (
-            <CheckCircle2 className="w-3 h-3" />
-          )}{" "}
-          {trueLabel}
-        </Badge>
+        <CRMStatusBadge
+          status={dangerOnTrue ? "danger" : "success"}
+          label={trueLabel}
+        />
       );
     } else {
       return (
-        <Badge
-          variant="outline"
-          className={`${neutralOnFalse ? "bg-slate-50 border-slate-300 text-slate-500" : dangerOnFalse ? "bg-rose-50 border-rose-300 text-rose-700" : "bg-emerald-50 border-emerald-300 text-emerald-700"} font-bold gap-1 text-xs`}
-        >
-          {neutralOnFalse ? (
-            <XCircle className="w-3 h-3" />
-          ) : dangerOnFalse ? (
-            <AlertCircle className="w-3 h-3" />
-          ) : (
-            <Lock className="w-3 h-3" />
-          )}{" "}
-          {falseLabel}
-        </Badge>
+        <CRMStatusBadge
+          status={neutralOnFalse ? "neutral" : dangerOnFalse ? "danger" : "success"}
+          label={falseLabel}
+        />
       );
     }
   }
-  return (
-    <Badge
-      variant="outline"
-      className="bg-slate-50 border-slate-200 text-slate-700 font-semibold text-xs"
-    >
-      {String(value)}
-    </Badge>
-  );
+  return <CRMStatusBadge status="info" label={String(value)} />;
 }
 
 function SectionHeader({
@@ -267,28 +241,18 @@ Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
   const t = opsData?.timestamps;
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] p-6 pb-20 font-sans antialiased">
+    <CRMPageContainer>
       <div className="max-w-[1200px] mx-auto space-y-6">
         {/* ── Header ── */}
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <Link
-              to="/admin/hub"
-              className="text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors"
-            >
-              ← Admin Hub
-            </Link>
-          </div>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2">
-                <ShieldAlert className="w-6 h-6 text-violet-500" />
-                Operations Control
-              </h1>
-              <p className="text-sm text-slate-500 mt-1">
-                Quan sát và kiểm soát thủ công hệ thống vận hành CRM
-              </p>
-            </div>
+        <CRMPageHeader
+          title="Operations Control"
+          icon={<ShieldAlert className="w-6 h-6 text-violet-500" />}
+          description="Quan sát và kiểm soát thủ công hệ thống vận hành CRM"
+          breadcrumbs={[
+            { label: "Admin Hub", href: "/admin/hub" },
+            { label: "Operations Control" },
+          ]}
+          actionButtons={
             <div className="flex items-center flex-wrap gap-2 w-full sm:w-auto sm:justify-end">
               {lastRefreshed && (
                 <span className="text-xs text-slate-400 flex items-center gap-1 mr-auto sm:mr-0 shrink-0">
@@ -321,8 +285,8 @@ Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
                 Làm mới
               </Button>
             </div>
-          </div>
-        </div>
+          }
+        />
 
         {/* ── Safety Banner ── */}
         <div className="bg-violet-50 border border-violet-200 rounded-xl p-4 flex gap-3 items-start">
@@ -345,15 +309,15 @@ Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
         )}
 
         {/* ── 1. System Safety Overview ── */}
-        <Card className="shadow-sm border-slate-200 bg-white">
-          <CardHeader className="pb-3 border-b border-slate-100">
+        <CRMCard className="shadow-sm border-slate-200 bg-white p-0 overflow-hidden">
+          <div className="p-5 pb-3 border-b border-slate-100">
             <SectionHeader
               icon={<ShieldAlert className="w-5 h-5 text-violet-500" />}
               title="System Safety Overview"
               description="Trạng thái an toàn hệ thống — đọc từ ENV và DB (read-only)"
             />
-          </CardHeader>
-          <CardContent className="pt-4">
+          </div>
+          <div className="p-5 pt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {/* Marketing Production Sending */}
               <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-between">
@@ -486,8 +450,8 @@ Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
                 </p>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </CRMCard>
 
         {/* ── 2. Resend Worker Control (reuse shared component) ── */}
         <div>
@@ -510,15 +474,15 @@ Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
         </div>
 
         {/* ── 3. Webhook Monitoring ── */}
-        <Card className="shadow-sm border-slate-200 bg-white">
-          <CardHeader className="pb-3 border-b border-slate-100">
+        <CRMCard className="shadow-sm border-slate-200 bg-white p-0 overflow-hidden">
+          <div className="p-5 pb-3 border-b border-slate-100">
             <SectionHeader
               icon={<Inbox className="w-5 h-5 text-slate-500" />}
               title="Webhook Monitoring"
               description="Thống kê read-only từ bảng webhook_events"
             />
-          </CardHeader>
-          <CardContent className="pt-4">
+          </div>
+          <div className="p-5 pt-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               <StatCard
                 label="Pending Resend Events"
@@ -567,19 +531,19 @@ Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
               Mở Webhook Inbox
               <ExternalLink className="w-3 h-3" />
             </Link>
-          </CardContent>
-        </Card>
+          </div>
+        </CRMCard>
 
         {/* ── 4. Marketing Safety ── */}
-        <Card className="shadow-sm border-slate-200 bg-white">
-          <CardHeader className="pb-3 border-b border-slate-100">
+        <CRMCard className="shadow-sm border-slate-200 bg-white p-0 overflow-hidden">
+          <div className="p-5 pb-3 border-b border-slate-100">
             <SectionHeader
               icon={<Radio className="w-5 h-5 text-violet-500" />}
               title="Marketing Safety"
               description="Sender accounts, suppression list và delivery logs — read-only"
             />
-          </CardHeader>
-          <CardContent className="pt-4">
+          </div>
+          <div className="p-5 pt-4">
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
               <StatCard
                 label="Active Email Suppressions"
@@ -616,19 +580,19 @@ Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
                 <ExternalLink className="w-3 h-3" />
               </Link>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </CRMCard>
 
         {/* ── 5. Automation & AI Safety ── */}
-        <Card className="shadow-sm border-slate-200 bg-white">
-          <CardHeader className="pb-3 border-b border-slate-100">
+        <CRMCard className="shadow-sm border-slate-200 bg-white p-0 overflow-hidden">
+          <div className="p-5 pb-3 border-b border-slate-100">
             <SectionHeader
               icon={<Bot className="w-5 h-5 text-amber-500" />}
               title="Automation & AI Safety"
               description="Trạng thái read-only — không có toggle trong phase này"
             />
-          </CardHeader>
-          <CardContent className="pt-4">
+          </div>
+          <div className="p-5 pt-4">
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2 items-start text-xs mb-4">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <p className="text-amber-700 leading-relaxed">
@@ -651,10 +615,10 @@ Note: Inbound Zalo events are preserved for future Inbox/Automation.`;
                 <Bot className="w-3.5 h-3.5" /> AI Settings <ExternalLink className="w-3 h-3" />
               </Link>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </CRMCard>
       </div>
-    </div>
+    </CRMPageContainer>
   );
 }
 

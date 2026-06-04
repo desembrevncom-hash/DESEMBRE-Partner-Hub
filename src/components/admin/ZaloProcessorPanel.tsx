@@ -14,6 +14,7 @@ import {
   ArrowRightLeft,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { CRMCard } from "@/components/crm/CRMCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -198,11 +199,11 @@ export function ZaloProcessorPanel({ onProcessed }: { onProcessed?: () => void }
   const canConfirm = confirmPhrase === CONFIRM_STRING;
 
   return (
-    <Card
+    <CRMCard
       id="zalo-processor-panel"
-      className="shadow-sm border-blue-200 bg-gradient-to-br from-blue-50/80 via-white to-sky-50/40 overflow-hidden"
+      className="shadow-sm border-blue-200 bg-gradient-to-br from-blue-50/80 via-white to-sky-50/40 p-0 overflow-hidden"
     >
-      <CardHeader className="pb-3">
+      <div className="p-5 pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -241,8 +242,8 @@ export function ZaloProcessorPanel({ onProcessed }: { onProcessed?: () => void }
             )}
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
+      </div>
+      <div className="p-5 pt-0 space-y-4">
         {/* Wording and Warnings */}
         <div className="bg-amber-50/80 border border-amber-200 rounded-lg p-3 flex gap-2 items-start text-xs">
           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
@@ -442,7 +443,7 @@ export function ZaloProcessorPanel({ onProcessed }: { onProcessed?: () => void }
             )}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </CRMCard>
   );
 }

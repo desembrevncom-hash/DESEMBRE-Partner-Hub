@@ -45,6 +45,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
+import { CRMCard } from "@/components/crm/CRMCard";
 
 interface WorkspaceCalendarCardProps {
   events: any[];
@@ -243,9 +244,9 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
-      <div className="bg-slate-900 p-4 text-white flex items-center justify-between">
-        <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
+    <CRMCard className="p-0 overflow-hidden flex flex-col min-h-[500px]">
+      <div className="bg-slate-900 p-5 text-white flex items-center justify-between">
+        <h3 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
           <CalendarIcon className="w-4 h-4 text-primary" /> Lịch làm việc
         </h3>
         <div className="flex items-center gap-4">
@@ -648,6 +649,6 @@ export const WorkspaceCalendarCard: React.FC<WorkspaceCalendarCardProps> = ({
         open={!!previewCustomer}
         onOpenChange={(open) => !open && setPreviewCustomer(null)}
       />
-    </div>
+    </CRMCard>
   );
 };

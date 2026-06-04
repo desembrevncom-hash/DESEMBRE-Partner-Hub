@@ -16,6 +16,12 @@ import { toast } from "sonner";
 import { CatalogPDF } from "@/components/CatalogPDF";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { useRef } from "react";
+import { CRMPageContainer } from "@/components/crm/CRMPageContainer";
+import { CRMPageHeader } from "@/components/crm/CRMPageHeader";
+import { CRMCard } from "@/components/crm/CRMCard";
+import { CRMSection } from "@/components/crm/CRMSection";
+import { CRMStatusBadge } from "@/components/crm/CRMStatusBadge";
+import { CRMTableWrapper } from "@/components/crm/CRMTableWrapper";
 
 type OrderSearch = {
   edit?: string;
@@ -584,44 +590,36 @@ function NewOrderPage() {
   const total = subtotal + vatAmount;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="border-b border-border bg-card sticky top-0 z-50">
-        <div className="container mx-auto px-4 md:px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link
-              to="/"
-              className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-            >
-              <ArrowLeft className="w-4 h-4" /> Quay lại
-            </Link>
-            <h1 className="text-xl font-bold">
-              {step === 1 ? "Kiểm tra đơn hàng (Draft)" : "Thông tin khách hàng"}
-            </h1>
-            {isGuest && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-600 font-bold uppercase border border-orange-500/20">
-                Khách vãng lai
-              </span>
-            )}
-          </div>
+    <CRMPageContainer>
+      <CRMPageHeader
+        title={step === 1 ? "Kiểm tra đơn hàng (Draft)" : "Thông tin khách hàng"}
+        subtitle={isGuest ? "Khách vãng lai" : "Tạo đơn mới"}
+        icon={<ShoppingCart className="w-5 h-5 text-primary" />}
+        backTo="/orders"
+        action={
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
-              <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+              <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
                 Tổng tiền {vatOn ? "(Đã có VAT)" : ""}
               </div>
               <div className="text-lg font-bold text-primary font-mono">{fmt(total)}</div>
             </div>
             {step === 1 ? (
-              <Button onClick={() => setStep(2)} disabled={items.length === 0}>
+              <Button
+                onClick={() => setStep(2)}
+                disabled={items.length === 0}
+                className="rounded-xl font-bold"
+              >
                 Tiếp theo <ArrowLeft className="w-4 h-4 rotate-180 ml-2" />
               </Button>
             ) : (
-              <Button variant="outline" onClick={() => setStep(1)}>
+              <Button variant="outline" onClick={() => setStep(1)} className="rounded-xl font-bold">
                 Quay lại bảng kê
               </Button>
             )}
           </div>
-        </div>
-      </header>
+        }
+      />
 
       <main className="container mx-auto px-4 md:px-6 py-8 flex-1">
         {step === 1 ? (
@@ -720,8 +718,8 @@ function NewOrderPage() {
             )}
 
             {/* Desktop Table View */}
-            <div className="bg-card rounded-lg shadow-sm border border-border overflow-hidden hidden md:block">
-              <div className="overflow-x-auto">
+            <CRMCard className="p-0 hidden md:block">
+              <CRMTableWrapper>
                 <table className="product-table w-full">
                   <thead>
                     <tr>
@@ -858,8 +856,8 @@ function NewOrderPage() {
                     </tfoot>
                   )}
                 </table>
-              </div>
-            </div>
+              </CRMTableWrapper>
+            </CRMCard>
 
             {/* Mobile Card List View */}
             <div className="block md:hidden space-y-4">
@@ -952,7 +950,7 @@ function NewOrderPage() {
                   </div>
 
                   {/* Mobile Summary Card */}
-                  <div className="bg-white border border-border rounded-2xl p-5 space-y-3.5 shadow-sm">
+                  <CRMCard className="p-5 space-y-3.5 shadow-sm">
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-slate-500 font-medium">Tạm tính (Chưa VAT)</span>
                       <span className="font-bold font-mono text-slate-800">{fmt(subtotal)}</span>
@@ -982,7 +980,7 @@ function NewOrderPage() {
                         {fmt(total)}
                       </span>
                     </div>
-                  </div>
+                  </CRMCard>
                 </>
               )}
             </div>
@@ -990,14 +988,7 @@ function NewOrderPage() {
         ) : (
           <div className="max-w-4xl mx-auto grid md:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="md:col-span-2 space-y-6">
-              <div className="bg-card border border-border rounded-lg p-6 shadow-sm space-y-4">
-                <h2 className="text-lg font-bold flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs">
-                    2
-                  </div>
-                  Thông tin giao hàng
-                </h2>
-
+              <CRMSection title="Thông tin giao hàng" stepNumber={2} className="p-6">
                 {/* Chọn khách hàng CRM để tự điền thông tin */}
                 <div className="space-y-2 pb-3 border-b border-border/60">
                   <Label className="text-xs font-bold text-primary flex items-center gap-1.5">
@@ -1075,16 +1066,14 @@ function NewOrderPage() {
                     placeholder="Yêu cầu đặc biệt..."
                   />
                 </div>
-              </div>
+              </CRMSection>
 
               {/* Thông tin người báo giá (Quoter Info) */}
-              <div className="bg-card border border-border rounded-lg p-6 shadow-sm space-y-4">
-                <h2 className="text-lg font-bold flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs">
-                    3
-                  </div>
-                  Thông tin người lập báo giá
-                </h2>
+              <CRMSection
+                title="Thông tin người lên đơn (Sales/Admin)"
+                stepNumber={3}
+                className="p-6"
+              >
                 <div className="grid sm:grid-cols-4 gap-4">
                   <div className="space-y-1">
                     <Label className="text-muted-foreground text-xs uppercase tracking-wider">
@@ -1123,7 +1112,7 @@ function NewOrderPage() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </CRMSection>
             </div>
 
             <div className="space-y-6">
@@ -1167,7 +1156,7 @@ function NewOrderPage() {
                       className={`w-full py-4 font-bold uppercase tracking-wider border-2 border-primary text-primary hover:bg-primary/10 flex items-center justify-center gap-2 rounded-md transition-colors ${items.length === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       <FileText className="w-4 h-4" />
-                      CHUẨN BỊ FILE PDF BÁO GIÁ
+                      XUẤT FILE PDF BÁO GIÁ
                     </button>
                   ) : (
                     <PDFDownloadLink
@@ -1218,6 +1207,6 @@ function NewOrderPage() {
           </div>
         )}
       </main>
-    </div>
+    </CRMPageContainer>
   );
 }

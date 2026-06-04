@@ -17,6 +17,7 @@ import { formatDistanceToNow, format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { CRMCard } from "@/components/crm/CRMCard";
 
 interface Props {
   item: ITimelineItem;
@@ -145,8 +146,8 @@ export const TimelineItem: React.FC<Props> = ({ item, onClick }) => {
         className={`flex-1 pb-6 ${isClickable ? "cursor-pointer" : ""}`}
         onClick={() => isClickable && onClick && onClick(item)}
       >
-        <div
-          className={`bg-white border rounded-2xl p-4 transition-all ${isClickable ? "hover:border-slate-300 hover:shadow-sm" : "border-slate-150"}`}
+        <CRMCard
+          className={`p-4 transition-all ${isClickable ? "hover:border-slate-300 hover:shadow-sm cursor-pointer" : "border-slate-150"}`}
         >
           <div className="flex justify-between items-start mb-2">
             <div>
@@ -288,7 +289,7 @@ export const TimelineItem: React.FC<Props> = ({ item, onClick }) => {
               )}
             </div>
           )}
-        </div>
+        </CRMCard>
       </div>
     </div>
   );

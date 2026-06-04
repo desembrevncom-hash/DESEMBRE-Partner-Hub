@@ -23,6 +23,10 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useCheckInFlow } from "@/hooks/useCheckInFlow";
 import { CheckInFlow } from "./checkin/CheckInFlow";
 import { Badge } from "@/components/ui/badge";
+import { CRMCard } from "@/components/crm/CRMCard";
+import { CRMStatusBadge } from "@/components/crm/CRMStatusBadge";
+import { CRMEmptyState } from "@/components/crm/CRMEmptyState";
+import { CRMLoadingState } from "@/components/crm/CRMLoadingState";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
@@ -1167,25 +1171,26 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
             {/* BADGES & PHONE */}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge
-                  variant="outline"
+                <CRMStatusBadge
+                  variant="neutral"
                   className={`border-none rounded-full px-2.5 py-0.5 text-[9px] font-black tracking-wider uppercase ${getLifecycleBadgeColor(customer.lifecycle_stage || customer.status)}`}
                 >
                   {customer.lifecycle_stage || customer.status || "Mới"}
-                </Badge>
+                </CRMStatusBadge>
                 {customer.potential_level && (
-                  <Badge
+                  <CRMStatusBadge
+                    variant="warning"
                     className={`border-none rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase ${getPotentialBadgeColor(customer.potential_level)}`}
                   >
                     {customer.potential_level === "hot"
                       ? "HOT 🔥"
                       : customer.potential_level.toUpperCase()}
-                  </Badge>
+                  </CRMStatusBadge>
                 )}
                 {needsRouting && (
-                  <Badge className="border-none rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase bg-amber-500 hover:bg-amber-600 text-white animate-pulse">
+                  <CRMStatusBadge variant="danger" className="border-none rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase bg-amber-500 hover:bg-amber-600 text-white animate-pulse">
                     Cần phân tuyến
-                  </Badge>
+                  </CRMStatusBadge>
                 )}
               </div>
 
@@ -1298,7 +1303,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
             {(() => {
               const health = getCustomerDataHealth(activeCustomer ?? customer);
               return (
-                <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 shadow-sm space-y-3">
+                <CRMCard className="p-4 bg-slate-50 shadow-sm space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-[12px] font-black text-slate-800 uppercase flex items-center gap-2">
                       <Activity className="w-4 h-4 text-slate-500" /> Sức khỏe dữ liệu
@@ -1324,12 +1329,12 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                       ))}
                     </ul>
                   )}
-                </div>
+                </CRMCard>
               );
             })()}
 
             {/* SECTION: CORE INFO */}
-            <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-4">
+            <CRMCard className="p-4 shadow-sm space-y-4">
               <h3 className="text-[12px] font-black text-slate-800 uppercase flex items-center gap-2 border-b border-slate-100 pb-2">
                 <Info className="w-4 h-4 text-slate-500" /> Thông tin chính
               </h3>
@@ -1443,11 +1448,11 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                   </div>
                 </div>
               </div>
-            </div>
+            </CRMCard>
 
             {/* SECTION: CONSENT & TAGS */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-3">
+              <CRMCard className="p-4 shadow-sm space-y-3">
                 <h3 className="text-[12px] font-black text-slate-800 uppercase flex items-center gap-2 border-b border-slate-100 pb-2">
                   <MessageCircle className="w-4 h-4 text-slate-500" /> Marketing Consent
                 </h3>
@@ -1471,22 +1476,20 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                     </Badge>
                   </div>
                 </div>
-              </div>
-
-              <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-3">
+              </CRMCard>
+              <CRMCard className="p-4 shadow-sm space-y-3">
                 <h3 className="text-[12px] font-black text-slate-800 uppercase flex items-center gap-2 border-b border-slate-100 pb-2">
                   <Target className="w-4 h-4 text-slate-500" /> Phân loại (Tags)
                 </h3>
                 <div className="flex flex-wrap gap-1.5">
                   {customer.tags && Array.isArray(customer.tags) && customer.tags.length > 0 ? (
                     customer.tags.map((tag: string, idx: number) => (
-                      <Badge
+                      <CRMStatusBadge
                         key={idx}
-                        variant="secondary"
-                        className="text-[10px] bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-100"
+                        variant="premium"
                       >
                         {tag}
-                      </Badge>
+                      </CRMStatusBadge>
                     ))
                   ) : (
                     <span className="text-[11px] font-medium text-slate-400 italic">
@@ -1494,7 +1497,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                     </span>
                   )}
                 </div>
-              </div>
+              </CRMCard>
             </div>
 
             {/* CARE MODEL WARNING */}
@@ -1531,7 +1534,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
 
               {/* Action forms moved up for immediate visibility */}
               {quickAction === "note" && (
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-3 animate-in fade-in slide-in-from-top-2">
+                <CRMCard className="p-4 bg-slate-50 space-y-3 animate-in fade-in slide-in-from-top-2">
                   <div className="text-[11px] font-black text-slate-700 flex items-center gap-1.5">
                     <Plus className="w-3.5 h-3.5 text-primary" /> THÊM GHI CHÚ CHĂM SÓC
                   </div>
@@ -1604,11 +1607,11 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                     )}
                     Lưu ghi chú
                   </Button>
-                </div>
+                </CRMCard>
               )}
 
               {quickAction === "task" && (
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-3 animate-in fade-in slide-in-from-top-2">
+                <CRMCard className="p-4 bg-slate-50 space-y-3 animate-in fade-in slide-in-from-top-2">
                   <div className="text-[11px] font-black text-slate-700 flex items-center gap-1.5">
                     <CheckSquare className="w-3.5 h-3.5 text-primary" /> ĐẶT TASK GỌI LẠI / LIÊN HỆ
                   </div>
@@ -1666,11 +1669,11 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                     )}
                     Tạo việc cần làm
                   </Button>
-                </div>
+                </CRMCard>
               )}
 
               {quickAction === "followup" && (
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-3 animate-in fade-in slide-in-from-top-2">
+                <CRMCard className="p-4 bg-slate-50 space-y-3 animate-in fade-in slide-in-from-top-2">
                   <div className="text-[11px] font-black text-slate-700 flex items-center gap-1.5">
                     <CalendarCheck className="w-3.5 h-3.5 text-primary" /> HẸN LỊCH GẶP / LỊCH CHĂM
                     SÓC
@@ -1760,7 +1763,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                     )}
                     Đặt lịch hẹn
                   </Button>
-                </div>
+                </CRMCard>
               )}
 
               <div className="space-y-3">
@@ -2152,9 +2155,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-slate-400 font-bold uppercase tracking-wider">
-                  Chưa có đơn hàng
-                </div>
+                <CRMEmptyState title="Chưa có đơn hàng" className="py-8" />
               )}
             </section>
 
@@ -2188,9 +2189,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-slate-400 font-bold uppercase tracking-wider">
-                  Chưa có lịch hẹn
-                </div>
+                <CRMEmptyState title="Chưa có lịch hẹn" className="py-8" />
               )}
             </section>
 
@@ -2295,9 +2294,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-slate-400 font-bold uppercase tracking-wider">
-                  Chưa có việc cần làm
-                </div>
+                <CRMEmptyState title="Chưa có việc cần làm" className="py-8" />
               )}
             </section>
 
@@ -2329,9 +2326,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-slate-400 font-bold uppercase tracking-wider">
-                  Chưa có sự kiện
-                </div>
+                <CRMEmptyState title="Chưa có sự kiện" className="py-8" />
               )}
             </section>
           </div>
