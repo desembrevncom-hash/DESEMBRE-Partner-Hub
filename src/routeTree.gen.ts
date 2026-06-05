@@ -40,6 +40,7 @@ import { Route as CustomersIdRouteImport } from './routes/customers/$id'
 import { Route as AdminWebhooksRouteImport } from './routes/admin/webhooks'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminUatRouteImport } from './routes/admin/uat'
+import { Route as AdminTemplatesRouteImport } from './routes/admin/templates'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminSenderAccountsRouteImport } from './routes/admin/sender-accounts'
 import { Route as AdminSegmentsRouteImport } from './routes/admin/segments'
@@ -221,6 +222,11 @@ const AdminUatRoute = AdminUatRouteImport.update({
   path: '/admin/uat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminTemplatesRoute = AdminTemplatesRouteImport.update({
+  id: '/admin/templates',
+  path: '/admin/templates',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminSettingsRoute = AdminSettingsRouteImport.update({
   id: '/admin/settings',
   path: '/admin/settings',
@@ -377,6 +383,7 @@ export interface FileRoutesByFullPath {
   '/admin/segments': typeof AdminSegmentsRoute
   '/admin/sender-accounts': typeof AdminSenderAccountsRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/templates': typeof AdminTemplatesRoute
   '/admin/uat': typeof AdminUatRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/webhooks': typeof AdminWebhooksRoute
@@ -433,6 +440,7 @@ export interface FileRoutesByTo {
   '/admin/segments': typeof AdminSegmentsRoute
   '/admin/sender-accounts': typeof AdminSenderAccountsRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/templates': typeof AdminTemplatesRoute
   '/admin/uat': typeof AdminUatRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/webhooks': typeof AdminWebhooksRoute
@@ -491,6 +499,7 @@ export interface FileRoutesById {
   '/admin/segments': typeof AdminSegmentsRoute
   '/admin/sender-accounts': typeof AdminSenderAccountsRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/templates': typeof AdminTemplatesRoute
   '/admin/uat': typeof AdminUatRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/webhooks': typeof AdminWebhooksRoute
@@ -550,6 +559,7 @@ export interface FileRouteTypes {
     | '/admin/segments'
     | '/admin/sender-accounts'
     | '/admin/settings'
+    | '/admin/templates'
     | '/admin/uat'
     | '/admin/users'
     | '/admin/webhooks'
@@ -606,6 +616,7 @@ export interface FileRouteTypes {
     | '/admin/segments'
     | '/admin/sender-accounts'
     | '/admin/settings'
+    | '/admin/templates'
     | '/admin/uat'
     | '/admin/users'
     | '/admin/webhooks'
@@ -663,6 +674,7 @@ export interface FileRouteTypes {
     | '/admin/segments'
     | '/admin/sender-accounts'
     | '/admin/settings'
+    | '/admin/templates'
     | '/admin/uat'
     | '/admin/users'
     | '/admin/webhooks'
@@ -721,6 +733,7 @@ export interface RootRouteChildren {
   AdminSegmentsRoute: typeof AdminSegmentsRoute
   AdminSenderAccountsRoute: typeof AdminSenderAccountsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
+  AdminTemplatesRoute: typeof AdminTemplatesRoute
   AdminUatRoute: typeof AdminUatRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminWebhooksRoute: typeof AdminWebhooksRoute
@@ -961,6 +974,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/templates': {
+      id: '/admin/templates'
+      path: '/admin/templates'
+      fullPath: '/admin/templates'
+      preLoaderRoute: typeof AdminTemplatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/settings': {
       id: '/admin/settings'
       path: '/admin/settings'
@@ -1182,6 +1202,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminSegmentsRoute: AdminSegmentsRoute,
   AdminSenderAccountsRoute: AdminSenderAccountsRoute,
   AdminSettingsRoute: AdminSettingsRoute,
+  AdminTemplatesRoute: AdminTemplatesRoute,
   AdminUatRoute: AdminUatRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminWebhooksRoute: AdminWebhooksRoute,
