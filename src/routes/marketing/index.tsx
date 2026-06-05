@@ -81,7 +81,7 @@ function MarketingDashboardPage() {
     setLoading(true);
     try {
       // 1. Fetch Lead Sources (Nếu là Sale, ta đếm khách hàng của chính Sale đó theo source)
-      let querySource = supabase.from("customers").select("lead_source, id");
+      let querySource = supabase.from("customers").select("lead_source:source, id");
       if (isSale && !isAdmin && !isSubAdmin) {
         querySource = querySource.eq("owner_sale_id", user?.id);
       }
