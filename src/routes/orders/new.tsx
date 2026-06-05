@@ -7,6 +7,13 @@ import { formatCurrencyVND } from "@/lib/pricing";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import type { Product, Category, ProductVariant } from "@/types/product";
 import type { OverrideRow } from "@/lib/saveOverride";
+import {
+  type HydratedLineItem,
+  normalizeLegacyCartItem,
+  normalizeDbCartItem,
+  groupCartItems,
+  mapItemToOrderInsert,
+} from "@/lib/orders";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,15 +47,9 @@ export const Route = createFileRoute("/orders/new")({
 
 const fmt = formatCurrencyVND;
 
-type LineItem = {
-  product_no: number;
-  product_name: string;
-  image_url?: string | null;
-  size: string;
-  size_type: "retail" | "salon";
-  unit_price: number; // already discounted
-  quantity: number;
-};
+// LineItem is now the unified HydratedLineItem from orders.ts.
+// Re-export with local alias for backward compat in this file.
+type LineItem = HydratedLineItem;
 
 function NewOrderPage() {
   const { user, isAdmin, isSale, loading } = useAuth();
@@ -139,15 +140,35 @@ function NewOrderPage() {
           setNote(loadedOrder.note || "");
           setVatOn(Number(loadedOrder.vat_rate) > 0);
           setItems(
-            loadedItems.map((it: any) => ({
-              product_no: it.product_no,
-              product_name: it.product_name,
-              image_url: null,
-              size: it.size || "",
-              size_type: it.size_type,
-              unit_price: it.unit_price,
-              quantity: it.quantity,
-            })),
+            loadedItems.map(
+              (it: any): LineItem => ({
+                source: (it.source as "legacy_static" | "db_catalog") || "legacy_static",
+                product_no: it.product_no ?? null,
+                catalog_product_id: it.catalog_product_id ?? null,
+                variant_id: it.variant_id ?? null,
+                sku_snapshot:
+                  it.sku_snapshot ??
+                  (it.product_no
+                    ? `DESEMBRE-${it.product_no}-${(it.size_type || "retail").toUpperCase()}`
+                    : ""),
+                brand_name_snapshot: it.brand_name_snapshot ?? "Desembre",
+                product_name_snapshot: it.product_name_snapshot ?? it.product_name ?? "",
+                variant_label_snapshot:
+                  it.variant_label_snapshot ?? `${it.size_type || "retail"} - ${it.size || ""}`,
+                channel_snapshot: (it.channel_snapshot ?? it.size_type ?? "retail") as
+                  | "retail"
+                  | "salon",
+                unit_price_snapshot: it.unit_price_snapshot ?? it.unit_price ?? 0,
+                display_name: it.product_name_snapshot ?? it.product_name ?? "",
+                size: it.size || "",
+                size_type: (it.size_type || "retail") as "retail" | "salon",
+                unit_price: it.unit_price,
+                quantity: it.quantity,
+                line_total: it.unit_price * it.quantity,
+                image_url: it.image_url ?? null,
+                catalog_url: it.catalog_url ?? null,
+              }),
+            ),
           );
         }
         setBusy(false);
@@ -185,73 +206,41 @@ function NewOrderPage() {
       } catch {}
 
       // Seed items from pickup cart in sessionStorage
+      // Supports mixed cart: legacy { no, sizeType } AND db_catalog payload objects
       try {
         const raw = sessionStorage.getItem("pickupCart");
         if (!raw) return;
-        const picks: { no: number; sizeType: "retail" | "salon" }[] = JSON.parse(raw);
+        const picks: any[] = JSON.parse(raw);
         if (!Array.isArray(picks) || picks.length === 0) return;
-        const seeded: LineItem[] = [];
+
+        const rawLineItems: LineItem[] = [];
+
         for (const pk of picks) {
-          const staticP = PRODUCTS.find((p: Product) => p.id === pk.no);
-          const o = map[pk.no];
-
-          // If it's not a static product and not a custom product, skip
-          if (!staticP && (!o || !o.is_custom)) continue;
-
-          let productName = staticP?.name ?? o?.name ?? "(Chưa có tên)";
-          const imageUrl = o?.image_url ?? staticP?.imageUrl;
-          let basePrice = 0;
-          let size = "";
-
-          const staticVariant = staticP?.variants.find(
-            (v: ProductVariant) => v.type === pk.sizeType,
-          );
-          basePrice = staticVariant?.price ?? 0;
-          size = staticVariant?.size ?? "";
-
-          // Apply overrides (for both static and custom products)
-          if (o) {
-            productName = o.name ?? productName;
-            if (pk.sizeType === "retail") {
-              if (o.retail_price != null) basePrice = o.retail_price;
-              if (o.retail_size != null) size = o.retail_size;
-            } else {
-              if (o.salon_price != null) basePrice = o.salon_price;
-              if (o.salon_size != null) size = o.salon_size;
-            }
+          if (pk && pk.source === "db_catalog") {
+            // DB-native cart item
+            const hydrated = normalizeDbCartItem(pk, isSale && !isAdmin, defaultDiscount);
+            if (hydrated) rawLineItems.push(hydrated);
+          } else if (pk && typeof pk.no === "number") {
+            // Legacy cart item { no, sizeType }
+            const hydrated = normalizeLegacyCartItem(
+              { no: pk.no, sizeType: pk.sizeType || "retail", quantity: pk.quantity },
+              PRODUCTS,
+              map,
+              isSale && !isAdmin,
+              defaultDiscount,
+            );
+            if (hydrated) rawLineItems.push(hydrated);
           }
-
-          if (basePrice === 0) continue;
-
-          const existing = seeded.find(
-            (it) => it.product_no === pk.no && it.size_type === pk.sizeType,
-          );
-          if (existing) {
-            existing.quantity += 1;
-            continue;
-          }
-
-          seeded.push({
-            product_no: pk.no,
-            product_name: productName,
-            image_url: imageUrl,
-            size,
-            size_type: pk.sizeType,
-            unit_price: basePrice * (isSale && !isAdmin ? 1 - defaultDiscount : 1),
-            quantity: 1,
-          });
+          // Unknown format: skip silently
         }
+
+        const seeded = groupCartItems(rawLineItems);
+
         if (seeded.length > 0) {
           setItems((prev) => {
-            const merged = [...prev];
-            for (const s of seeded) {
-              const idx = merged.findIndex(
-                (i) => i.product_no === s.product_no && i.size_type === s.size_type,
-              );
-              if (idx >= 0) merged[idx].quantity += s.quantity;
-              else merged.push(s);
-            }
-            return merged;
+            // Merge with existing items using groupCartItems
+            const combined = groupCartItems([...prev, ...seeded]);
+            return combined;
           });
           toast.success(`Đã thêm ${seeded.length} sản phẩm từ danh sách chọn`);
         }
@@ -339,32 +328,48 @@ function NewOrderPage() {
       }
 
       const discounted = isGift ? 0 : basePrice * (isSale && !isAdmin ? 1 - defaultDiscount : 1);
-      const finalName = isGift ? `[Quà tặng] ${product.name}` : product.name;
+      const productName = isGift ? `[Quà tặng] ${product.name}` : product.name;
+      const variantLabel = `${sizeType === "retail" ? "Retail" : "Salon"} - ${size}`;
+      const sku = `DESEMBRE-${product.id}-${sizeType.toUpperCase()}`;
+
+      const newItem: LineItem = {
+        source: "legacy_static",
+        product_no: product.id,
+        catalog_product_id: null,
+        variant_id: null,
+        sku_snapshot: sku,
+        brand_name_snapshot: "Desembre",
+        product_name_snapshot: productName,
+        variant_label_snapshot: variantLabel,
+        channel_snapshot: sizeType,
+        unit_price_snapshot: basePrice,
+        display_name: `${productName} (${variantLabel})`,
+        size,
+        size_type: sizeType,
+        unit_price: discounted,
+        quantity: 1,
+        line_total: discounted,
+        image_url: o?.image_url ?? product.imageUrl ?? null,
+        catalog_url: (product as any).pdfUrl ?? null,
+      };
 
       setItems((prev) => {
         const idx = prev.findIndex(
           (it) =>
+            it.source === "legacy_static" &&
             it.product_no === product.id &&
-            it.size_type === sizeType &&
-            it.unit_price === discounted,
+            it.size_type === sizeType,
         );
         if (idx >= 0) {
           const next = [...prev];
-          next[idx].quantity += 1;
+          next[idx] = {
+            ...next[idx],
+            quantity: next[idx].quantity + 1,
+            line_total: next[idx].unit_price * (next[idx].quantity + 1),
+          };
           return next;
         }
-        return [
-          ...prev,
-          {
-            product_no: product.id,
-            product_name: finalName,
-            image_url: o?.image_url ?? product.imageUrl,
-            size: size,
-            size_type: sizeType,
-            unit_price: discounted,
-            quantity: 1,
-          },
-        ];
+        return [...prev, newItem];
       });
       setPickerOpen(false);
       setSearch("");
@@ -550,18 +555,9 @@ function NewOrderPage() {
       return toast.error("Lỗi: Không tìm thấy ID đơn hàng");
     }
 
-    const { error: itemsErr } = await supabase.from("order_items").insert(
-      items.map((it) => ({
-        order_id: orderId as string,
-        product_no: it.product_no,
-        product_name: it.product_name,
-        size: it.size || null,
-        size_type: it.size_type,
-        unit_price: it.unit_price,
-        quantity: it.quantity,
-        line_total: it.unit_price * it.quantity,
-      })),
-    );
+    const { error: itemsErr } = await supabase
+      .from("order_items")
+      .insert(items.map((it) => mapItemToOrderInsert(it, orderId as string)));
     setBusy(false);
     if (itemsErr) return toast.error(itemsErr.message);
 
@@ -742,7 +738,13 @@ function NewOrderPage() {
                       </tr>
                     ) : (
                       items.map((it, i) => (
-                        <tr key={`${it.product_no}-${it.size_type}`}>
+                        <tr
+                          key={
+                            it.source === "db_catalog"
+                              ? `db-${it.variant_id}-${i}`
+                              : `${it.product_no}-${it.size_type}-${i}`
+                          }
+                        >
                           <td className="text-center font-semibold">
                             {String(i + 1).padStart(2, "0")}
                           </td>
@@ -762,9 +764,16 @@ function NewOrderPage() {
                             </div>
                           </td>
                           <td>
-                            <div className="product-name">{it.product_name}</div>
+                            <div className="product-name">{it.product_name_snapshot}</div>
                             <div className="text-[10px] text-muted-foreground mt-0.5">
-                              #{it.product_no} ·{" "}
+                              {it.source === "db_catalog" ? (
+                                <span className="text-indigo-500 font-bold">
+                                  [DB] {it.brand_name_snapshot}
+                                </span>
+                              ) : (
+                                <span>#{it.product_no}</span>
+                              )}
+                              {" · "}
                               {it.size_type === "retail" ? "Dòng bán lẻ" : "Dòng chuyên nghiệp"}
                             </div>
                           </td>
@@ -870,7 +879,11 @@ function NewOrderPage() {
                   <div className="space-y-3">
                     {items.map((it, i) => (
                       <div
-                        key={`${it.product_no}-${it.size_type}`}
+                        key={
+                          it.source === "db_catalog"
+                            ? `db-${it.variant_id}-${i}`
+                            : `${it.product_no}-${it.size_type}-${i}`
+                        }
                         className="bg-white border border-border rounded-xl p-4 flex gap-3 items-start relative shadow-sm"
                       >
                         {/* Product Image */}
@@ -890,9 +903,17 @@ function NewOrderPage() {
                         {/* Product Details */}
                         <div className="flex-1 min-w-0 pr-8">
                           <div className="text-xs font-black text-slate-800 line-clamp-2 leading-tight">
-                            {it.product_name}
+                            {it.product_name_snapshot}
                           </div>
-                          <div className="text-[10px] text-slate-400 mt-0.5">#{it.product_no}</div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">
+                            {it.source === "db_catalog" ? (
+                              <span className="text-indigo-500 font-bold">
+                                [DB] {it.brand_name_snapshot}
+                              </span>
+                            ) : (
+                              `#${it.product_no}`
+                            )}
+                          </div>
                           <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                             <span
                               className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ${it.size_type === "retail" ? "bg-blue-500/10 text-blue-600" : "bg-purple-500/10 text-purple-600"}`}

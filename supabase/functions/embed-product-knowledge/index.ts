@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { decryptApiKey } from "../_shared/crypto-utils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -71,7 +72,21 @@ serve(async (req) => {
       throw new Error("Failed to load AI settings");
     }
 
-    const openAiKey = aiSettings.openai_api_key || Deno.env.get("OPENAI_API_KEY") || "";
+    let openAiKey = Deno.env.get("OPENAI_API_KEY") || "";
+    try {
+      const { data: settings } = await adminClient
+        .from("system_ai_provider_settings")
+        .select("encrypted_api_key")
+        .eq("provider", "openai")
+        .single();
+      
+      if (settings?.encrypted_api_key) {
+        openAiKey = await decryptApiKey(settings.encrypted_api_key);
+      }
+    } catch (e) {
+      console.error("Failed to read OPENAI_API_KEY from DB, fallback to env", e);
+    }
+
     if (!openAiKey) {
       throw new Error("Chưa cấu hình OpenAI API Key. Vui lòng thiết lập trong Cấu hình AI.");
     }
@@ -250,6 +265,7 @@ serve(async (req) => {
         const embedding = result.data[0].embedding;
 
         // 9. Insert chunks vào product_knowledge_chunks
+        // F.2 patch: include brand/catalog mapping metadata from parent knowledge row
         const { data: insertedChunk, error: insertError } = await adminClient
           .from("product_knowledge_chunks")
           .insert({
@@ -264,6 +280,12 @@ serve(async (req) => {
             },
             knowledge_version: currentVersion,
             is_active: true,
+            // F.2: catalog DB alignment — propagate mapping from product_knowledge
+            brand_id: pkData.brand_id ?? null,
+            category_id: pkData.category_id ?? null,
+            catalog_product_id: pkData.catalog_product_id ?? null,
+            embedding_model: embeddingModel,
+            embedding_version: "1",
           })
           .select("id")
           .single();

@@ -11,7 +11,7 @@ export const CRMTableWrapper: React.FC<CRMTableWrapperProps> = ({
   ...props
 }) => {
   return (
-    <div className={cn("w-full max-w-full overflow-x-auto no-scrollbar", className)} {...props}>
+    <div className={cn("w-full max-w-full overflow-x-auto", className)} {...props}>
       <div className="min-w-max">{children}</div>
     </div>
   );

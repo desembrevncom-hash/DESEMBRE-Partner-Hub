@@ -92,12 +92,7 @@ function StatusBadge({
   }
   if (typeof value === "boolean") {
     if (value) {
-      return (
-        <CRMStatusBadge
-          status={dangerOnTrue ? "danger" : "success"}
-          label={trueLabel}
-        />
-      );
+      return <CRMStatusBadge status={dangerOnTrue ? "danger" : "success"} label={trueLabel} />;
     } else {
       return (
         <CRMStatusBadge

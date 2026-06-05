@@ -15,24 +15,21 @@ import {
 describe("Safety: no forbidden patterns in mapping module", () => {
   it("does not contain provider send call", async () => {
     const src = await import("fs").then((fs) =>
-      fs.readFileSync(
-        "src/lib/workspaceFilterMapping.ts",
-        "utf-8"
-      )
+      fs.readFileSync("src/lib/workspaceFilterMapping.ts", "utf-8"),
     );
     expect(src).not.toMatch(/sendZalo|sendZNS|sendEmail|sendSMS|provider\.send/i);
   });
 
   it("does not contain service role key", async () => {
     const src = await import("fs").then((fs) =>
-      fs.readFileSync("src/lib/workspaceFilterMapping.ts", "utf-8")
+      fs.readFileSync("src/lib/workspaceFilterMapping.ts", "utf-8"),
     );
     expect(src).not.toMatch(/service_role|SUPABASE_SERVICE/i);
   });
 
   it("does not contain secret or token", async () => {
     const src = await import("fs").then((fs) =>
-      fs.readFileSync("src/lib/workspaceFilterMapping.ts", "utf-8")
+      fs.readFileSync("src/lib/workspaceFilterMapping.ts", "utf-8"),
     );
     expect(src).not.toMatch(/secret|token|api_key/i);
   });
@@ -169,7 +166,7 @@ describe("Customer smart filter – leads_to_call logic", () => {
     const callCustomerIds = new Set(
       tasks
         .filter((t) => ["call", "phone_call", "cold_call"].includes(t.task_type))
-        .map((t) => t.customer_id)
+        .map((t) => t.customer_id),
     );
     expect(callCustomerIds.has("c1")).toBe(true);
     expect(callCustomerIds.has("c2")).toBe(true);
@@ -185,7 +182,7 @@ describe("Customer smart filter – leads_to_call logic", () => {
     const checkinIds = new Set(
       tasks
         .filter((t) => ["visit", "check_in", "checkin"].includes(t.task_type))
-        .map((t) => t.customer_id)
+        .map((t) => t.customer_id),
     );
     expect(checkinIds.has("c1")).toBe(true);
     expect(checkinIds.has("c2")).toBe(true);
@@ -201,9 +198,9 @@ describe("Customer smart filter – leads_to_call logic", () => {
     const quotationIds = new Set(
       tasks
         .filter((t) =>
-          ["quotation", "quote", "quote_follow_up", "quotation_follow_up"].includes(t.task_type)
+          ["quotation", "quote", "quote_follow_up", "quotation_follow_up"].includes(t.task_type),
         )
-        .map((t) => t.customer_id)
+        .map((t) => t.customer_id),
     );
     expect(quotationIds.has("c1")).toBe(true);
     expect(quotationIds.has("c2")).toBe(true);
@@ -214,7 +211,10 @@ describe("Customer smart filter – leads_to_call logic", () => {
     const customers = [
       { id: "c1", sales_intelligence: { duplicate_phone_risk: true } },
       { id: "c2", sales_intelligence: { duplicate_channel_risk: true } },
-      { id: "c3", sales_intelligence: { duplicate_phone_risk: false, duplicate_channel_risk: false } },
+      {
+        id: "c3",
+        sales_intelligence: { duplicate_phone_risk: false, duplicate_channel_risk: false },
+      },
       { id: "c4", sales_intelligence: null },
     ];
     const dupes = customers.filter((c) => {
@@ -227,7 +227,7 @@ describe("Customer smart filter – leads_to_call logic", () => {
   it("empty task list produces empty result for leads_to_call", () => {
     const tasks: any[] = [];
     const callIds = new Set(
-      tasks.filter((t) => ["call", "phone_call"].includes(t.task_type)).map((t) => t.customer_id)
+      tasks.filter((t) => ["call", "phone_call"].includes(t.task_type)).map((t) => t.customer_id),
     );
     const customers = [{ id: "c1" }, { id: "c2" }];
     const filtered = customers.filter((c) => callIds.has(c.id));

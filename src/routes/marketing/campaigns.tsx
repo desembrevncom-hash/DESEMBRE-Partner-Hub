@@ -1656,7 +1656,9 @@ function MarketingCampaignsPage() {
               Tổng số Chiến dịch
             </span>
             <div className="flex items-baseline gap-2 mt-2">
-              <span className="text-3xl font-black tracking-tight text-slate-800">{stats.total}</span>
+              <span className="text-3xl font-black tracking-tight text-slate-800">
+                {stats.total}
+              </span>
               <span className="text-xs font-medium text-slate-500">lịch sử</span>
             </div>
             <div className="mt-3 flex items-center gap-2 text-[11px] text-slate-400">
@@ -1787,7 +1789,9 @@ function MarketingCampaignsPage() {
                   ? "ZNS"
                   : c.message_templates?.channel?.toUpperCase() || "EMAIL";
 
-                const getStatusMap = (status: string): "success" | "warning" | "danger" | "info" | "neutral" => {
+                const getStatusMap = (
+                  status: string,
+                ): "success" | "warning" | "danger" | "info" | "neutral" => {
                   switch (status) {
                     case "completed":
                       return "success";
@@ -1831,7 +1835,9 @@ function MarketingCampaignsPage() {
                   }
                 };
 
-                const getApprovalStatusMap = (approval_status: string): "success" | "warning" | "danger" | "neutral" => {
+                const getApprovalStatusMap = (
+                  approval_status: string,
+                ): "success" | "warning" | "danger" | "neutral" => {
                   switch (approval_status) {
                     case "pending_approval":
                       return "warning";

@@ -168,7 +168,9 @@ function HealthBadge({
   }
   if (status === "error") {
     const isMissingApiKey = lastError && lastError.toLowerCase().includes("thiếu cấu hình");
-    return <CRMStatusBadge variant="danger">{isMissingApiKey ? "Thiếu API Key" : "Lỗi"}</CRMStatusBadge>;
+    return (
+      <CRMStatusBadge variant="danger">{isMissingApiKey ? "Thiếu API Key" : "Lỗi"}</CRMStatusBadge>
+    );
   }
   return <CRMStatusBadge variant="neutral">Chưa rõ</CRMStatusBadge>;
 }
@@ -1338,9 +1340,7 @@ function SenderAccountsPage() {
             <CRMCard className="rounded-2xl border-none shadow-sm bg-white overflow-hidden">
               <div className="pb-4 border-b border-slate-50 flex flex-row items-center justify-between flex-wrap gap-2 p-4">
                 <div>
-                  <h3 className="text-base font-black text-slate-900">
-                    Business Senders
-                  </h3>
+                  <h3 className="text-base font-black text-slate-900">Business Senders</h3>
                   <p className="text-xs text-slate-500">
                     Tài khoản gửi tổ chức — Email, Zalo OA, SMS
                   </p>
@@ -1820,9 +1820,7 @@ function SenderAccountsPage() {
 
             <CRMCard className="rounded-2xl border-none shadow-sm bg-white overflow-hidden">
               <div className="pb-4 border-b border-slate-50 p-4">
-                <h3 className="text-base font-black text-slate-900">
-                  Personal Senders
-                </h3>
+                <h3 className="text-base font-black text-slate-900">Personal Senders</h3>
                 <p className="text-xs text-slate-500">
                   Tài khoản cá nhân của nhân viên — Zalo, Email, Phone
                 </p>

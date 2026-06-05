@@ -1,5 +1,5 @@
 -- Seed primary Admin account: desembrevn.com@gmail.com / 12345678
-
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 DO $$
 DECLARE
   target_user_id UUID;
@@ -31,7 +31,7 @@ BEGIN
       'authenticated',
       'authenticated',
       'desembrevn.com@gmail.com',
-      crypt('12345678', gen_salt('bf')),
+      extensions.crypt('12345678', extensions.gen_salt('bf')),
       now(),
       '',
       '',

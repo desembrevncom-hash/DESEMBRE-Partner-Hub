@@ -9,7 +9,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
 AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.user_roles 
-    WHERE user_id = _user_id AND role IN ('admin', 'sub_admin')
+    WHERE user_id = _user_id AND role::text IN ('admin', 'sub_admin')
   ) OR EXISTS (
     SELECT 1 FROM auth.users 
     WHERE id = _user_id AND email = 'desembrevn.com@gmail.com'
@@ -20,7 +20,7 @@ $$;
 ALTER TABLE public.user_roles DROP CONSTRAINT IF EXISTS user_roles_role_check;
 
 -- 3. Áp dụng ràng buộc mới hỗ trợ trọn vẹn các quyền: admin, sub_admin, sale, tele_lead, telesale
-ALTER TABLE public.user_roles ADD CONSTRAINT user_roles_role_check CHECK (role IN ('admin', 'sub_admin', 'sale', 'tele_lead', 'telesale'));
+ALTER TABLE public.user_roles ADD CONSTRAINT user_roles_role_check CHECK (role::text IN ('admin', 'sub_admin', 'sale', 'tele_lead', 'telesale'));
 
 -- 4. Cập nhật Policy cho phép Phó Admin nạp danh sách hồ sơ nhân sự
 DROP POLICY IF EXISTS "Admins view all profiles" ON public.profiles;

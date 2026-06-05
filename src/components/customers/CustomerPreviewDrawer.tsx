@@ -785,8 +785,6 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     );
   };
 
-
-
   const handleGetGpsForEdit = () => {
     if (!navigator.geolocation) {
       toast.error("Trình duyệt không hỗ trợ Geolocation.");
@@ -1188,7 +1186,10 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                   </CRMStatusBadge>
                 )}
                 {needsRouting && (
-                  <CRMStatusBadge variant="danger" className="border-none rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase bg-amber-500 hover:bg-amber-600 text-white animate-pulse">
+                  <CRMStatusBadge
+                    variant="danger"
+                    className="border-none rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase bg-amber-500 hover:bg-amber-600 text-white animate-pulse"
+                  >
                     Cần phân tuyến
                   </CRMStatusBadge>
                 )}
@@ -1484,10 +1485,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 <div className="flex flex-wrap gap-1.5">
                   {customer.tags && Array.isArray(customer.tags) && customer.tags.length > 0 ? (
                     customer.tags.map((tag: string, idx: number) => (
-                      <CRMStatusBadge
-                        key={idx}
-                        variant="premium"
-                      >
+                      <CRMStatusBadge key={idx} variant="premium">
                         {tag}
                       </CRMStatusBadge>
                     ))

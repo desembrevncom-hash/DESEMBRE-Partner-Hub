@@ -13,6 +13,7 @@ type SystemSettings = {
   routingNearKm: number;
   routingCityKm: number;
   routingFarKm: number;
+  reloadSettings: () => void;
 };
 
 const defaultSettings: SystemSettings = {
@@ -26,6 +27,7 @@ const defaultSettings: SystemSettings = {
   routingNearKm: 10,
   routingCityKm: 30,
   routingFarKm: 80,
+  reloadSettings: () => {},
 };
 
 const SettingsContext = createContext<SystemSettings>(defaultSettings);
@@ -33,16 +35,17 @@ const SettingsContext = createContext<SystemSettings>(defaultSettings);
 export function SystemSettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<SystemSettings>(defaultSettings);
 
-  useEffect(() => {
+  const fetchSettings = () => {
     supabase
       .from("system_settings")
       .select("*")
       .maybeSingle()
       .then(({ data }: { data: any }) => {
         if (data) {
-          const vat = (data.vat_rate || 10) / 100;
-          const discount = (data.default_discount || 35) / 100;
-          setSettings({
+          const vat = (data.vat_rate ?? 10) / 100;
+          const discount = (data.default_discount ?? 35) / 100;
+          setSettings((prev) => ({
+            ...prev,
             vatRate: vat,
             defaultDiscount: discount,
             companyName: data.company_name || defaultSettings.companyName,
@@ -53,13 +56,31 @@ export function SystemSettingsProvider({ children }: { children: ReactNode }) {
             routingNearKm: data.routing_near_km ?? defaultSettings.routingNearKm,
             routingCityKm: data.routing_city_km ?? defaultSettings.routingCityKm,
             routingFarKm: data.routing_far_km ?? defaultSettings.routingFarKm,
-          });
+          }));
           setPricingSettings(vat, discount);
         }
       });
+  };
+
+  useEffect(() => {
+    fetchSettings();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+        fetchSettings();
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
-  return <SettingsContext.Provider value={settings}>{children}</SettingsContext.Provider>;
+  return (
+    <SettingsContext.Provider value={{ ...settings, reloadSettings: fetchSettings }}>
+      {children}
+    </SettingsContext.Provider>
+  );
 }
 
 export function useSystemSettings() {

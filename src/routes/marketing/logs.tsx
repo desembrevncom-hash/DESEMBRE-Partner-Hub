@@ -285,23 +285,33 @@ function MarketingLogsPage() {
               </span>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <div className="bg-slate-50 border border-slate-100 p-3 rounded-lg">
-                  <span className="text-[10px] text-slate-500 block mb-1 uppercase font-bold">Gửi thử</span>
+                  <span className="text-[10px] text-slate-500 block mb-1 uppercase font-bold">
+                    Gửi thử
+                  </span>
                   <span className="text-xl font-black text-slate-800">{stats.test}</span>
                 </div>
                 <div className="bg-slate-50 border border-slate-100 p-3 rounded-lg">
-                  <span className="text-[10px] text-slate-500 block mb-1 uppercase font-bold">Giả lập</span>
+                  <span className="text-[10px] text-slate-500 block mb-1 uppercase font-bold">
+                    Giả lập
+                  </span>
                   <span className="text-xl font-black text-slate-800">{stats.mock}</span>
                 </div>
                 <div className="bg-slate-50 border border-slate-100 p-3 rounded-lg">
-                  <span className="text-[10px] text-slate-500 block mb-1 uppercase font-bold">Pilot Nội bộ</span>
+                  <span className="text-[10px] text-slate-500 block mb-1 uppercase font-bold">
+                    Pilot Nội bộ
+                  </span>
                   <span className="text-xl font-black text-slate-800">{stats.pilot}</span>
                 </div>
                 <div className="bg-rose-50 border border-rose-100 p-3 rounded-lg">
-                  <span className="text-[10px] text-rose-500 block mb-1 uppercase font-bold">Lỗi / Chặn</span>
+                  <span className="text-[10px] text-rose-500 block mb-1 uppercase font-bold">
+                    Lỗi / Chặn
+                  </span>
                   <span className="text-xl font-black text-rose-600">{stats.failed}</span>
                 </div>
                 <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-lg">
-                  <span className="text-[10px] text-indigo-500 block mb-1 uppercase font-bold">Tổng hiển thị</span>
+                  <span className="text-[10px] text-indigo-500 block mb-1 uppercase font-bold">
+                    Tổng hiển thị
+                  </span>
                   <span className="text-xl font-black text-indigo-600">{stats.total}</span>
                 </div>
               </div>
@@ -360,12 +370,24 @@ function MarketingLogsPage() {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
                     <tr>
-                      <th className="px-4 py-3 font-medium uppercase text-[10px] tracking-wider">Thời gian</th>
-                      <th className="px-4 py-3 font-medium uppercase text-[10px] tracking-wider">Channel</th>
-                      <th className="px-4 py-3 font-medium uppercase text-[10px] tracking-wider">Recipient</th>
-                      <th className="px-4 py-3 font-medium uppercase text-[10px] tracking-wider">Status / Mode</th>
-                      <th className="px-4 py-3 font-medium uppercase text-[10px] tracking-wider">Campaign ID</th>
-                      <th className="px-4 py-3 font-medium uppercase text-[10px] tracking-wider">Reason</th>
+                      <th className="px-4 py-3 font-medium uppercase text-[10px] tracking-wider">
+                        Thời gian
+                      </th>
+                      <th className="px-4 py-3 font-medium uppercase text-[10px] tracking-wider">
+                        Channel
+                      </th>
+                      <th className="px-4 py-3 font-medium uppercase text-[10px] tracking-wider">
+                        Recipient
+                      </th>
+                      <th className="px-4 py-3 font-medium uppercase text-[10px] tracking-wider">
+                        Status / Mode
+                      </th>
+                      <th className="px-4 py-3 font-medium uppercase text-[10px] tracking-wider">
+                        Campaign ID
+                      </th>
+                      <th className="px-4 py-3 font-medium uppercase text-[10px] tracking-wider">
+                        Reason
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -404,9 +426,11 @@ function MarketingLogsPage() {
                                 status={
                                   log.status?.includes("failed") || log.status === "blocked"
                                     ? "error"
-                                    : log.status?.includes("sent") || log.status?.includes("delivered")
+                                    : log.status?.includes("sent") ||
+                                        log.status?.includes("delivered")
                                       ? "success"
-                                      : log.status?.includes("skipped") || log.status?.includes("suppressed")
+                                      : log.status?.includes("skipped") ||
+                                          log.status?.includes("suppressed")
                                         ? "warning"
                                         : "info"
                                 }
@@ -428,7 +452,8 @@ function MarketingLogsPage() {
                             </div>
                             {log.delivery_metadata?.provider_message_id && (
                               <div className="text-[9px] text-slate-500 mb-1 font-mono bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200 w-fit">
-                                Mã NSX: {log.delivery_metadata.provider_message_id.substring(0, 16)}...
+                                Mã NSX: {log.delivery_metadata.provider_message_id.substring(0, 16)}
+                                ...
                               </div>
                             )}
                             {log.delivery_metadata && (
@@ -517,7 +542,9 @@ function MarketingLogsPage() {
                       </div>
                       <div className="flex justify-between text-slate-500">
                         <span>Ngày tạo:</span>
-                        <span className="text-slate-700 font-medium">{new Date(s.created_at).toLocaleDateString("vi-VN")}</span>
+                        <span className="text-slate-700 font-medium">
+                          {new Date(s.created_at).toLocaleDateString("vi-VN")}
+                        </span>
                       </div>
                     </div>
                     {s.note && (

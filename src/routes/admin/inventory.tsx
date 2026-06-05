@@ -149,7 +149,7 @@ function InventoryManagementPage() {
   if (!isAdminOrSubAdmin) {
     return (
       <CRMPageContainer>
-        <CRMEmptyState 
+        <CRMEmptyState
           icon={<Lock className="w-10 h-10 text-rose-600" />}
           title="Không có quyền truy cập"
           description="Trang này chỉ dành cho Quản trị viên (Admin) hoặc Sub-admin. Vui lòng quay lại khu vực làm việc của bạn."
@@ -254,7 +254,7 @@ function InventoryManagementPage() {
             </div>
           ) : filteredProducts.length === 0 ? (
             <div className="col-span-full">
-              <CRMEmptyState 
+              <CRMEmptyState
                 icon={<Package className="w-12 h-12 text-slate-200" />}
                 title="Không tìm thấy sản phẩm nào"
                 description="Hãy thử điều chỉnh bộ lọc hoặc tìm kiếm lại."

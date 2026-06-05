@@ -39,7 +39,8 @@ export const CRMStatusBadge: React.FC<CRMStatusBadgeProps> = ({
     <span
       className={cn(
         "inline-flex items-center px-2 py-0.5 rounded-md border text-[10px] font-black uppercase tracking-widest whitespace-nowrap",
-        variantClasses[variant || (status as CRMStatusBadgeVariant) || "neutral"] || variantClasses["neutral"],
+        variantClasses[variant || (status as CRMStatusBadgeVariant) || "neutral"] ||
+          variantClasses["neutral"],
         className,
       )}
       {...props}

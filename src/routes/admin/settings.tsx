@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { PRODUCTS, CATEGORIES } from "@/data/products";
 import {
   Settings,
@@ -591,8 +592,10 @@ function SystemSettingsPage() {
         toast.success(
           "Đã cập nhật cấu hình hệ thống! Các quy tắc bán hàng & kịch bản AI đã được lưu tạm cục bộ do database chưa nâng cấp.",
         );
+        reloadSettings();
       } else {
         toast.success("Đã cập nhật cấu hình hệ thống thành công!");
+        reloadSettings();
       }
     }
   };

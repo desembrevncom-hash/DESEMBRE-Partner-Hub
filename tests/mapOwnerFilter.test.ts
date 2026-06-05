@@ -7,8 +7,8 @@ import {
 } from "../src/lib/mapOwnerFilter";
 
 const mockStaffMap = {
-  "sale1": { display_name: "Nguyen Van A" },
-  "sale2": { display_name: "Tran Thi B" },
+  sale1: { display_name: "Nguyen Van A" },
+  sale2: { display_name: "Tran Thi B" },
 };
 
 const mockCustomers = [

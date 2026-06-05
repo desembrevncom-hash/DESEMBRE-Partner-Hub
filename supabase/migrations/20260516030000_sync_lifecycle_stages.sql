@@ -4,6 +4,9 @@
 -- Mục tiêu: Chuyển đổi các nhãn cũ sang nhãn mới chuẩn Phase 4 để hiển thị trên Kanban
 -- ============================================================================
 
+-- 0. Đảm bảo cột lifecycle_stage tồn tại trước khi cập nhật
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS lifecycle_stage text;
+
 -- 1. Cập nhật Lead
 UPDATE public.customers SET lifecycle_stage = 'new_lead' WHERE lifecycle_stage = 'lead';
 

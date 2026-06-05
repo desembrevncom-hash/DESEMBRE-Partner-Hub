@@ -58,7 +58,6 @@ CREATE TABLE IF NOT EXISTS public.customer_contact_channels (
     last_verified_at timestamptz,
     engagement_score integer DEFAULT 0,
     username text,
-    username text,
     profile_type text DEFAULT 'unknown',
     scope text NOT NULL DEFAULT 'private',
     visibility text NOT NULL DEFAULT 'private',

@@ -21,7 +21,7 @@ Do NOT use custom font sizes or weights. Use the following standards:
 
 Use consistent spacing for margins and paddings:
 
-- **Page Padding:** 
+- **Page Padding:**
   - Mobile: `px-4 py-4` or `px-4 py-6`
   - Desktop: `px-6 lg:px-8 py-6`
 - **Section Gap:** `gap-4 md:gap-6` (or `gap-6 md:gap-8` for major sections)
@@ -41,6 +41,7 @@ Do NOT randomly use `rounded-lg` or `shadow-lg` for standard cards.
 ## 4. Badge System (`CRMStatusBadge`)
 
 Supported variants in `CRMStatusBadge`:
+
 - **success:** `emerald` (e.g. Completed, Active)
 - **warning:** `amber` (e.g. Pending, Review)
 - **danger:** `rose/red` (e.g. Cancelled, Failed, Overdue)

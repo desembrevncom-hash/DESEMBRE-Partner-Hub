@@ -206,7 +206,7 @@ function ProductLearningCenter() {
   if (!user || !isAuthorized) {
     return (
       <CRMPageContainer>
-        <CRMEmptyState 
+        <CRMEmptyState
           icon={<ShieldAlert className="w-10 h-10 text-rose-600" />}
           title="Không có quyền truy cập"
           description="Khu vực này dành riêng cho đội ngũ Sales & Tư vấn viên."
@@ -281,7 +281,7 @@ function ProductLearningCenter() {
 
       {/* CONTENT GRID */}
       {filteredList.length === 0 ? (
-        <CRMEmptyState 
+        <CRMEmptyState
           icon={<Search className="w-10 h-10 text-slate-300" />}
           title="Không tìm thấy tài liệu phù hợp"
           description="Hãy thử thay đổi từ khóa hoặc bộ lọc tìm kiếm."

@@ -172,10 +172,7 @@ function WebhookInbox() {
           title="Webhook Inbox"
           icon={<Inbox className="w-6 h-6 text-indigo-500" />}
           description="Nơi tập kết mọi sự kiện Webhook từ Resend & Zalo trước khi xử lý Logic."
-          breadcrumbs={[
-            { label: "Admin Hub", href: "/admin/hub" },
-            { label: "Webhook Inbox" },
-          ]}
+          breadcrumbs={[{ label: "Admin Hub", href: "/admin/hub" }, { label: "Webhook Inbox" }]}
         />
 
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3 items-start">

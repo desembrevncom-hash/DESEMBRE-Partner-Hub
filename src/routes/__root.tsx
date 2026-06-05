@@ -205,6 +205,17 @@ function RootLayout() {
                         <span className="text-xs font-bold text-slate-700">Mẫu tin nhắn</span>
                       </Link>
                     </DropdownMenuItem>
+                    {(isAdmin || isSubAdmin) && (
+                      <DropdownMenuItem
+                        asChild
+                        className="rounded-xl focus:bg-slate-50 p-3 cursor-pointer"
+                      >
+                        <Link to="/admin/ai-settings" className="flex items-center gap-3">
+                          <Sparkles className="w-4 h-4 text-slate-400" />
+                          <span className="text-xs font-bold text-slate-700">Cấu hình AI / RAG</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem
                       onClick={() => signOut()}
                       className="rounded-xl focus:bg-rose-50 p-3 cursor-pointer group"
@@ -296,6 +307,17 @@ function RootLayout() {
                     <span className="text-xs font-bold text-slate-700">Mẫu tin nhắn</span>
                   </Link>
                 </DropdownMenuItem>
+                {(isAdmin || isSubAdmin) && (
+                  <DropdownMenuItem
+                    asChild
+                    className="rounded-xl focus:bg-slate-50 p-3 cursor-pointer"
+                  >
+                    <Link to="/admin/ai-settings" className="flex items-center gap-3">
+                      <Sparkles className="w-4 h-4 text-slate-400" />
+                      <span className="text-xs font-bold text-slate-700">Cấu hình AI / RAG</span>
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   onClick={() => signOut()}
                   className="rounded-xl focus:bg-rose-50 p-3 cursor-pointer group"

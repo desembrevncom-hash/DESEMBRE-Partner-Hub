@@ -10,11 +10,18 @@ type Props = {
   src?: string;
   onChange: (src: string | undefined) => void;
   isReadOnly?: boolean;
+  isDbMode?: boolean;
 };
 
 const MAX_BYTES = 1.5 * 1024 * 1024; // 1.5MB
 
-const ProductImageCell = ({ productNo, src, onChange, isReadOnly = false }: Props) => {
+const ProductImageCell = ({
+  productNo,
+  src,
+  onChange,
+  isReadOnly = false,
+  isDbMode = false,
+}: Props) => {
   const { unlocked: editUnlocked, getPassword } = useEditUnlock();
   const unlocked = isReadOnly ? false : editUnlocked;
   const [open, setOpen] = useState(false);
@@ -25,6 +32,10 @@ const ProductImageCell = ({ productNo, src, onChange, isReadOnly = false }: Prop
   const fileRef = useRef<HTMLInputElement>(null);
 
   const requestOpen = () => {
+    if (isDbMode) {
+      toast.info("Sửa ảnh trong Quản lý Brand & Danh mục > Sản phẩm & Biến thể");
+      return;
+    }
     if (isReadOnly) return;
     if (!unlocked) {
       setAskUnlock(true);
@@ -55,6 +66,10 @@ const ProductImageCell = ({ productNo, src, onChange, isReadOnly = false }: Prop
   };
 
   const requestDelete = async () => {
+    if (isDbMode) {
+      toast.info("Sửa ảnh trong Quản lý Brand & Danh mục > Sản phẩm & Biến thể");
+      return;
+    }
     if (!unlocked) {
       setAskUnlock(true);
       return;

@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { decryptApiKey } from "../_shared/crypto-utils.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -450,6 +451,64 @@ async function getOrSetCache<T>(
 
 // ---------- Main Handler ----------
 
+// F.3 Brand Guard Helpers
+type BrandSlug = "desembre" | "dermagarden" | "vavaw";
+function detectBrandFromQuery(query: string): BrandSlug | null {
+  if (!query) return null;
+  const q = query.toLowerCase();
+  if (/(desembre|desemb|décembre)/i.test(q)) return "desembre";
+  if (/(dermagarden|derma garden|dermag\b)/i.test(q)) return "dermagarden";
+  if (/(vavaw)/i.test(q)) return "vavaw";
+  return null;
+}
+function filterChunksByBrand(chunks: any[], detectedBrand: BrandSlug | null, brandIdMap: Record<string, string>) {
+  if (!detectedBrand) return { allowed: chunks, suppressed: [] };
+  const targetBrandId = brandIdMap[detectedBrand];
+  if (!targetBrandId) return { allowed: chunks, suppressed: [] };
+
+  const allowed: any[] = [];
+  const suppressed: any[] = [];
+  const otherBrandsFound = new Set<string>();
+
+  for (const chunk of chunks) {
+    const isLegacyDesembre = !chunk.brand_id && detectedBrand === "desembre";
+    if (chunk.brand_id === targetBrandId || isLegacyDesembre) {
+      allowed.push(chunk);
+    } else {
+      suppressed.push(chunk);
+      if (chunk.brand_id) otherBrandsFound.add(chunk.brand_id);
+    }
+  }
+
+  if (allowed.length === 0 && suppressed.length > 0) {
+    const desembreId = brandIdMap["desembre"];
+    if (desembreId && otherBrandsFound.has(desembreId)) {
+      // Since edge chunks don't have product_name eagerly joined here, we fallback to a generic message
+      const productListStr = "sản phẩm này";
+      const brandDisplay = detectedBrand === "dermagarden" ? "Dermagarden" : "VAVAW";
+      return {
+        allowed: [],
+        suppressed,
+        noDataMessage: `Mình chưa có dữ liệu tri thức đã duyệt cho sản phẩm ${brandDisplay} bạn hỏi. ${productListStr} hiện đang có dữ liệu dưới brand Desembre, bạn muốn xem thông tin Desembre không?`
+      };
+    }
+  }
+
+  if (allowed.length === 0 && (detectedBrand === "dermagarden" || detectedBrand === "vavaw")) {
+    const msgs: Record<string, string> = {
+      dermagarden: "Hiện tại chưa có dữ liệu tri thức đã duyệt cho Dermagarden.",
+      vavaw: "Hiện tại chưa có dữ liệu tri thức đã duyệt cho VAVAW."
+    };
+    return {
+      allowed: [],
+      suppressed,
+      noDataMessage: msgs[detectedBrand]
+    };
+  }
+
+  return { allowed, suppressed };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -496,11 +555,26 @@ Deno.serve(async (req) => {
       return json({ error: "AI module này đang bị Admin tắt." }, 403);
     }
 
+    let openaiApiKey = Deno.env.get("OPENAI_API_KEY") || "";
+    try {
+      const { data: settings } = await adminClient
+        .from("system_ai_provider_settings")
+        .select("encrypted_api_key")
+        .eq("provider", "openai")
+        .single();
+      
+      if (settings?.encrypted_api_key) {
+        openaiApiKey = await decryptApiKey(settings.encrypted_api_key);
+      }
+    } catch (e) {
+      console.error("Failed to read OPENAI_API_KEY from DB, fallback to env", e);
+    }
+
     const aiConfig: AIConfig = {
       provider: aiSettings.provider || Deno.env.get("AI_PROVIDER") || "openai",
       chatModel: aiSettings.chat_model || "gpt-4o-mini",
       embeddingModel: aiSettings.embedding_model || "text-embedding-3-small",
-      openAiKey: aiSettings.openai_api_key || Deno.env.get("OPENAI_API_KEY") || "",
+      openAiKey: openaiApiKey,
       geminiKey: aiSettings.gemini_api_key || Deno.env.get("GEMINI_API_KEY") || "",
     };
 
@@ -608,6 +682,39 @@ Deno.serve(async (req) => {
         // 1. Generate query embedding
         const queryEmbedding = await generateEmbedding(auditQuery, adminClient, aiConfig);
 
+        // F.4: Optional Strict DB-layer Brand Filtering
+        const useRpcBrandFilter = Deno.env.get("RAG_USE_RPC_BRAND_FILTER") === "true";
+        let rpcFilterBrandIds = undefined;
+
+        // F.3: Brand-aware context guard
+        const detectedBrand = detectBrandFromQuery(auditQuery);
+        let brandIdMap: Record<string, string> = {};
+        
+        if (detectedBrand) {
+          const { data: brandsData } = await adminClient.from("product_brands").select("id, name");
+          brandsData?.forEach((b: any) => {
+            const lowerName = b.name.toLowerCase();
+            if (lowerName.includes("desembre")) brandIdMap["desembre"] = b.id;
+            if (lowerName.includes("dermagarden")) brandIdMap["dermagarden"] = b.id;
+            if (lowerName.includes("vavaw")) brandIdMap["vavaw"] = b.id;
+          });
+
+          if (useRpcBrandFilter && brandIdMap[detectedBrand]) {
+            // TRADE-OFF DOCUMENTATION:
+            // Mode TRUE: Strict DB-layer isolation for performance.
+            // When filter_brand_ids is sent, the RPC returns ONLY chunks from this brand.
+            // This means we will NEVER retrieve chunks from other brands, which PREVENTS the 
+            // F.3 Smart Suggestion (e.g. asking "Dermagarden Milk Essential" won't find Desembre's Milk Essential chunk to suggest it).
+            rpcFilterBrandIds = [brandIdMap[detectedBrand]];
+          } else {
+            // TRADE-OFF DOCUMENTATION:
+            // Mode FALSE (Default): Prioritize Smart Suggestion.
+            // RPC retrieves all matching chunks regardless of brand. The F.3 Edge Guard below will 
+            // filter out wrong-brand chunks, but it CAN detect if a product belongs to another brand 
+            // and return a helpful suggestion message.
+          }
+        }
+
         // 2. Search chunks in DB using match_product_chunks
         // We query with a lower threshold (0.1) to allow detecting if there is any retrieval context at all
         const parsedThreshold =
@@ -618,12 +725,36 @@ Deno.serve(async (req) => {
             query_embedding: queryEmbedding,
             match_threshold: 0.1,
             match_count: 5,
+            filter_brand_ids: rpcFilterBrandIds,
           },
         );
 
         if (matchError) throw matchError;
 
-        const rawChunks = chunksData || [];
+        let rawChunks = chunksData || [];
+
+        if (detectedBrand) {
+          const filterResult = filterChunksByBrand(rawChunks, detectedBrand, brandIdMap);
+          if (filterResult.suppressed.length > 0 && filterResult.allowed.length === 0) {
+            await logSafetyEvent(adminClient, {
+              requestId: requestId,
+              userId: user.id,
+              eventType: "cross_brand_guard_triggered",
+              phrase: detectedBrand,
+              severity: "low",
+            });
+            return json({
+              retrieved_chunks: [],
+              final_answer: filterResult.noDataMessage || "Không tìm thấy dữ liệu cho thương hiệu này.",
+              prompt_tokens: 0,
+              completion_tokens: 0,
+              total_tokens: 0,
+              model_used: aiConfig.chatModel,
+              provider: aiConfig.provider,
+            });
+          }
+          rawChunks = filterResult.allowed;
+        }
 
         // Determine if no retrieval at all
         const topScore =
