@@ -144,11 +144,8 @@ async function run() {
         name: `Mock Customer ${i}`,
         phone: phone,
         email: email,
-        zalo_id: null,
         address: `123 Mock Street ${i}`,
-        tier: i % 3 === 0 ? "vip" : "standard",
-        owner_sale_id: ownerId,
-        source: "direct"
+        user_id: ownerId
       }).select("id").single();
       
       if (!errCust && newCust) {
