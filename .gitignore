@@ -41,3 +41,13 @@ dist-ssr
 scratch/
 scratch/backups/
 
+.env
+.env.local
+.env.staging
+.env.production
+.env.backup
+.env.*.backup
+!.env.example
+!.env.local.example
+!.env.staging.example
+!.env.production.example
