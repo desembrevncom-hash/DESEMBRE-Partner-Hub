@@ -39,6 +39,7 @@ import { EditUnlockProvider } from "@/hooks/useEditUnlock";
 import { getDisplayPrice, UserRole } from "@/lib/pricing";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { ProductKnowledgeDialog } from "@/components/ProductKnowledgeDialog";
+import { ProductSalesSheetDialog } from "@/components/admin/templates/ProductSalesSheetDialog";
 import { CRMPageContainer } from "@/components/crm/CRMPageContainer";
 import { CRMPageHeader } from "@/components/crm/CRMPageHeader";
 import { CRMCard } from "@/components/crm/CRMCard";
@@ -77,6 +78,9 @@ function ProductCatalogPage() {
   const [saleViewMode, setSaleViewMode] = useState(false);
   const [cart, setCart] = useState<any[]>([]);
   const [selectedKnowledgeProductId, setSelectedKnowledgeProductId] = useState<number | null>(null);
+  const [salesSheetsMap, setSalesSheetsMap] = useState<Record<string, { id: string; status: 'draft' | 'approved' | 'archived' }>>({});
+  const [salesSheetDialogOpen, setSalesSheetDialogOpen] = useState(false);
+  const [selectedSalesSheetProduct, setSelectedSalesSheetProduct] = useState<any | null>(null);
   const navigate = useNavigate();
   const isManager = isAdmin || roles.some((r) => ["admin", "sub_admin"].includes(r));
 
@@ -106,7 +110,25 @@ function ProductCatalogPage() {
     } else {
       fetchOverrides();
     }
+    loadSalesSheets();
   }, [isCatalogDbReadEnabled]);
+
+  const loadSalesSheets = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("product_sales_sheets")
+        .select("id, catalog_product_id, status");
+      if (!error && data) {
+        const map: Record<string, { id: string; status: 'draft' | 'approved' | 'archived' }> = {};
+        data.forEach((row: any) => {
+          map[row.catalog_product_id] = { id: row.id, status: row.status };
+        });
+        setSalesSheetsMap(map);
+      }
+    } catch (err) {
+      console.error("Error loading sales sheets map:", err);
+    }
+  };
 
   const loadDBCatalog = async () => {
     setLoading(true);
@@ -139,6 +161,7 @@ function ProductCatalogPage() {
 
       setDbBrands(brandsData || []);
       setDbCategories(categoriesData || []);
+      await loadSalesSheets();
     } catch (e) {
       console.error("[products] DB Catalog fetch error, falling back:", e);
       setDbError(true);
@@ -298,6 +321,73 @@ function ProductCatalogPage() {
       setCart((prev) => [...prev, { no: p.id, sizeType }]);
     }
     toast.success("Đã thêm vào giỏ nháp");
+  };
+
+  const renderSalesSheetCell = (p: any) => {
+    if (p.isDbProduct && p.dbId) {
+      const sheetInfo = salesSheetsMap[p.dbId];
+      if (isManager) {
+        if (!sheetInfo) {
+          return (
+            <Button
+              onClick={() => {
+                setSelectedSalesSheetProduct(p);
+                setSalesSheetDialogOpen(true);
+              }}
+              variant="outline"
+              className="h-8 px-2.5 rounded-lg border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 text-[10px] font-bold"
+            >
+              <Sparkles className="w-3 h-3 mr-1" />
+              Tạo AI Sheet
+            </Button>
+          );
+        }
+        return (
+          <Button
+            onClick={() => {
+              setSelectedSalesSheetProduct(p);
+              setSalesSheetDialogOpen(true);
+            }}
+            variant="outline"
+            className={`h-8 px-2.5 rounded-lg text-[10px] font-bold ${
+              sheetInfo.status === "approved"
+                ? "border-green-200 text-green-700 bg-green-50 hover:bg-green-100"
+                : "border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100"
+            }`}
+          >
+            <FileText className="w-3 h-3 mr-1" />
+            Sheet ({sheetInfo.status === "approved" ? "Duyệt" : "Nháp"})
+          </Button>
+        );
+      } else {
+        if (!sheetInfo || sheetInfo.status !== "approved") {
+          return <span className="text-xs text-slate-400 font-medium">Chưa có tài liệu</span>;
+        }
+        return (
+          <Button
+            onClick={() => {
+              setSelectedSalesSheetProduct(p);
+              setSalesSheetDialogOpen(true);
+            }}
+            variant="outline"
+            className="h-8 px-3 rounded-lg border-green-200 text-green-700 bg-green-50 hover:bg-green-100 text-[10px] font-bold"
+          >
+            <Printer className="w-3.5 h-3.5 mr-1" />
+            Sales Sheet
+          </Button>
+        );
+      }
+    }
+
+    // Fallback for legacy static products
+    return (
+      <ProductLinkCell
+        productNo={p.id}
+        href={p.pdfUrl}
+        onChange={(url) => handleUpdate(p.id, "link_url", url)}
+        isReadOnly={!isManager}
+      />
+    );
   };
 
   const handleCreateOrder = () => {
@@ -511,7 +601,7 @@ function ProductCatalogPage() {
                           <th className="px-3 py-4 text-center w-36">Size</th>
                           <th className="px-6 py-4 text-right w-44">Retail</th>
                           <th className="px-6 py-4 text-right w-44">Salon</th>
-                          <th className="px-3 py-4 text-center w-24">Catalog</th>
+                          <th className="px-3 py-4 text-center w-40">Tài liệu</th>
                           <th className="px-3 py-4 text-center w-40">Thao tác</th>
                         </tr>
                       </thead>
@@ -673,12 +763,7 @@ function ProductCatalogPage() {
                                   )}
                                 </td>
                                 <td className="px-6 py-6 text-center">
-                                  <ProductLinkCell
-                                    productNo={p.id}
-                                    href={p.pdfUrl}
-                                    onChange={(url) => handleUpdate(p.id, "link_url", url)}
-                                    isReadOnly={!isManager}
-                                  />
+                                  {renderSalesSheetCell(p)}
                                 </td>
                                 <td className="px-6 py-6 text-center">
                                   <div className="flex items-center justify-end gap-2">
@@ -860,13 +945,8 @@ function ProductCatalogPage() {
 
                           {/* Footer Actions */}
                           <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-1">
-                            <div className="w-24">
-                              <ProductLinkCell
-                                productNo={p.id}
-                                href={p.pdfUrl}
-                                onChange={(url) => handleUpdate(p.id, "link_url", url)}
-                                isReadOnly={!isManager}
-                              />
+                            <div className="flex items-center">
+                              {renderSalesSheetCell(p)}
                             </div>
                             <div className="flex items-center gap-2">
                               {isManager && (
@@ -942,6 +1022,23 @@ function ProductCatalogPage() {
             // but since dialog fetches on mount, it's already fresh next time it opens.
           }}
         />
+
+        {selectedSalesSheetProduct && (
+          <ProductSalesSheetDialog
+            isOpen={salesSheetDialogOpen}
+            onClose={() => {
+              setSalesSheetDialogOpen(false);
+              setSelectedSalesSheetProduct(null);
+            }}
+            catalogProductId={selectedSalesSheetProduct.dbId}
+            productName={selectedSalesSheetProduct.name}
+            brandId={selectedSalesSheetProduct.brand_id}
+            categoryName={selectedSalesSheetProduct.categoryName}
+            imageUrl={selectedSalesSheetProduct.imageUrl}
+            productCode={selectedSalesSheetProduct.product_code}
+            onSaved={loadSalesSheets}
+          />
+        )}
       </CRMPageContainer>
     </EditUnlockProvider>
   );
