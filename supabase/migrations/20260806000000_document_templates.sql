@@ -25,32 +25,18 @@ ALTER TABLE public.document_templates ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can do everything on document_templates"
 ON public.document_templates
 FOR ALL
-USING (
-  EXISTS (
-    SELECT 1 FROM user_roles
-    WHERE user_roles.user_id = auth.uid()
-      AND user_roles.role IN ('admin', 'sub_admin')
-  )
-)
-WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM user_roles
-    WHERE user_roles.user_id = auth.uid()
-      AND user_roles.role IN ('admin', 'sub_admin')
-  )
-);
+TO authenticated
+USING ( public.is_admin_or_sub_admin(auth.uid()) )
+WITH CHECK ( public.is_admin_or_sub_admin(auth.uid()) );
 
 -- Sales / Telesales can read approved templates
 CREATE POLICY "Sales can read approved document_templates"
 ON public.document_templates
 FOR SELECT
+TO authenticated
 USING (
   status = 'approved' AND 
-  EXISTS (
-    SELECT 1 FROM user_roles
-    WHERE user_roles.user_id = auth.uid()
-      AND user_roles.role IN ('sale', 'telesale')
-  )
+  public.is_sales_member(auth.uid())
 );
 
 -- Triggers for updated_at

@@ -105,6 +105,10 @@ export function validateTemplateVariables(htmlTemplate: string, templateType: st
     required = ["company.name", "quotation.code", "customer.name", "total"];
   } else if (templateType === "product_sales_sheet") {
     required = ["product.name", "product.brand_name"];
+  } else if (templateType === "product_catalog_a4") {
+    required = ["products"];
+  } else if (templateType === "customer_consultation_sheet") {
+    required = ["customer.name", "routine"];
   }
   
   const missing = required.filter(r => !variablesFound.some(v => v === r || v.startsWith(r + ".")));
@@ -167,6 +171,31 @@ export function getTemplateSampleData(templateType: string): any {
       },
       generated_at: new Date().toLocaleString("vi-VN"),
       knowledge_version: 1
+    };
+  }
+
+  if (templateType === "product_catalog_a4") {
+    return {
+      products: [
+        { name: "DESEMBRE MILK ESSENTIAL CLEANSER", brand: "Desembre", size: "150ml", price: "650,000đ", image_url: "" },
+        { name: "DESEMBRE DERMA SCIENCE WATER CLEANSER", brand: "Desembre", size: "1000ml", price: "1,400,000đ", image_url: "" },
+        { name: "DESEMBRE EGF LIFTING TOX AMPOULE", brand: "Desembre", size: "10ml x 10", price: "2,800,000đ", image_url: "" },
+        { name: "DESEMBRE AGING SCIENCE AGE SHIELD CREAM", brand: "Desembre", size: "50g", price: "1,200,000đ", image_url: "" }
+      ]
+    };
+  }
+
+  if (templateType === "customer_consultation_sheet") {
+    return {
+      sheet: { code: "PT-2026-8899", date: new Date().toLocaleDateString("vi-VN") },
+      customer: { name: "Nguyễn Thị B", phone: "0901234567", skin_condition: "Da hỗn hợp thiên dầu, nhạy cảm, mụn ẩn" },
+      consultant: { name: "Chuyên viên Nguyễn Hồng" },
+      routine: [
+        { step: "Sáng 1", product_name: "DESEMBRE MILK ESSENTIAL CLEANSER", usage: "Rửa mặt nhẹ nhàng với nước ấm" },
+        { step: "Sáng 2", product_name: "DESEMBRE DERMA SCIENCE PEELING GEL", usage: "Tẩy tế bào chết 2 lần/tuần" },
+        { step: "Tối 1", product_name: "DESEMBRE EGF LIFTING TOX AMPOULE", usage: "Thoa 3-4 giọt massage nhẹ nhàng toàn mặt" }
+      ],
+      notes: "Cần chú ý bôi kem chống nắng đều đặn. Tránh tự ý nặn mụn tại nhà."
     };
   }
 
