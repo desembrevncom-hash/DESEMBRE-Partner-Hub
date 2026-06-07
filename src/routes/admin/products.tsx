@@ -85,11 +85,14 @@ function ProductCatalogPage() {
   const isManager = isAdmin || roles.some((r) => ["admin", "sub_admin"].includes(r));
 
   const isDbAdminEnabled = 
-    String(import.meta.env.VITE_PRODUCT_DB_ADMIN_ENABLED).trim() === "true";
+    String(import.meta.env.VITE_PRODUCT_DB_ADMIN_ENABLED).trim() === "true" ||
+    String(import.meta.env.VITE_PRODUCT_DB_ADMIN_ENABLED).trim() === "VITE_PRODUCT_DB_ADMIN_ENABLED";
   const isCatalogDbReadEnabled = 
-    String(import.meta.env.VITE_PRODUCT_CATALOG_DB_READ_ENABLED).trim() === "true";
+    String(import.meta.env.VITE_PRODUCT_CATALOG_DB_READ_ENABLED).trim() === "true" ||
+    String(import.meta.env.VITE_PRODUCT_CATALOG_DB_READ_ENABLED).trim() === "VITE_PRODUCT_CATALOG_DB_READ_ENABLED";
   const isProductDbOrderEnabled = 
-    String(import.meta.env.VITE_PRODUCT_DB_ORDER_ENABLED).trim() === "true";
+    String(import.meta.env.VITE_PRODUCT_DB_ORDER_ENABLED).trim() === "true" ||
+    String(import.meta.env.VITE_PRODUCT_DB_ORDER_ENABLED).trim() === "VITE_PRODUCT_DB_ORDER_ENABLED";
 
   // DB Catalog States
   const [dbProducts, setDbProducts] = useState<Product[]>([]);
