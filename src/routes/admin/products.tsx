@@ -178,6 +178,7 @@ function ProductCatalogPage() {
     } catch (e) {
       console.error("[products] DB Catalog fetch error, falling back:", e);
       setDbError(true);
+      setDbErrorMessage(e instanceof Error ? e.message : String(e));
       toast.error("Không thể kết nối Catalog DB, sử dụng dữ liệu mặc định");
       fetchOverrides();
     } finally {
@@ -1107,6 +1108,9 @@ function ProductCatalogPage() {
                 ({`raw: ${JSON.stringify(import.meta.env.VITE_PRODUCT_DB_ORDER_ENABLED)}`})
               </span>
             </div>
+            <div><span className="text-slate-400">userEmail:</span> <span className="text-blue-400">{user?.email || "none"}</span></div>
+            <div><span className="text-slate-400">userRoles:</span> <span className="text-blue-400">{JSON.stringify(roles || [])}</span></div>
+            <div><span className="text-slate-400">isAdmin:</span> <span className={isAdmin ? "text-green-400 font-bold" : "text-rose-400"}>{isAdmin ? "true" : "false"}</span></div>
             <div><span className="text-slate-400">isManager:</span> <span className={isManager ? "text-green-400 font-bold" : "text-rose-400"}>{isManager ? "true" : "false"}</span></div>
             <div><span className="text-slate-400">usingCatalogDbMode:</span> <span className={isUsingDbCatalogData ? "text-green-400 font-bold" : "text-rose-400 font-bold"}>{isUsingDbCatalogData ? "true" : "false"}</span></div>
             {dbError && (
