@@ -94,6 +94,7 @@ function ProductCatalogPage() {
   const [dbCategories, setDbCategories] = useState<any[]>([]);
   const [selectedBrandFilter, setSelectedBrandFilter] = useState("all");
   const [dbError, setDbError] = useState(false);
+  const [dbErrorMessage, setDbErrorMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("catalog");
 
   const isUsingDbCatalogData = isCatalogDbReadEnabled && !dbError;
@@ -113,12 +114,16 @@ function ProductCatalogPage() {
     loadSalesSheets();
   }, [isCatalogDbReadEnabled]);
 
-  const loadSalesSheets = async () => {
+  const loadSalesSheets = async (shouldThrow = false) => {
     try {
       const { data, error } = await supabase
         .from("product_sales_sheets")
         .select("id, catalog_product_id, status");
-      if (!error && data) {
+      if (error) {
+        if (shouldThrow) throw error;
+        else console.error("Error loading sales sheets map:", error);
+      }
+      if (data) {
         const map: Record<string, { id: string; status: 'draft' | 'approved' | 'archived' }> = {};
         data.forEach((row: any) => {
           map[row.catalog_product_id] = { id: row.id, status: row.status };
@@ -126,6 +131,7 @@ function ProductCatalogPage() {
         setSalesSheetsMap(map);
       }
     } catch (err) {
+      if (shouldThrow) throw err;
       console.error("Error loading sales sheets map:", err);
     }
   };
@@ -133,6 +139,7 @@ function ProductCatalogPage() {
   const loadDBCatalog = async () => {
     setLoading(true);
     setDbError(false);
+    setDbErrorMessage(null);
     try {
       const dbCatalog = await fetchActiveDBCatalog();
       if (!dbCatalog || dbCatalog.length === 0) {
@@ -437,10 +444,31 @@ function ProductCatalogPage() {
         />
 
         <main className="container mx-auto px-6 py-8 max-w-7xl space-y-8 animate-fade-in">
+          {!isCatalogDbReadEnabled && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl text-xs font-semibold flex flex-col gap-1.5 shadow-sm">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span className="font-bold text-amber-950">Feature Flags Missing (Catalog DB is Disabled)</span>
+              </div>
+              <p className="text-slate-600 pl-6 leading-relaxed">
+                Biến môi trường <code className="bg-amber-100/80 px-1 py-0.5 rounded font-mono text-amber-800">VITE_PRODUCT_CATALOG_DB_READ_ENABLED</code> chưa được cấu hình hoặc bằng <code className="font-mono">false</code> ở thời điểm build trên Vercel. 
+                Hệ thống bắt buộc chạy ở chế độ <strong>Legacy Fallback (Danh mục tĩnh cũ)</strong>. Hãy thêm biến môi trường và chạy redeploy lại Vercel.
+              </p>
+            </div>
+          )}
+
           {isCatalogDbReadEnabled && dbError && (
-            <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl text-xs font-semibold flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-              Không thể kết nối Catalog DB. Đang hiển thị catalog dự phòng.
+            <div className="bg-rose-50 border border-rose-200 text-rose-800 px-4 py-3 rounded-xl text-xs font-semibold flex flex-col gap-1.5 shadow-sm">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span className="font-bold text-rose-900">Database Connection Failed</span>
+              </div>
+              <p className="text-slate-600 pl-6 leading-relaxed">
+                Không thể kết nối hoặc truy vấn dữ liệu từ Supabase Staging. Hệ thống tự động chuyển sang chế độ dự phòng tĩnh (Legacy Fallback).
+              </p>
+              <div className="bg-rose-100/50 p-2 rounded font-mono text-[10px] text-rose-900 pl-6 border border-rose-200/50 mt-1 whitespace-pre-wrap">
+                Chi tiết lỗi: {dbErrorMessage || "Không có thông báo lỗi cụ thể"}
+              </div>
             </div>
           )}
 
@@ -1038,6 +1066,25 @@ function ProductCatalogPage() {
             productCode={selectedSalesSheetProduct.product_code}
             onSaved={loadSalesSheets}
           />
+        )}
+
+        {window.location.hostname !== 'hub.desembre-vn.com' && (
+          <div className="fixed bottom-4 left-4 z-[9999] bg-slate-900/95 text-slate-100 p-4 rounded-xl border border-slate-700 shadow-2xl text-[11px] font-mono space-y-1.5 max-w-sm backdrop-blur-md">
+            <div className="flex items-center justify-between border-b border-slate-700 pb-1 mb-2">
+              <span className="font-bold text-indigo-400">🔍 STAGING DEBUG CONSOLE</span>
+              <span className="text-[9px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">e0e1f50</span>
+            </div>
+            <div><span className="text-slate-400">catalogDbReadEnabled:</span> <span className={isCatalogDbReadEnabled ? "text-green-400 font-bold" : "text-rose-400 font-bold"}>{isCatalogDbReadEnabled ? "true" : "false"}</span></div>
+            <div><span className="text-slate-400">productDbAdminEnabled:</span> <span className={isDbAdminEnabled ? "text-green-400 font-bold" : "text-rose-400 font-bold"}>{isDbAdminEnabled ? "true" : "false"}</span></div>
+            <div><span className="text-slate-400">productDbOrderEnabled:</span> <span className={isProductDbOrderEnabled ? "text-green-400 font-bold" : "text-rose-400 font-bold"}>{isProductDbOrderEnabled ? "true" : "false"}</span></div>
+            <div><span className="text-slate-400">isManager:</span> <span className={isManager ? "text-green-400 font-bold" : "text-rose-400"}>{isManager ? "true" : "false"}</span></div>
+            <div><span className="text-slate-400">usingCatalogDbMode:</span> <span className={isUsingDbCatalogData ? "text-green-400 font-bold" : "text-rose-400 font-bold"}>{isUsingDbCatalogData ? "true" : "false"}</span></div>
+            {dbError && (
+              <div className="text-rose-300 bg-rose-950/50 p-2 rounded border border-rose-900 mt-2 whitespace-pre-wrap max-h-32 overflow-y-auto font-mono text-[9px] leading-relaxed">
+                <span className="font-bold">Error:</span> {dbErrorMessage || "Unknown DB fetch error"}
+              </div>
+            )}
+          </div>
         )}
       </CRMPageContainer>
     </EditUnlockProvider>
