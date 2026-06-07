@@ -27,32 +27,18 @@ ALTER TABLE public.product_sales_sheets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can do everything on product_sales_sheets"
 ON public.product_sales_sheets
 FOR ALL
-USING (
-  EXISTS (
-    SELECT 1 FROM user_roles
-    WHERE user_roles.user_id = auth.uid()
-      AND user_roles.role IN ('admin', 'sub_admin')
-  )
-)
-WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM user_roles
-    WHERE user_roles.user_id = auth.uid()
-      AND user_roles.role IN ('admin', 'sub_admin')
-  )
-);
+TO authenticated
+USING ( public.is_admin_or_sub_admin(auth.uid()) )
+WITH CHECK ( public.is_admin_or_sub_admin(auth.uid()) );
 
 -- Sales / Telesales can read approved sales sheets
 CREATE POLICY "Sales can read approved product_sales_sheets"
 ON public.product_sales_sheets
 FOR SELECT
+TO authenticated
 USING (
   status = 'approved' AND 
-  EXISTS (
-    SELECT 1 FROM user_roles
-    WHERE user_roles.user_id = auth.uid()
-      AND user_roles.role IN ('sale', 'telesale')
-  )
+  public.is_sales_member(auth.uid())
 );
 
 -- Trigger for updated_at
