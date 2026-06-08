@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { 
@@ -9,6 +9,7 @@ import {
   Trash2, 
   Copy, 
   Check, 
+  CheckCircle,
   RotateCcw, 
   HelpCircle, 
   BookOpen, 
@@ -22,7 +23,7 @@ import {
 } from "lucide-react";
 import { DocumentTemplatePreview } from "./DocumentTemplatePreview";
 import { useAuth } from "@/hooks/useAuth";
-import { validateTemplateVariables } from "@/lib/documentTemplates";
+import { validateTemplateVariables, auditTemplate } from "@/lib/documentTemplates";
 
 type TemplateType = "quotation" | "product_sales_sheet" | "product_catalog_a4" | "customer_consultation_sheet";
 
@@ -38,263 +39,343 @@ interface DocumentTemplate {
 // Predefined default HTML templates matching our premium A4 styling
 const DEFAULT_PRESETS: Record<TemplateType, { name: string; description: string; html: string }> = {
   quotation: {
-    name: "Mẫu báo giá chuyên nghiệp (Desembre)",
-    description: "Bảng báo giá chuẩn A4 tích hợp vòng lặp sản phẩm, tạm tính và VAT.",
-    html: `<div style="font-family: 'Inter', sans-serif; padding: 25px; color: #1e293b; max-width: 100%;">
+    name: "quotation_default_v1",
+    description: "Mẫu báo giá chuyên nghiệp Desembre chuẩn A4 với chữ ký chuyên viên và bảng tổng hợp VAT.",
+    html: `<div style="font-family: 'Inter', sans-serif; color: #1e293b; max-width: 100%; line-height: 1.5; padding: 10px;">
   <!-- Header -->
-  <div style="display: flex; justify-content: space-between; border-bottom: 3px solid #3b82f6; padding-bottom: 15px; margin-bottom: 20px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 25px;">
     <div>
-      <h1 style="font-size: 22px; font-weight: 800; color: #3b82f6; margin: 0;">{{company.name}}</h1>
-      <p style="font-size: 11px; color: #64748b; margin: 5px 0 0 0;">Mã báo giá: <strong>{{quotation.code}}</strong> | Ngày lập: {{quotation.date}}</p>
+      <h1 style="font-size: 24px; font-weight: 800; color: #1e3a8a; margin: 0; letter-spacing: -0.5px;">{{company.name}}</h1>
+      <p style="font-size: 11px; color: #64748b; margin: 3px 0 0 0; font-weight: 500;">
+        Văn phòng: 53 Triều Khúc, Thanh Xuân, Hà Nội | Hotline: 090-123-4567
+      </p>
     </div>
     <div style="text-align: right;">
-      <h2 style="font-size: 18px; font-weight: 900; margin: 0; color: #0f172a; letter-spacing: 1px;">BẢNG BÁO GIÁ</h2>
-      <p style="font-size: 10px; color: #94a3b8; margin: 2px 0 0 0; text-transform: uppercase;">DESEMBRE BEAUTY</p>
+      <h2 style="font-size: 18px; font-weight: 900; margin: 0; color: #0f172a; letter-spacing: 2px; text-transform: uppercase;">Báo Giá Chi Tiết</h2>
+      <p style="font-size: 11px; color: #64748b; margin: 4px 0 0 0; font-mono: true;">
+        Mã số: <strong style="color: #1e3a8a;">{{quotation.code}}</strong>
+      </p>
     </div>
   </div>
-  
-  <!-- Customer Info -->
-  <div style="margin-bottom: 20px; font-size: 12px; line-height: 1.6; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; display: grid; grid-template-columns: 1fr 1fr;">
-    <div>Khách hàng: <strong>{{customer.name}}</strong></div>
-    <div style="text-align: right;">Nhân viên lập: <strong>{{sales.name}}</strong> ({{sales.email}})</div>
+
+  <!-- Meta Info Grid -->
+  <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; margin-bottom: 30px; font-size: 12px;">
+    <div style="background: #f8fafc; border-left: 4px solid #1e3a8a; padding: 15px; border-radius: 4px 8px 8px 4px; border-top: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;">
+      <h3 style="margin: 0 0 8px 0; font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Khách Hàng Nhận Báo Giá</h3>
+      <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 4px;">{{customer.name}}</div>
+      <div style="color: #475569;">Số điện thoại: {{customer.phone}}</div>
+      <div style="color: #475569; margin-top: 2px;">Địa chỉ: {{customer.address}}</div>
+    </div>
+    <div style="background: #ffffff; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; justify-content: center;">
+      <div style="margin-bottom: 6px;"><span style="color: #64748b; font-weight: 600;">Ngày lập:</span> <strong style="color: #334155;">{{quotation.date}}</strong></div>
+      <div style="margin-bottom: 6px;"><span style="color: #64748b; font-weight: 600;">Người lập:</span> <strong style="color: #334155;">{{sales.name}}</strong></div>
+      <div><span style="color: #64748b; font-weight: 600;">Liên hệ:</span> <a href="mailto:{{sales.email}}" style="color: #1e3a8a; text-decoration: none; font-weight: 500;">{{sales.email}}</a></div>
+    </div>
   </div>
 
   <!-- Items Table -->
-  <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px;">
+  <table style="width: 100%; border-collapse: collapse; font-size: 11.5px; margin-bottom: 25px; background: #ffffff;">
     <thead>
-      <tr style="background: #2563eb; color: #ffffff; text-transform: uppercase;">
-        <th style="padding: 8px 10px; border: 1px solid #2563eb; text-align: left; font-weight: 700;">Sản phẩm</th>
-        <th style="padding: 8px 10px; border: 1px solid #2563eb; text-align: center; font-weight: 700; width: 80px;">Quy cách</th>
-        <th style="padding: 8px 10px; border: 1px solid #2563eb; text-align: right; font-weight: 700; width: 100px;">Đơn giá</th>
-        <th style="padding: 8px 10px; border: 1px solid #2563eb; text-align: center; font-weight: 700; width: 50px;">SL</th>
-        <th style="padding: 8px 10px; border: 1px solid #2563eb; text-align: right; font-weight: 700; width: 110px;">Thành tiền</th>
+      <tr style="background: #1e3a8a; color: #ffffff; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">
+        <th style="padding: 10px 12px; text-align: left; font-weight: 700; border: 1px solid #1e3a8a; border-radius: 4px 0 0 0;">Sản phẩm</th>
+        <th style="padding: 10px 12px; text-align: center; font-weight: 700; border: 1px solid #1e3a8a; width: 90px;">Dung tích</th>
+        <th style="padding: 10px 12px; text-align: right; font-weight: 700; border: 1px solid #1e3a8a; width: 110px;">Đơn giá</th>
+        <th style="padding: 10px 12px; text-align: center; font-weight: 700; border: 1px solid #1e3a8a; width: 60px;">SL</th>
+        <th style="padding: 10px 12px; text-align: right; font-weight: 700; border: 1px solid #1e3a8a; border-radius: 0 4px 0 0; width: 125px;">Thành tiền</th>
       </tr>
     </thead>
     <tbody>
       {{#each items}}
-      <tr style="border-bottom: 1px solid #e2e8f0; transition: background-color 0.2s;">
-        <td style="padding: 8px 10px; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;">{{product_name}}</td>
-        <td style="padding: 8px 10px; border-right: 1px solid #e2e8f0; text-align: center; color: #64748b;">{{size}}</td>
-        <td style="padding: 8px 10px; border-right: 1px solid #e2e8f0; text-align: right; font-weight: 500;">{{unit_price}}</td>
-        <td style="padding: 8px 10px; border-right: 1px solid #e2e8f0; text-align: center;">{{quantity}}</td>
-        <td style="padding: 8px 10px; border-right: 1px solid #e2e8f0; text-align: right; font-weight: 700; color: #1e40af;">{{line_total}}</td>
+      <tr style="border-bottom: 1px solid #e2e8f0;">
+        <td style="padding: 10px 12px; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; font-weight: 600; color: #0f172a;">{{product_name}}</td>
+        <td style="padding: 10px 12px; border-right: 1px solid #e2e8f0; text-align: center; color: #475569; font-weight: 500;">{{size}}</td>
+        <td style="padding: 10px 12px; border-right: 1px solid #e2e8f0; text-align: right; font-mono: true;">{{unit_price}}</td>
+        <td style="padding: 10px 12px; border-right: 1px solid #e2e8f0; text-align: center; font-weight: 600;">{{quantity}}</td>
+        <td style="padding: 10px 12px; border-right: 1px solid #e2e8f0; text-align: right; font-weight: 700; color: #1e3a8a; font-mono: true;">{{line_total}}</td>
       </tr>
       {{/each}}
     </tbody>
   </table>
 
-  <!-- Calculation Summary -->
-  <div style="width: 45%; margin-left: 55%; font-size: 12px; line-height: 1.8; margin-bottom: 30px;">
-    <div style="display: flex; justify-content: space-between;">
-      <span style="color: #64748b;">Tạm tính:</span>
-      <strong style="color: #334155;">{{subtotal}}</strong>
-    </div>
-    <div style="display: flex; justify-content: space-between;">
-      <span style="color: #64748b;">Thuế (VAT):</span>
-      <strong style="color: #334155;">{{vat}}</strong>
-    </div>
-    <div style="display: flex; justify-content: space-between; border-top: 2px solid #e2e8f0; padding-top: 6px; margin-top: 6px; font-size: 14px; color: #2563eb;">
-      <span>Tổng thanh toán:</span>
-      <strong style="font-size: 16px; font-weight: 800;">{{total}}</strong>
+  <!-- Calculation Details -->
+  <div style="display: flex; justify-content: flex-end; margin-bottom: 40px;">
+    <div style="width: 320px; font-size: 12px; line-height: 2.0; background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px;">
+      <div style="display: flex; justify-content: space-between;">
+        <span style="color: #64748b; font-weight: 500;">Tạm tính:</span>
+        <span style="color: #0f172a; font-weight: 600; font-mono: true;">{{subtotal}}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between;">
+        <span style="color: #64748b; font-weight: 500;">Thuế (VAT 8%):</span>
+        <span style="color: #0f172a; font-weight: 600; font-mono: true;">{{vat}}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; border-top: 1.5px solid #cbd5e1; padding-top: 8px; margin-top: 8px; font-size: 14px; color: #1e3a8a;">
+        <strong style="font-weight: 800;">Tổng thanh toán:</strong>
+        <strong style="font-size: 16px; font-weight: 900; font-mono: true;">{{total}}</strong>
+      </div>
     </div>
   </div>
 
-  <!-- Note/Signature -->
-  <div style="margin-top: 40px; display: flex; justify-content: space-between; font-size: 11px; color: #64748b; border-top: 1px solid #f1f5f9; padding-top: 15px;">
-    <div>
-      <p style="margin: 0;">Báo giá có hiệu lực trong vòng 30 ngày kể từ ngày lập.</p>
-      <p style="margin: 3px 0 0 0;">Mọi thắc mắc vui lòng liên hệ: {{sales.email}}</p>
+  <!-- Terms & Signatures -->
+  <div style="font-size: 11px; color: #64748b; margin-top: 40px;">
+    <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; margin-bottom: 40px;">
+      <p style="margin: 0; line-height: 1.6;">* Báo giá có hiệu lực trong vòng 30 ngày kể từ ngày lập.</p>
+      <p style="margin: 3px 0 0 0; line-height: 1.6;">* Quý khách vui lòng xác nhận và gửi lại bộ phận Telesale theo email: {{sales.email}}.</p>
     </div>
-    <div style="text-align: right;">
-      <p style="margin: 0; font-style: italic;">Cảm ơn Quý khách đã tin tưởng lựa chọn Desembre!</p>
+
+    <!-- Signature Block Grid -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; text-align: center; margin-top: 20px;">
+      <div>
+        <div style="font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 60px;">CHUYÊN VIÊN LẬP BÁO GIÁ</div>
+        <div style="font-weight: 600; color: #475569;">{{sales.name}}</div>
+      </div>
+      <div>
+        <div style="font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 60px;">XÁC NHẬN KHÁCH HÀNG</div>
+        <div style="border-bottom: 1px dashed #cbd5e1; width: 150px; margin: 0 auto; height: 1px;"></div>
+      </div>
     </div>
   </div>
 </div>`
   },
   product_sales_sheet: {
-    name: "Mẫu Sales Sheet sản phẩm chuẩn A4",
-    description: "Tài liệu đào tạo A4 đẹp mắt cho Sales với đầy đủ công dụng, bảng giá và phân khúc khách hàng.",
-    html: `<div style="font-family: 'Inter', sans-serif; max-width: 100%; color: #1e293b; padding: 5px;">
-  <!-- Header -->
-  <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #3b82f6; padding-bottom: 12px; margin-bottom: 16px;">
+    name: "product_sales_sheet_premium_v1",
+    description: "Mẫu Product Sales Sheet cao cấp dạng 2 cột chia khu vực hình ảnh + bảng giá & công thức RAG base của sản phẩm.",
+    html: `<div style="font-family: 'Inter', sans-serif; max-width: 100%; color: #1e293b; line-height: 1.4; padding: 5px;">
+  <!-- Premium Header -->
+  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3.5px solid #1e3a8a; padding-bottom: 12px; margin-bottom: 16px;">
     <div>
-      <span style="font-size: 10px; font-weight: 800; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.1em;">PRODUCT SALES SHEET</span>
-      <h1 style="font-size: 22px; font-weight: 900; margin: 4px 0 0 0; color: #0f172a; text-transform: uppercase; line-height: 1.2;">{{product.name}}</h1>
-      <p style="font-size: 11px; color: #64748b; margin: 4px 0 0 0;">Thương hiệu: <strong>{{product.brand_name}}</strong> | Danh mục: <strong>{{product.category_name}}</strong></p>
+      <span style="font-size: 9px; font-weight: 800; color: #b45309; text-transform: uppercase; letter-spacing: 0.15em; background: #fef3c7; padding: 2px 6px; border-radius: 4px; border: 1px solid #fde68a;">TÀI LIỆU ĐÀO TẠO NỘI BỘ</span>
+      <h1 style="font-size: 20px; font-weight: 900; margin: 6px 0 2px 0; color: #0f172a; text-transform: uppercase; letter-spacing: -0.5px;">{{product.name}}</h1>
+      <p style="font-size: 11px; color: #64748b; margin: 0;">Thương hiệu: <strong style="color: #1e3a8a;">{{product.brand_name}}</strong> | Danh mục: <strong>{{product.category_name}}</strong></p>
     </div>
     <div style="text-align: right;">
-      <div style="font-size: 16px; font-weight: 900; color: #0f172a; letter-spacing: 1px;">DESEMBRE</div>
-      <div style="font-size: 8px; color: #94a3b8; margin-top: 2px; text-transform: uppercase; font-weight: 700;">Premium Cosmetics</div>
+      <div style="font-size: 18px; font-weight: 900; color: #1e3a8a; letter-spacing: 1px; line-height: 1;">DESEMBRE</div>
+      <div style="font-size: 8px; color: #94a3b8; margin-top: 3px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Luxury Cosmetics</div>
     </div>
   </div>
 
-  <!-- Content Grid -->
-  <div style="display: grid; grid-template-columns: 1.2fr 1.8fr; gap: 20px; margin-bottom: 15px;">
-    <!-- Left Column: Image & Pricing -->
-    <div style="display: flex; flex-direction: column; gap: 15px;">
-      <div style="background: #f8fafc; border-radius: 8px; padding: 12px; text-align: center; border: 1px solid #e2e8f0; min-height: 150px; display: flex; align-items: center; justify-content: center;">
-        <img src="{{product.image_url}}" alt="{{product.name}}" style="max-width: 100%; max-height: 140px; object-fit: contain;" />
+  <!-- Content Structure -->
+  <div style="display: grid; grid-template-columns: 1.25fr 1.75fr; gap: 18px;">
+    <!-- Left Panel: Product Image and Pricing Table -->
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      <!-- Styled Product Frame -->
+      <div style="background: #ffffff; border-radius: 12px; padding: 12px; text-align: center; border: 1.5px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); min-height: 180px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+        {{#if product.image_url}}
+          <img src="{{product.image_url}}" alt="{{product.name}}" style="max-width: 100%; max-height: 160px; object-fit: contain;" />
+        {{else}}
+          <!-- Fallback image block -->
+          <div style="font-size: 11px; color: #94a3b8; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+            <svg style="width: 32px; height: 32px; stroke: #cbd5e1; fill: none; stroke-width: 1.5;" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+            </svg>
+            Không có hình ảnh
+          </div>
+        {{/if}}
       </div>
 
-      <div style="background: #ffffff; border-radius: 8px; padding: 12px; border: 1px solid #e2e8f0;">
-        <h3 style="font-size: 11px; font-weight: 800; color: #0f172a; text-transform: uppercase; margin: 0 0 8px 0; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px; letter-spacing: 0.5px;">BẢNG GIÁ SẢN PHẨM</h3>
+      <!-- Pricing Info Block -->
+      <div style="background: #ffffff; border-radius: 12px; padding: 14px; border: 1.5px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);">
+        <h3 style="font-size: 11px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; margin: 0 0 10px 0; border-bottom: 1.5px solid #f1f5f9; padding-bottom: 5px; letter-spacing: 0.5px; display: flex; justify-content: space-between;">
+          <span>BẢNG GIÁ ĐỐI TÁC</span>
+          <span style="color: #64748b; font-size: 9px; font-weight: 500;">VND</span>
+        </h3>
+        
+        {{#if variants}}
         <table style="width: 100%; font-size: 10px; border-collapse: collapse;">
           <thead>
-            <tr style="color: #64748b; font-weight: 700; text-align: left;">
-              <th style="padding: 4px 0;">Kênh</th>
-              <th style="padding: 4px 0;">Dung tích</th>
-              <th style="padding: 4px 0; text-align: right;">Giá niêm yết</th>
+            <tr style="color: #64748b; font-weight: 700; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 9px; text-transform: uppercase;">
+              <th style="padding: 5px 0;">Kênh</th>
+              <th style="padding: 5px 0; text-align: center;">Quy cách</th>
+              <th style="padding: 5px 0; text-align: right;">Giá niêm yết</th>
             </tr>
           </thead>
           <tbody>
             {{#each variants}}
-            <tr style="border-top: 1px solid #f1f5f9; color: #334155;">
-              <td style="padding: 5px 0; font-weight: 600; text-transform: uppercase; font-size: 9px; color: #475569;">{{channel}}</td>
-              <td style="padding: 5px 0;">{{size_label}}</td>
-              <td style="padding: 5px 0; text-align: right; font-weight: 800; color: #2563eb;">{{price}}</td>
+            <tr style="border-bottom: 1px solid #f8fafc; color: #334155;">
+              <td style="padding: 6px 0; font-weight: 700; text-transform: uppercase; font-size: 8.5px; color: #1e3a8a;">{{channel}}</td>
+              <td style="padding: 6px 0; text-align: center; font-weight: 600;">{{size_label}}</td>
+              <td style="padding: 6px 0; text-align: right; font-weight: 800; color: #0f172a; font-mono: true;">{{price}}</td>
             </tr>
             {{/each}}
           </tbody>
         </table>
+        {{else}}
+          <div style="font-size: 9.5px; color: #94a3b8; text-align: center; padding: 10px 0; font-style: italic;">
+            Chưa có bảng giá đã duyệt.
+          </div>
+        {{/if}}
       </div>
     </div>
 
-    <!-- Right Column: Product Knowledge -->
-    <div style="display: flex; flex-direction: column; gap: 12px;">
-      <div style="background: #eff6ff; border-left: 3px solid #2563eb; border-radius: 0 6px 6px 0; padding: 10px 12px;">
-        <p style="margin: 0; font-size: 11px; line-height: 1.4; color: #1e3a8a; font-style: italic;">
+    <!-- Right Panel: AI Product Knowledge Base -->
+    <div style="display: flex; flex-direction: column; gap: 12px; font-size: 10.5px;">
+      <!-- Hero Product Quote -->
+      <div style="background: #eff6ff; border-left: 4px solid #1e3a8a; border-radius: 0 8px 8px 0; padding: 10px 14px; border-top: 1px solid #dbeafe; border-right: 1px solid #dbeafe; border-bottom: 1px solid #dbeafe;">
+        <p style="margin: 0; font-size: 11px; line-height: 1.4; color: #1e3a8a; font-style: italic; font-weight: 500;">
           {{product.short_description}}
         </p>
       </div>
 
+      <!-- Core Features -->
       <div>
-        <h4 style="font-size: 11px; font-weight: 800; color: #0f172a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">CÔNG DỤNG NỔI BẬT</h4>
-        <div style="font-size: 10px; line-height: 1.4; color: #334155; white-space: pre-line;">{{knowledge.benefits}}</div>
+        <h4 style="font-size: 11px; font-weight: 800; color: #1e3a8a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">CÔNG DỤNG NỔI BẬT</h4>
+        <div style="line-height: 1.45; color: #334155; white-space: pre-line;">{{knowledge.benefits}}</div>
       </div>
 
+      <!-- Skin Compatibility -->
       <div>
-        <h4 style="font-size: 11px; font-weight: 800; color: #0f172a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">LOẠI DA PHÙ HỢP</h4>
-        <div style="font-size: 10px; line-height: 1.4; color: #334155;">{{knowledge.skin_types}}</div>
+        <h4 style="font-size: 11px; font-weight: 800; color: #1e3a8a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">LOẠI DA PHÙ HỢP</h4>
+        <div style="line-height: 1.45; color: #334155;">{{knowledge.skin_types}}</div>
       </div>
 
+      <!-- Usage Instructions -->
       <div>
-        <h4 style="font-size: 11px; font-weight: 800; color: #0f172a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">HƯỚNG DẪN SỬ DỤNG</h4>
-        <div style="font-size: 10px; line-height: 1.4; color: #334155; white-space: pre-line;">{{knowledge.usage}}</div>
+        <h4 style="font-size: 11px; font-weight: 800; color: #1e3a8a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">HƯỚNG DẪN SỬ DỤNG</h4>
+        <div style="line-height: 1.45; color: #334155; white-space: pre-line;">{{knowledge.usage}}</div>
       </div>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; border-top: 1px solid #e2e8f0; padding-top: 10px;">
-        <div>
-          <h4 style="font-size: 10px; font-weight: 800; color: #d97706; margin: 0 0 2px 0; text-transform: uppercase;">LƯU Ý TƯ VẤN</h4>
-          <div style="font-size: 9px; line-height: 1.3; color: #451a03; white-space: pre-line;">{{knowledge.sales_notes}}</div>
+      <!-- Advisory & Warnings Grid (Responsive Print Design) -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 4px;">
+        <div style="background: #fffbeb; border: 1px solid #fef3c7; padding: 10px; border-radius: 8px;">
+          <h4 style="font-size: 9.5px; font-weight: 800; color: #d97706; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #fde68a; padding-bottom: 2px;">LƯU Ý TƯ VẤN</h4>
+          <div style="font-size: 9px; line-height: 1.4; color: #78350f; white-space: pre-line; font-weight: 500;">{{knowledge.sales_notes}}</div>
         </div>
-        <div>
-          <h4 style="font-size: 10px; font-weight: 800; color: #dc2626; margin: 0 0 2px 0; text-transform: uppercase;">CHỐNG CHỈ ĐỊNH</h4>
-          <div style="font-size: 9px; line-height: 1.3; color: #450a0a; white-space: pre-line;">{{knowledge.warnings}}</div>
+        <div style="background: #fef2f2; border: 1px solid #fee2e2; padding: 10px; border-radius: 8px;">
+          <h4 style="font-size: 9.5px; font-weight: 800; color: #dc2626; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #fca5a5; padding-bottom: 2px;">CHỐNG CHỈ ĐỊNH</h4>
+          <div style="font-size: 9px; line-height: 1.4; color: #7f1d1d; white-space: pre-line; font-weight: 500;">{{knowledge.warnings}}</div>
         </div>
       </div>
     </div>
   </div>
 
-  <div style="border-top: 1px solid #e2e8f0; padding-top: 6px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #94a3b8;">
-    <div>Tài liệu lưu hành nội bộ Desembre | Tạo lúc {{generated_at}}</div>
+  <!-- Footer Info block -->
+  <div style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 20px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #94a3b8; font-weight: 500;">
+    <div>Tài liệu lưu hành nội bộ Desembre | Tạo lúc: {{generated_at}}</div>
     <div>Trang 1/1</div>
   </div>
 </div>`
   },
   product_catalog_a4: {
-    name: "Mẫu Catalog dạng lưới A4",
-    description: "Catalog in A4 chứa danh mục lưới 2 cột hiển thị hàng loạt sản phẩm.",
-    html: `<div style="font-family: 'Inter', sans-serif; padding: 20px; color: #1e293b; max-width: 100%;">
-  <!-- Header -->
-  <div style="border-bottom: 3px solid #10b981; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end;">
+    name: "product_catalog_a4_v1",
+    description: "Mẫu Catalog tổng hợp mạng lưới dạng A4 xếp lưới 2 cột sản phẩm với hình ảnh và thông số dung tích.",
+    html: `<div style="font-family: 'Inter', sans-serif; padding: 10px; color: #1e293b; max-width: 100%;">
+  <!-- Green Header -->
+  <div style="border-bottom: 3.5px solid #059669; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end;">
     <div>
-      <h1 style="font-size: 20px; font-weight: 900; color: #059669; margin: 0; letter-spacing: 0.5px;">CATALOG SẢN PHẨM</h1>
-      <p style="font-size: 10px; color: #64748b; margin: 3px 0 0 0;">Bảng danh mục sản phẩm lưu hành đối tác Desembre</p>
+      <h1 style="font-size: 22px; font-weight: 900; color: #059669; margin: 0; letter-spacing: -0.5px;">CATALOG SẢN PHẨM</h1>
+      <p style="font-size: 10px; color: #64748b; margin: 3px 0 0 0; font-weight: 500;">
+        Danh mục sản phẩm hoạt động và bảng giá niêm yết đại lý Desembre
+      </p>
     </div>
-    <div style="font-size: 14px; font-weight: 900; color: #0f172a; letter-spacing: 1px;">DESEMBRE</div>
+    <div style="text-align: right;">
+      <div style="font-size: 16px; font-weight: 900; color: #059669; letter-spacing: 1px; line-height: 1;">DESEMBRE</div>
+      <div style="font-size: 8px; color: #94a3b8; margin-top: 3px; text-transform: uppercase; font-weight: 700;">Partner Network</div>
+    </div>
   </div>
 
-  <!-- Product Grid -->
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-    {{#each products}}
-    <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; display: flex; gap: 12px; background: #ffffff; transition: box-shadow 0.2s;">
-      <div style="width: 70px; height: 70px; flex-shrink: 0; background: #f8fafc; border-radius: 6px; display: flex; align-items: center; justify-content: center; border: 1px solid #f1f5f9;">
-        <img src="{{image_url}}" alt="{{name}}" style="max-width: 60px; max-height: 60px; object-fit: contain;" />
-      </div>
-      <div style="display: flex; flex-direction: column; justify-content: space-between; flex-grow: 1;">
-        <div>
-          <h4 style="margin: 0; font-size: 11px; font-weight: 700; color: #0f172a; line-height: 1.3;">{{name}}</h4>
-          <span style="font-size: 8px; color: #059669; font-weight: 700; text-transform: uppercase; margin-top: 2px; display: inline-block;">{{brand}}</span>
+  <!-- Product Grid (2 Columns) -->
+  {{#if products}}
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
+      {{#each products}}
+      <div style="border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 12px; display: flex; gap: 12px; background: #ffffff; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02); page-break-inside: avoid;">
+        <!-- Image Box -->
+        <div style="width: 75px; height: 75px; flex-shrink: 0; background: #f8fafc; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px solid #f1f5f9;">
+          {{#if image_url}}
+            <img src="{{image_url}}" alt="{{name}}" style="max-width: 65px; max-height: 65px; object-fit: contain;" />
+          {{else}}
+            <div style="font-size: 8px; color: #94a3b8; text-align: center; font-weight: 600;">NO IMG</div>
+          {{/if}}
         </div>
-        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 4px;">
-          <span style="font-size: 9px; color: #64748b;">{{size}}</span>
-          <span style="font-size: 11px; font-weight: 800; color: #2563eb;">{{price}}</span>
+        
+        <!-- Info Box -->
+        <div style="display: flex; flex-direction: column; justify-content: space-between; flex-grow: 1; min-width: 0;">
+          <div>
+            <h4 style="margin: 0; font-size: 11.5px; font-weight: 700; color: #0f172a; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{name}}">{{name}}</h4>
+            <span style="font-size: 8px; color: #059669; font-weight: 800; text-transform: uppercase; margin-top: 2px; display: inline-block; background: #ecfdf5; padding: 1px 4px; border-radius: 3px;">{{brand}}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 6px; font-size: 10px;">
+            <span style="color: #64748b; font-weight: 500;">Quy cách: {{size}}</span>
+            <span style="font-size: 12px; font-weight: 850; color: #1e3a8a; font-mono: true;">{{price}}</span>
+          </div>
         </div>
       </div>
+      {{/each}}
     </div>
-    {{/each}}
-  </div>
+  {{else}}
+    <div style="text-align: center; padding: 50px 0; color: #94a3b8; font-style: italic; font-size: 12px; border: 1.5px dashed #cbd5e1; border-radius: 12px;">
+      Chưa có dữ liệu đã duyệt.
+    </div>
+  {{/if}}
 
-  <!-- Footer -->
-  <div style="margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 12px; text-align: center; font-size: 9px; color: #94a3b8;">
-    <span>Tài liệu nội bộ Desembre Việt Nam &bull; Giá niêm yết chưa áp dụng chiết khấu đại lý.</span>
+  <!-- Print-Safe Footer -->
+  <div style="margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 12px; text-align: center; font-size: 9px; color: #94a3b8; font-weight: 500;">
+    <span>Tài liệu nội bộ Desembre Việt Nam &bull; Giá niêm yết chưa áp dụng chiết khấu đại lý. &bull; Hỗ trợ in khổ giấy A4.</span>
   </div>
 </div>`
   },
   customer_consultation_sheet: {
-    name: "Mẫu Phiếu tư vấn phác đồ chuẩn",
-    description: "Hồ sơ da liễu kê đơn sản phẩm routine hàng ngày cho khách hàng Spa.",
-    html: `<div style="font-family: 'Inter', sans-serif; padding: 25px; color: #1e293b; max-width: 100%;">
-  <!-- Header -->
-  <div style="border-bottom: 3px solid #8b5cf6; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end;">
+    name: "customer_consultation_sheet_v1",
+    description: "Mẫu Routine/Phiếu tư vấn da liễu phác đồ trị liệu tại nhà Desembre dành cho khách hàng đối tác Spa.",
+    html: `<div style="font-family: 'Inter', sans-serif; padding: 15px; color: #1e293b; max-width: 100%; line-height: 1.5;">
+  <!-- Violet Header -->
+  <div style="border-bottom: 3.5px solid #7c3aed; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end;">
     <div>
-      <h1 style="font-size: 20px; font-weight: 900; color: #7c3aed; margin: 0; letter-spacing: 0.5px;">PHIẾU TƯ VẤN & PHÁC ĐỒ</h1>
-      <p style="font-size: 10px; color: #64748b; margin: 3px 0 0 0;">Thiết lập routine điều trị da chuyên sâu Desembre</p>
+      <h1 style="font-size: 20px; font-weight: 900; color: #7c3aed; margin: 0; letter-spacing: -0.5px;">PHIẾU TƯ VẤN & PHÁC ĐỒ</h1>
+      <p style="font-size: 10px; color: #64748b; margin: 3px 0 0 0; font-weight: 500;">Routine kê đơn và hướng dẫn chăm sóc da chuyên sâu tại nhà</p>
     </div>
-    <div style="font-size: 11px; color: #64748b; text-align: right;">
-      <div>Mã phiếu: <strong>{{sheet.code}}</strong></div>
-      <div>Ngày lập: {{sheet.date}}</div>
+    <div style="font-size: 11px; color: #64748b; text-align: right; font-weight: 500;">
+      <div>Mã phiếu: <strong style="color: #7c3aed;">{{sheet.code}}</strong></div>
+      <div style="margin-top: 2px;">Ngày lập: {{sheet.date}}</div>
     </div>
   </div>
 
-  <!-- Customer profile -->
-  <div style="background: #fdfbf7; border: 1px solid #f5e1c8; border-radius: 8px; padding: 15px; margin-bottom: 20px; font-size: 11px; line-height: 1.6;">
-    <h3 style="margin: 0 0 10px 0; font-size: 12px; color: #b45309; text-transform: uppercase; font-weight: 800; border-bottom: 1px solid #f5e1c8; padding-bottom: 4px;">Thông tin khách hàng</h3>
+  <!-- Profile Card -->
+  <div style="background: #faf5ff; border: 1.5px solid #f3e8ff; border-radius: 10px; padding: 15px; margin-bottom: 20px; font-size: 11.5px;">
+    <h3 style="margin: 0 0 10px 0; font-size: 12px; color: #6d28d9; text-transform: uppercase; font-weight: 800; border-bottom: 1px solid #e9d5ff; padding-bottom: 4px; letter-spacing: 0.5px;">Thông tin khách hàng</h3>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
       <div>Họ và tên: <strong>{{customer.name}}</strong></div>
       <div>Điện thoại: {{customer.phone}}</div>
-      <div style="grid-column: span 2;">Tình trạng da: <strong>{{customer.skin_condition}}</strong></div>
-      <div style="grid-column: span 2;">Chuyên viên tư vấn: <strong>{{consultant.name}}</strong></div>
+      <div style="grid-column: span 2; margin-top: 2px;">Tình trạng da / Chỉ định chính: <strong style="color: #7c3aed;">{{customer.skin_condition}}</strong></div>
+      <div style="grid-column: span 2; margin-top: 2px;">Chuyên viên tư vấn: <strong>{{consultant.name}}</strong></div>
     </div>
   </div>
 
-  <!-- Routine Table -->
-  <div style="margin-bottom: 20px;">
-    <h3 style="margin: 0 0 10px 0; font-size: 12px; color: #7c3aed; text-transform: uppercase; font-weight: 800;">Routine chăm sóc da khuyên dùng</h3>
-    <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+  <!-- Routine Timetable -->
+  <div style="margin-bottom: 25px;">
+    <h3 style="margin: 0 0 10px 0; font-size: 12px; color: #7c3aed; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px;">Routine Chăm Sóc Da Hàng Ngày</h3>
+    
+    {{#if routine}}
+    <table style="width: 100%; border-collapse: collapse; font-size: 11.5px; background: #ffffff;">
       <thead>
-        <tr style="background: #f5f3ff; color: #7c3aed; border-bottom: 2px solid #ddd;">
-          <th style="padding: 8px; text-align: left; font-weight: 700; width: 80px;">Bước</th>
-          <th style="padding: 8px; text-align: left; font-weight: 700; width: 200px;">Sản phẩm</th>
-          <th style="padding: 8px; text-align: left; font-weight: 700;">Hướng dẫn sử dụng</th>
+        <tr style="background: #f5f3ff; color: #7c3aed; border-bottom: 2px solid #ddd; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
+          <th style="padding: 8px 10px; text-align: left; font-weight: 700; width: 85px;">Bước</th>
+          <th style="padding: 8px 10px; text-align: left; font-weight: 700; width: 220px;">Sản phẩm chỉ định</th>
+          <th style="padding: 8px 10px; text-align: left; font-weight: 700;">Hướng dẫn sử dụng chi tiết</th>
         </tr>
       </thead>
       <tbody>
         {{#each routine}}
-        <tr style="border-bottom: 1px solid #e2e8f0;">
-          <td style="padding: 8px; font-weight: 600; color: #6d28d9;">{{step}}</td>
-          <td style="padding: 8px;"><strong>{{product_name}}</strong></td>
-          <td style="padding: 8px; color: #4b5563; line-height: 1.4;">{{usage}}</td>
+        <tr style="border-bottom: 1px solid #f3e8ff;">
+          <td style="padding: 10px 10px; font-weight: 750; color: #6d28d9;">{{step}}</td>
+          <td style="padding: 10px 10px; font-weight: 700; color: #0f172a;">{{product_name}}</td>
+          <td style="padding: 10px 10px; color: #4b5563; line-height: 1.45;">{{usage}}</td>
         </tr>
         {{/each}}
       </tbody>
     </table>
+    {{else}}
+      <div style="text-align: center; padding: 30px 0; color: #94a3b8; font-style: italic; font-size: 11px; border: 1.5px dashed #e9d5ff; border-radius: 10px;">
+        Chưa có phác đồ điều trị được kê đơn.
+      </div>
+    {{/if}}
   </div>
 
-  <!-- Notes -->
-  <div style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 8px; padding: 12px; font-size: 11px; color: #5b21b6; line-height: 1.5; margin-bottom: 25px;">
-    <strong>Lưu ý từ chuyên viên:</strong> {{notes}}
+  <!-- Specialized Care Note -->
+  {{#if notes}}
+  <div style="background: #fdfbf7; border: 1.5px solid #fef3c7; border-radius: 10px; padding: 12px 15px; font-size: 11px; color: #78350f; line-height: 1.5;">
+    <strong style="color: #b45309; text-transform: uppercase; font-size: 10px; display: block; margin-bottom: 4px; letter-spacing: 0.5px;">Lời khuyên chuyên sâu từ chuyên viên:</strong> 
+    {{notes}}
   </div>
+  {{/if}}
 </div>`
   }
 };
@@ -489,10 +570,11 @@ export const DocumentTemplateManager: React.FC = () => {
 
   const filteredTemplates = templates.filter(t => t.template_type === activeTab);
 
-  // Live validation validation
-  const validationReport = editingTemplate 
-    ? validateTemplateVariables(editingTemplate.html_template || "", editingTemplate.template_type)
-    : { valid: true, missing: [] };
+  // Live validation & audit
+  const auditReport = useMemo(() => {
+    if (!editingTemplate) return { valid: true, errors: [], warnings: [], missingRequiredVars: [] };
+    return auditTemplate(editingTemplate.html_template || "", editingTemplate.template_type);
+  }, [editingTemplate?.html_template, editingTemplate?.template_type]);
 
   return (
     <div className="flex flex-col h-full bg-slate-50 border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
@@ -634,10 +716,10 @@ export const DocumentTemplateManager: React.FC = () => {
                       HTML Code
                     </label>
                     
-                    {!validationReport.valid && (
+                    {!auditReport.valid && (
                       <span className="text-[9px] font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3" />
-                        Thiếu biến bắt buộc
+                        Thiếu biến hoặc lỗi cú pháp
                       </span>
                     )}
                   </div>
@@ -645,10 +727,53 @@ export const DocumentTemplateManager: React.FC = () => {
                     value={editingTemplate.html_template || ""}
                     onChange={(e) => setEditingTemplate({...editingTemplate, html_template: e.target.value})}
                     disabled={!isAdmin}
-                    className="w-full flex-grow px-3 py-2 border border-slate-900 rounded-xl outline-none font-mono text-xs leading-relaxed bg-slate-950 text-emerald-400 selection:bg-slate-800 selection:text-white"
+                    className="w-full flex-grow px-3 py-2 border border-slate-900 rounded-xl outline-none font-mono text-xs leading-relaxed bg-slate-950 text-emerald-400 selection:bg-slate-800 selection:text-white min-h-[200px]"
                     placeholder="Nhập mã HTML của bạn tại đây..."
                     style={{ whiteSpace: 'pre', overflowX: 'auto' }}
                   />
+
+                  {/* System Audit & Diagnostics Summary */}
+                  <div className="mt-2 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs flex-none">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-1.5 mb-1.5">
+                      <span className="font-extrabold text-slate-700 uppercase tracking-wide text-[10px] flex items-center gap-1">
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+                        Báo cáo kiểm định (Template Audit)
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${auditReport.valid ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+                        {auditReport.valid ? "ĐẠT TIÊU CHUẨN A4" : "CÓ LỖI CẤU TRÚC"}
+                      </span>
+                    </div>
+
+                    {auditReport.errors.length === 0 && auditReport.warnings.length === 0 && (
+                      <div className="text-slate-500 italic text-[10px]">
+                        Không phát hiện lỗi cú pháp hay cảnh báo in ấn nào.
+                      </div>
+                    )}
+
+                    {auditReport.errors.length > 0 && (
+                      <div className="space-y-1 mb-2">
+                        <div className="font-bold text-red-700 text-[10px]">LỖI CẦN SỬA:</div>
+                        {auditReport.errors.map((err, idx) => (
+                          <div key={idx} className="text-red-600 flex items-start gap-1 pl-1">
+                            <span className="text-red-500 font-bold">•</span>
+                            <span>{err}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {auditReport.warnings.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="font-bold text-amber-700 text-[10px]">CẢNH BÁO IN ẤN & AN TOÀN:</div>
+                        {auditReport.warnings.map((warn, idx) => (
+                          <div key={idx} className="text-amber-600 flex items-start gap-1 pl-1">
+                            <span className="text-amber-500 font-bold">•</span>
+                            <span>{warn}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Variables Reference Panel */}
@@ -763,13 +888,13 @@ export const DocumentTemplateManager: React.FC = () => {
                           {/* Variables validation indicator */}
                           {t.html_template && (
                             <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full ${
-                              validateTemplateVariables(t.html_template, t.template_type).valid
+                              auditTemplate(t.html_template, t.template_type).valid
                                 ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
                                 : "bg-red-50 text-red-700 border border-red-100"
                             }`}>
-                              {validateTemplateVariables(t.html_template, t.template_type).valid 
-                                ? "Cấu trúc biến hợp lệ" 
-                                : "Lỗi biến bắt buộc"}
+                              {auditTemplate(t.html_template, t.template_type).valid 
+                                ? "Đạt kiểm định A4" 
+                                : "Lỗi cấu trúc"}
                             </span>
                           )}
                         </div>

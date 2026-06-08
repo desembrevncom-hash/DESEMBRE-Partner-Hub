@@ -7,14 +7,17 @@ interface A4PreviewFrameProps {
   title?: string;
 }
 
-export const A4PreviewFrame: React.FC<A4PreviewFrameProps> = ({ htmlContent, title = "Xem trước" }) => {
+export const A4PreviewFrame: React.FC<A4PreviewFrameProps> = ({
+  htmlContent,
+  title = "Xem trước",
+}) => {
   const handlePrint = () => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
       toast.error("Không thể mở cửa sổ in. Vui lòng tắt trình chặn popup trên trình duyệt.");
       return;
     }
-    
+
     // Write full HTML structure inside popup print window
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -85,10 +88,12 @@ export const A4PreviewFrame: React.FC<A4PreviewFrameProps> = ({ htmlContent, tit
       {/* Top Action Bar */}
       <div className="w-full max-w-[210mm] flex justify-between items-center mb-4 bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-200 print:hidden">
         <div className="flex flex-col">
-          <h3 className="font-extrabold text-slate-800 text-xs uppercase tracking-wider">Xem trước thiết kế</h3>
+          <h3 className="font-extrabold text-slate-800 text-xs uppercase tracking-wider">
+            Xem trước thiết kế
+          </h3>
           <span className="text-[10px] text-slate-400 font-bold">{title}</span>
         </div>
-        <button 
+        <button
           onClick={handlePrint}
           className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-sm hover:shadow transition-all"
         >
@@ -98,17 +103,20 @@ export const A4PreviewFrame: React.FC<A4PreviewFrameProps> = ({ htmlContent, tit
       </div>
 
       {/* A4 Preview Container - simulated shadow and sizing */}
-      <div 
+      <div
         id="a4-print-area"
         className="bg-white shadow-xl mx-auto overflow-hidden relative border border-slate-200 rounded-sm mb-10 transition-all hover:shadow-2xl"
         style={{ width: "210mm", minHeight: "297mm", padding: "15mm" }}
       >
         {/* Style block inside preview frame to support local Google Fonts load */}
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
-        <div 
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+          rel="stylesheet"
+        />
+        <div
           className="prose prose-sm max-w-none text-slate-800"
           style={{ fontFamily: "'Inter', sans-serif" }}
-          dangerouslySetInnerHTML={{ __html: htmlContent }} 
+          dangerouslySetInnerHTML={{ __html: htmlContent }}
         />
       </div>
     </div>
