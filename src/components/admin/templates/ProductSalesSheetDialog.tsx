@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -179,7 +179,8 @@ export function ProductSalesSheetDialog({
   onSaved,
 }: ProductSalesSheetDialogProps) {
   const { user, roles } = useAuth();
-  const isAdminOrSub = roles.some((r) => ["admin", "sub_admin"].includes(r));
+  const isAdminOrSub = roles.some((r) => ["admin", "sub_admin", "sub-admin"].includes(r));
+  const previewFrameRef = useRef<any>(null);
 
   // States
   const [loading, setLoading] = useState(false);
@@ -233,15 +234,21 @@ export function ProductSalesSheetDialog({
       if (tErr) throw tErr;
       setTemplates(templatesData || []);
 
-      const defaultT = templatesData?.find((t) => t.is_default === true) || 
-                       templatesData?.find((t) => t.name.toLowerCase().includes("premium") || t.name.toLowerCase().includes("chuẩn a4")) ||
+      const defaultT = templatesData?.find((t: any) => t.is_default === true) || 
+                       templatesData?.find((t: any) => t.name.toLowerCase().includes("premium") || t.name.toLowerCase().includes("chuẩn a4")) ||
                        templatesData?.[0];
 
       // 2. Fetch all existing sales sheets for the product
-      const { data: sheetsData, error: sErr } = await supabase
+      let query = supabase
         .from("product_sales_sheets")
         .select("*")
         .eq("catalog_product_id", catalogProductId);
+
+      if (!isAdminOrSub) {
+        query = query.eq("status", "approved");
+      }
+
+      const { data: sheetsData, error: sErr } = await query;
 
       if (sErr) throw sErr;
 
@@ -612,16 +619,11 @@ export function ProductSalesSheetDialog({
   ) => {
     setContentJson((prev) => {
       const list = prev.knowledge[field].filter((_, i) => i !== index);
-      return {
-        ...prev,
-        knowledge: {
-          ...prev.knowledge,
-          [field]: list,
-        },
-      };
+      return { ...prev, knowledge: { ...prev.knowledge, [field]: list } };
     });
   };
 
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-[95vw] md:max-w-7xl h-[92vh] flex flex-col p-0 bg-white border border-slate-200 shadow-xl overflow-hidden rounded-xl">
@@ -632,74 +634,74 @@ export function ProductSalesSheetDialog({
               Tài liệu Product Sales Sheet (A4)
             </DialogTitle>
             <p className="text-xs text-slate-500 mt-1">
-              {productName} &bull; Trạng thái hiện tại:{" "}
-              <span className="font-bold text-indigo-600 uppercase">{status}</span>
+              {productName} &bull; Trạng thái:{" "}
+              <span className={`font-bold uppercase ${!isAdminOrSub ? "text-emerald-600" : "text-indigo-600"}`}>
+                {!isAdminOrSub ? "APPROVED" : status}
+              </span>
             </p>
           </div>
-          <div className="flex gap-2 mr-6">
-            {isAdminOrSub && (
-              <>
-                <Button
-                  onClick={handleGenerateAI}
-                  disabled={generating || loading}
-                  variant="outline"
-                  className="border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-bold"
-                >
-                  {generating ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Đang sinh AI...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4 mr-2 text-indigo-600 animate-pulse" />
-                      Tạo bằng AI (OpenAI)
-                    </>
-                  )}
-                </Button>
-                {salesSheetId && (
+          {isAdminOrSub && (
+            <div className="flex gap-2 mr-6">
+              <Button
+                onClick={handleGenerateAI}
+                disabled={generating || loading}
+                variant="outline"
+                className="border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-bold"
+              >
+                {generating ? (
                   <>
-                    <Button
-                      onClick={() => handleSave(status === "approved" ? "approved" : "draft", false)}
-                      disabled={saving || loading}
-                      variant="outline"
-                      className="font-bold border-slate-200 text-slate-700"
-                    >
-                      <Save className="w-4 h-4 mr-2" />
-                      Lưu đè
-                    </Button>
-                    {status !== "approved" && (
-                      <Button
-                        onClick={() => handleSave("approved", false)}
-                        disabled={saving || loading}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-                      >
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        Duyệt & Lưu đè
-                      </Button>
-                    )}
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Đang sinh AI...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2 text-indigo-600 animate-pulse" />
+                    Tạo bằng AI (OpenAI)
                   </>
                 )}
-                <Button
-                  onClick={() => handleSave("draft", true)}
-                  disabled={saving || loading}
-                  variant="outline"
-                  className="font-bold text-indigo-600 border-indigo-200 bg-indigo-50/50 hover:bg-indigo-50"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Lưu bản mới (Nháp)
-                </Button>
-                <Button
-                  onClick={() => handleSave("approved", true)}
-                  disabled={saving || loading}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
-                >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Duyệt & Lưu bản mới
-                </Button>
-              </>
-            )}
-          </div>
+              </Button>
+              {salesSheetId && (
+                <>
+                  <Button
+                    onClick={() => handleSave(status === "approved" ? "approved" : "draft", false)}
+                    disabled={saving || loading}
+                    variant="outline"
+                    className="font-bold border-slate-200 text-slate-700"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    Lưu đè
+                  </Button>
+                  {status !== "approved" && (
+                    <Button
+                      onClick={() => handleSave("approved", false)}
+                      disabled={saving || loading}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Duyệt & Lưu đè
+                    </Button>
+                  )}
+                </>
+              )}
+              <Button
+                onClick={() => handleSave("draft", true)}
+                disabled={saving || loading}
+                variant="outline"
+                className="font-bold text-indigo-600 border-indigo-200 bg-indigo-50/50 hover:bg-indigo-50"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Lưu bản mới (Nháp)
+              </Button>
+              <Button
+                onClick={() => handleSave("approved", true)}
+                disabled={saving || loading}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Duyệt & Lưu bản mới
+              </Button>
+            </div>
+          )}
         </DialogHeader>
 
         {loading ? (
@@ -708,373 +710,405 @@ export function ProductSalesSheetDialog({
             <p className="text-sm font-bold text-slate-500">Đang tải dữ liệu Sales Sheet...</p>
           </div>
         ) : (
-          <div className="flex-1 flex overflow-hidden">
-            {/* Left Panel: Fields inputs (Only Editable by Admin/Sub-admin) */}
-            <div className="w-full md:w-1/2 border-r border-slate-200 flex flex-col overflow-y-auto bg-slate-50 p-6 space-y-6">
-              {!isAdminOrSub && (
-                <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-xs font-bold mb-4">
-                  Chế độ Xem trước: Sales và Telesales chỉ có quyền xem bản đã duyệt và in tài liệu.
-                </div>
-              )}
+          <>
+            <div className="flex-1 flex overflow-hidden">
+              {/* Left Panel: Fields inputs (Only Editable by Admin/Sub-admin) */}
+              {isAdminOrSub && (
+                <div className="w-full md:w-1/2 border-r border-slate-200 flex flex-col overflow-y-auto bg-slate-50 p-6 space-y-6">
+                  {/* Version History Selector Card */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4 shadow-sm">
+                    <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                      <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">
+                        Lịch sử phiên bản
+                      </h3>
+                      {versions.length > 0 && (
+                        <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full font-bold text-slate-500">
+                          Có {versions.length} phiên bản
+                        </span>
+                      )}
+                    </div>
+                    
+                    {versions.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">Chưa có phiên bản nào được lưu cho sản phẩm này.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex gap-2 items-center">
+                          <select
+                            value={salesSheetId || ""}
+                            onChange={(e) => handleVersionChange(e.target.value)}
+                            className="flex-1 h-9 border border-slate-200 rounded-md px-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white font-medium"
+                          >
+                            {versions.map((v) => {
+                              const isCurrent = v.is_current === true;
+                              const verNum = typeof v.version === "number" ? v.version : 1;
+                              const formattedDate = v.created_at ? new Date(v.created_at).toLocaleDateString("vi-VN") : "";
+                              const statusLabel = v.status === "approved" ? "Duyệt" : "Nháp";
+                              return (
+                                <option key={v.id} value={v.id}>
+                                  v{verNum} ({statusLabel}) - {formattedDate} {isCurrent ? "★ Mặc định" : ""}
+                                </option>
+                              );
+                            })}
+                          </select>
+                          
+                          {/* Set Current Version Button */}
+                          {isAdminOrSub && salesSheetId && !versions.find(v => v.id === salesSheetId)?.is_current && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleSetCurrentVersion(salesSheetId)}
+                              className="h-9 text-xs border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-bold"
+                              title="Đặt làm phiên bản hiện tại mặc định"
+                            >
+                              Đặt mặc định
+                            </Button>
+                          )}
+                        </div>
 
-              {/* Version History Selector Card */}
-              <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4 shadow-sm">
-                <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                  <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">
-                    Lịch sử phiên bản
-                  </h3>
-                  {versions.length > 0 && (
-                    <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full font-bold text-slate-500">
-                      Có {versions.length} phiên bản
-                    </span>
-                  )}
-                </div>
-                
-                {versions.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic">Chưa có phiên bản nào được lưu cho sản phẩm này.</p>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="flex gap-2 items-center">
-                      <select
-                        value={salesSheetId || ""}
-                        onChange={(e) => handleVersionChange(e.target.value)}
-                        className="flex-1 h-9 border border-slate-200 rounded-md px-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white font-medium"
-                      >
-                        {versions.map((v) => {
-                          const isCurrent = v.is_current === true;
-                          const verNum = typeof v.version === "number" ? v.version : 1;
-                          const formattedDate = v.created_at ? new Date(v.created_at).toLocaleDateString("vi-VN") : "";
-                          const statusLabel = v.status === "approved" ? "Duyệt" : "Nháp";
+                        {/* Active Version Info Badges */}
+                        {(() => {
+                          const activeV = versions.find(v => v.id === salesSheetId);
+                          if (!activeV) return null;
                           return (
-                            <option key={v.id} value={v.id}>
-                              v{verNum} ({statusLabel}) - {formattedDate} {isCurrent ? "★ Mặc định" : ""}
-                            </option>
+                            <div className="flex flex-wrap gap-2 text-[10px]">
+                              <span className={`px-2 py-0.5 rounded font-bold ${activeV.status === 'approved' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                                {activeV.status === 'approved' ? 'Đã duyệt (Approved)' : 'Bản nháp (Draft)'}
+                              </span>
+                              {activeV.is_current && (
+                                <span className="px-2 py-0.5 rounded font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-0.5">
+                                  ★ Phiên bản mặc định
+                                </span>
+                              )}
+                              <span className="px-2 py-0.5 rounded font-bold bg-slate-100 text-slate-600">
+                                Phiên bản v{activeV.version || 1}
+                              </span>
+                            </div>
                           );
-                        })}
-                      </select>
-                      
-                      {/* Set Current Version Button */}
-                      {isAdminOrSub && salesSheetId && !versions.find(v => v.id === salesSheetId)?.is_current && (
+                        })()}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Title and Template Selector */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4 shadow-sm">
+                    <h3 className="font-bold text-slate-800 text-sm border-b border-slate-100 pb-2 uppercase tracking-wide">
+                      Cấu hình Sheet
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold text-slate-500">Tiêu đề Sales Sheet</Label>
+                        <Input
+                          value={title}
+                          onChange={(e) => setTitle(e.target.value)}
+                          disabled={!isAdminOrSub}
+                          className="border-slate-200 text-slate-800 font-medium"
+                          placeholder="Nhập tiêu đề sheet..."
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold text-slate-500">
+                          Chọn mẫu giao diện (Template)
+                        </Label>
+                        <select
+                          value={selectedTemplateId}
+                          onChange={(e) => setSelectedTemplateId(e.target.value)}
+                          disabled={!isAdminOrSub}
+                          className="w-full h-10 border border-slate-200 rounded-md px-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                        >
+                          <option value="">-- Mẫu mặc định của hệ thống --</option>
+                          {templates.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* General Product Info */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4 shadow-sm">
+                    <h3 className="font-bold text-slate-800 text-sm border-b border-slate-100 pb-2 uppercase tracking-wide">
+                      Thông tin sản phẩm
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold text-slate-500">Tên hiển thị</Label>
+                        <Input
+                          value={contentJson.product.name}
+                          onChange={(e) => handleProductField("name", e.target.value)}
+                          disabled={!isAdminOrSub}
+                          className="border-slate-200 text-slate-800"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold text-slate-500">Thương hiệu</Label>
+                        <Input
+                          value={contentJson.product.brand_name}
+                          onChange={(e) => handleProductField("brand_name", e.target.value)}
+                          disabled={!isAdminOrSub}
+                          placeholder="Desembre"
+                          className="border-slate-200 text-slate-800"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-slate-500">
+                        Mô tả ngắn gọn (Short Description)
+                      </Label>
+                      <Textarea
+                        value={contentJson.product.short_description}
+                        onChange={(e) => handleProductField("short_description", e.target.value)}
+                        disabled={!isAdminOrSub}
+                        placeholder="Mô tả tóm tắt ngắn..."
+                        className="border-slate-200 text-slate-800 min-h-[60px]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Retail and Salon Pricing */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4 shadow-sm">
+                    <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                      <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">
+                        Phân khúc giá bán lẻ (Retail)
+                      </h3>
+                      {isAdminOrSub && (
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleSetCurrentVersion(salesSheetId)}
-                          className="h-9 text-xs border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-bold"
-                          title="Đặt làm phiên bản hiện tại mặc định"
+                          onClick={() => handleAddPricingRow("retail")}
+                          className="h-7 text-xs border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
                         >
-                          Đặt mặc định
+                          <Plus className="w-3.5 h-3.5 mr-1" /> Thêm size
                         </Button>
                       )}
                     </div>
-
-                    {/* Active Version Info Badges */}
-                    {(() => {
-                      const activeV = versions.find(v => v.id === salesSheetId);
-                      if (!activeV) return null;
-                      return (
-                        <div className="flex flex-wrap gap-2 text-[10px]">
-                          <span className={`px-2 py-0.5 rounded font-bold ${activeV.status === 'approved' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-                            {activeV.status === 'approved' ? 'Đã duyệt (Approved)' : 'Bản nháp (Draft)'}
-                          </span>
-                          {activeV.is_current && (
-                            <span className="px-2 py-0.5 rounded font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-0.5">
-                              ★ Phiên bản mặc định
-                            </span>
-                          )}
-                          <span className="px-2 py-0.5 rounded font-bold bg-slate-100 text-slate-600">
-                            Phiên bản v{activeV.version || 1}
-                          </span>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
-              </div>
-
-              {/* Title and Template Selector */}
-              <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4 shadow-sm">
-                <h3 className="font-bold text-slate-800 text-sm border-b border-slate-100 pb-2 uppercase tracking-wide">
-                  Cấu hình Sheet
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-slate-500">Tiêu đề Sales Sheet</Label>
-                    <Input
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      disabled={!isAdminOrSub}
-                      className="border-slate-200 text-slate-800 font-medium"
-                      placeholder="Nhập tiêu đề sheet..."
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-slate-500">
-                      Chọn mẫu giao diện (Template)
-                    </Label>
-                    <select
-                      value={selectedTemplateId}
-                      onChange={(e) => setSelectedTemplateId(e.target.value)}
-                      disabled={!isAdminOrSub}
-                      className="w-full h-10 border border-slate-200 rounded-md px-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                    >
-                      <option value="">-- Mẫu mặc định của hệ thống --</option>
-                      {templates.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* General Product Info */}
-              <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4 shadow-sm">
-                <h3 className="font-bold text-slate-800 text-sm border-b border-slate-100 pb-2 uppercase tracking-wide">
-                  Thông tin sản phẩm
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-slate-500">Tên hiển thị</Label>
-                    <Input
-                      value={contentJson.product.name}
-                      onChange={(e) => handleProductField("name", e.target.value)}
-                      disabled={!isAdminOrSub}
-                      className="border-slate-200 text-slate-800"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-slate-500">Thương hiệu</Label>
-                    <Input
-                      value={contentJson.product.brand_name}
-                      onChange={(e) => handleProductField("brand_name", e.target.value)}
-                      disabled={!isAdminOrSub}
-                      placeholder="Desembre"
-                      className="border-slate-200 text-slate-800"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-slate-500">
-                    Mô tả ngắn gọn (Short Description)
-                  </Label>
-                  <Textarea
-                    value={contentJson.product.short_description}
-                    onChange={(e) => handleProductField("short_description", e.target.value)}
-                    disabled={!isAdminOrSub}
-                    placeholder="Mô tả tóm tắt ngắn..."
-                    className="border-slate-200 text-slate-800 min-h-[60px]"
-                  />
-                </div>
-              </div>
-
-              {/* Retail and Salon Pricing */}
-              <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4 shadow-sm">
-                <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                  <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">
-                    Phân khúc giá bán lẻ (Retail)
-                  </h3>
-                  {isAdminOrSub && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleAddPricingRow("retail")}
-                      className="h-7 text-xs border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
-                    >
-                      <Plus className="w-3.5 h-3.5 mr-1" /> Thêm size
-                    </Button>
-                  )}
-                </div>
-                {contentJson.pricing?.retail?.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic">Chưa có thông tin giá lẻ.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {contentJson.pricing?.retail?.map((row, index) => (
-                      <div key={index} className="flex gap-2 items-center">
-                        <Input
-                          placeholder="SKU"
-                          value={row.sku}
-                          onChange={(e) =>
-                            handlePricingField("retail", index, "sku", e.target.value)
-                          }
-                          disabled={!isAdminOrSub}
-                          className="h-8 text-xs border-slate-200 w-1/4"
-                        />
-                        <Input
-                          placeholder="Dung tích (vd: 150ml)"
-                          value={row.size_label}
-                          onChange={(e) =>
-                            handlePricingField("retail", index, "size_label", e.target.value)
-                          }
-                          disabled={!isAdminOrSub}
-                          className="h-8 text-xs border-slate-200 w-1/3"
-                        />
-                        <Input
-                          placeholder="Giá niêm yết (vd: 650,000đ)"
-                          value={row.price}
-                          onChange={(e) =>
-                            handlePricingField("retail", index, "price", e.target.value)
-                          }
-                          disabled={!isAdminOrSub}
-                          className="h-8 text-xs border-slate-200 w-1/3"
-                        />
-                        {isAdminOrSub && (
-                          <button
-                            onClick={() => handleRemovePricingRow("retail", index)}
-                            className="text-slate-400 hover:text-red-500 p-1"
-                          >
-                            <Trash className="w-4 h-4" />
-                          </button>
-                        )}
+                    {contentJson.pricing?.retail?.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">Chưa có thông tin giá lẻ.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {contentJson.pricing?.retail?.map((row, index) => (
+                          <div key={index} className="flex gap-2 items-center">
+                            <Input
+                              placeholder="SKU"
+                              value={row.sku}
+                              onChange={(e) =>
+                                handlePricingField("retail", index, "sku", e.target.value)
+                              }
+                              disabled={!isAdminOrSub}
+                              className="h-8 text-xs border-slate-200 w-1/4"
+                            />
+                            <Input
+                              placeholder="Dung tích (vd: 150ml)"
+                              value={row.size_label}
+                              onChange={(e) =>
+                                handlePricingField("retail", index, "size_label", e.target.value)
+                              }
+                              disabled={!isAdminOrSub}
+                              className="h-8 text-xs border-slate-200 w-1/3"
+                            />
+                            <Input
+                              placeholder="Giá niêm yết (vd: 650,000đ)"
+                              value={row.price}
+                              onChange={(e) =>
+                                handlePricingField("retail", index, "price", e.target.value)
+                              }
+                              disabled={!isAdminOrSub}
+                              className="h-8 text-xs border-slate-200 w-1/3"
+                            />
+                            {isAdminOrSub && (
+                              <button
+                                onClick={() => handleRemovePricingRow("retail", index)}
+                                className="text-slate-400 hover:text-red-500 p-1"
+                              >
+                                <Trash className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    )}
 
-                <div className="flex justify-between items-center border-b border-slate-100 pt-4 pb-2">
-                  <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">
-                    Phân khúc giá Spa/Salon (Salon)
-                  </h3>
-                  {isAdminOrSub && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleAddPricingRow("salon")}
-                      className="h-7 text-xs border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
-                    >
-                      <Plus className="w-3.5 h-3.5 mr-1" /> Thêm size
-                    </Button>
-                  )}
-                </div>
-                {contentJson.pricing?.salon?.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic">
-                    Chưa có thông tin giá chuyên nghiệp.
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {contentJson.pricing?.salon?.map((row, index) => (
-                      <div key={index} className="flex gap-2 items-center">
-                        <Input
-                          placeholder="SKU"
-                          value={row.sku}
-                          onChange={(e) =>
-                            handlePricingField("salon", index, "sku", e.target.value)
-                          }
-                          disabled={!isAdminOrSub}
-                          className="h-8 text-xs border-slate-200 w-1/4"
-                        />
-                        <Input
-                          placeholder="Dung tích (vd: 1000ml)"
-                          value={row.size_label}
-                          onChange={(e) =>
-                            handlePricingField("salon", index, "size_label", e.target.value)
-                          }
-                          disabled={!isAdminOrSub}
-                          className="h-8 text-xs border-slate-200 w-1/3"
-                        />
-                        <Input
-                          placeholder="Giá chuyên nghiệp (vd: 1,650,000đ)"
-                          value={row.price}
-                          onChange={(e) =>
-                            handlePricingField("salon", index, "price", e.target.value)
-                          }
-                          disabled={!isAdminOrSub}
-                          className="h-8 text-xs border-slate-200 w-1/3"
-                        />
-                        {isAdminOrSub && (
-                          <button
-                            onClick={() => handleRemovePricingRow("salon", index)}
-                            className="text-slate-400 hover:text-red-500 p-1"
-                          >
-                            <Trash className="w-4 h-4" />
-                          </button>
-                        )}
+                    <div className="flex justify-between items-center border-b border-slate-100 pt-4 pb-2">
+                      <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">
+                        Phân khúc giá Spa/Salon (Salon)
+                      </h3>
+                      {isAdminOrSub && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAddPricingRow("salon")}
+                          className="h-7 text-xs border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+                        >
+                          <Plus className="w-3.5 h-3.5 mr-1" /> Thêm size
+                        </Button>
+                      )}
+                    </div>
+                    {contentJson.pricing?.salon?.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">
+                        Chưa có thông tin giá chuyên nghiệp.
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        {contentJson.pricing?.salon?.map((row, index) => (
+                          <div key={index} className="flex gap-2 items-center">
+                            <Input
+                              placeholder="SKU"
+                              value={row.sku}
+                              onChange={(e) =>
+                                handlePricingField("salon", index, "sku", e.target.value)
+                              }
+                              disabled={!isAdminOrSub}
+                              className="h-8 text-xs border-slate-200 w-1/4"
+                            />
+                            <Input
+                              placeholder="Dung tích (vd: 1000ml)"
+                              value={row.size_label}
+                              onChange={(e) =>
+                                handlePricingField("salon", index, "size_label", e.target.value)
+                              }
+                              disabled={!isAdminOrSub}
+                              className="h-8 text-xs border-slate-200 w-1/3"
+                            />
+                            <Input
+                              placeholder="Giá chuyên nghiệp (vd: 1,650,000đ)"
+                              value={row.price}
+                              onChange={(e) =>
+                                handlePricingField("salon", index, "price", e.target.value)
+                              }
+                              disabled={!isAdminOrSub}
+                              className="h-8 text-xs border-slate-200 w-1/3"
+                            />
+                            {isAdminOrSub && (
+                              <button
+                                onClick={() => handleRemovePricingRow("salon", index)}
+                                className="text-slate-400 hover:text-red-500 p-1"
+                              >
+                                <Trash className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Product Knowledge Lists */}
-              {(
-                [
-                  { key: "benefits", label: "Công dụng chính (Benefits)" },
-                  { key: "skin_types", label: "Loại da phù hợp" },
-                  { key: "usage", label: "Hướng dẫn sử dụng (Usage)" },
-                  { key: "sales_notes", label: "Lưu ý tư vấn bán hàng" },
-                  { key: "warnings", label: "Cảnh báo / Chống chỉ định" },
-                ] as const
-              ).map(({ key, label }) => (
-                <div
-                  key={key}
-                  className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 shadow-sm"
-                >
-                  <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                    <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">
-                      {label}
-                    </h3>
-                    {isAdminOrSub && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleAddKnowledgeItem(key)}
-                        className="h-7 text-xs border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
-                      >
-                        <Plus className="w-3.5 h-3.5 mr-1" /> Thêm dòng
-                      </Button>
                     )}
                   </div>
-                  {!contentJson.knowledge?.[key] || contentJson.knowledge?.[key]?.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic">Chưa có dữ liệu.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {contentJson.knowledge?.[key]?.map((item, index) => (
-                        <div key={index} className="flex gap-2 items-center">
-                          <Input
-                            value={item}
-                            onChange={(e) => handleKnowledgeFieldChange(key, index, e.target.value)}
-                            disabled={!isAdminOrSub}
-                            className="h-8 text-xs border-slate-200 w-full"
-                          />
-                          {isAdminOrSub && (
-                            <button
-                              onClick={() => handleRemoveKnowledgeItem(key, index)}
-                              className="text-slate-400 hover:text-red-500 p-1"
-                            >
-                              <Trash className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
 
-              {/* Footer Note */}
-              <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4 shadow-sm">
-                <h3 className="font-bold text-slate-800 text-sm border-b border-slate-100 pb-2 uppercase tracking-wide">
-                  Ghi chú chân trang (Footer Note)
-                </h3>
-                <div className="space-y-1.5">
-                  <Textarea
-                    value={contentJson.footer_note}
-                    onChange={(e) =>
-                      setContentJson((prev) => ({ ...prev, footer_note: e.target.value }))
-                    }
-                    disabled={!isAdminOrSub}
-                    placeholder="Nhập ghi chú chân trang..."
-                    className="border-slate-200 text-slate-800 min-h-[60px]"
-                  />
+                  {/* Product Knowledge Lists */}
+                  {(
+                    [
+                      { key: "benefits", label: "Công dụng chính (Benefits)" },
+                      { key: "skin_types", label: "Loại da phù hợp" },
+                      { key: "usage", label: "Hướng dẫn sử dụng (Usage)" },
+                      { key: "sales_notes", label: "Lưu ý tư vấn bán hàng" },
+                      { key: "warnings", label: "Cảnh báo / Chống chỉ định" },
+                    ] as const
+                  ).map(({ key, label }) => (
+                    <div
+                      key={key}
+                      className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 shadow-sm"
+                    >
+                      <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                        <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">
+                          {label}
+                        </h3>
+                        {isAdminOrSub && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleAddKnowledgeItem(key)}
+                            className="h-7 text-xs border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+                          >
+                            <Plus className="w-3.5 h-3.5 mr-1" /> Thêm dòng
+                          </Button>
+                        )}
+                      </div>
+                      {!contentJson.knowledge?.[key] || contentJson.knowledge?.[key]?.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic">Chưa có dữ liệu.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {contentJson.knowledge?.[key]?.map((item, index) => (
+                            <div key={index} className="flex gap-2 items-center">
+                              <Input
+                                value={item}
+                                onChange={(e) => handleKnowledgeFieldChange(key, index, e.target.value)}
+                                disabled={!isAdminOrSub}
+                                className="h-8 text-xs border-slate-200 w-full"
+                              />
+                              {isAdminOrSub && (
+                                <button
+                                  onClick={() => handleRemoveKnowledgeItem(key, index)}
+                                  className="text-slate-400 hover:text-red-500 p-1"
+                                >
+                                  <Trash className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Footer Note */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4 shadow-sm">
+                    <h3 className="font-bold text-slate-800 text-sm border-b border-slate-100 pb-2 uppercase tracking-wide">
+                      Ghi chú chân trang (Footer Note)
+                    </h3>
+                    <div className="space-y-1.5">
+                      <Textarea
+                        value={contentJson.footer_note}
+                        onChange={(e) =>
+                          setContentJson((prev) => ({ ...prev, footer_note: e.target.value }))
+                        }
+                        disabled={!isAdminOrSub}
+                        placeholder="Nhập ghi chú chân trang..."
+                        className="border-slate-200 text-slate-800 min-h-[60px]"
+                      />
+                    </div>
+                  </div>
                 </div>
+              )}
+
+              {/* Right Panel: Live A4 Preview */}
+              <div className={`bg-slate-100 relative flex flex-col overflow-hidden ${!isAdminOrSub ? "w-full flex-1" : "w-1/2 hidden md:block"}`}>
+                {salesSheetId ? (
+                  <A4PreviewFrame
+                    ref={previewFrameRef}
+                    htmlContent={previewHtml}
+                    title={title}
+                    hidePrintButton={!isAdminOrSub}
+                  />
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-50">
+                    <FileText className="w-16 h-16 text-slate-300 mb-4" />
+                    <p className="text-sm font-bold text-slate-500">Chưa có tài liệu đã duyệt.</p>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Right Panel: Live A4 Preview */}
-            <div className="hidden md:block w-1/2 bg-slate-100 relative">
-              <A4PreviewFrame htmlContent={previewHtml} title={title} />
-            </div>
-          </div>
+            {/* Footer Buttons for Sale/Telesales */}
+            {!isAdminOrSub && (
+              <DialogFooter className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
+                {salesSheetId && (
+                  <Button
+                    onClick={() => previewFrameRef.current?.print()}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                  >
+                    <Printer className="w-4 h-4 mr-2" />
+                    In / Xuất PDF
+                  </Button>
+                )}
+                <Button
+                  onClick={onClose}
+                  variant="outline"
+                  className="font-bold border-slate-200 text-slate-700"
+                >
+                  Đóng
+                </Button>
+              </DialogFooter>
+            )}
+          </>
         )}
       </DialogContent>
     </Dialog>
