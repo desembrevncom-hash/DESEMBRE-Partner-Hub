@@ -50,45 +50,71 @@ export function resolveProductImage(url?: string | null): string {
 /**
  * Basic template renderer supporting {{variable.name}} and {{#each arrayName}}...{{/each}}.
  */
+function renderTemplateContent(template: string, data: any, rootData: any = data): string {
+  let result = template;
+
+  // 1. Process {{#each ...}} ... {{/each}} (innermost first)
+  let lastEachResult = "";
+  while (result !== lastEachResult) {
+    lastEachResult = result;
+    result = result.replace(/\{\{#each\s+([a-zA-Z0-9_.]+)\}\}((?:(?!\{\{#each\b)[\s\S])*?)\{\{\/each\}\}/g, (match, arrayPath, blockContent) => {
+      let arrayData = getNestedValue(data, arrayPath);
+      if (arrayData === undefined && data !== rootData) {
+        arrayData = getNestedValue(rootData, arrayPath);
+      }
+      if (!Array.isArray(arrayData)) return "";
+
+      return arrayData
+        .map((item) => {
+          return renderTemplateContent(blockContent, item, rootData);
+        })
+        .join("");
+    });
+  }
+
+  // 2. Process {{#if ...}} ... {{/if}} (innermost first to support nesting)
+  let lastIfResult = "";
+  while (result !== lastIfResult) {
+    lastIfResult = result;
+    result = result.replace(/\{\{#if\s+([a-zA-Z0-9_.]+)\}\}((?:(?!\{\{#if\b)[\s\S])*?)\{\{\/if\}\}/g, (match, conditionPath, blockContent) => {
+      let value = getNestedValue(data, conditionPath);
+      if (value === undefined && data !== rootData) {
+        value = getNestedValue(rootData, conditionPath);
+      }
+      let isTrue = false;
+      if (value) {
+        if (Array.isArray(value)) {
+          isTrue = value.length > 0;
+        } else {
+          isTrue = true;
+        }
+      }
+      const elseParts = blockContent.split(/\{\{else\}\}/);
+      const trueBlock = elseParts[0] || "";
+      const falseBlock = elseParts[1] || "";
+      return isTrue ? trueBlock : falseBlock;
+    });
+  }
+
+  // 3. Process flat variables {{variable.name}}
+  result = result.replace(/\{\{([a-zA-Z0-9_.]+)\}\}/g, (match, path) => {
+    let val = getNestedValue(data, path);
+    if (val === undefined && data !== rootData) {
+      val = getNestedValue(rootData, path);
+    }
+    return escapeTemplateValue(val);
+  });
+
+  return result;
+}
+
 export function renderTemplate(
   htmlTemplate: string | null | undefined,
   data: Record<string, any>,
 ): string {
   if (!htmlTemplate) return "";
-
-  let result = htmlTemplate;
-
-  // 1. Process {{#each array}} ... {{/each}}
-  const eachRegex = /\{\{#each\s+([a-zA-Z0-9_.]+)\}\}([\s\S]*?)\{\{\/each\}\}/g;
-  result = result.replace(eachRegex, (match, arrayPath, content) => {
-    const arrayData = getNestedValue(data, arrayPath);
-    if (!Array.isArray(arrayData)) return "";
-
-    return arrayData
-      .map((item) => {
-        // For each item, replace {{field}} with item[field]
-        return content.replace(
-          /\{\{([a-zA-Z0-9_.]+)\}\}/g,
-          (itemMatch: string, itemPath: string) => {
-            let val = getNestedValue(item, itemPath);
-            // Fallback to root data if not found in item (for global vars inside loops)
-            if (val === undefined) {
-              val = getNestedValue(data, itemPath);
-            }
-            return escapeTemplateValue(val);
-          },
-        );
-      })
-      .join("");
-  });
-
-  // 2. Process flat {{variable.name}}
-  result = result.replace(/\{\{([a-zA-Z0-9_.]+)\}\}/g, (match, path) => {
-    const val = getNestedValue(data, path);
-    return escapeTemplateValue(val);
-  });
-
-  return sanitizeRenderedHtml(result);
+  const rendered = renderTemplateContent(htmlTemplate, data);
+  return sanitizeRenderedHtml(rendered);
 }
 
 function getNestedValue(obj: any, path: string): any {

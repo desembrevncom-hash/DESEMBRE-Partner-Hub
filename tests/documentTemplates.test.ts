@@ -92,6 +92,34 @@ describe("Document Templates Module", () => {
       const rendered = renderTemplate(html, data);
       expect(rendered).toBe("<div>Safe</div>");
     });
+
+    it("should render true block of {{#if}} if condition is truthy", () => {
+      const html = "<div>{{#if hasImage}}Image exists{{else}}No image{{/if}}</div>";
+      const data = { hasImage: true };
+      const rendered = renderTemplate(html, data);
+      expect(rendered).toBe("<div>Image exists</div>");
+    });
+
+    it("should render false block of {{#if}} if condition is falsy", () => {
+      const html = "<div>{{#if hasImage}}Image exists{{else}}No image{{/if}}</div>";
+      const data = { hasImage: false };
+      const rendered = renderTemplate(html, data);
+      expect(rendered).toBe("<div>No image</div>");
+    });
+
+    it("should support nested {{#if}} and loop integration", () => {
+      const html = "<div>{{#if showList}}<ul>{{#each items}}{{#if active}}<li>{{name}}</li>{{/if}}{{/each}}</ul>{{/if}}</div>";
+      const data = {
+        showList: true,
+        items: [
+          { name: "A", active: true },
+          { name: "B", active: false },
+          { name: "C", active: true }
+        ]
+      };
+      const rendered = renderTemplate(html, data);
+      expect(rendered).toBe("<div><ul><li>A</li><li>C</li></ul></div>");
+    });
   });
 
   describe("getTemplateSampleData", () => {
