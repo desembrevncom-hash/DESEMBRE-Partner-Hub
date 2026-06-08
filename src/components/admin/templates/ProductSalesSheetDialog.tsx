@@ -334,31 +334,21 @@ export function ProductSalesSheetDialog({
     }
   };
 
-  // Temporary Client-Side MVP implementation for setting current version (reloads on both success/failure)
+  // Transactional RPC for setting current/default version (v1.4.1T.5)
+  // Replaces client-side two-step update — now atomic via DB function
   const handleSetCurrentVersion = async (targetId: string) => {
     if (!isAdminOrSub || !targetId) return;
     setSaving(true);
     try {
-      // 1. Reset current active flags for this product
-      const { error: resetError } = await supabase
-        .from("product_sales_sheets")
-        .update({ is_current: false })
-        .eq("catalog_product_id", catalogProductId);
-
-      if (resetError) throw resetError;
-
-      // 2. Set is_current = true on target sheet
-      const { error: setError } = await supabase
-        .from("product_sales_sheets")
-        .update({ is_current: true })
-        .eq("id", targetId);
-
-      if (setError) throw setError;
-
+      const { error } = await supabase.rpc("set_current_product_sales_sheet", {
+        p_sheet_id: targetId,
+      });
+      if (error) throw error;
       toast.success("Đặt phiên bản này làm mặc định thành công!");
       await loadData();
     } catch (err: any) {
-      toast.error("Lỗi khi đặt phiên bản mặc định: " + err.message);
+      const msg = err?.message || "Lỗi không xác định";
+      toast.error("Lỗi khi đặt phiên bản mặc định: " + msg);
       await loadData();
     } finally {
       setSaving(false);
