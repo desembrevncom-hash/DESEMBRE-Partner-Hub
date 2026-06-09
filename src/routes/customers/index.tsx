@@ -1849,26 +1849,34 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
       <CustomerCardActivityInfo customer={customer} />
 
       {/* Action Row - Primary Action + Quick Shortcuts + Action Icons */}
-      <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-1 pt-2 border-t border-slate-50">
-        {primaryPhone ? (
-          <a
-            href={`tel:${primaryPhone.replace(/\s+/g, "")}`}
-            className="inline-flex items-center justify-center rounded-xl h-8 text-[10px] font-black shadow-sm px-3 bg-indigo-600 hover:bg-indigo-700 text-white shrink-0"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Phone className="w-3.5 h-3.5 mr-1.5 shrink-0" /> Gọi điện
-          </a>
-        ) : (
-          <Button
-            className="shrink-0 rounded-xl h-8 text-[10px] font-black shadow-sm px-3 bg-slate-100 text-slate-400 cursor-not-allowed hover:bg-slate-200"
-            disabled
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Phone className="w-3.5 h-3.5 mr-1.5 shrink-0" /> Thiếu SĐT
-          </Button>
-        )}
+      <div className="flex items-center gap-1 pt-2 border-t border-slate-50">
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              {primaryPhone ? (
+                <a
+                  href={`tel:${primaryPhone.replace(/\s+/g, "")}`}
+                  className="inline-flex items-center justify-center rounded-lg h-8 w-8 bg-indigo-600 hover:bg-indigo-700 text-white shrink-0 shadow-sm transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Phone className="w-4 h-4" />
+                </a>
+              ) : (
+                <div
+                  className="inline-flex items-center justify-center rounded-lg h-8 w-8 bg-slate-100 text-slate-300 cursor-not-allowed shrink-0 transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Phone className="w-4 h-4" />
+                </div>
+              )}
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-[10px]">{primaryPhone ? "Gọi điện" : "Thiếu SĐT"}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
-        <div className="flex items-center gap-0.5 shrink-0 ml-auto">
+        <div className="flex items-center gap-0.5 ml-1">
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -1939,7 +1947,7 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
           </TooltipProvider>
         </div>
 
-        <div className="flex items-center shrink-0">
+        <div className="flex items-center shrink-0 ml-auto">
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>
