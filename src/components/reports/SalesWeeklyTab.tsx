@@ -16,13 +16,12 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, TrendingUp, Users, ShoppingCart, Activity } from "lucide-react";
 
-export function SalesWeeklyTab() {
+export function SalesWeeklyTab({ selectedSaleId }: { selectedSaleId: string }) {
   const { user, isAdmin } = useAuth();
   const [loading, setLoading] = useState(false);
   const [metrics, setMetrics] = useState<SalesPerformanceMetrics | null>(null);
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
-  const [targetSaleId, setTargetSaleId] = useState("");
   
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -42,22 +41,19 @@ export function SalesWeeklyTab() {
     
     setPeriodStart(startOfWeek.toISOString().split("T")[0]);
     setPeriodEnd(endOfWeek.toISOString().split("T")[0]);
-    if (user) {
-      setTargetSaleId(user.id);
-    }
   }, [user]);
 
   useEffect(() => {
-    if (periodStart && periodEnd && targetSaleId) {
+    if (periodStart && periodEnd && selectedSaleId) {
       fetchReport();
     }
-  }, [periodStart, periodEnd, targetSaleId]);
+  }, [periodStart, periodEnd, selectedSaleId]);
 
   const fetchReport = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase.rpc("get_sales_performance_report", {
-        p_sale_user_id: isAdmin ? (targetSaleId || user?.id) : user?.id,
+        p_sale_user_id: isAdmin ? (selectedSaleId || user?.id) : user?.id,
         p_report_type: "weekly",
         p_period_start: periodStart,
         p_period_end: periodEnd,
@@ -89,7 +85,7 @@ export function SalesWeeklyTab() {
     try {
       // Find existing or create new
       const inputData = {
-        sale_user_id: targetSaleId,
+        sale_user_id: selectedSaleId,
         report_type: "weekly",
         period_start: periodStart,
         period_end: periodEnd,
@@ -133,17 +129,6 @@ export function SalesWeeklyTab() {
             onChange={(e) => setPeriodEnd(e.target.value)} 
           />
         </div>
-        {isAdmin && (
-          <div className="flex-1">
-            <Label className="text-xs mb-1 block text-slate-500">Sale ID (Admin)</Label>
-            <Input 
-              type="text" 
-              placeholder="Sale User ID..." 
-              value={targetSaleId} 
-              onChange={(e) => setTargetSaleId(e.target.value)} 
-            />
-          </div>
-        )}
       </div>
 
       {loading ? (
