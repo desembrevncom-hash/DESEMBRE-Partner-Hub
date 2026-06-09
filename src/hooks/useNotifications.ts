@@ -23,9 +23,33 @@ export function useNotifications(pollIntervalMs = 30000) {
 
       if (rpcError) throw rpcError;
 
-      const res = data as unknown as NotificationsResponse;
-      setNotifications(res.notifications || []);
-      setUnreadCount(res.unread_count || 0);
+      const rawNotifications = (res.notifications || []) as NotificationItem[];
+      
+      // Deduplicate: If there is a task_assigned notification and a lead_assigned notification for the same customer 
+      // created within a minute, hide the task_assigned notification to reduce noise.
+      const processedNotifications = rawNotifications.filter((n) => {
+        if (n.notification_type === "task_assigned" || n.title?.includes("Bạn có công việc mới")) {
+          if (n.customer_id) {
+            const hasAssignment = rawNotifications.some(
+              (other) =>
+                other.notification_type === "lead_assigned" &&
+                other.customer_id === n.customer_id &&
+                Math.abs(new Date(other.created_at).getTime() - new Date(n.created_at).getTime()) < 60000
+            );
+            if (hasAssignment) return false;
+          }
+        }
+        return true;
+      });
+
+      setNotifications(processedNotifications);
+
+      // Adjust unread count to exclude hidden unread notifications
+      const hiddenUnreadCount = rawNotifications.filter(
+        (n) => !processedNotifications.includes(n) && n.status === "unread"
+      ).length;
+      
+      setUnreadCount(Math.max(0, (res.unread_count || 0) - hiddenUnreadCount));
       setError(null);
     } catch (err: any) {
       console.error("Failed to fetch notifications:", err);

@@ -383,7 +383,22 @@ export const SaleWorkspace: React.FC = () => {
         {/* 3. PRIORITY LIST (Mobile 1, Desktop 3) */}
         <div className="order-1 xl:order-3 xl:col-span-2">
           <WorkspacePriorityList
-            priorities={dashData?.today_priorities || []}
+            priorities={[
+              ...data.customers
+                .filter((c: any) => c.lifecycle_stage === "assigned")
+                .map((c: any) => ({
+                  id: `new_lead_${c.id}`,
+                  type: "call_lead",
+                  priority: "urgent",
+                  title: "Lead mới được giao",
+                  reason: "Cần liên hệ ngay",
+                  customer_id: c.id,
+                  customer_name: c.name || c.contact_name || "Khách hàng mới",
+                  action_type: "open_customer",
+                  action_label: "Mở hồ sơ",
+                })),
+              ...(dashData?.today_priorities || []),
+            ]}
             teamRisks={dashData?.team_risks}
             loading={dashLoading}
             onOpenCustomer={handleOpenPreviewDrawer}
