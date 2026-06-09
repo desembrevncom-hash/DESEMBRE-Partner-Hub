@@ -50,7 +50,7 @@ export function SaleSelector({ selectedSaleId, onChange }: SaleSelectorProps) {
 
       const saleUserIds = new Set(rolesRes.data.map((r) => r.user_id));
       const saleProfiles = profilesRes.data.filter((p) => saleUserIds.has(p.id));
-      
+
       setSales(saleProfiles);
     } catch (error) {
       console.error("Error fetching sales:", error);

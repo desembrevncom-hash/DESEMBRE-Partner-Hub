@@ -207,7 +207,7 @@ export function RouteScheduleDialog({
       (c) => c.id && c.latitude && c.longitude && !ignoredCustomerIds.includes(c.id),
     );
 
-    let lastCoordinates = routeOrigin;
+    const lastCoordinates = routeOrigin;
 
     orderedCustomers.forEach((customer, index) => {
       const hasCoords = !!(customer.latitude && customer.longitude && customer.id);

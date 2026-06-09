@@ -118,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: "Vui lòng nhập mật khẩu để đăng nhập hệ thống." };
     }
 
-    let { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error: error.message };
 
     if (data.user) {

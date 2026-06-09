@@ -184,7 +184,7 @@ function AutomationCenterPage() {
           "id, rule_id, automation_type, status, created_at, error_message, task_id, notification_id, customer_id",
         );
 
-      let startDate = new Date();
+      const startDate = new Date();
       if (range === "today") {
         startDate.setHours(0, 0, 0, 0);
       } else if (range === "7days") {

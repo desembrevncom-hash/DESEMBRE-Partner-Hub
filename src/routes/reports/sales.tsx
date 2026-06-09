@@ -49,11 +49,11 @@ function SalesReportPage() {
           </div>
           <div className="flex items-center gap-4">
             {(activeTab === "weekly" || activeTab === "monthly") && (
-              <ExportGoogleSheetButton 
-                saleId={selectedSaleId || user.id} 
-                reportType={activeTab} 
-                periodStart={currentPeriodStart} 
-                periodEnd={currentPeriodEnd} 
+              <ExportGoogleSheetButton
+                saleId={selectedSaleId || user.id}
+                reportType={activeTab}
+                periodStart={currentPeriodStart}
+                periodEnd={currentPeriodEnd}
               />
             )}
             <SaleSelector selectedSaleId={selectedSaleId} onChange={setSelectedSaleId} />
@@ -65,21 +65,21 @@ function SalesReportPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
           <div className="bg-white p-2 rounded-xl border border-slate-200 inline-block">
             <TabsList className="bg-transparent gap-2">
-              <TabsTrigger 
+              <TabsTrigger
                 value="weekly"
                 className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm px-6"
               >
                 <LineChart className="w-4 h-4 mr-2" />
                 Báo cáo Tuần
               </TabsTrigger>
-              <TabsTrigger 
+              <TabsTrigger
                 value="monthly"
                 className="data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm px-6"
               >
                 <CalendarDays className="w-4 h-4 mr-2" />
                 Báo cáo Tháng
               </TabsTrigger>
-              <TabsTrigger 
+              <TabsTrigger
                 value="opportunities"
                 className="data-[state=active]:bg-amber-50 data-[state=active]:text-amber-700 data-[state=active]:shadow-sm px-6"
               >
@@ -90,16 +90,22 @@ function SalesReportPage() {
           </div>
 
           <TabsContent value="weekly" className="mt-0 outline-none">
-            <SalesWeeklyTab 
-              selectedSaleId={selectedSaleId} 
-              onPeriodChange={(s, e) => { setCurrentPeriodStart(s); setCurrentPeriodEnd(e); }} 
+            <SalesWeeklyTab
+              selectedSaleId={selectedSaleId}
+              onPeriodChange={(s, e) => {
+                setCurrentPeriodStart(s);
+                setCurrentPeriodEnd(e);
+              }}
             />
           </TabsContent>
-          
+
           <TabsContent value="monthly" className="mt-0 outline-none">
-            <SalesMonthlyTab 
-              selectedSaleId={selectedSaleId} 
-              onPeriodChange={(s, e) => { setCurrentPeriodStart(s); setCurrentPeriodEnd(e); }} 
+            <SalesMonthlyTab
+              selectedSaleId={selectedSaleId}
+              onPeriodChange={(s, e) => {
+                setCurrentPeriodStart(s);
+                setCurrentPeriodEnd(e);
+              }}
             />
           </TabsContent>
 

@@ -52,21 +52,30 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const { data: { user }, error: userError } = await userClient.auth.getUser(token);
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser(token);
     if (userError || !user) {
       return json({ success: false, error: "Unauthorized" }, 401);
     }
 
     // Call RPC using the user's token (RLS will automatically enforce admin vs sale logic)
-    const { data: reportData, error: rpcError } = await userClient.rpc("get_sales_performance_report", {
-      p_sale_user_id: saleId,
-      p_report_type: reportType,
-      p_period_start: periodStart,
-      p_period_end: periodEnd,
-    });
+    const { data: reportData, error: rpcError } = await userClient.rpc(
+      "get_sales_performance_report",
+      {
+        p_sale_user_id: saleId,
+        p_report_type: reportType,
+        p_period_start: periodStart,
+        p_period_end: periodEnd,
+      },
+    );
 
     if (rpcError) {
-      return json({ success: false, error: "Lỗi truy xuất dữ liệu báo cáo", details: rpcError.message }, 403);
+      return json(
+        { success: false, error: "Lỗi truy xuất dữ liệu báo cáo", details: rpcError.message },
+        403,
+      );
     }
 
     // 2. Create Service Role Client ONLY for sales_report_exports
@@ -82,13 +91,16 @@ Deno.serve(async (req) => {
         period_end: periodEnd,
         export_status: "pending",
         exported_by: user.id,
-        error_message: null
+        error_message: null,
       })
       .select()
       .single();
 
     if (exportError) {
-      return json({ success: false, error: "Failed to create export record", details: exportError.message }, 500);
+      return json(
+        { success: false, error: "Failed to create export record", details: exportError.message },
+        500,
+      );
     }
 
     const exportId = exportRecord.id;
@@ -117,41 +129,48 @@ Deno.serve(async (req) => {
       if (!accessToken) throw new Error("Failed to get Google Access Token");
 
       // Fetch sale profile for sheet title
-      const { data: saleProfile } = await serviceClient.from("profiles").select("display_name, email").eq("id", saleId).single();
+      const { data: saleProfile } = await serviceClient
+        .from("profiles")
+        .select("display_name, email")
+        .eq("id", saleId)
+        .single();
       const saleName = saleProfile?.display_name || saleProfile?.email || saleId;
       const cleanSaleName = saleName.replace(/[^a-zA-Z0-9\s_]/g, "").trim();
 
       // Format current time HHmmss
       const now = new Date();
       const hhmmss = now.toISOString().split("T")[1].replace(/[:.]/g, "").substring(0, 6);
-      
+
       const reportPrefix = reportType === "weekly" ? "WEEKLY" : "MONTHLY";
       let sheetTitle = `${reportPrefix}_${cleanSaleName}_${periodStart}_${hhmmss}`;
 
       // 4. Create new Tab in Master Spreadsheet
-      let spreadsheetId = masterSheetId;
+      const spreadsheetId = masterSheetId;
       let newSheetId: number | null = null;
       let attempt = 0;
       let success = false;
 
       while (!success && attempt < 3) {
         attempt++;
-        const createRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
+        const createRes = await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              requests: [
+                {
+                  addSheet: {
+                    properties: { title: sheetTitle },
+                  },
+                },
+              ],
+            }),
           },
-          body: JSON.stringify({
-            requests: [
-              {
-                addSheet: {
-                  properties: { title: sheetTitle }
-                }
-              }
-            ]
-          }),
-        });
+        );
 
         if (createRes.ok) {
           const resData = await createRes.json();
@@ -176,7 +195,7 @@ Deno.serve(async (req) => {
 
       // 5. Write Data to the New Tab
       const manualInputs = reportData.manual_inputs || {};
-      
+
       const values = [
         ["DESEMBRE Sales Report"],
         [""],
@@ -198,17 +217,20 @@ Deno.serve(async (req) => {
         ["--- CẬP NHẬT THỦ CÔNG ---"],
         ["Chi phí Variable (VNĐ)", manualInputs.variable_cost || 0],
         ["Dự kiến số đơn kỳ tới", manualInputs.expected_orders_next_period || 0],
-        ["Ghi chú", manualInputs.notes || ""]
+        ["Ghi chú", manualInputs.notes || ""],
       ];
 
-      const writeRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${sheetTitle}'!A1?valueInputOption=USER_ENTERED`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
+      const writeRes = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${sheetTitle}'!A1?valueInputOption=USER_ENTERED`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ values }),
         },
-        body: JSON.stringify({ values })
-      });
+      );
 
       if (!writeRes.ok) {
         const err = await writeRes.json();
@@ -226,7 +248,6 @@ Deno.serve(async (req) => {
         .eq("id", exportId);
 
       return json({ success: true, url: sheetUrl });
-
     } catch (err: any) {
       // Mark Error in DB
       console.error(err);

@@ -15,9 +15,9 @@ export function getCustomerConversationState(customer: any): ConversationState {
   const now = new Date();
 
   // Last Interaction
-  let lastInteractionTime =
+  const lastInteractionTime =
     customer.last_interaction_at || customer.last_contacted_at || customer.last_activity_at;
-  let lastInteractionSummary =
+  const lastInteractionSummary =
     customer.last_interaction_summary || customer.sales_intelligence?.last_activity_summary || null;
 
   // Next Follow-up

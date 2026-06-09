@@ -1,13 +1,13 @@
-const fs = require('fs');
+const fs = require("fs");
 
-const env = fs.readFileSync('.env', 'utf8');
-const lines = env.split('\n');
+const env = fs.readFileSync(".env", "utf8");
+const lines = env.split("\n");
 const vars = {};
-lines.forEach(l => {
+lines.forEach((l) => {
   const match = l.match(/^\s*([\w\.\-]+)\s*=\s*(.*)?\s*$/);
   if (match) {
     let key = match[1];
-    let value = match[2] || '';
+    let value = match[2] || "";
     if (value.startsWith('"') && value.endsWith('"')) {
       value = value.substring(1, value.length - 1);
     }
@@ -16,15 +16,18 @@ lines.forEach(l => {
 });
 
 const url = vars.VITE_SUPABASE_URL;
-const key = vars.VITE_SUPABASE_ANON_KEY || vars.VITE_SUPABASE_PUBLISHABLE_KEY || vars.SUPABASE_PUBLISHABLE_KEY;
+const key =
+  vars.VITE_SUPABASE_ANON_KEY ||
+  vars.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  vars.SUPABASE_PUBLISHABLE_KEY;
 
 async function check() {
   try {
     const res = await fetch(`${url}/rest/v1/sender_accounts?select=*`, {
       headers: {
-        'apikey': key,
-        'Authorization': `Bearer ${key}`
-      }
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+      },
     });
     const senders = await res.json();
     console.log("Senders:", JSON.stringify(senders, null, 2));

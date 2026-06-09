@@ -26,7 +26,7 @@ function getMasterKeyMaterial(): Uint8Array {
   } catch (e) {
     // If it's not valid base64, fallback to string encoding
     const encoder = new TextEncoder();
-    let keyMaterial = encoder.encode(masterKeyString);
+    const keyMaterial = encoder.encode(masterKeyString);
     if (keyMaterial.length < 32) {
       const padded = new Uint8Array(32);
       padded.set(keyMaterial);

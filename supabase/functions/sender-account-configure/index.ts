@@ -99,7 +99,7 @@ serve(async (req) => {
 
     let domain_status = "unknown";
     let isKeyConfigured = false;
-    let missing_config = [];
+    const missing_config = [];
 
     // 3. API Key Logic
     if (api_key && api_key.trim() !== "") {

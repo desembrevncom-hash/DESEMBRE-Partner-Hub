@@ -78,7 +78,7 @@ export const CustomerKnowledgeUpsell: React.FC<Props> = ({ customer, orders, ite
     // 2. Score knowledge list
     const scored = knowledgeList.map((k) => {
       let score = 0;
-      let reasons: string[] = [];
+      const reasons: string[] = [];
       const isPurchased = purchasedMap.has(k.product_id);
 
       // Rule 1: Cross-sell priority

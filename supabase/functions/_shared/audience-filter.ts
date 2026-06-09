@@ -52,7 +52,7 @@ export function evaluateEmailEligibility(
   contactValForPreview: string;
 } {
   let isValidContact = false;
-  let hasConsent = customer.marketing_opt_in === true;
+  const hasConsent = customer.marketing_opt_in === true;
   let isDuplicate = false;
   let isSuppressed = false;
   let contactValForPreview = "";
@@ -91,7 +91,7 @@ export function evaluateZaloEligibility(
   contactValForPreview: string;
 } {
   let isValidContact = false;
-  let hasConsent = customer.marketing_opt_in === true; // Hoặc logic consent riêng của Zalo OA
+  const hasConsent = customer.marketing_opt_in === true; // Hoặc logic consent riêng của Zalo OA
   let isDuplicate = false;
   let isSuppressed = false;
   let contactValForPreview = "";

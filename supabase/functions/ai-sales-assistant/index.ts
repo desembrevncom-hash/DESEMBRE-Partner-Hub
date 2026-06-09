@@ -692,7 +692,7 @@ Deno.serve(async (req) => {
 
         // F.3: Brand-aware context guard
         const detectedBrand = detectBrandFromQuery(auditQuery);
-        let brandIdMap: Record<string, string> = {};
+        const brandIdMap: Record<string, string> = {};
 
         if (detectedBrand) {
           const { data: brandsData } = await adminClient.from("product_brands").select("id, name");

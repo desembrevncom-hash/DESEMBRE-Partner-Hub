@@ -146,7 +146,7 @@ serve(async (req) => {
 
     // Load Zalo Profiles if needed
     const customerIds = customers.map((c) => c.id);
-    let zaloProfilesMap = new Map<string, any>();
+    const zaloProfilesMap = new Map<string, any>();
 
     if (
       campaign.channel === "zalo" ||

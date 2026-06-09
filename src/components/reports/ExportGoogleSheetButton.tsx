@@ -12,7 +12,12 @@ interface ExportGoogleSheetButtonProps {
   periodEnd: string;
 }
 
-export function ExportGoogleSheetButton({ saleId, reportType, periodStart, periodEnd }: ExportGoogleSheetButtonProps) {
+export function ExportGoogleSheetButton({
+  saleId,
+  reportType,
+  periodStart,
+  periodEnd,
+}: ExportGoogleSheetButtonProps) {
   const { user } = useAuth();
   const [exporting, setExporting] = useState(false);
   const [latestUrl, setLatestUrl] = useState<string | null>(null);
@@ -56,7 +61,9 @@ export function ExportGoogleSheetButton({ saleId, reportType, periodStart, perio
     setExporting(true);
     setLatestUrl(null); // hide during export
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) throw new Error("Chưa đăng nhập");
 
       const response = await fetch(
@@ -71,9 +78,9 @@ export function ExportGoogleSheetButton({ saleId, reportType, periodStart, perio
             saleId,
             reportType,
             periodStart,
-            periodEnd
+            periodEnd,
           }),
-        }
+        },
       );
 
       const result = await response.json();
@@ -97,21 +104,30 @@ export function ExportGoogleSheetButton({ saleId, reportType, periodStart, perio
   return (
     <div className="flex items-center gap-2">
       {latestUrl && (
-        <Button variant="outline" size="sm" className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100" asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+          asChild
+        >
           <a href={latestUrl} target="_blank" rel="noopener noreferrer">
             <ExternalLink className="w-4 h-4 mr-2" />
             Mở Google Sheet
           </a>
         </Button>
       )}
-      <Button 
-        variant="default" 
-        size="sm" 
-        onClick={handleExport} 
+      <Button
+        variant="default"
+        size="sm"
+        onClick={handleExport}
         disabled={exporting || !saleId || !periodStart || !periodEnd}
         className="bg-emerald-600 hover:bg-emerald-700 text-white"
       >
-        {exporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileSpreadsheet className="w-4 h-4 mr-2" />}
+        {exporting ? (
+          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+        ) : (
+          <FileSpreadsheet className="w-4 h-4 mr-2" />
+        )}
         {exporting ? "Đang xuất..." : "Xuất Google Sheet"}
       </Button>
     </div>

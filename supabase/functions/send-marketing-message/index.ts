@@ -400,7 +400,7 @@ serve(async (req: Request) => {
 
     // ── Email via Provider (Resend or SMTP) ──────────────────────────────────
     if (channel === "email") {
-      let customerEmail = customer.email;
+      const customerEmail = customer.email;
       if (!customerEmail) {
         await adminClient.rpc("log_marketing_delivery_event", {
           p_customer_id: logCustomerId,

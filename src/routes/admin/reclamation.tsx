@@ -186,7 +186,7 @@ function AdminReclamationPage() {
         return;
       }
 
-      let totalScanned = activeCustomers.length;
+      const totalScanned = activeCustomers.length;
       let atRiskCount = 0;
       let reclaimableCount = 0;
       let ignoredCount = 0;

@@ -150,7 +150,7 @@ export function TasksPage() {
         }
 
         let fetchedCustomers: any[] = [];
-        let query = supabase.from("customers").select("id, name, phone").is("deleted_at", null);
+        const query = supabase.from("customers").select("id, name, phone").is("deleted_at", null);
 
         if (isAdmin || isSubAdmin) {
           const { data } = await query;
@@ -442,7 +442,7 @@ export function TasksPage() {
         customer_name:
           customersList.find((c) => c.id === payload.customer_id)?.name || "Khách tự do",
       };
-      let data = JSON.parse(localStorage.getItem("mock_tasks") || "[]");
+      const data = JSON.parse(localStorage.getItem("mock_tasks") || "[]");
       data.unshift(newItem);
       localStorage.setItem("mock_tasks", JSON.stringify(data));
       setTasks(data);

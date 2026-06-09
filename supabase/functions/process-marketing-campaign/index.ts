@@ -169,7 +169,7 @@ serve(async (req) => {
 
     // Load Zalo Profiles if needed
     const customerIds = customers.map((c) => c.id);
-    let zaloProfilesMap = new Map<string, any>();
+    const zaloProfilesMap = new Map<string, any>();
 
     if (
       campaign.channel === "zalo" ||
@@ -325,7 +325,7 @@ serve(async (req) => {
       let resendKey = "";
       let fromEmail = "";
       let auth_type = "platform_secret";
-      let sender_account_id = campaign.sender_account_id || null;
+      const sender_account_id = campaign.sender_account_id || null;
 
       try {
         const cred = await resolveResendCredential(adminClient, sender_account_id);

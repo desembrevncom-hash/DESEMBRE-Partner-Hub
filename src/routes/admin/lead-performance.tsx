@@ -41,7 +41,7 @@ function LeadPerformanceDashboard() {
     setLoading(true);
 
     try {
-      let fromDate = new Date();
+      const fromDate = new Date();
       if (dateRange === "7d") fromDate.setDate(fromDate.getDate() - 7);
       else if (dateRange === "30d") fromDate.setDate(fromDate.getDate() - 30);
       else if (dateRange === "90d") fromDate.setDate(fromDate.getDate() - 90);

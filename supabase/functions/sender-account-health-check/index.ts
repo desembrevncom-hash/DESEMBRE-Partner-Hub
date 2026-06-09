@@ -70,7 +70,7 @@ serve(async (req) => {
     if (provider === "resend") {
       let isConfigured = false;
       let message = "";
-      let missing_config = [];
+      const missing_config = [];
       let auth_type = "platform_secret";
       let resendKey = "";
       let fromEmail = "";
@@ -165,7 +165,7 @@ serve(async (req) => {
     }
 
     if (provider === "zalo_oa") {
-      let missing_config: string[] = [];
+      const missing_config: string[] = [];
       let token_available = false;
       let credential_source = "env";
 

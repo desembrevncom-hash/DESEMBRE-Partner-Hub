@@ -1849,19 +1849,20 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
       <CustomerCardActivityInfo customer={customer} />
 
       {/* Action Row - Primary Action + Quick Shortcuts + Action Icons */}
-      <div className="flex items-center gap-1 pt-2 border-t border-slate-50">
+      <div className="flex items-center justify-between gap-1 pt-2 border-t border-slate-50">
         <Button
-          className={`rounded-xl h-8 text-[10px] font-black shadow-sm px-3 ${primaryPhone ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-slate-100 text-slate-400 cursor-not-allowed hover:bg-slate-200"}`}
+          className={`shrink min-w-0 rounded-xl h-8 text-[10px] font-black shadow-sm px-2 ${primaryPhone ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-slate-100 text-slate-400 cursor-not-allowed hover:bg-slate-200"}`}
           onClick={(e) => {
             e.stopPropagation();
             if (primaryPhone) window.location.href = `tel:${primaryPhone}`;
           }}
           disabled={!primaryPhone}
         >
-          <Phone className="w-3.5 h-3.5 mr-1.5" /> {primaryPhone ? "Gọi điện" : "Thiếu SĐT"}
+          <Phone className="w-3.5 h-3.5 mr-1 shrink-0" /> 
+          <span className="truncate">{primaryPhone ? "Gọi điện" : "Thiếu SĐT"}</span>
         </Button>
 
-        <div className="flex items-center gap-0.5 ml-1">
+        <div className="flex items-center gap-0.5 shrink-0">
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -1932,7 +1933,7 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
           </TooltipProvider>
         </div>
 
-        <div className="flex items-center gap-1 ml-auto">
+        <div className="flex items-center shrink-0">
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>

@@ -1,7 +1,7 @@
 export interface SalesReportInputs {
   id?: string;
   sale_user_id: string;
-  report_type: 'weekly' | 'monthly';
+  report_type: "weekly" | "monthly";
   period_start: string;
   period_end: string;
   variable_cost: number;

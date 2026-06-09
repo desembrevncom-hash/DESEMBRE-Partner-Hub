@@ -257,7 +257,7 @@ function MarketingReportsPage() {
     let totalSent = 0;
     let totalOpened = 0;
     let totalClicked = 0;
-    let totalOptOuts = optOutList.length;
+    const totalOptOuts = optOutList.length;
 
     filteredCampaigns.forEach((c) => {
       totalSent += c.sent;
