@@ -1178,7 +1178,7 @@ function CustomersPage() {
 
         {viewMode === "kanban" ? (
           /* PERFECT KANBAN UX */
-          <div className="flex gap-6 overflow-x-auto pb-10 min-h-[600px] no-scrollbar">
+          <div className="flex gap-6 overflow-x-auto pb-6 min-h-[600px] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-slate-100/50 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400 [&::-webkit-scrollbar-thumb]:rounded-full">
             {loading
               ? Array.from({ length: 5 }).map((_, i) => (
                   <div
