@@ -1203,8 +1203,8 @@ function CustomersPage() {
               <div
                 style={{
                   width: `${
-                    stages.filter((s) => !collapsedColumns[s.value]).length * 304 +
-                    stages.filter((s) => collapsedColumns[s.value]).length * 84 - 24
+                    SALES_PIPELINE_STAGES.filter((s) => !collapsedColumns[s.value]).length * 304 +
+                    SALES_PIPELINE_STAGES.filter((s) => collapsedColumns[s.value]).length * 84 - 24
                   }px`,
                 }}
                 className="h-1"
