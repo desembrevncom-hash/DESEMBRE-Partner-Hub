@@ -97,10 +97,9 @@ Deno.serve(async (req) => {
       // 3. Authenticate with Google
       const serviceAccountEmail = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_EMAIL") || "";
       let privateKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY") || "";
-      const folderId = Deno.env.get("GOOGLE_DRIVE_REPORT_FOLDER_ID") || "";
-      const shareMode = Deno.env.get("GOOGLE_SHEET_SHARE_MODE") || "private";
+      const masterSheetId = Deno.env.get("GOOGLE_SHEET_MASTER_ID") || "";
 
-      if (!serviceAccountEmail || !privateKey || !folderId) {
+      if (!serviceAccountEmail || !privateKey || !masterSheetId) {
         throw new Error("Missing Google configuration in environment variables");
       }
 
@@ -109,7 +108,7 @@ Deno.serve(async (req) => {
       const client = new JWT({
         email: serviceAccountEmail,
         key: privateKey,
-        scopes: ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"],
+        scopes: ["https://www.googleapis.com/auth/spreadsheets"],
       });
 
       const tokenResponse = await client.getAccessToken();
@@ -120,47 +119,62 @@ Deno.serve(async (req) => {
       // Fetch sale profile for sheet title
       const { data: saleProfile } = await serviceClient.from("profiles").select("display_name, email").eq("id", saleId).single();
       const saleName = saleProfile?.display_name || saleProfile?.email || saleId;
-      const sheetTitle = `[${reportType.toUpperCase()}] Báo cáo Sales - ${saleName} (${periodStart} -> ${periodEnd})`;
+      const cleanSaleName = saleName.replace(/[^a-zA-Z0-9\s_]/g, "").trim();
 
-      // 4. Create new Spreadsheet directly in the specified Google Drive Folder
-      const createRes = await fetch("https://www.googleapis.com/drive/v3/files?supportsAllDrives=true", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: sheetTitle,
-          mimeType: "application/vnd.google-apps.spreadsheet",
-          parents: [folderId]
-        }),
-      });
+      // Format current time HHmmss
+      const now = new Date();
+      const hhmmss = now.toISOString().split("T")[1].replace(/[:.]/g, "").substring(0, 6);
+      
+      const reportPrefix = reportType === "weekly" ? "WEEKLY" : "MONTHLY";
+      let sheetTitle = `${reportPrefix}_${cleanSaleName}_${periodStart}_${hhmmss}`;
 
-      if (!createRes.ok) {
-        const err = await createRes.json();
-        throw new Error("Failed to create spreadsheet in Drive folder: " + JSON.stringify(err));
-      }
+      // 4. Create new Tab in Master Spreadsheet
+      let spreadsheetId = masterSheetId;
+      let newSheetId: number | null = null;
+      let attempt = 0;
+      let success = false;
 
-      const fileData = await createRes.json();
-      const spreadsheetId = fileData.id;
-      const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
-
-      // 5. Share Permission
-      if (shareMode === "anyone_with_link") {
-        await fetch(`https://www.googleapis.com/drive/v3/files/${spreadsheetId}/permissions`, {
+      while (!success && attempt < 3) {
+        attempt++;
+        const createRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            type: "anyone",
-            role: "reader"
-          })
+            requests: [
+              {
+                addSheet: {
+                  properties: { title: sheetTitle }
+                }
+              }
+            ]
+          }),
         });
+
+        if (createRes.ok) {
+          const resData = await createRes.json();
+          newSheetId = resData.replies[0].addSheet.properties.sheetId;
+          success = true;
+        } else {
+          const err = await createRes.json();
+          // If error is due to duplicate sheet name, retry with a random suffix
+          if (err.error?.message?.includes("already exists")) {
+            sheetTitle = `${sheetTitle}_${Math.floor(Math.random() * 1000)}`;
+          } else {
+            throw new Error("Failed to create new tab in Master Sheet: " + JSON.stringify(err));
+          }
+        }
       }
 
-      // 6. Write Data to Sheet
+      if (!success || newSheetId === null) {
+        throw new Error("Could not create unique tab after 3 attempts.");
+      }
+
+      const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=${newSheetId}`;
+
+      // 5. Write Data to the New Tab
       const manualInputs = reportData.manual_inputs || {};
       
       const values = [
@@ -186,7 +200,7 @@ Deno.serve(async (req) => {
         ["Ghi chú", manualInputs.notes || ""]
       ];
 
-      const writeRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Sheet1!A1:B20?valueInputOption=USER_ENTERED`, {
+      const writeRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${sheetTitle}'!A1:B20?valueInputOption=USER_ENTERED`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -196,10 +210,11 @@ Deno.serve(async (req) => {
       });
 
       if (!writeRes.ok) {
-        throw new Error("Failed to write data to sheet");
+        const err = await writeRes.json();
+        throw new Error("Failed to write data to tab: " + JSON.stringify(err));
       }
 
-      // 7. Mark Success in DB
+      // 6. Mark Success in DB
       await serviceClient
         .from("sales_report_exports")
         .update({
