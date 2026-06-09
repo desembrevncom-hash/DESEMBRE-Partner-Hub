@@ -122,38 +122,28 @@ Deno.serve(async (req) => {
       const saleName = saleProfile?.display_name || saleProfile?.email || saleId;
       const sheetTitle = `[${reportType.toUpperCase()}] Báo cáo Sales - ${saleName} (${periodStart} -> ${periodEnd})`;
 
-      // 4. Create new Spreadsheet in Google Drive Folder
-      const createRes = await fetch("https://sheets.googleapis.com/v4/spreadsheets", {
+      // 4. Create new Spreadsheet directly in the specified Google Drive Folder
+      const createRes = await fetch("https://www.googleapis.com/drive/v3/files?supportsAllDrives=true", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          properties: { title: sheetTitle }
+          name: sheetTitle,
+          mimeType: "application/vnd.google-apps.spreadsheet",
+          parents: [folderId]
         }),
       });
 
       if (!createRes.ok) {
         const err = await createRes.json();
-        throw new Error("Failed to create spreadsheet: " + JSON.stringify(err));
+        throw new Error("Failed to create spreadsheet in Drive folder: " + JSON.stringify(err));
       }
 
-      const spreadsheet = await createRes.json();
-      const spreadsheetId = spreadsheet.spreadsheetId;
-      const sheetUrl = spreadsheet.spreadsheetUrl;
-
-      // Move file to specified folder
-      const getFileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${spreadsheetId}?fields=parents`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-      const fileData = await getFileRes.json();
-      const previousParents = fileData.parents.join(',');
-
-      await fetch(`https://www.googleapis.com/drive/v3/files/${spreadsheetId}?addParents=${folderId}&removeParents=${previousParents}`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
+      const fileData = await createRes.json();
+      const spreadsheetId = fileData.id;
+      const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
 
       // 5. Share Permission
       if (shareMode === "anyone_with_link") {
