@@ -62,6 +62,7 @@ import { QuickCallResultDialog } from "@/components/customers/QuickCallResultDia
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
+import { Loader2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -109,6 +110,8 @@ function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<any[]>([]);
   const [staffMap, setStaffMap] = useState<StaffMap>({});
+  const [staffList, setStaffList] = useState<any[]>([]);
+  const [rolesList, setRolesList] = useState<any[]>([]);
   const [customerTasks, setCustomerTasks] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"kanban" | "list">(() => {
@@ -513,6 +516,7 @@ function CustomersPage() {
       setCustomers(processed);
 
       // Fetch user profiles to build staffMap
+      // Fetch user profiles to build staffMap
       const userIds = new Set<string>();
       processed.forEach((c: any) => {
         if (c.owner_sale_id) userIds.add(c.owner_sale_id);
@@ -526,6 +530,16 @@ function CustomersPage() {
         if (!profError && profiles) {
           setStaffMap(buildStaffMap(profiles));
         }
+      }
+
+      // Fetch ALL staff and roles for the Assign modal (if manager)
+      if (isManager) {
+        const [{ data: allStaffData }, { data: rolesData }] = await Promise.all([
+          supabase.from("profiles").select("id, display_name, email"),
+          supabase.from("user_roles").select("*"),
+        ]);
+        if (allStaffData) setStaffList(allStaffData);
+        if (rolesData) setRolesList(rolesData);
       }
     } catch (e) {
       console.error("fetchCustomers error:", e);
@@ -1467,7 +1481,11 @@ function CustomersPage() {
                   {dispatchAction === "change_stage" ? "Chọn giai đoạn mới" : "Chọn nhân viên"}
                 </label>
                 <select
-                  className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className={`w-full h-12 px-4 rounded-xl border ${
+                    dispatchStaffId === "none" && dispatchAction !== "change_stage"
+                      ? "border-rose-300 ring-1 ring-rose-100"
+                      : "border-slate-200 focus:ring-2 focus:ring-indigo-500"
+                  } bg-white outline-none text-sm font-medium text-slate-900 transition-all`}
                   value={dispatchStaffId}
                   onChange={(e) => setDispatchStaffId(e.target.value)}
                 >
@@ -1482,15 +1500,41 @@ function CustomersPage() {
                     </>
                   ) : (
                     <>
-                      <option value="none">-- Chọn nhân viên --</option>
-                      {Object.entries(staffMap).map(([id, staff]: [string, any]) => (
-                        <option key={id} value={id}>
-                          {staff.display_name} ({staff.email})
+                      <option value="none" disabled>
+                        -- Vui lòng chọn nhân viên --
+                      </option>
+                      {(dispatchAction === "assign_sale"
+                        ? staffList.filter((staff) =>
+                            rolesList.some((r) => r.user_id === staff.id && r.role === "sale"),
+                          )
+                        : staffList.filter((staff) =>
+                            rolesList.some((r) => r.user_id === staff.id && r.role === "tele_lead"),
+                          )
+                      ).map((staff: any) => (
+                        <option key={staff.id} value={staff.id} className="py-2">
+                          {staff.display_name || "Chưa cập nhật tên"} • {staff.email}
                         </option>
                       ))}
+                      {/* Fallback if staffList is empty (e.g. not loaded) */}
+                      {staffList.length === 0 &&
+                        Object.entries(staffMap).map(([id, staff]: [string, any]) => (
+                          <option key={id} value={id}>
+                            {staff.display_name} • {staff.email}
+                          </option>
+                        ))}
                     </>
                   )}
                 </select>
+                {dispatchStaffId === "none" &&
+                  dispatchAction !== "revoke" &&
+                  dispatchAction !== "change_stage" && (
+                    <p className="text-xs font-bold text-rose-500 mt-1">
+                      Vui lòng chọn nhân viên phụ trách.
+                    </p>
+                  )}
+                {selectedCustomers.length === 0 && (
+                  <p className="text-xs font-bold text-rose-500 mt-1">Chưa chọn khách hàng.</p>
+                )}
               </div>
             )}
 
@@ -1511,24 +1555,36 @@ function CustomersPage() {
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsDispatchDialogOpen(false)}>
+          <DialogFooter className="pt-2">
+            <Button
+              variant="ghost"
+              onClick={() => setIsDispatchDialogOpen(false)}
+              className="rounded-xl text-xs font-bold"
+              disabled={isDispatching}
+            >
               Hủy
             </Button>
             <Button
               disabled={
                 isDispatching ||
+                selectedCustomers.length === 0 ||
                 (dispatchAction === "revoke" && !dispatchReason.trim()) ||
                 (dispatchAction !== "revoke" && dispatchStaffId === "none")
               }
               onClick={handleBulkDispatch}
-              className={
+              className={`rounded-xl text-xs font-black px-6 shadow-md transition-all ${
                 dispatchAction === "revoke"
-                  ? "bg-red-600 hover:bg-red-700 text-white"
-                  : "bg-indigo-600 hover:bg-indigo-700 text-white"
-              }
+                  ? "bg-red-600 hover:bg-red-700 text-white shadow-red-200"
+                  : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200"
+              }`}
             >
-              {isDispatching ? "Đang xử lý..." : "Xác nhận"}
+              {isDispatching ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" /> Đang xử lý...
+                </>
+              ) : (
+                "Xác nhận"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
