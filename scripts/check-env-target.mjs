@@ -17,9 +17,27 @@ async function run() {
   log("Starting preflight env target checks...");
 
   // 1. Check current branch
+  // In GitHub Actions pull_request workflows the repo is checked out in
+  // detached HEAD state, so `git branch --show-current` returns an empty
+  // string. Fall back to GITHUB_HEAD_REF (PR source branch) or
+  // GITHUB_REF_NAME (push ref name) before the git command.
   try {
-    const currentBranch = execSync("git branch --show-current").toString().trim();
-    log(`Current branch: ${currentBranch}`);
+    let currentBranch =
+      process.env.GITHUB_HEAD_REF ||
+      process.env.GITHUB_REF_NAME ||
+      execSync("git branch --show-current").toString().trim();
+
+    if (!currentBranch) {
+      // Last resort: parse symbolic-ref
+      try {
+        currentBranch = execSync("git symbolic-ref --short HEAD").toString().trim();
+      } catch {
+        currentBranch = '';
+      }
+    }
+
+    log(`Current branch: ${currentBranch || '(detached HEAD — skipping branch guard)'}`);
+
     if (currentBranch === 'master' || currentBranch === 'main') {
       logError("Cannot run staging operations on master or main branches!");
       process.exit(1);

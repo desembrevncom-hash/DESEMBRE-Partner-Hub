@@ -17,7 +17,9 @@
     "staging:preflight": "node scripts/check-env-target.mjs",
     "staging:verify": "npm run staging:preflight && npm run build && npm run test",
     "staging:deploy:functions": "npm run staging:preflight && npx supabase functions deploy generate-product-sales-sheet --project-ref wmhfvggbthyikqvlyqup",
-    "staging:smoke": "npm run staging:preflight && node scripts/check-staging.mjs"
+    "staging:smoke": "npm run staging:preflight && node scripts/check-staging.mjs",
+    "release:check": "node scripts/release-check.mjs",
+    "prod:readiness": "node scripts/production-check.mjs"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.5",
