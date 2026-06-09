@@ -169,7 +169,7 @@ export function ProductCopilot() {
       {/* Floating Button */}
       <button
         onClick={toggleChat}
-        className={`fixed bottom-6 right-6 z-50 p-4 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center
+        className={`fixed bottom-[calc(env(safe-area-inset-bottom,0px)+76px)] lg:bottom-6 right-6 z-50 p-4 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center
           ${
             isOpen
               ? "bg-slate-800 text-white shadow-slate-900/20"
@@ -181,7 +181,7 @@ export function ProductCopilot() {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 z-50 w-[380px] h-[600px] max-h-[80vh] bg-white rounded-3xl shadow-2xl border border-slate-100 flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 fade-in duration-300">
+        <div className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+148px)] lg:bottom-24 right-6 z-50 w-[380px] h-[600px] max-h-[80vh] bg-white rounded-3xl shadow-2xl border border-slate-100 flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 fade-in duration-300">
           {/* Header */}
           <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-4 text-white shrink-0 flex items-center justify-between">
             <div className="flex items-center gap-3">
