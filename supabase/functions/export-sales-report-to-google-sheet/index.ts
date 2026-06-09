@@ -201,7 +201,7 @@ Deno.serve(async (req) => {
         ["Ghi chú", manualInputs.notes || ""]
       ];
 
-      const writeRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${sheetTitle}'!A1:B20?valueInputOption=USER_ENTERED`, {
+      const writeRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${sheetTitle}'!A1?valueInputOption=USER_ENTERED`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${accessToken}`,
