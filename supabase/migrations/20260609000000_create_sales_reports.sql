@@ -138,9 +138,11 @@ BEGIN
       v_target_sale_id := p_sale_user_id;
     END IF;
   ELSE
+    -- If v_caller_id is NULL (unauthenticated), p_sale_user_id != v_caller_id is evaluated as NULL (falsy) 
+    -- in Postgres. We must use IS DISTINCT FROM to ensure it evaluates to TRUE.
     IF p_sale_user_id IS NULL THEN
       v_target_sale_id := v_caller_id;
-    ELSIF p_sale_user_id != v_caller_id THEN
+    ELSIF p_sale_user_id IS DISTINCT FROM v_caller_id THEN
       RAISE EXCEPTION 'Permission denied. Sales can only view their own reports.' USING ERRCODE = '42501';
     ELSE
       v_target_sale_id := v_caller_id;
