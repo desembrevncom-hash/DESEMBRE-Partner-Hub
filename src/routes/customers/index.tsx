@@ -142,6 +142,22 @@ function CustomersPage() {
       replace: true,
     });
   };
+
+  const topScrollRef = React.useRef<HTMLDivElement>(null);
+  const bottomScrollRef = React.useRef<HTMLDivElement>(null);
+
+  const handleTopScroll = () => {
+    if (bottomScrollRef.current && topScrollRef.current) {
+      bottomScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+    }
+  };
+
+  const handleBottomScroll = () => {
+    if (bottomScrollRef.current && topScrollRef.current) {
+      topScrollRef.current.scrollLeft = bottomScrollRef.current.scrollLeft;
+    }
+  };
+
   const [draggedCustomerId, setDraggedCustomerId] = useState<string | null>(null);
 
   // Bulk selection and dispatch state
@@ -1178,7 +1194,27 @@ function CustomersPage() {
 
         {viewMode === "kanban" ? (
           /* PERFECT KANBAN UX */
-          <div className="flex gap-6 overflow-x-auto pb-6 min-h-[600px] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-slate-100/50 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400 [&::-webkit-scrollbar-thumb]:rounded-full">
+          <>
+            <div
+              ref={topScrollRef}
+              onScroll={handleTopScroll}
+              className="w-full overflow-x-auto overflow-y-hidden h-3 [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-slate-100/50 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400 [&::-webkit-scrollbar-thumb]:rounded-full mb-2"
+            >
+              <div
+                style={{
+                  width: `${
+                    stages.filter((s) => !collapsedColumns[s.value]).length * 304 +
+                    stages.filter((s) => collapsedColumns[s.value]).length * 84 - 24
+                  }px`,
+                }}
+                className="h-1"
+              />
+            </div>
+            <div
+              ref={bottomScrollRef}
+              onScroll={handleBottomScroll}
+              className="flex gap-6 overflow-x-auto pb-6 min-h-[600px] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-slate-100/50 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400 [&::-webkit-scrollbar-thumb]:rounded-full"
+            >
             {loading
               ? Array.from({ length: 5 }).map((_, i) => (
                   <div
@@ -1334,7 +1370,8 @@ function CustomersPage() {
                     </div>
                   );
                 })}
-          </div>
+            </div>
+          </>
         ) : (
           /* CUSTOMER INTELLIGENCE CENTER (L1) */
           <div className="flex flex-col gap-3">
