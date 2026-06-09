@@ -213,7 +213,9 @@ function RootLayout() {
                         >
                           <Link to="/admin/templates" className="flex items-center gap-3">
                             <FileText className="w-4 h-4 text-slate-400" />
-                            <span className="text-xs font-bold text-slate-700">Mẫu Tài Liệu (Templates)</span>
+                            <span className="text-xs font-bold text-slate-700">
+                              Mẫu Tài Liệu (Templates)
+                            </span>
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem
@@ -222,7 +224,9 @@ function RootLayout() {
                         >
                           <Link to="/admin/ai-settings" className="flex items-center gap-3">
                             <Sparkles className="w-4 h-4 text-slate-400" />
-                            <span className="text-xs font-bold text-slate-700">Cấu hình AI / RAG</span>
+                            <span className="text-xs font-bold text-slate-700">
+                              Cấu hình AI / RAG
+                            </span>
                           </Link>
                         </DropdownMenuItem>
                       </>
@@ -246,7 +250,7 @@ function RootLayout() {
 
           {/* PAGE CONTENT */}
           <main
-            className={`relative z-0 lg:pb-0 ${currentPath === "/customers/map" ? "pb-0" : "pb-[calc(5rem+env(safe-area-inset-bottom))]"}`}
+            className={`relative z-0 lg:pb-0 ${currentPath === "/customers/map" ? "pb-0" : "pb-[calc(env(safe-area-inset-bottom,0px)+96px)]"}`}
           >
             <AppErrorBoundary>
               <Outlet />
@@ -326,7 +330,9 @@ function RootLayout() {
                     >
                       <Link to="/admin/templates" className="flex items-center gap-3">
                         <FileText className="w-4 h-4 text-slate-400" />
-                        <span className="text-xs font-bold text-slate-700">Mẫu Tài Liệu (Templates)</span>
+                        <span className="text-xs font-bold text-slate-700">
+                          Mẫu Tài Liệu (Templates)
+                        </span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem
