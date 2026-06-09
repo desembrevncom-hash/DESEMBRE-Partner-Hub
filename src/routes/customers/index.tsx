@@ -1854,13 +1854,15 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
           <Tooltip>
             <TooltipTrigger asChild>
               {primaryPhone ? (
-                <a
-                  href={`tel:${primaryPhone.replace(/\s+/g, "")}`}
-                  className="inline-flex items-center justify-center rounded-lg h-8 w-8 bg-indigo-600 hover:bg-indigo-700 text-white shrink-0 shadow-sm transition-colors"
-                  onClick={(e) => e.stopPropagation()}
+                <Button
+                  className="inline-flex items-center justify-center rounded-lg h-8 w-8 bg-indigo-600 hover:bg-indigo-700 text-white shrink-0 shadow-sm transition-colors p-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.location.href = `tel:${primaryPhone}`;
+                  }}
                 >
                   <Phone className="w-4 h-4" />
-                </a>
+                </Button>
               ) : (
                 <div
                   className="inline-flex items-center justify-center rounded-lg h-8 w-8 bg-slate-100 text-slate-300 cursor-not-allowed shrink-0 transition-colors"
