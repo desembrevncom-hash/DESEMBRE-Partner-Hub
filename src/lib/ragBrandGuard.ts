@@ -60,7 +60,7 @@ export function detectBrandFromQuery(query: string): BrandSlug | null {
 export function filterChunksByBrand(
   chunks: RagChunk[],
   detectedBrand: BrandSlug | null,
-  brandIdMap: Record<BrandSlug, string>
+  brandIdMap: Record<BrandSlug, string>,
 ): BrandFilterResult {
   // If no brand detected, allow all (current behavior)
   if (!detectedBrand) {
@@ -84,7 +84,7 @@ export function filterChunksByBrand(
     // Since we mapped all approved knowledge to Desembre, legacy chunks have Desembre brand_id now.
     // If a chunk lacks brand_id, we'll assume it's legacy Desembre for safety.
     const isLegacyDesembre = !chunk.brand_id && detectedBrand === "desembre";
-    
+
     if (chunk.brand_id === targetBrandId || isLegacyDesembre) {
       allowed.push(chunk);
     } else {
@@ -102,11 +102,13 @@ export function filterChunksByBrand(
     const desembreId = brandIdMap["desembre"];
     if (otherBrandsFound.has(desembreId)) {
       // Extract unique product names from the suppressed Desembre chunks to build a helpful message
-      const productNames = Array.from(new Set(suppressed.map((c) => c.product_name))).filter(Boolean);
+      const productNames = Array.from(new Set(suppressed.map((c) => c.product_name))).filter(
+        Boolean,
+      );
       const productListStr = productNames.length > 0 ? productNames.join(", ") : "sản phẩm này";
-      
+
       const brandDisplay = detectedBrand === "dermagarden" ? "Dermagarden" : "VAVAW";
-      
+
       return {
         allowed: [],
         suppressed,

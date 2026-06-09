@@ -103,7 +103,10 @@ function ProductCatalogPage() {
   };
 
   const isDbAdminEnabled = parseEnvFlag(import.meta.env.VITE_PRODUCT_DB_ADMIN_ENABLED, true);
-  const isCatalogDbReadEnabled = parseEnvFlag(import.meta.env.VITE_PRODUCT_CATALOG_DB_READ_ENABLED, true);
+  const isCatalogDbReadEnabled = parseEnvFlag(
+    import.meta.env.VITE_PRODUCT_CATALOG_DB_READ_ENABLED,
+    true,
+  );
   const isProductDbOrderEnabled = parseEnvFlag(import.meta.env.VITE_PRODUCT_DB_ORDER_ENABLED, true);
 
   // DB Catalog States
@@ -134,16 +137,14 @@ function ProductCatalogPage() {
 
   const loadSalesSheets = async (shouldThrow = false) => {
     try {
-      const { data, error } = await supabase
-        .from("product_sales_sheets")
-        .select("*");
+      const { data, error } = await supabase.from("product_sales_sheets").select("*");
       if (error) {
         if (shouldThrow) throw error;
         else console.error("Error loading sales sheets map:", error);
       }
       if (data) {
         const map: Record<string, { id: string; status: "draft" | "approved" | "archived" }> = {};
-        
+
         // Group by catalog_product_id
         const groups: Record<string, any[]> = {};
         data.forEach((row: any) => {
@@ -158,7 +159,7 @@ function ProductCatalogPage() {
           const rows = groups[prodId];
           // 1. Try to find the row with is_current = true
           let selected = rows.find((r) => r.is_current === true);
-          
+
           if (!selected) {
             // 2. Fallback: Sort by version desc, then created_at desc
             selected = [...rows].sort((a, b) => {
@@ -172,12 +173,12 @@ function ProductCatalogPage() {
               return dateB - dateA; // desc
             })[0];
           }
-          
+
           if (selected) {
             map[prodId] = { id: selected.id, status: selected.status };
           }
         });
-        
+
         setSalesSheetsMap(map);
       }
     } catch (err) {

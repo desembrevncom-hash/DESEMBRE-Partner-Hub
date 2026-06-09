@@ -43,7 +43,9 @@ if (!targetMode) {
 if (targetMode === "production") {
   const confirmProd = process.env.CONFIRM_PROD_DANGEROUS_ACTION;
   if (confirmProd !== "YES") {
-    console.error("❌ ERROR: TARGET_ENV is 'production'. You must set CONFIRM_PROD_DANGEROUS_ACTION='YES' to run this script.");
+    console.error(
+      "❌ ERROR: TARGET_ENV is 'production'. You must set CONFIRM_PROD_DANGEROUS_ACTION='YES' to run this script.",
+    );
     process.exit(1);
   }
   console.warn("⚠️ WARNING: Running against PRODUCTION database!");
@@ -91,7 +93,9 @@ console.log("\n──── A. AUDIT BEFORE MAPPING ─────────�
 
 const { data: pkAll, error: pkErr } = await supabase
   .from("product_knowledge")
-  .select("id, product_id, brand_id, category_id, catalog_product_id, qa_status, build_status, is_active");
+  .select(
+    "id, product_id, brand_id, category_id, catalog_product_id, qa_status, build_status, is_active",
+  );
 
 if (pkErr || !pkAll) {
   console.error("[ERROR] fetch product_knowledge:", pkErr?.message);
@@ -104,7 +108,9 @@ const { count: totalChunks } = await supabase
 
 const qaStatusDist = {};
 const buildStatusDist = {};
-let brandIdPopulated = 0, categoryIdPopulated = 0, catalogProductIdPopulated = 0;
+let brandIdPopulated = 0,
+  categoryIdPopulated = 0,
+  catalogProductIdPopulated = 0;
 
 for (const r of pkAll) {
   if (r.brand_id) brandIdPopulated++;
@@ -157,7 +163,7 @@ const { data: categories } = await supabase.from("product_categories").select("i
 const brandMap = new Map((brands ?? []).map((b) => [b.id, b]));
 const categoryMap = new Map((categories ?? []).map((c) => [c.id, c]));
 const catalogByCode = new Map(
-  (catalogProducts).filter((cp) => cp.product_code != null).map((cp) => [cp.product_code, cp])
+  catalogProducts.filter((cp) => cp.product_code != null).map((cp) => [cp.product_code, cp]),
 );
 
 const candidates = [];
@@ -212,7 +218,7 @@ const willUpdate = candidates.filter(
   (c) =>
     c.old_brand_id !== c.new_brand_id ||
     c.old_category_id !== c.new_category_id ||
-    c.old_catalog_product_id !== c.new_catalog_product_id
+    c.old_catalog_product_id !== c.new_catalog_product_id,
 );
 
 console.log(`\n  Records that WILL BE UPDATED : ${willUpdate.length}`);
@@ -227,14 +233,13 @@ console.log(
     "category".padEnd(20) +
     "catalog_product_name".padEnd(46) +
     "cp_status".padEnd(10) +
-    "action"
+    "action",
 );
 console.log("  " + "─".repeat(108));
 
 for (const c of candidates) {
   const alreadyMapped =
-    c.old_brand_id === c.new_brand_id &&
-    c.old_catalog_product_id === c.new_catalog_product_id;
+    c.old_brand_id === c.new_brand_id && c.old_catalog_product_id === c.new_catalog_product_id;
   const action = alreadyMapped ? "SKIP(same)" : "UPDATE";
   console.log(
     "  " +
@@ -243,7 +248,7 @@ for (const c of candidates) {
       (c.category_name ?? "—").substring(0, 19).padEnd(20) +
       c.product_name.substring(0, 45).padEnd(46) +
       c.catalog_product_status.padEnd(10) +
-      action
+      action,
   );
 }
 
@@ -287,8 +292,7 @@ if (!DRY_RUN) {
     } else {
       const cnt = updatedChunks?.length ?? 0;
       chunksUpdated += cnt;
-      if (cnt > 0)
-        console.log(`  [OK] chunks product_id=${c.product_id} → ${cnt} chunks updated`);
+      if (cnt > 0) console.log(`  [OK] chunks product_id=${c.product_id} → ${cnt} chunks updated`);
     }
   }
 }
@@ -300,7 +304,9 @@ console.log("====================================================");
 console.log(`  Mode                         : ${DRY_RUN ? "DRY-RUN" : "APPLIED"}`);
 console.log(`  Total knowledge records      : ${pkAll.length}`);
 console.log(`  Mappable (catalog match)     : ${candidates.length}`);
-console.log(`  Will/did update              : ${DRY_RUN ? willUpdate.length + " (would)" : knowledgeUpdated}`);
+console.log(
+  `  Will/did update              : ${DRY_RUN ? willUpdate.length + " (would)" : knowledgeUpdated}`,
+);
 console.log(`  Unmapped (no catalog match)  : ${unmapped.length}`);
 if (unmapped.length > 0) {
   console.log(`  Unmapped product_ids         : [${unmapped.join(", ")}]`);

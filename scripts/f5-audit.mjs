@@ -18,30 +18,47 @@ async function runAudit() {
   const pk = await supabase.from("product_knowledge").select("*", { count: "exact" });
   console.log("total product_knowledge:", pk.count);
 
-  const pkc = await supabase.from("product_knowledge_chunks").select("*", { count: "exact", head: true });
+  const pkc = await supabase
+    .from("product_knowledge_chunks")
+    .select("*", { count: "exact", head: true });
   console.log("total product_knowledge_chunks:", pkc.count);
 
-  const approvedPk = await supabase.from("product_knowledge").select("id, product_id, brand_id", { count: "exact" }).eq("qa_status", "approved");
+  const approvedPk = await supabase
+    .from("product_knowledge")
+    .select("id, product_id, brand_id", { count: "exact" })
+    .eq("qa_status", "approved");
   console.log("approved knowledge count:", approvedPk.count);
 
   // Unmapped knowledge (brand_id is null)
-  const unmappedPk = await supabase.from("product_knowledge").select("id, product_id, product_name").is("brand_id", null);
+  const unmappedPk = await supabase
+    .from("product_knowledge")
+    .select("id, product_id, product_name")
+    .is("brand_id", null);
   console.log("unmapped knowledge count:", unmappedPk.data?.length);
 
   // Chunks missing mapping
-  const chunksNoBrand = await supabase.from("product_knowledge_chunks").select("*", { count: "exact", head: true }).is("brand_id", null);
+  const chunksNoBrand = await supabase
+    .from("product_knowledge_chunks")
+    .select("*", { count: "exact", head: true })
+    .is("brand_id", null);
   console.log("chunks missing brand_id:", chunksNoBrand.count);
 
-  const chunksNoCat = await supabase.from("product_knowledge_chunks").select("*", { count: "exact", head: true }).is("category_id", null);
+  const chunksNoCat = await supabase
+    .from("product_knowledge_chunks")
+    .select("*", { count: "exact", head: true })
+    .is("category_id", null);
   console.log("chunks missing category_id:", chunksNoCat.count);
 
-  const chunksNoCatalog = await supabase.from("product_knowledge_chunks").select("*", { count: "exact", head: true }).is("catalog_product_id", null);
+  const chunksNoCatalog = await supabase
+    .from("product_knowledge_chunks")
+    .select("*", { count: "exact", head: true })
+    .is("catalog_product_id", null);
   console.log("chunks missing catalog_product_id:", chunksNoCatalog.count);
 
   // 2. OpenAI Estimate (Dry Run)
   let totalTokensEstimate = 0;
   let chunksToCreateEstimate = 0;
-  
+
   if (approvedPk.data) {
     for (const item of approvedPk.data) {
       chunksToCreateEstimate += 5;

@@ -57,43 +57,49 @@ function renderTemplateContent(template: string, data: any, rootData: any = data
   let lastEachResult = "";
   while (result !== lastEachResult) {
     lastEachResult = result;
-    result = result.replace(/\{\{#each\s+([a-zA-Z0-9_.]+)\}\}((?:(?!\{\{#each\b)[\s\S])*?)\{\{\/each\}\}/g, (match, arrayPath, blockContent) => {
-      let arrayData = getNestedValue(data, arrayPath);
-      if (arrayData === undefined && data !== rootData) {
-        arrayData = getNestedValue(rootData, arrayPath);
-      }
-      if (!Array.isArray(arrayData)) return "";
+    result = result.replace(
+      /\{\{#each\s+([a-zA-Z0-9_.]+)\}\}((?:(?!\{\{#each\b)[\s\S])*?)\{\{\/each\}\}/g,
+      (match, arrayPath, blockContent) => {
+        let arrayData = getNestedValue(data, arrayPath);
+        if (arrayData === undefined && data !== rootData) {
+          arrayData = getNestedValue(rootData, arrayPath);
+        }
+        if (!Array.isArray(arrayData)) return "";
 
-      return arrayData
-        .map((item) => {
-          return renderTemplateContent(blockContent, item, rootData);
-        })
-        .join("");
-    });
+        return arrayData
+          .map((item) => {
+            return renderTemplateContent(blockContent, item, rootData);
+          })
+          .join("");
+      },
+    );
   }
 
   // 2. Process {{#if ...}} ... {{/if}} (innermost first to support nesting)
   let lastIfResult = "";
   while (result !== lastIfResult) {
     lastIfResult = result;
-    result = result.replace(/\{\{#if\s+([a-zA-Z0-9_.]+)\}\}((?:(?!\{\{#if\b)[\s\S])*?)\{\{\/if\}\}/g, (match, conditionPath, blockContent) => {
-      let value = getNestedValue(data, conditionPath);
-      if (value === undefined && data !== rootData) {
-        value = getNestedValue(rootData, conditionPath);
-      }
-      let isTrue = false;
-      if (value) {
-        if (Array.isArray(value)) {
-          isTrue = value.length > 0;
-        } else {
-          isTrue = true;
+    result = result.replace(
+      /\{\{#if\s+([a-zA-Z0-9_.]+)\}\}((?:(?!\{\{#if\b)[\s\S])*?)\{\{\/if\}\}/g,
+      (match, conditionPath, blockContent) => {
+        let value = getNestedValue(data, conditionPath);
+        if (value === undefined && data !== rootData) {
+          value = getNestedValue(rootData, conditionPath);
         }
-      }
-      const elseParts = blockContent.split(/\{\{else\}\}/);
-      const trueBlock = elseParts[0] || "";
-      const falseBlock = elseParts[1] || "";
-      return isTrue ? trueBlock : falseBlock;
-    });
+        let isTrue = false;
+        if (value) {
+          if (Array.isArray(value)) {
+            isTrue = value.length > 0;
+          } else {
+            isTrue = true;
+          }
+        }
+        const elseParts = blockContent.split(/\{\{else\}\}/);
+        const trueBlock = elseParts[0] || "";
+        const falseBlock = elseParts[1] || "";
+        return isTrue ? trueBlock : falseBlock;
+      },
+    );
   }
 
   // 3. Process flat variables {{variable.name}}
@@ -135,10 +141,7 @@ export interface TemplateAuditResult {
   missingRequiredVars: string[];
 }
 
-export function auditTemplate(
-  htmlTemplate: string,
-  templateType: string,
-): TemplateAuditResult {
+export function auditTemplate(htmlTemplate: string, templateType: string): TemplateAuditResult {
   const errors: string[] = [];
   const warnings: string[] = [];
   const missingRequiredVars: string[] = [];
@@ -149,28 +152,41 @@ export function auditTemplate(
   const eachStarts = (content.match(/\{\{#each\s+([a-zA-Z0-9_.]+)\}\}/g) || []).length;
   const eachEnds = (content.match(/\{\{\/each\}\}/g) || []).length;
   if (eachStarts !== eachEnds) {
-    errors.push(`Số lượng thẻ mở vòng lặp {{#each}} (${eachStarts}) và đóng {{/each}} (${eachEnds}) không khớp nhau.`);
+    errors.push(
+      `Số lượng thẻ mở vòng lặp {{#each}} (${eachStarts}) và đóng {{/each}} (${eachEnds}) không khớp nhau.`,
+    );
   }
 
   // 2. Check unclosed curly braces
   const openBraces = (content.match(/\{\{/g) || []).length;
   const closeBraces = (content.match(/\}\}/g) || []).length;
   if (openBraces !== closeBraces) {
-    errors.push(`Số lượng thẻ mở {{ (${openBraces}) và thẻ đóng }} (${closeBraces}) không khớp nhau.`);
+    errors.push(
+      `Số lượng thẻ mở {{ (${openBraces}) và thẻ đóng }} (${closeBraces}) không khớp nhau.`,
+    );
   }
 
   // 3. Check for script tags or events
   if (/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi.test(content)) {
-    warnings.push("Mã chứa thẻ <script>. Thẻ script sẽ tự động bị lược bỏ khi kết xuất vì lý do an toàn.");
+    warnings.push(
+      "Mã chứa thẻ <script>. Thẻ script sẽ tự động bị lược bỏ khi kết xuất vì lý do an toàn.",
+    );
   }
   if (/ on\w+=/gi.test(content)) {
-    warnings.push("Mã chứa các thuộc tính sự kiện inline (vd: onclick, onerror). Chúng sẽ bị lược bỏ.");
+    warnings.push(
+      "Mã chứa các thuộc tính sự kiện inline (vd: onclick, onerror). Chúng sẽ bị lược bỏ.",
+    );
   }
 
   // 4. Print safety check
   if (content.includes("box-shadow:") && !content.includes("box-shadow: none")) {
-    if (/box-shadow:\s*[^;]*rgba?\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\.[3-9]/gi.test(content) || /box-shadow:\s*[^;]*\b[1-9][0-9]px/gi.test(content)) {
-      warnings.push("Thiết kế sử dụng đổ bóng (box-shadow) đậm. Đổ bóng quá đậm có thể không hiển thị đẹp khi in A4 trắng đen.");
+    if (
+      /box-shadow:\s*[^;]*rgba?\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\.[3-9]/gi.test(content) ||
+      /box-shadow:\s*[^;]*\b[1-9][0-9]px/gi.test(content)
+    ) {
+      warnings.push(
+        "Thiết kế sử dụng đổ bóng (box-shadow) đậm. Đổ bóng quá đậm có thể không hiển thị đẹp khi in A4 trắng đen.",
+      );
     }
   }
 
@@ -178,7 +194,7 @@ export function auditTemplate(
   const validation = validateTemplateVariables(content, templateType);
   if (!validation.valid) {
     missingRequiredVars.push(...validation.missing);
-    errors.push(`Thiếu các biến bắt buộc: ${validation.missing.map(m => `{{${m}}}`).join(", ")}`);
+    errors.push(`Thiếu các biến bắt buộc: ${validation.missing.map((m) => `{{${m}}}`).join(", ")}`);
   }
 
   return {

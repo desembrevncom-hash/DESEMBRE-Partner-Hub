@@ -130,7 +130,7 @@ export const A4PreviewFrame = forwardRef<A4PreviewFrameRef, A4PreviewFrameProps>
         </div>
       </div>
     );
-  }
+  },
 );
 
 A4PreviewFrame.displayName = "A4PreviewFrame";

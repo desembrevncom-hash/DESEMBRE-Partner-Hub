@@ -3,7 +3,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 async function check() {
   const { data: brands } = await supabase.from("product_brands").select("id, name");
   console.log("Brands:", brands);
-  const desembreBrand = brands?.find(b => b.name.toLowerCase().includes("desembre"))?.id;
+  const desembreBrand = brands?.find((b) => b.name.toLowerCase().includes("desembre"))?.id;
   console.log("Desembre UUID:", desembreBrand);
 }
 check();

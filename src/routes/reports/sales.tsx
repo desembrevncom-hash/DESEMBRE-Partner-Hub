@@ -5,6 +5,7 @@ import { SalesWeeklyTab } from "@/components/reports/SalesWeeklyTab";
 import { SalesMonthlyTab } from "@/components/reports/SalesMonthlyTab";
 import { SalesOpportunitiesTab } from "@/components/reports/SalesOpportunitiesTab";
 import { SaleSelector } from "@/components/reports/SaleSelector";
+import { ExportGoogleSheetButton } from "@/components/reports/ExportGoogleSheetButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Target, CalendarDays, LineChart } from "lucide-react";
 
@@ -16,6 +17,8 @@ function SalesReportPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("weekly");
   const [selectedSaleId, setSelectedSaleId] = useState("");
+  const [currentPeriodStart, setCurrentPeriodStart] = useState("");
+  const [currentPeriodEnd, setCurrentPeriodEnd] = useState("");
 
   if (!user) return null;
 
@@ -45,6 +48,14 @@ function SalesReportPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            {(activeTab === "weekly" || activeTab === "monthly") && (
+              <ExportGoogleSheetButton 
+                saleId={selectedSaleId || user.id} 
+                reportType={activeTab} 
+                periodStart={currentPeriodStart} 
+                periodEnd={currentPeriodEnd} 
+              />
+            )}
             <SaleSelector selectedSaleId={selectedSaleId} onChange={setSelectedSaleId} />
           </div>
         </div>
@@ -79,11 +90,17 @@ function SalesReportPage() {
           </div>
 
           <TabsContent value="weekly" className="mt-0 outline-none">
-            <SalesWeeklyTab selectedSaleId={selectedSaleId} />
+            <SalesWeeklyTab 
+              selectedSaleId={selectedSaleId} 
+              onPeriodChange={(s, e) => { setCurrentPeriodStart(s); setCurrentPeriodEnd(e); }} 
+            />
           </TabsContent>
           
           <TabsContent value="monthly" className="mt-0 outline-none">
-            <SalesMonthlyTab selectedSaleId={selectedSaleId} />
+            <SalesMonthlyTab 
+              selectedSaleId={selectedSaleId} 
+              onPeriodChange={(s, e) => { setCurrentPeriodStart(s); setCurrentPeriodEnd(e); }} 
+            />
           </TabsContent>
 
           <TabsContent value="opportunities" className="mt-0 outline-none">

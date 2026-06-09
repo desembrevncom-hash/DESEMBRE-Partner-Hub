@@ -38,7 +38,10 @@ async function run() {
     process.exit(1);
   }
 
-  if (supabaseUrl === "https://xhfqjupiidexvlltstal.supabase.co" || supabaseUrl?.includes("xhfqjupiidexvlltstal")) {
+  if (
+    supabaseUrl === "https://xhfqjupiidexvlltstal.supabase.co" ||
+    supabaseUrl?.includes("xhfqjupiidexvlltstal")
+  ) {
     console.error("❌ FATAL: Production URL detected. Aborting.");
     process.exit(1);
   }
@@ -63,26 +66,51 @@ async function run() {
   // --- 1. SEED USERS / STAFF ---
   console.log("\n--- Seeding Users/Staff ---");
   const testUsers = [
-    { email: "admin.test@desembre.local", name: "Admin Test", role: "admin", password: "Staging@123456" },
-    { email: "subadmin.test@desembre.local", name: "Sub Admin Test", role: "sub_admin", password: "Staging@123456" },
-    { email: "sales01.test@desembre.local", name: "Sales 01 Test", role: "sale", password: "Staging@123456" },
-    { email: "sales02.test@desembre.local", name: "Sales 02 Test", role: "sale", password: "Staging@123456" },
-    { email: "telesales01.test@desembre.local", name: "Telesales 01 Test", role: "telesale", password: "Staging@123456" }
+    {
+      email: "admin.test@desembre.local",
+      name: "Admin Test",
+      role: "admin",
+      password: "Staging@123456",
+    },
+    {
+      email: "subadmin.test@desembre.local",
+      name: "Sub Admin Test",
+      role: "sub_admin",
+      password: "Staging@123456",
+    },
+    {
+      email: "sales01.test@desembre.local",
+      name: "Sales 01 Test",
+      role: "sale",
+      password: "Staging@123456",
+    },
+    {
+      email: "sales02.test@desembre.local",
+      name: "Sales 02 Test",
+      role: "sale",
+      password: "Staging@123456",
+    },
+    {
+      email: "telesales01.test@desembre.local",
+      name: "Telesales 01 Test",
+      role: "telesale",
+      password: "Staging@123456",
+    },
   ];
 
   const userIds: Record<string, string> = {};
 
   for (const tu of testUsers) {
     let uid = "";
-    
+
     // Check if user exists via admin API
     const { data: listData, error: listError } = await adminClient.auth.admin.listUsers();
     if (listError) {
       console.error("❌ Error listing auth users:", listError.message);
       process.exit(1);
     }
-    
-    const existing = listData?.users.find(u => u.email === tu.email);
+
+    const existing = listData?.users.find((u) => u.email === tu.email);
     if (existing) {
       uid = existing.id;
       console.log(`[Users] ${tu.email} already exists (${uid})`);
@@ -92,8 +120,8 @@ async function run() {
         password: tu.password,
         email_confirm: true,
         user_metadata: {
-          display_name: tu.name
-        }
+          display_name: tu.name,
+        },
       });
       if (createError || !created?.user) {
         console.error(`❌ Error creating user ${tu.email}:`, createError?.message);
@@ -110,13 +138,13 @@ async function run() {
       email: tu.email,
       display_name: tu.name,
       avatar_url: null,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     });
 
     // Upsert Role
     await adminClient.from("user_roles").upsert({
       user_id: uid,
-      role: tu.role
+      role: tu.role,
     });
   }
 
@@ -130,27 +158,35 @@ async function run() {
   const customerIds: string[] = [];
 
   for (let i = 1; i <= customersToSeed; i++) {
-    const ownerId = (i % 2 === 0) ? sales01Id : sales02Id;
+    const ownerId = i % 2 === 0 ? sales01Id : sales02Id;
     const phone = `09000000${i.toString().padStart(2, "0")}`;
     const email = `customer${i.toString().padStart(2, "0")}@mock.desembre.local`;
-    
-    const { data: existingCust } = await adminClient.from("customers").select("id").eq("phone", phone).maybeSingle();
+
+    const { data: existingCust } = await adminClient
+      .from("customers")
+      .select("id")
+      .eq("phone", phone)
+      .maybeSingle();
     let custId = "";
 
     if (existingCust) {
       custId = existingCust.id;
     } else {
-      const { data: newCust, error: errCust } = await adminClient.from("customers").insert({
-        name: `Mock Customer ${i}`,
-        phone: phone,
-        email: email,
-        zalo_id: null,
-        address: `123 Mock Street ${i}`,
-        tier: i % 3 === 0 ? "vip" : "standard",
-        owner_sale_id: ownerId,
-        source: "direct"
-      }).select("id").single();
-      
+      const { data: newCust, error: errCust } = await adminClient
+        .from("customers")
+        .insert({
+          name: `Mock Customer ${i}`,
+          phone: phone,
+          email: email,
+          zalo_id: null,
+          address: `123 Mock Street ${i}`,
+          tier: i % 3 === 0 ? "vip" : "standard",
+          owner_sale_id: ownerId,
+          source: "direct",
+        })
+        .select("id")
+        .single();
+
       if (!errCust && newCust) {
         custId = newCust.id;
         customersSeeded++;
@@ -165,25 +201,33 @@ async function run() {
   // --- 3. SEED CATALOG & ORDERS ---
   console.log("\n--- Seeding Orders ---");
   // Get some active products
-  const { data: products } = await adminClient.from("catalog_products").select("id, name").eq("status", "active").limit(5);
+  const { data: products } = await adminClient
+    .from("catalog_products")
+    .select("id, name")
+    .eq("status", "active")
+    .limit(5);
   let ordersSeeded = 0;
 
   if (products && products.length > 0 && customerIds.length > 0) {
     for (let i = 0; i < 5; i++) {
       const custId = customerIds[i % customerIds.length];
-      const ownerId = (i % 2 === 0) ? sales01Id : sales02Id;
-      
-      const { data: newOrder, error: errOrder } = await adminClient.from("orders").insert({
-        customer_name: `Mock Customer ${i}`,
-        customer_phone: `090000000${i}`,
-        sale_user_id: ownerId,
-        status: "confirmed",
-        subtotal: 1500000,
-        discount_rate: 0,
-        vat_rate: 0.08,
-        total: 1620000,
-        note: "Mock Order"
-      }).select("id").single();
+      const ownerId = i % 2 === 0 ? sales01Id : sales02Id;
+
+      const { data: newOrder, error: errOrder } = await adminClient
+        .from("orders")
+        .insert({
+          customer_name: `Mock Customer ${i}`,
+          customer_phone: `090000000${i}`,
+          sale_user_id: ownerId,
+          status: "confirmed",
+          subtotal: 1500000,
+          discount_rate: 0,
+          vat_rate: 0.08,
+          total: 1620000,
+          note: "Mock Order",
+        })
+        .select("id")
+        .single();
 
       if (!errOrder && newOrder) {
         ordersSeeded++;
@@ -197,7 +241,7 @@ async function run() {
           unit_price: 1500000,
           quantity: 1,
           line_total: 1500000,
-          source: "db_catalog"
+          source: "db_catalog",
         });
       }
     }
@@ -209,18 +253,18 @@ async function run() {
   // --- 4. SEED INTERACTIONS / APPOINTMENTS ---
   console.log("\n--- Seeding Customer Interactions (Appointments/Tasks) ---");
   let interactionsSeeded = 0;
-  
+
   // Check if customer_interactions table exists
   const { error: ciError } = await adminClient.from("customer_interactions").select("id").limit(1);
   if (!ciError) {
     for (let i = 0; i < 15; i++) {
       const isAppointment = i < 10;
       const custId = customerIds[i % customerIds.length];
-      const ownerId = (i % 2 === 0) ? sales01Id : sales02Id;
-      
+      const ownerId = i % 2 === 0 ? sales01Id : sales02Id;
+
       const date = new Date();
       date.setDate(date.getDate() + (i - 5)); // some past, some future
-      
+
       await adminClient.from("customer_interactions").insert({
         customer_id: custId,
         owner_id: ownerId,
@@ -228,12 +272,15 @@ async function run() {
         notes: isAppointment ? "Mock Appointment" : "Mock Call Follow-up",
         status: date > new Date() ? "scheduled" : "completed",
         interaction_date: date.toISOString(),
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       });
       interactionsSeeded++;
     }
   } else {
-    console.log("[Interactions] Skipping: customer_interactions table not found or error:", ciError.message);
+    console.log(
+      "[Interactions] Skipping: customer_interactions table not found or error:",
+      ciError.message,
+    );
   }
   console.log(`[Interactions] Seeded ${interactionsSeeded} interactions.`);
 
@@ -248,7 +295,7 @@ async function run() {
         name: "Báo giá tiêu chuẩn (Mock)",
         status: "approved",
         html_template: "<h1>Báo giá</h1><p>Demo Báo giá</p>",
-        created_by: userIds["admin.test@desembre.local"]
+        created_by: userIds["admin.test@desembre.local"],
       },
       {
         id: "22222222-2222-2222-2222-222222222222",
@@ -256,8 +303,8 @@ async function run() {
         name: "Tài liệu sản phẩm (Mock)",
         status: "approved",
         html_template: "<h1>{{product.name}}</h1><p>{{product.short_description}}</p>",
-        created_by: userIds["admin.test@desembre.local"]
-      }
+        created_by: userIds["admin.test@desembre.local"],
+      },
     ]);
     console.log("[Templates] Seeded templates.");
   } else {

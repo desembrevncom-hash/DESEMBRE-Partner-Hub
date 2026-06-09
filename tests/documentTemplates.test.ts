@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { 
-  auditTemplate, 
-  validateTemplateVariables, 
+import {
+  auditTemplate,
+  validateTemplateVariables,
   renderTemplate,
-  getTemplateSampleData
+  getTemplateSampleData,
 } from "../src/lib/documentTemplates";
 
 describe("Document Templates Module", () => {
@@ -43,26 +43,30 @@ describe("Document Templates Module", () => {
       const html = "<div>{{#each items}} {{product_name}}</div>"; // missing {{/each}}
       const audit = auditTemplate(html, "quotation");
       expect(audit.valid).toBe(false);
-      expect(audit.errors.some(e => e.includes("each"))).toBe(true);
+      expect(audit.errors.some((e) => e.includes("each"))).toBe(true);
     });
 
     it("should catch unclosed curly braces", () => {
       const html = "<div>{{company.name {{total}}</div>"; // unmatched double braces
       const audit = auditTemplate(html, "quotation");
       expect(audit.valid).toBe(false);
-      expect(audit.errors.some(e => e.includes("không khớp"))).toBe(true);
+      expect(audit.errors.some((e) => e.includes("không khớp"))).toBe(true);
     });
 
     it("should warn about dangerous script tags", () => {
-      const html = "<div>{{company.name}} {{quotation.code}} {{customer.name}} {{total}} <script>alert(1)</script></div>";
+      const html =
+        "<div>{{company.name}} {{quotation.code}} {{customer.name}} {{total}} <script>alert(1)</script></div>";
       const audit = auditTemplate(html, "quotation");
-      expect(audit.warnings.some(w => w.includes("script"))).toBe(true);
+      expect(audit.warnings.some((w) => w.includes("script"))).toBe(true);
     });
 
     it("should warn about heavy print-unfriendly box shadows", () => {
-      const html = "<div style='box-shadow: 10px 10px 15px rgba(0,0,0,0.5);'>{{product.name}} {{product.brand_name}}</div>";
+      const html =
+        "<div style='box-shadow: 10px 10px 15px rgba(0,0,0,0.5);'>{{product.name}} {{product.brand_name}}</div>";
       const audit = auditTemplate(html, "product_sales_sheet");
-      expect(audit.warnings.some(w => w.includes("box-shadow") || w.includes("đổ bóng"))).toBe(true);
+      expect(audit.warnings.some((w) => w.includes("box-shadow") || w.includes("đổ bóng"))).toBe(
+        true,
+      );
     });
   });
 
@@ -79,8 +83,8 @@ describe("Document Templates Module", () => {
       const data = {
         items: [
           { name: "Item A", price: "10k" },
-          { name: "Item B", price: "20k" }
-        ]
+          { name: "Item B", price: "20k" },
+        ],
       };
       const rendered = renderTemplate(html, data);
       expect(rendered).toBe("<ul><li>Item A: 10k</li><li>Item B: 20k</li></ul>");
@@ -108,14 +112,15 @@ describe("Document Templates Module", () => {
     });
 
     it("should support nested {{#if}} and loop integration", () => {
-      const html = "<div>{{#if showList}}<ul>{{#each items}}{{#if active}}<li>{{name}}</li>{{/if}}{{/each}}</ul>{{/if}}</div>";
+      const html =
+        "<div>{{#if showList}}<ul>{{#each items}}{{#if active}}<li>{{name}}</li>{{/if}}{{/each}}</ul>{{/if}}</div>";
       const data = {
         showList: true,
         items: [
           { name: "A", active: true },
           { name: "B", active: false },
-          { name: "C", active: true }
-        ]
+          { name: "C", active: true },
+        ],
       };
       const rendered = renderTemplate(html, data);
       expect(rendered).toBe("<div><ul><li>A</li><li>C</li></ul></div>");
@@ -139,7 +144,7 @@ describe("Document Templates Module", () => {
         { id: "2", version: 2, is_current: true, created_at: "2026-06-08T01:00:00Z" },
         { id: "3", version: 3, is_current: false, created_at: "2026-06-08T02:00:00Z" },
       ];
-      
+
       const selected = sheets.find((s) => s.is_current === true) || sheets[0];
       expect(selected.id).toBe("2");
     });

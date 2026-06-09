@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, TrendingUp, Users, ShoppingCart, Activity } from "lucide-react";
 
-export function SalesWeeklyTab({ selectedSaleId }: { selectedSaleId: string }) {
+export function SalesWeeklyTab({ selectedSaleId, onPeriodChange }: { selectedSaleId: string, onPeriodChange?: (start: string, end: string) => void }) {
   const { user, isAdmin } = useAuth();
   const [loading, setLoading] = useState(false);
   const [metrics, setMetrics] = useState<SalesPerformanceMetrics | null>(null);
@@ -46,6 +46,7 @@ export function SalesWeeklyTab({ selectedSaleId }: { selectedSaleId: string }) {
   useEffect(() => {
     if (periodStart && periodEnd && selectedSaleId) {
       fetchReport();
+      onPeriodChange?.(periodStart, periodEnd);
     }
   }, [periodStart, periodEnd, selectedSaleId]);
 

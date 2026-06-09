@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  detectBrandFromQuery,
-  filterChunksByBrand,
-  RagChunk,
-} from "../src/lib/ragBrandGuard";
+import { detectBrandFromQuery, filterChunksByBrand, RagChunk } from "../src/lib/ragBrandGuard";
 
 describe("ragBrandGuard", () => {
   const brandMap = {
@@ -78,14 +74,18 @@ describe("ragBrandGuard", () => {
       const result = filterChunksByBrand(chunks, "dermagarden", brandMap);
       expect(result.allowed).toHaveLength(0);
       expect(result.suppressed).toHaveLength(1);
-      expect(result.noDataMessage).toContain("Milk Essential hiện đang có dữ liệu dưới brand Desembre");
+      expect(result.noDataMessage).toContain(
+        "Milk Essential hiện đang có dữ liệu dưới brand Desembre",
+      );
     });
 
     it("returns generic Dermagarden no-data when no chunks retrieved at all", () => {
       const result = filterChunksByBrand([], "dermagarden", brandMap);
       expect(result.allowed).toHaveLength(0);
       expect(result.suppressed).toHaveLength(0);
-      expect(result.noDataMessage).toBe("Hiện tại chưa có dữ liệu tri thức đã duyệt cho Dermagarden.");
+      expect(result.noDataMessage).toBe(
+        "Hiện tại chưa có dữ liệu tri thức đã duyệt cho Dermagarden.",
+      );
     });
 
     it("returns VAVAW no-data when VAVAW is detected but no VAVAW chunks exist", () => {
@@ -94,7 +94,9 @@ describe("ragBrandGuard", () => {
       const result = filterChunksByBrand(chunks, "vavaw", brandMap);
       expect(result.allowed).toHaveLength(0);
       expect(result.suppressed).toHaveLength(1);
-      expect(result.noDataMessage).toContain("Milk Essential hiện đang có dữ liệu dưới brand Desembre");
+      expect(result.noDataMessage).toContain(
+        "Milk Essential hiện đang có dữ liệu dưới brand Desembre",
+      );
     });
 
     it("returns generic VAVAW no-data when no chunks retrieved", () => {

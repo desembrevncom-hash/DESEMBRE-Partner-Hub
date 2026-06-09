@@ -183,7 +183,7 @@ describe("Phase v1.4.1E.2 - DB Cart Payload & Hydration tests", () => {
       sampleStaticProducts,
       {},
       false, // not sale role
-      0.4
+      0.4,
     );
     expect(normalized).not.toBeNull();
     expect(normalized!.source).toBe("legacy_static");
@@ -198,7 +198,7 @@ describe("Phase v1.4.1E.2 - DB Cart Payload & Hydration tests", () => {
     const normalized = normalizeDbCartItem(
       sampleDbCartItem,
       true, // isSale
-      0.4 // 40% discount
+      0.4, // 40% discount
     );
     expect(normalized).not.toBeNull();
     expect(normalized!.source).toBe("db_catalog");
@@ -238,8 +238,20 @@ describe("Phase v1.4.1E.2 - DB Cart Payload & Hydration tests", () => {
   });
 
   it("8. legacy grouping unchanged", () => {
-    const item1 = normalizeLegacyCartItem({ no: 12, sizeType: "retail" }, sampleStaticProducts, {}, false, 0.4)!;
-    const item2 = normalizeLegacyCartItem({ no: 12, sizeType: "retail" }, sampleStaticProducts, {}, false, 0.4)!;
+    const item1 = normalizeLegacyCartItem(
+      { no: 12, sizeType: "retail" },
+      sampleStaticProducts,
+      {},
+      false,
+      0.4,
+    )!;
+    const item2 = normalizeLegacyCartItem(
+      { no: 12, sizeType: "retail" },
+      sampleStaticProducts,
+      {},
+      false,
+      0.4,
+    )!;
 
     const grouped = groupCartItems([item1, item2]);
     expect(grouped.length).toBe(1);
@@ -247,8 +259,16 @@ describe("Phase v1.4.1E.2 - DB Cart Payload & Hydration tests", () => {
   });
 
   it("9. DB Retail/Salon same product separated", () => {
-    const retailItem = normalizeDbCartItem({ ...sampleDbCartItem, channel: "retail", variant_id: "var-retail" }, false, 0.4)!;
-    const salonItem = normalizeDbCartItem({ ...sampleDbCartItem, channel: "salon", variant_id: "var-salon" }, false, 0.4)!;
+    const retailItem = normalizeDbCartItem(
+      { ...sampleDbCartItem, channel: "retail", variant_id: "var-retail" },
+      false,
+      0.4,
+    )!;
+    const salonItem = normalizeDbCartItem(
+      { ...sampleDbCartItem, channel: "salon", variant_id: "var-salon" },
+      false,
+      0.4,
+    )!;
 
     const grouped = groupCartItems([retailItem, salonItem]);
     expect(grouped.length).toBe(2);
@@ -273,7 +293,13 @@ describe("Phase v1.4.1E.2 - DB Cart Payload & Hydration tests", () => {
   });
 
   it("11. snapshot mapping for legacy item", () => {
-    const item = normalizeLegacyCartItem({ no: 12, sizeType: "retail" }, sampleStaticProducts, {}, false, 0.4)!;
+    const item = normalizeLegacyCartItem(
+      { no: 12, sizeType: "retail" },
+      sampleStaticProducts,
+      {},
+      false,
+      0.4,
+    )!;
     const insert = mapItemToOrderInsert(item, "order-id-999");
 
     expect(insert.order_id).toBe("order-id-999");
@@ -286,7 +312,11 @@ describe("Phase v1.4.1E.2 - DB Cart Payload & Hydration tests", () => {
   });
 
   it("12. VAT calculation with DB item", () => {
-    const item = normalizeDbCartItem({ ...sampleDbCartItem, unit_price: 100000, quantity: 2 }, false, 0.4)!;
+    const item = normalizeDbCartItem(
+      { ...sampleDbCartItem, unit_price: 100000, quantity: 2 },
+      false,
+      0.4,
+    )!;
     const items = [item];
     const subtotal = items.reduce((s, i) => s + i.unit_price * i.quantity, 0);
     const vatRate = 0.08;
@@ -299,8 +329,18 @@ describe("Phase v1.4.1E.2 - DB Cart Payload & Hydration tests", () => {
   });
 
   it("13. VAT calculation with mixed cart", () => {
-    const dbItem = normalizeDbCartItem({ ...sampleDbCartItem, unit_price: 100000, quantity: 2 }, false, 0.4)!;
-    const legacyItem = normalizeLegacyCartItem({ no: 12, sizeType: "retail" }, sampleStaticProducts, {}, false, 0.4)!; // 240,000 * 1 = 240,000
+    const dbItem = normalizeDbCartItem(
+      { ...sampleDbCartItem, unit_price: 100000, quantity: 2 },
+      false,
+      0.4,
+    )!;
+    const legacyItem = normalizeLegacyCartItem(
+      { no: 12, sizeType: "retail" },
+      sampleStaticProducts,
+      {},
+      false,
+      0.4,
+    )!; // 240,000 * 1 = 240,000
 
     const items = [dbItem, legacyItem];
     const subtotal = items.reduce((s, i) => s + i.unit_price * i.quantity, 0); // 200,000 + 240,000 = 440,000
@@ -329,4 +369,3 @@ describe("Phase v1.4.1E.2 - DB Cart Payload & Hydration tests", () => {
     expect(insert.product_no).toBeNull(); // validated nullable insertion path
   });
 });
-
