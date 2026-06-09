@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { SalesWeeklyTab } from "@/components/reports/SalesWeeklyTab";
 import { SalesMonthlyTab } from "@/components/reports/SalesMonthlyTab";
 import { SalesOpportunitiesTab } from "@/components/reports/SalesOpportunitiesTab";
+import { SaleSelector } from "@/components/reports/SaleSelector";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Target, CalendarDays, LineChart } from "lucide-react";
 
@@ -14,6 +15,7 @@ export const Route = createFileRoute("/reports/sales")({
 function SalesReportPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("weekly");
+  const [selectedSaleId, setSelectedSaleId] = useState("");
 
   if (!user) return null;
 
@@ -41,6 +43,9 @@ function SalesReportPage() {
                 Theo dõi KPI và quản lý cơ hội
               </span>
             </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <SaleSelector selectedSaleId={selectedSaleId} onChange={setSelectedSaleId} />
           </div>
         </div>
       </header>
@@ -74,15 +79,15 @@ function SalesReportPage() {
           </div>
 
           <TabsContent value="weekly" className="mt-0 outline-none">
-            <SalesWeeklyTab />
+            <SalesWeeklyTab selectedSaleId={selectedSaleId} />
           </TabsContent>
           
           <TabsContent value="monthly" className="mt-0 outline-none">
-            <SalesMonthlyTab />
+            <SalesMonthlyTab selectedSaleId={selectedSaleId} />
           </TabsContent>
 
           <TabsContent value="opportunities" className="mt-0 outline-none">
-            <SalesOpportunitiesTab />
+            <SalesOpportunitiesTab selectedSaleId={selectedSaleId} />
           </TabsContent>
         </Tabs>
       </main>

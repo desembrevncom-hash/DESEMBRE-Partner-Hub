@@ -6,16 +6,16 @@ import { OpportunityCustomer } from "@/types/salesReports";
 import { Input } from "@/components/ui/input";
 import { Loader2, DollarSign, Calendar, Star } from "lucide-react";
 
-export function SalesOpportunitiesTab() {
+export function SalesOpportunitiesTab({ selectedSaleId }: { selectedSaleId: string }) {
   const { user, isAdmin } = useAuth();
   const [loading, setLoading] = useState(false);
   const [opportunities, setOpportunities] = useState<OpportunityCustomer[]>([]);
 
   useEffect(() => {
-    if (user) {
+    if (user && selectedSaleId) {
       fetchOpportunities();
     }
-  }, [user]);
+  }, [user, selectedSaleId]);
 
   const fetchOpportunities = async () => {
     setLoading(true);
@@ -31,7 +31,9 @@ export function SalesOpportunitiesTab() {
         .not("lifecycle_stage", "in", '("won","lost","deleted")')
         .order("created_at", { ascending: false });
 
-      if (!isAdmin) {
+      if (isAdmin && selectedSaleId) {
+        query = query.eq("owner_sale_id", selectedSaleId);
+      } else if (!isAdmin) {
         query = query.eq("owner_sale_id", user?.id);
       }
 
