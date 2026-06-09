@@ -1,0 +1,60 @@
+name: CI — Build, Test & Preflight
+
+on:
+  pull_request:
+    branches:
+      - master
+      - "develop/**"
+      - "release/**"
+  push:
+    branches:
+      - "develop/**"
+      - "release/**"
+      - "feature/**"
+  workflow_dispatch:
+
+jobs:
+  ci:
+    name: CI Gate (install → preflight → build → test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      # Safe non-production Staging values for CI.
+      # These allow Vite to build without undefined VITE_* vars.
+      # NEVER use Production ref xhfqjupiidexvlltstal here.
+      VITE_SUPABASE_URL: https://wmhfvggbthyikqvlyqup.supabase.co
+      VITE_SUPABASE_ANON_KEY: ci_dummy_anon_key
+      VITE_PRODUCT_CATALOG_DB_READ_ENABLED: "true"
+      VITE_PRODUCT_DB_ADMIN_ENABLED: "true"
+      VITE_PRODUCT_DB_ORDER_ENABLED: "true"
+      # Expose branch name for scripts that need it (detached HEAD fix)
+      GITHUB_HEAD_REF: ${{ github.head_ref }}
+      GITHUB_REF_NAME: ${{ github.ref_name }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          # Use head_ref for PRs (feature branch), ref_name for pushes.
+          # Prevents detached HEAD where git branch --show-current returns empty.
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Staging preflight — env safety guard
+        run: npm run staging:preflight
+
+      - name: Build — Vite production bundle
+        run: npm run build
+
+      - name: Test — Vitest unit suite
+        run: npm run test
