@@ -178,11 +178,12 @@ Deno.serve(async (req) => {
       const manualInputs = reportData.manual_inputs || {};
       
       const values = [
-        ["BÁO CÁO HIỆU SUẤT BÁN HÀNG"],
+        ["DESEMBRE Sales Report"],
         [""],
         ["Nhân sự:", saleName],
         ["Loại báo cáo:", reportType === "weekly" ? "Báo cáo Tuần" : "Báo cáo Tháng"],
         ["Giai đoạn:", `${periodStart} đến ${periodEnd}`],
+        ["Ngày xuất báo cáo:", now.toLocaleString("vi-VN")],
         [""],
         ["--- CHỈ SỐ KPI ---"],
         ["Doanh thu (VNĐ)", reportData.total_revenue || 0],
