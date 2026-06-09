@@ -24,7 +24,7 @@ export function SalesOpportunitiesTab() {
         .from("customers")
         .select(`
           id, name, contact_name, facility_name, city, district, source,
-          lifecycle_stage, created_at, last_assigned_at, last_activity_at,
+          lifecycle_stage, created_at, last_reassigned_at, last_activity_at,
           last_contacted_at, delete_reason, reclaim_reason,
           opportunity_expected_revenue, opportunity_expected_close_date, opportunity_potential_score
         `)

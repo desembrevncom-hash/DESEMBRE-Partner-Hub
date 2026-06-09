@@ -34,7 +34,7 @@ export interface OpportunityCustomer {
   source?: string;
   lifecycle_stage: string;
   created_at: string;
-  last_assigned_at?: string;
+  last_reassigned_at?: string;
   last_activity_at?: string;
   last_contacted_at?: string;
   delete_reason?: string;
