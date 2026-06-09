@@ -23,7 +23,7 @@ export function SalesOpportunitiesTab() {
       let query = supabase
         .from("customers")
         .select(`
-          id, name, contact_name, facility_name, city, province, source,
+          id, name, contact_name, facility_name, city, district, source,
           lifecycle_stage, created_at, last_assigned_at, last_activity_at,
           last_contacted_at, delete_reason, reclaim_reason,
           opportunity_expected_revenue, opportunity_expected_close_date, opportunity_potential_score
@@ -113,7 +113,7 @@ export function SalesOpportunitiesTab() {
                 <tr key={opt.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="p-3 pl-6">
                     <div className="font-bold text-slate-900">{opt.facility_name || opt.name}</div>
-                    <div className="text-xs text-slate-500">{opt.city || opt.province || "Chưa có địa chỉ"}</div>
+                    <div className="text-xs text-slate-500">{opt.city || opt.district || "Chưa có địa chỉ"}</div>
                   </td>
                   <td className="p-3 text-xs">
                     <span className="px-2 py-1 bg-slate-100 text-slate-700 rounded-md">

@@ -30,7 +30,7 @@ export interface OpportunityCustomer {
   contact_name?: string;
   facility_name?: string;
   city?: string;
-  province?: string;
+  district?: string;
   source?: string;
   lifecycle_stage: string;
   created_at: string;
