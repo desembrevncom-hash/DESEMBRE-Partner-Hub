@@ -20,6 +20,7 @@ import {
   UserCircle,
   FileText,
   Menu,
+  BarChart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -145,6 +146,7 @@ function RootLayout() {
                   <NavButton to="/orders" icon={Package} label="Đơn hàng" />
                   <NavButton to="/admin/products" icon={Zap} label="Sản phẩm" />
                   <NavButton to="/calendar" icon={Calendar} label="Lịch hẹn" />
+                  <NavButton to="/reports/sales" icon={BarChart} label="Báo cáo" />
                   {(isAdmin || isSubAdmin || isTeleLead || isSale) && (
                     <NavButton to="/marketing" icon={Sparkles} label="Marketing" highlight />
                   )}
@@ -263,6 +265,7 @@ function RootLayout() {
             <MobileNavButton to="/customers" icon={Users} label="Khách hàng" />
             <MobileNavButton to="/calendar" icon={Calendar} label="Lịch hẹn" />
             <MobileNavButton to="/orders" icon={Package} label="Đơn hàng" />
+            <MobileNavButton to="/reports/sales" icon={BarChart} label="Báo cáo" />
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

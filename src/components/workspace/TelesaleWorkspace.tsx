@@ -191,6 +191,22 @@ export const TelesaleWorkspace: React.FC = () => {
     return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
   });
 
+  const newLeadPriorities = data.customers
+    .filter((c: any) => c.lifecycle_stage === "assigned")
+    .map((c: any) => ({
+      id: `new_lead_${c.id}`,
+      task_type: "call",
+      title: "Lead mới được giao",
+      priority: "urgent",
+      status: "pending",
+      due_at: new Date().toISOString(),
+      customer_id: c.id,
+      customer: c,
+      _is_new_lead_virtual_task: true,
+    }));
+
+  const combinedPriorityTasks = [...newLeadPriorities, ...priorityTasks];
+
   return (
     <WorkspaceShell
       title="Telesale Workspace"
@@ -385,9 +401,9 @@ export const TelesaleWorkspace: React.FC = () => {
           </h3>
         </div>
 
-        {priorityTasks.length > 0 ? (
+        {combinedPriorityTasks.length > 0 ? (
           <div className="space-y-3">
-            {priorityTasks.map((t: any) => {
+            {combinedPriorityTasks.map((t: any) => {
               const isOverdue = new Date(t.due_at).getTime() < new Date().getTime();
               const isUrgent = t.priority === "urgent" || isOverdue;
 
