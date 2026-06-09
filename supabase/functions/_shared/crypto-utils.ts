@@ -38,22 +38,20 @@ function getMasterKeyMaterial(): Uint8Array {
   }
 }
 
-export async function encryptApiKey(plaintext: string): Promise<{ ciphertext: string, mask: string }> {
+export async function encryptApiKey(
+  plaintext: string,
+): Promise<{ ciphertext: string; mask: string }> {
   const keyMaterial = getMasterKeyMaterial();
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    keyMaterial,
-    { name: "AES-GCM" },
-    false,
-    ["encrypt"]
-  );
+  const cryptoKey = await crypto.subtle.importKey("raw", keyMaterial, { name: "AES-GCM" }, false, [
+    "encrypt",
+  ]);
 
   const encoder = new TextEncoder();
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encryptedBuf = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv },
     cryptoKey,
-    encoder.encode(plaintext)
+    encoder.encode(plaintext),
   );
 
   const combined = new Uint8Array(iv.length + encryptedBuf.byteLength);
@@ -62,7 +60,7 @@ export async function encryptApiKey(plaintext: string): Promise<{ ciphertext: st
 
   // Convert to base64
   const base64Ciphertext = btoa(String.fromCharCode(...combined));
-  
+
   // Create mask (e.g., sk-...abcd)
   let mask = "sk-...";
   if (plaintext.length > 8) {
@@ -78,13 +76,9 @@ export async function encryptApiKey(plaintext: string): Promise<{ ciphertext: st
 
 export async function decryptApiKey(base64Ciphertext: string): Promise<string> {
   const keyMaterial = getMasterKeyMaterial();
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    keyMaterial,
-    { name: "AES-GCM" },
-    false,
-    ["decrypt"]
-  );
+  const cryptoKey = await crypto.subtle.importKey("raw", keyMaterial, { name: "AES-GCM" }, false, [
+    "decrypt",
+  ]);
 
   const combinedStr = atob(base64Ciphertext);
   const combined = new Uint8Array(combinedStr.length);
@@ -98,7 +92,7 @@ export async function decryptApiKey(base64Ciphertext: string): Promise<string> {
   const decryptedBuf = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv },
     cryptoKey,
-    ciphertextBuf
+    ciphertextBuf,
   );
 
   return new TextDecoder().decode(decryptedBuf);

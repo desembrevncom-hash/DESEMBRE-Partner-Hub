@@ -49,7 +49,9 @@ if (!targetMode) {
 if (targetMode === "production") {
   const confirmProd = process.env.CONFIRM_PROD_DANGEROUS_ACTION;
   if (confirmProd !== "YES") {
-    console.error("❌ ERROR: TARGET_ENV is 'production'. You must set CONFIRM_PROD_DANGEROUS_ACTION='YES' to run this script.");
+    console.error(
+      "❌ ERROR: TARGET_ENV is 'production'. You must set CONFIRM_PROD_DANGEROUS_ACTION='YES' to run this script.",
+    );
     process.exit(1);
   }
   console.warn("⚠️ WARNING: Running against PRODUCTION database!");
@@ -90,7 +92,11 @@ function splitTextIntoChunks(text, maxTokens = 500) {
 
 function buildChunks(pkData, objectionsData = []) {
   const fieldsToChunk = [
-    { name: "Sản phẩm", text: pkData.product_name || `Sản phẩm ID ${pkData.product_id}`, type: "general" },
+    {
+      name: "Sản phẩm",
+      text: pkData.product_name || `Sản phẩm ID ${pkData.product_id}`,
+      type: "general",
+    },
     { name: "Mô tả ngắn", text: pkData.short_description, type: "general" },
     { name: "Công dụng", text: pkData.benefits, type: "benefit" },
     {
@@ -137,7 +143,9 @@ function buildChunks(pkData, objectionsData = []) {
 console.log("====================================================");
 console.log("  Phase v1.4.1F.2 — Reindex Product Knowledge");
 console.log("====================================================");
-console.log(`  Mode           : ${DRY_RUN ? "DRY-RUN (no OpenAI calls, no DB writes)" : "APPLY ⚠️"}`);
+console.log(
+  `  Mode           : ${DRY_RUN ? "DRY-RUN (no OpenAI calls, no DB writes)" : "APPLY ⚠️"}`,
+);
 console.log(`  Target product : ${TARGET_PRODUCT_ID ?? "ALL approved"}`);
 console.log(`  Supabase URL   : ${SUPABASE_URL.substring(0, 45)}...`);
 console.log("  Service key    : [LOADED — not logged]");
@@ -220,9 +228,7 @@ for (const pk of targets) {
 
   const expectedChunks = buildChunks(pk, objData ?? []);
 
-  console.log(
-    `\n  product_id=${pk.product_id} — ${pk.product_name ?? "Unknown"}`
-  );
+  console.log(`\n  product_id=${pk.product_id} — ${pk.product_name ?? "Unknown"}`);
   console.log(`    qa_status     : ${pk.qa_status}`);
   console.log(`    build_status  : ${pk.build_status}`);
   console.log(`    brand_id      : ${pk.brand_id ?? "null"}`);
@@ -232,7 +238,9 @@ for (const pk of targets) {
   console.log(`    total_chunks  : ${totalChunks ?? 0}`);
   console.log(`    objections    : ${objectionCount ?? 0}`);
   console.log(`    expected_chunks (rebuild): ${expectedChunks.length}`);
-  console.log(`    action        : ${(activeChunks ?? 0) === 0 ? "⚠️  NEEDS EMBED" : "✅ HAS CHUNKS (rebuild=true)"}`);
+  console.log(
+    `    action        : ${(activeChunks ?? 0) === 0 ? "⚠️  NEEDS EMBED" : "✅ HAS CHUNKS (rebuild=true)"}`,
+  );
 }
 
 // ─── Step 3: Execute dry-run or apply ────────────────────────────────────
@@ -247,7 +255,7 @@ for (const pk of targets) {
 
   const needsEmbed = (activeChunks ?? 0) === 0;
   console.log(
-    `  product_id=${pk.product_id}: ${needsEmbed ? "EMBED (new)" : "REBUILD (has chunks)"}`
+    `  product_id=${pk.product_id}: ${needsEmbed ? "EMBED (new)" : "REBUILD (has chunks)"}`,
   );
 }
 
@@ -282,10 +290,7 @@ for (const pk of targets) {
   }
 
   // Set build_status = processing
-  await supabase
-    .from("product_knowledge")
-    .update({ build_status: "processing" })
-    .eq("id", pk.id);
+  await supabase.from("product_knowledge").update({ build_status: "processing" }).eq("id", pk.id);
 
   let currentVersion = pk.knowledge_version ?? 1;
 
@@ -377,7 +382,7 @@ for (const pk of targets) {
 
     totalNewChunks += insertedChunkIds.length;
     console.log(
-      `  ✅ product_id=${pk.product_id} done — ${insertedChunkIds.length} new chunks, version=${currentVersion}`
+      `  ✅ product_id=${pk.product_id} done — ${insertedChunkIds.length} new chunks, version=${currentVersion}`,
     );
   } catch (err) {
     await supabase
@@ -426,9 +431,7 @@ for (const pk of targets) {
   }
 
   const count = chunks?.length ?? 0;
-  console.log(
-    `  product_id=${pk.product_id}: retrieved ${count} chunks via RPC (threshold=0.1)`
-  );
+  console.log(`  product_id=${pk.product_id}: retrieved ${count} chunks via RPC (threshold=0.1)`);
   if (count > 0) {
     console.log(`    Top score : ${chunks[0].similarity?.toFixed(4)}`);
     console.log(`    Top type  : ${chunks[0].chunk_type}`);

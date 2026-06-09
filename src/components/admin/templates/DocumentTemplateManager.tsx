@@ -1,31 +1,35 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { 
-  FileText, 
-  Save, 
-  Plus, 
-  AlertTriangle, 
-  Trash2, 
-  Copy, 
-  Check, 
+import {
+  FileText,
+  Save,
+  Plus,
+  AlertTriangle,
+  Trash2,
+  Copy,
+  Check,
   CheckCircle,
-  RotateCcw, 
-  HelpCircle, 
-  BookOpen, 
-  Info, 
-  FileSpreadsheet, 
-  Heart, 
+  RotateCcw,
+  HelpCircle,
+  BookOpen,
+  Info,
+  FileSpreadsheet,
+  Heart,
   Sparkles,
   Eye,
   FileCode,
-  LayoutTemplate
+  LayoutTemplate,
 } from "lucide-react";
 import { DocumentTemplatePreview } from "./DocumentTemplatePreview";
 import { useAuth } from "@/hooks/useAuth";
 import { validateTemplateVariables, auditTemplate } from "@/lib/documentTemplates";
 
-type TemplateType = "quotation" | "product_sales_sheet" | "product_catalog_a4" | "customer_consultation_sheet";
+type TemplateType =
+  | "quotation"
+  | "product_sales_sheet"
+  | "product_catalog_a4"
+  | "customer_consultation_sheet";
 
 interface DocumentTemplate {
   id: string;
@@ -40,7 +44,8 @@ interface DocumentTemplate {
 const DEFAULT_PRESETS: Record<TemplateType, { name: string; description: string; html: string }> = {
   quotation: {
     name: "quotation_default_v1",
-    description: "Mẫu báo giá chuyên nghiệp Desembre chuẩn A4 với chữ ký chuyên viên và bảng tổng hợp VAT.",
+    description:
+      "Mẫu báo giá chuyên nghiệp Desembre chuẩn A4 với chữ ký chuyên viên và bảng tổng hợp VAT.",
     html: `<div style="font-family: 'Inter', sans-serif; color: #1e293b; max-width: 100%; line-height: 1.5; padding: 10px;">
   <!-- Header -->
   <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 25px;">
@@ -134,11 +139,12 @@ const DEFAULT_PRESETS: Record<TemplateType, { name: string; description: string;
       </div>
     </div>
   </div>
-</div>`
+</div>`,
   },
   product_sales_sheet: {
     name: "product_sales_sheet_premium_v1",
-    description: "Mẫu Product Sales Sheet cao cấp dạng 2 cột chia khu vực hình ảnh + bảng giá & công thức RAG base của sản phẩm.",
+    description:
+      "Mẫu Product Sales Sheet cao cấp dạng 2 cột chia khu vực hình ảnh + bảng giá & công thức RAG base của sản phẩm.",
     html: `<div style="font-family: 'Inter', sans-serif; max-width: 100%; color: #1e293b; line-height: 1.4; padding: 5px;">
   <!-- Premium Header -->
   <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3.5px solid #1e3a8a; padding-bottom: 12px; margin-bottom: 16px;">
@@ -252,11 +258,12 @@ const DEFAULT_PRESETS: Record<TemplateType, { name: string; description: string;
     <div>Tài liệu lưu hành nội bộ Desembre | Tạo lúc: {{generated_at}}</div>
     <div>Trang 1/1</div>
   </div>
-</div>`
+</div>`,
   },
   product_catalog_a4: {
     name: "product_catalog_a4_v1",
-    description: "Mẫu Catalog tổng hợp mạng lưới dạng A4 xếp lưới 2 cột sản phẩm với hình ảnh và thông số dung tích.",
+    description:
+      "Mẫu Catalog tổng hợp mạng lưới dạng A4 xếp lưới 2 cột sản phẩm với hình ảnh và thông số dung tích.",
     html: `<div style="font-family: 'Inter', sans-serif; padding: 10px; color: #1e293b; max-width: 100%;">
   <!-- Green Header -->
   <div style="border-bottom: 3.5px solid #059669; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end;">
@@ -310,11 +317,12 @@ const DEFAULT_PRESETS: Record<TemplateType, { name: string; description: string;
   <div style="margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 12px; text-align: center; font-size: 9px; color: #94a3b8; font-weight: 500;">
     <span>Tài liệu nội bộ Desembre Việt Nam &bull; Giá niêm yết chưa áp dụng chiết khấu đại lý. &bull; Hỗ trợ in khổ giấy A4.</span>
   </div>
-</div>`
+</div>`,
   },
   customer_consultation_sheet: {
     name: "customer_consultation_sheet_v1",
-    description: "Mẫu Routine/Phiếu tư vấn da liễu phác đồ trị liệu tại nhà Desembre dành cho khách hàng đối tác Spa.",
+    description:
+      "Mẫu Routine/Phiếu tư vấn da liễu phác đồ trị liệu tại nhà Desembre dành cho khách hàng đối tác Spa.",
     html: `<div style="font-family: 'Inter', sans-serif; padding: 15px; color: #1e293b; max-width: 100%; line-height: 1.5;">
   <!-- Violet Header -->
   <div style="border-bottom: 3.5px solid #7c3aed; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end;">
@@ -376,12 +384,15 @@ const DEFAULT_PRESETS: Record<TemplateType, { name: string; description: string;
     {{notes}}
   </div>
   {{/if}}
-</div>`
-  }
+</div>`,
+  },
 };
 
 // Variable description maps for reference sidebar
-const VARIABLE_MAPS: Record<TemplateType, Array<{ name: string; desc: string; isLoop?: boolean }>> = {
+const VARIABLE_MAPS: Record<
+  TemplateType,
+  Array<{ name: string; desc: string; isLoop?: boolean }>
+> = {
   quotation: [
     { name: "company.name", desc: "Tên công ty phát hành" },
     { name: "customer.name", desc: "Họ tên khách hàng nhận" },
@@ -392,7 +403,11 @@ const VARIABLE_MAPS: Record<TemplateType, Array<{ name: string; desc: string; is
     { name: "total", desc: "Tổng cộng tiền thanh toán" },
     { name: "sales.name", desc: "Tên nhân viên lập" },
     { name: "sales.email", desc: "Email nhân viên lập" },
-    { name: "#each items", desc: "Mở đầu vòng lặp sản phẩm báo giá (phải đóng bằng /each)", isLoop: true },
+    {
+      name: "#each items",
+      desc: "Mở đầu vòng lặp sản phẩm báo giá (phải đóng bằng /each)",
+      isLoop: true,
+    },
     { name: "product_name", desc: "Tên sản phẩm (trong vòng lặp items)" },
     { name: "image_url", desc: "Ảnh sản phẩm (trong vòng lặp items)" },
     { name: "size", desc: "Dung tích/quy cách (trong vòng lặp items)" },
@@ -412,13 +427,21 @@ const VARIABLE_MAPS: Record<TemplateType, Array<{ name: string; desc: string; is
     { name: "knowledge.sales_notes", desc: "Lưu ý tư vấn (danh sách)" },
     { name: "knowledge.warnings", desc: "Chống chỉ định (danh sách)" },
     { name: "generated_at", desc: "Thời gian tạo" },
-    { name: "#each variants", desc: "Mở đầu vòng lặp giá sản phẩm (phải đóng bằng /each)", isLoop: true },
+    {
+      name: "#each variants",
+      desc: "Mở đầu vòng lặp giá sản phẩm (phải đóng bằng /each)",
+      isLoop: true,
+    },
     { name: "channel", desc: "Kênh phân phối: retail hoặc salon (trong loop)" },
     { name: "size_label", desc: "Dung tích sản phẩm (trong loop)" },
     { name: "price", desc: "Đơn giá tương ứng (trong loop)" },
   ],
   product_catalog_a4: [
-    { name: "#each products", desc: "Mở đầu vòng lặp danh mục sản phẩm (phải đóng bằng /each)", isLoop: true },
+    {
+      name: "#each products",
+      desc: "Mở đầu vòng lặp danh mục sản phẩm (phải đóng bằng /each)",
+      isLoop: true,
+    },
     { name: "name", desc: "Tên sản phẩm (trong loop)" },
     { name: "brand", desc: "Thương hiệu (trong loop)" },
     { name: "size", desc: "Dung tích sản phẩm (trong loop)" },
@@ -437,13 +460,13 @@ const VARIABLE_MAPS: Record<TemplateType, Array<{ name: string; desc: string; is
     { name: "step", desc: "Thứ tự bước (ví dụ: Sáng 1, Tối 2)" },
     { name: "product_name", desc: "Tên sản phẩm khuyên dùng" },
     { name: "usage", desc: "Hướng dẫn sử dụng tương ứng" },
-  ]
+  ],
 };
 
 export const DocumentTemplateManager: React.FC = () => {
   const { roles } = useAuth();
-  const isAdmin = roles.some(r => ["admin", "sub_admin"].includes(r));
-  
+  const isAdmin = roles.some((r) => ["admin", "sub_admin"].includes(r));
+
   const [activeTab, setActiveTab] = useState<TemplateType>("quotation");
   const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
   const [editingTemplate, setEditingTemplate] = useState<DocumentTemplate | null>(null);
@@ -453,13 +476,33 @@ export const DocumentTemplateManager: React.FC = () => {
 
   // Tab configurations
   const TAB_CONFIGS = [
-    { id: "quotation" as TemplateType, label: "Báo giá", icon: FileSpreadsheet, color: "text-blue-500 hover:text-blue-600 border-blue-500 bg-blue-50" },
-    { id: "product_sales_sheet" as TemplateType, label: "Product Sales Sheet", icon: FileText, color: "text-indigo-500 hover:text-indigo-600 border-indigo-500 bg-indigo-50" },
-    { id: "product_catalog_a4" as TemplateType, label: "Catalog A4", icon: BookOpen, color: "text-emerald-500 hover:text-emerald-600 border-emerald-500 bg-emerald-50" },
-    { id: "customer_consultation_sheet" as TemplateType, label: "Phiếu tư vấn", icon: Heart, color: "text-purple-500 hover:text-purple-600 border-purple-500 bg-purple-50" }
+    {
+      id: "quotation" as TemplateType,
+      label: "Báo giá",
+      icon: FileSpreadsheet,
+      color: "text-blue-500 hover:text-blue-600 border-blue-500 bg-blue-50",
+    },
+    {
+      id: "product_sales_sheet" as TemplateType,
+      label: "Product Sales Sheet",
+      icon: FileText,
+      color: "text-indigo-500 hover:text-indigo-600 border-indigo-500 bg-indigo-50",
+    },
+    {
+      id: "product_catalog_a4" as TemplateType,
+      label: "Catalog A4",
+      icon: BookOpen,
+      color: "text-emerald-500 hover:text-emerald-600 border-emerald-500 bg-emerald-50",
+    },
+    {
+      id: "customer_consultation_sheet" as TemplateType,
+      label: "Phiếu tư vấn",
+      icon: Heart,
+      color: "text-purple-500 hover:text-purple-600 border-purple-500 bg-purple-50",
+    },
   ];
 
-  const activeTabConfig = TAB_CONFIGS.find(t => t.id === activeTab)!;
+  const activeTabConfig = TAB_CONFIGS.find((t) => t.id === activeTab)!;
 
   const fetchTemplates = async () => {
     setLoading(true);
@@ -468,7 +511,7 @@ export const DocumentTemplateManager: React.FC = () => {
         .from("document_templates")
         .select("*")
         .order("created_at", { ascending: false });
-        
+
       if (error) throw error;
       setTemplates(data || []);
     } catch (err: any) {
@@ -489,7 +532,7 @@ export const DocumentTemplateManager: React.FC = () => {
       name: `Mẫu ${activeTabConfig.label} mới`,
       description: "",
       html_template: "<h1>{{company.name}}</h1>\n<p>Xin chào {{customer.name}}</p>",
-      status: "draft"
+      status: "draft",
     };
     setEditingTemplate(newTemplate);
   };
@@ -497,7 +540,7 @@ export const DocumentTemplateManager: React.FC = () => {
   const handleSave = async () => {
     if (!editingTemplate || !isAdmin) return;
     setSaving(true);
-    
+
     try {
       const payload = {
         template_type: editingTemplate.template_type,
@@ -519,7 +562,7 @@ export const DocumentTemplateManager: React.FC = () => {
         if (error) throw error;
         toast.success("Cập nhật mẫu tài liệu thành công!");
       }
-      
+
       setEditingTemplate(null);
       fetchTemplates();
     } catch (err: any) {
@@ -549,26 +592,33 @@ export const DocumentTemplateManager: React.FC = () => {
   const handleLoadPreset = () => {
     if (!editingTemplate) return;
     const preset = DEFAULT_PRESETS[editingTemplate.template_type];
-    if (preset && confirm("Hành động này sẽ thay thế toàn bộ nội dung HTML hiện tại bằng mẫu thiết kế mặc định. Bạn có muốn tiếp tục?")) {
+    if (
+      preset &&
+      confirm(
+        "Hành động này sẽ thay thế toàn bộ nội dung HTML hiện tại bằng mẫu thiết kế mặc định. Bạn có muốn tiếp tục?",
+      )
+    ) {
       setEditingTemplate({
         ...editingTemplate,
         name: preset.name,
         description: preset.description,
-        html_template: preset.html
+        html_template: preset.html,
       });
       toast.success("Đã tải mẫu mặc định thành công!");
     }
   };
 
   const handleCopyVar = (variable: string) => {
-    const format = variable.startsWith("#each") ? `{{${variable}}}\n\n{{/${variable.split(" ")[1]}}}` : `{{${variable}}}`;
+    const format = variable.startsWith("#each")
+      ? `{{${variable}}}\n\n{{/${variable.split(" ")[1]}}}`
+      : `{{${variable}}}`;
     navigator.clipboard.writeText(format);
     setCopiedVar(variable);
     toast.success(`Đã sao chép: ${format}`);
     setTimeout(() => setCopiedVar(null), 2000);
   };
 
-  const filteredTemplates = templates.filter(t => t.template_type === activeTab);
+  const filteredTemplates = templates.filter((t) => t.template_type === activeTab);
 
   // Live validation & audit
   const auditReport = useMemo(() => {
@@ -578,10 +628,9 @@ export const DocumentTemplateManager: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-slate-50 border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-      
       {/* Tab Navigation header */}
       <div className="flex border-b border-slate-200 bg-white px-2 overflow-x-auto scrollbar-none gap-1 py-1">
-        {TAB_CONFIGS.map(tab => {
+        {TAB_CONFIGS.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
@@ -592,8 +641,8 @@ export const DocumentTemplateManager: React.FC = () => {
                 setEditingTemplate(null);
               }}
               className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all whitespace-nowrap ${
-                isActive 
-                  ? "bg-slate-900 text-white shadow-sm" 
+                isActive
+                  ? "bg-slate-900 text-white shadow-sm"
                   : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
               }`}
             >
@@ -605,12 +654,10 @@ export const DocumentTemplateManager: React.FC = () => {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        
         {/* Left Section: List or Editor form */}
         <div className="w-1/2 flex flex-col border-r border-slate-200 bg-white overflow-y-auto">
           {editingTemplate ? (
             <div className="p-5 flex flex-col gap-5 flex-1">
-              
               {/* Editor Toolbar */}
               <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
                 <div>
@@ -622,9 +669,9 @@ export const DocumentTemplateManager: React.FC = () => {
                     Loại: {activeTabConfig.label}
                   </p>
                 </div>
-                
+
                 <div className="flex gap-2">
-                  <button 
+                  <button
                     onClick={() => {
                       if (confirm("Hủy chỉnh sửa? Mọi thay đổi chưa lưu sẽ bị mất.")) {
                         setEditingTemplate(null);
@@ -635,7 +682,7 @@ export const DocumentTemplateManager: React.FC = () => {
                     Hủy
                   </button>
                   {isAdmin && (
-                    <button 
+                    <button
                       onClick={handleSave}
                       disabled={saving}
                       className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-1.5 shadow-sm transition-all"
@@ -650,11 +697,15 @@ export const DocumentTemplateManager: React.FC = () => {
               {/* Template Parameters Form */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Tên mẫu</label>
-                  <input 
-                    type="text" 
+                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                    Tên mẫu
+                  </label>
+                  <input
+                    type="text"
                     value={editingTemplate.name}
-                    onChange={(e) => setEditingTemplate({...editingTemplate, name: e.target.value})}
+                    onChange={(e) =>
+                      setEditingTemplate({ ...editingTemplate, name: e.target.value })
+                    }
                     disabled={!isAdmin}
                     className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800 font-medium"
                     placeholder="Nhập tên mẫu..."
@@ -662,10 +713,14 @@ export const DocumentTemplateManager: React.FC = () => {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Trạng thái</label>
-                  <select 
+                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                    Trạng thái
+                  </label>
+                  <select
                     value={editingTemplate.status}
-                    onChange={(e) => setEditingTemplate({...editingTemplate, status: e.target.value})}
+                    onChange={(e) =>
+                      setEditingTemplate({ ...editingTemplate, status: e.target.value })
+                    }
                     disabled={!isAdmin}
                     className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-800 font-medium"
                   >
@@ -677,10 +732,14 @@ export const DocumentTemplateManager: React.FC = () => {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Mô tả mẫu</label>
-                <textarea 
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                  Mô tả mẫu
+                </label>
+                <textarea
                   value={editingTemplate.description || ""}
-                  onChange={(e) => setEditingTemplate({...editingTemplate, description: e.target.value})}
+                  onChange={(e) =>
+                    setEditingTemplate({ ...editingTemplate, description: e.target.value })
+                  }
                   disabled={!isAdmin}
                   className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800 min-h-[50px]"
                   placeholder="Nhập mô tả ngắn cho mẫu tài liệu này..."
@@ -707,7 +766,6 @@ export const DocumentTemplateManager: React.FC = () => {
 
               {/* Code Editor and variables Helper layout */}
               <div className="flex flex-1 gap-4 overflow-hidden min-h-[350px]">
-                
                 {/* HTML Editor box */}
                 <div className="flex-1 flex flex-col gap-1.5 overflow-hidden">
                   <div className="flex items-center justify-between">
@@ -715,7 +773,7 @@ export const DocumentTemplateManager: React.FC = () => {
                       <FileCode className="w-3.5 h-3.5 text-slate-400" />
                       HTML Code
                     </label>
-                    
+
                     {!auditReport.valid && (
                       <span className="text-[9px] font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3" />
@@ -723,13 +781,15 @@ export const DocumentTemplateManager: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  <textarea 
+                  <textarea
                     value={editingTemplate.html_template || ""}
-                    onChange={(e) => setEditingTemplate({...editingTemplate, html_template: e.target.value})}
+                    onChange={(e) =>
+                      setEditingTemplate({ ...editingTemplate, html_template: e.target.value })
+                    }
                     disabled={!isAdmin}
                     className="w-full flex-grow px-3 py-2 border border-slate-900 rounded-xl outline-none font-mono text-xs leading-relaxed bg-slate-950 text-emerald-400 selection:bg-slate-800 selection:text-white min-h-[200px]"
                     placeholder="Nhập mã HTML của bạn tại đây..."
-                    style={{ whiteSpace: 'pre', overflowX: 'auto' }}
+                    style={{ whiteSpace: "pre", overflowX: "auto" }}
                   />
 
                   {/* System Audit & Diagnostics Summary */}
@@ -739,7 +799,9 @@ export const DocumentTemplateManager: React.FC = () => {
                         <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
                         Báo cáo kiểm định (Template Audit)
                       </span>
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${auditReport.valid ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${auditReport.valid ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}
+                      >
                         {auditReport.valid ? "ĐẠT TIÊU CHUẨN A4" : "CÓ LỖI CẤU TRÚC"}
                       </span>
                     </div>
@@ -764,7 +826,9 @@ export const DocumentTemplateManager: React.FC = () => {
 
                     {auditReport.warnings.length > 0 && (
                       <div className="space-y-1">
-                        <div className="font-bold text-amber-700 text-[10px]">CẢNH BÁO IN ẤN & AN TOÀN:</div>
+                        <div className="font-bold text-amber-700 text-[10px]">
+                          CẢNH BÁO IN ẤN & AN TOÀN:
+                        </div>
                         {auditReport.warnings.map((warn, idx) => (
                           <div key={idx} className="text-amber-600 flex items-start gap-1 pl-1">
                             <span className="text-amber-500 font-bold">•</span>
@@ -780,30 +844,34 @@ export const DocumentTemplateManager: React.FC = () => {
                 <div className="w-[180px] flex flex-col gap-2 bg-slate-50 border border-slate-100 rounded-xl p-3 overflow-y-auto">
                   <div className="flex items-center gap-1 border-b border-slate-200 pb-1.5">
                     <Info className="w-3.5 h-3.5 text-slate-500" />
-                    <span className="text-[10px] font-black uppercase text-slate-600 tracking-wider">Bản đồ biến</span>
+                    <span className="text-[10px] font-black uppercase text-slate-600 tracking-wider">
+                      Bản đồ biến
+                    </span>
                   </div>
                   <p className="text-[9px] text-slate-400 font-semibold leading-normal">
                     Click vào biến để sao chép tag điền tự động.
                   </p>
-                  
+
                   <div className="flex flex-col gap-1.5 mt-1">
                     {VARIABLE_MAPS[editingTemplate.template_type]?.map((item, idx) => (
-                      <div 
+                      <div
                         key={idx}
                         onClick={() => handleCopyVar(item.name)}
                         className={`p-1.5 rounded-lg border text-left cursor-pointer transition-all ${
-                          copiedVar === item.name 
-                            ? "bg-emerald-50 border-emerald-300 scale-95" 
-                            : item.isLoop 
-                              ? "bg-indigo-50/50 hover:bg-indigo-100 border-indigo-100" 
+                          copiedVar === item.name
+                            ? "bg-emerald-50 border-emerald-300 scale-95"
+                            : item.isLoop
+                              ? "bg-indigo-50/50 hover:bg-indigo-100 border-indigo-100"
                               : "bg-white hover:bg-slate-100 border-slate-200"
                         }`}
                         title={item.desc}
                       >
                         <div className="flex items-center justify-between">
-                          <span className={`text-[9px] font-bold font-mono truncate max-w-[140px] ${
-                            item.isLoop ? "text-indigo-700" : "text-slate-800"
-                          }`}>
+                          <span
+                            className={`text-[9px] font-bold font-mono truncate max-w-[140px] ${
+                              item.isLoop ? "text-indigo-700" : "text-slate-800"
+                            }`}
+                          >
                             {item.name}
                           </span>
                           {copiedVar === item.name ? (
@@ -820,11 +888,9 @@ export const DocumentTemplateManager: React.FC = () => {
                   </div>
                 </div>
               </div>
-
             </div>
           ) : (
             <div className="p-5">
-              
               {/* Header List toolbar */}
               <div className="flex items-center justify-between mb-5 bg-slate-50 p-3 rounded-xl border border-slate-100">
                 <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-2">
@@ -832,7 +898,7 @@ export const DocumentTemplateManager: React.FC = () => {
                   Danh sách mẫu ({filteredTemplates.length})
                 </h3>
                 {isAdmin && (
-                  <button 
+                  <button
                     onClick={handleCreateNew}
                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-all"
                   >
@@ -854,14 +920,15 @@ export const DocumentTemplateManager: React.FC = () => {
                   </div>
                   <p className="text-xs font-bold text-slate-700">Chưa có mẫu thiết kế nào</p>
                   <p className="text-[10px] text-slate-400 mt-1 max-w-[240px] mx-auto">
-                    Hiện chưa có mẫu nào cho loại này. Hãy nhấp nút "Thêm mẫu" phía trên để khởi tạo mẫu mới.
+                    Hiện chưa có mẫu nào cho loại này. Hãy nhấp nút "Thêm mẫu" phía trên để khởi tạo
+                    mẫu mới.
                   </p>
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
-                  {filteredTemplates.map(t => (
-                    <div 
-                      key={t.id} 
+                  {filteredTemplates.map((t) => (
+                    <div
+                      key={t.id}
                       className="group flex items-center justify-between p-4 bg-white border border-slate-200 hover:border-indigo-300 hover:shadow-md rounded-xl cursor-pointer transition-all"
                       onClick={() => setEditingTemplate(t)}
                     >
@@ -875,25 +942,29 @@ export const DocumentTemplateManager: React.FC = () => {
                           </span>
                         )}
                         <div className="flex items-center gap-2 mt-1.5">
-                          <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${
-                            t.status === "approved" 
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
-                              : t.status === "draft"
-                                ? "bg-amber-50 text-amber-700 border-amber-200"
-                                : "bg-slate-100 text-slate-600 border-slate-200"
-                          }`}>
+                          <span
+                            className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${
+                              t.status === "approved"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : t.status === "draft"
+                                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                                  : "bg-slate-100 text-slate-600 border-slate-200"
+                            }`}
+                          >
                             {t.status}
                           </span>
-                          
+
                           {/* Variables validation indicator */}
                           {t.html_template && (
-                            <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full ${
-                              auditTemplate(t.html_template, t.template_type).valid
-                                ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
-                                : "bg-red-50 text-red-700 border border-red-100"
-                            }`}>
-                              {auditTemplate(t.html_template, t.template_type).valid 
-                                ? "Đạt kiểm định A4" 
+                            <span
+                              className={`text-[8px] font-bold px-2 py-0.5 rounded-full ${
+                                auditTemplate(t.html_template, t.template_type).valid
+                                  ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
+                                  : "bg-red-50 text-red-700 border border-red-100"
+                              }`}
+                            >
+                              {auditTemplate(t.html_template, t.template_type).valid
+                                ? "Đạt kiểm định A4"
                                 : "Lỗi cấu trúc"}
                             </span>
                           )}
@@ -922,7 +993,6 @@ export const DocumentTemplateManager: React.FC = () => {
 
         {/* Right Section: Visual Preview */}
         <div className="w-1/2 bg-slate-100 flex flex-col overflow-hidden relative">
-          
           <div className="flex-none bg-white border-b border-slate-200 px-4 py-2 flex items-center justify-between z-10">
             <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <Eye className="w-4 h-4 text-indigo-600" />
@@ -937,25 +1007,25 @@ export const DocumentTemplateManager: React.FC = () => {
 
           <div className="flex-1 overflow-hidden">
             {editingTemplate ? (
-              <DocumentTemplatePreview 
-                htmlTemplate={editingTemplate.html_template || ""} 
-                templateType={editingTemplate.template_type} 
+              <DocumentTemplatePreview
+                htmlTemplate={editingTemplate.html_template || ""}
+                templateType={editingTemplate.template_type}
               />
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-slate-400 p-8 text-center bg-slate-50/50">
                 <LayoutTemplate className="w-12 h-12 text-slate-300 stroke-[1.5] mb-2" />
-                <span className="text-xs font-extrabold text-slate-700">Chưa chọn mẫu thiết kế</span>
+                <span className="text-xs font-extrabold text-slate-700">
+                  Chưa chọn mẫu thiết kế
+                </span>
                 <span className="text-[10px] text-slate-400 mt-1 max-w-[220px]">
-                  Vui lòng chọn một mẫu từ danh sách hoặc tạo mẫu mới để hiển thị giao diện xem trước.
+                  Vui lòng chọn một mẫu từ danh sách hoặc tạo mẫu mới để hiển thị giao diện xem
+                  trước.
                 </span>
               </div>
             )}
           </div>
-
         </div>
-
       </div>
-
     </div>
   );
 };

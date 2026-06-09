@@ -2,11 +2,14 @@ import { createClient } from "@supabase/supabase-js";
 import fs from "fs";
 
 // Load from .env
-const env = fs.readFileSync(".env", "utf8").split("\n").reduce((acc, line) => {
-  const [key, ...val] = line.split("=");
-  if (key && val.length) acc[key.trim()] = val.join("=").trim();
-  return acc;
-}, {});
+const env = fs
+  .readFileSync(".env", "utf8")
+  .split("\n")
+  .reduce((acc, line) => {
+    const [key, ...val] = line.split("=");
+    if (key && val.length) acc[key.trim()] = val.join("=").trim();
+    return acc;
+  }, {});
 
 const supabaseUrl = env.VITE_SUPABASE_URL;
 const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
@@ -18,8 +21,8 @@ async function testQuery(query) {
   const { data, error } = await supabase.functions.invoke("ai-sales-assistant", {
     body: {
       messages: [{ role: "user", content: query }],
-      userId: "test-user"
-    }
+      userId: "test-user",
+    },
   });
 
   if (error) {
@@ -45,7 +48,7 @@ async function run() {
     "Dermagarden có sản phẩm nào cho da khô?",
     "VAVAW có màu son nào hợp da ngăm?",
     "Dermagarden Milk Essential có gì?",
-    "Sản phẩm XYZ không tồn tại dùng thế nào?"
+    "Sản phẩm XYZ không tồn tại dùng thế nào?",
   ];
 
   for (const q of questions) {

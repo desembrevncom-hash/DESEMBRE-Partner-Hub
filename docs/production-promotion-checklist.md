@@ -32,6 +32,7 @@ npm run prod:readiness
 ```
 
 Expected output:
+
 - Branch: `release/**` or `master`
 - Env target: Production (`xhfqjupiidexvlltstal`)
 - Pending migrations listed
@@ -47,6 +48,7 @@ Expected output:
 ### 2.1 Take a Production DB Backup
 
 In Supabase Dashboard → Project `xhfqjupiidexvlltstal` → Database → Backups:
+
 - [ ] Confirm latest automatic backup is recent (< 24h)
 - [ ] Trigger a manual snapshot if last backup is older than 12h
 
@@ -56,23 +58,23 @@ Open the release's `production_db_migration_pack_final.md` and run **Section A �
 
 Document the results here before proceeding:
 
-| Check | Result |
-|-------|--------|
-| Required tables exist | |
-| Helper functions exist | |
-| New columns already exist? | |
-| RPC already exists? | |
+| Check                      | Result |
+| -------------------------- | ------ |
+| Required tables exist      |        |
+| Helper functions exist     |        |
+| New columns already exist? |        |
+| RPC already exists?        |        |
 
 ### 2.3 Apply Migration Blocks (Manual, In Order)
 
 Run each block separately. Wait for `Success` before proceeding to the next.
 
-| Block | Content | Status |
-|-------|---------|--------|
-| Block 1 | Document Templates Table & Seeds | ⬜ |
-| Block 2 | Product Sales Sheets Table | ⬜ |
-| Block 3 | Add Versioning & is_current | ⬜ |
-| Block 4 | RPC + NOTIFY pgrst | ⬜ |
+| Block   | Content                          | Status |
+| ------- | -------------------------------- | ------ |
+| Block 1 | Document Templates Table & Seeds | ⬜     |
+| Block 2 | Product Sales Sheets Table       | ⬜     |
+| Block 3 | Add Versioning & is_current      | ⬜     |
+| Block 4 | RPC + NOTIFY pgrst               | ⬜     |
 
 ### 2.4 Run Post-Check SQL
 
@@ -161,6 +163,7 @@ In Vercel Dashboard → Deployments → find the previous Production deployment 
 All schema changes in v1.4.1 are **additive** — tables, columns, and indexes can remain safely.
 
 If only the RPC is causing issues:
+
 ```sql
 DROP FUNCTION IF EXISTS public.set_current_product_sales_sheet(uuid);
 NOTIFY pgrst, 'reload schema';
@@ -172,11 +175,11 @@ The `version` and `is_current` columns and indexes can remain — they are non-b
 
 ## Sign-off
 
-| Role | Name | Confirmed |
-|------|------|-----------|
-| Operator | | ⬜ |
-| Tech Lead | | ⬜ |
+| Role      | Name | Confirmed |
+| --------- | ---- | --------- |
+| Operator  |      | ⬜        |
+| Tech Lead |      | ⬜        |
 
-**Release version:** ___________
-**Deploy date/time:** ___________
-**Vercel deployment SHA:** ___________
+**Release version:** ****\_\_\_****
+**Deploy date/time:** ****\_\_\_****
+**Vercel deployment SHA:** ****\_\_\_****

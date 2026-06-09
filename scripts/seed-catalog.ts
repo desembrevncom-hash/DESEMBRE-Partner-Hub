@@ -50,23 +50,22 @@ async function run() {
 
   if (isApplyMode) {
     if (targetMode === "production") {
-      const confirmProd = env.CONFIRM_PROD_DANGEROUS_ACTION || process.env.CONFIRM_PROD_DANGEROUS_ACTION;
+      const confirmProd =
+        env.CONFIRM_PROD_DANGEROUS_ACTION || process.env.CONFIRM_PROD_DANGEROUS_ACTION;
       if (confirmProd !== "YES") {
-        console.error("❌ ERROR: TARGET_ENV is 'production'. You must set CONFIRM_PROD_DANGEROUS_ACTION='YES' to run this script.");
+        console.error(
+          "❌ ERROR: TARGET_ENV is 'production'. You must set CONFIRM_PROD_DANGEROUS_ACTION='YES' to run this script.",
+        );
         process.exit(1);
       }
       console.warn("⚠️ WARNING: Running against PRODUCTION database!");
     } else if (targetMode !== "local" && targetMode !== "staging") {
-      console.error(
-        "❌ ERROR: Only 'local', 'staging', or 'production' targets are permitted.",
-      );
+      console.error("❌ ERROR: Only 'local', 'staging', or 'production' targets are permitted.");
       process.exit(1);
     }
 
     if (!supabaseServiceKey) {
-      console.error(
-        "❌ ERROR: SUPABASE_SERVICE_ROLE_KEY is required for Apply mode writes.",
-      );
+      console.error("❌ ERROR: SUPABASE_SERVICE_ROLE_KEY is required for Apply mode writes.");
       process.exit(1);
     }
     console.log("⚠️ WARNING: Writing changes to target:", targetMode);

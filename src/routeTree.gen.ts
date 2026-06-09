@@ -24,6 +24,7 @@ import { Route as MarketingIndexRouteImport } from './routes/marketing/index'
 import { Route as CustomersIndexRouteImport } from './routes/customers/index'
 import { Route as SettingsMessageTemplatesRouteImport } from './routes/settings/message-templates'
 import { Route as SettingsCommunicationRouteImport } from './routes/settings/communication'
+import { Route as ReportsSalesRouteImport } from './routes/reports/sales'
 import { Route as ReportsRoutingRouteImport } from './routes/reports/routing'
 import { Route as ReportsCrmRouteImport } from './routes/reports/crm'
 import { Route as ReportsAutomationRouteImport } from './routes/reports/automation'
@@ -140,6 +141,11 @@ const SettingsMessageTemplatesRoute =
 const SettingsCommunicationRoute = SettingsCommunicationRouteImport.update({
   id: '/settings/communication',
   path: '/settings/communication',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsSalesRoute = ReportsSalesRouteImport.update({
+  id: '/reports/sales',
+  path: '/reports/sales',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReportsRoutingRoute = ReportsRoutingRouteImport.update({
@@ -400,6 +406,7 @@ export interface FileRoutesByFullPath {
   '/reports/automation': typeof ReportsAutomationRoute
   '/reports/crm': typeof ReportsCrmRoute
   '/reports/routing': typeof ReportsRoutingRoute
+  '/reports/sales': typeof ReportsSalesRoute
   '/settings/communication': typeof SettingsCommunicationRoute
   '/settings/message-templates': typeof SettingsMessageTemplatesRoute
   '/customers/': typeof CustomersIndexRoute
@@ -457,6 +464,7 @@ export interface FileRoutesByTo {
   '/reports/automation': typeof ReportsAutomationRoute
   '/reports/crm': typeof ReportsCrmRoute
   '/reports/routing': typeof ReportsRoutingRoute
+  '/reports/sales': typeof ReportsSalesRoute
   '/settings/communication': typeof SettingsCommunicationRoute
   '/settings/message-templates': typeof SettingsMessageTemplatesRoute
   '/customers': typeof CustomersIndexRoute
@@ -516,6 +524,7 @@ export interface FileRoutesById {
   '/reports/automation': typeof ReportsAutomationRoute
   '/reports/crm': typeof ReportsCrmRoute
   '/reports/routing': typeof ReportsRoutingRoute
+  '/reports/sales': typeof ReportsSalesRoute
   '/settings/communication': typeof SettingsCommunicationRoute
   '/settings/message-templates': typeof SettingsMessageTemplatesRoute
   '/customers/': typeof CustomersIndexRoute
@@ -576,6 +585,7 @@ export interface FileRouteTypes {
     | '/reports/automation'
     | '/reports/crm'
     | '/reports/routing'
+    | '/reports/sales'
     | '/settings/communication'
     | '/settings/message-templates'
     | '/customers/'
@@ -633,6 +643,7 @@ export interface FileRouteTypes {
     | '/reports/automation'
     | '/reports/crm'
     | '/reports/routing'
+    | '/reports/sales'
     | '/settings/communication'
     | '/settings/message-templates'
     | '/customers'
@@ -691,6 +702,7 @@ export interface FileRouteTypes {
     | '/reports/automation'
     | '/reports/crm'
     | '/reports/routing'
+    | '/reports/sales'
     | '/settings/communication'
     | '/settings/message-templates'
     | '/customers/'
@@ -748,6 +760,7 @@ export interface RootRouteChildren {
   ReportsAutomationRoute: typeof ReportsAutomationRoute
   ReportsCrmRoute: typeof ReportsCrmRoute
   ReportsRoutingRoute: typeof ReportsRoutingRoute
+  ReportsSalesRoute: typeof ReportsSalesRoute
   SettingsCommunicationRoute: typeof SettingsCommunicationRoute
   SettingsMessageTemplatesRoute: typeof SettingsMessageTemplatesRoute
   MarketingIndexRoute: typeof MarketingIndexRoute
@@ -860,6 +873,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/communication'
       fullPath: '/settings/communication'
       preLoaderRoute: typeof SettingsCommunicationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports/sales': {
+      id: '/reports/sales'
+      path: '/reports/sales'
+      fullPath: '/reports/sales'
+      preLoaderRoute: typeof ReportsSalesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reports/routing': {
@@ -1217,6 +1237,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReportsAutomationRoute: ReportsAutomationRoute,
   ReportsCrmRoute: ReportsCrmRoute,
   ReportsRoutingRoute: ReportsRoutingRoute,
+  ReportsSalesRoute: ReportsSalesRoute,
   SettingsCommunicationRoute: SettingsCommunicationRoute,
   SettingsMessageTemplatesRoute: SettingsMessageTemplatesRoute,
   MarketingIndexRoute: MarketingIndexRoute,

@@ -79,7 +79,7 @@ serve(async (req) => {
         .select("encrypted_api_key")
         .eq("provider", "openai")
         .single();
-      
+
       if (settings?.encrypted_api_key) {
         openAiKey = await decryptApiKey(settings.encrypted_api_key);
       }

@@ -80,42 +80,43 @@ serve(async (req) => {
     // 1. JWT authentication
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Missing authorization header" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return new Response(JSON.stringify({ error: "Missing authorization header" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    
+
     const {
       data: { user },
       error: authError,
     } = await userClient.auth.getUser();
-    
+
     if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Verify user is Admin or Sub Admin
     const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    
-    const { data: isAdmin, error: roleError } = await adminClient.rpc(
-      "is_admin_or_sub_admin",
-      { user_id: user.id }
-    );
-    
+
+    const { data: isAdmin, error: roleError } = await adminClient.rpc("is_admin_or_sub_admin", {
+      user_id: user.id,
+    });
+
     if (roleError || !isAdmin) {
       return new Response(
-        JSON.stringify({ error: "Access denied. Only Admin or Sub Admin can generate sales sheets." }),
+        JSON.stringify({
+          error: "Access denied. Only Admin or Sub Admin can generate sales sheets.",
+        }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -124,16 +125,17 @@ serve(async (req) => {
     const body = await req.json();
     const { catalogProductId, templateId } = body;
     if (!catalogProductId) {
-      return new Response(
-        JSON.stringify({ error: "catalogProductId is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return new Response(JSON.stringify({ error: "catalogProductId is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // 3. Load product catalog data
     const { data: product, error: productErr } = await adminClient
       .from("catalog_products")
-      .select(`
+      .select(
+        `
         id, 
         name, 
         product_code, 
@@ -142,15 +144,16 @@ serve(async (req) => {
         brand_id, 
         brand:product_brands(name), 
         category:product_categories(name)
-      `)
+      `,
+      )
       .eq("id", catalogProductId)
       .single();
 
     if (productErr || !product) {
-      return new Response(
-        JSON.stringify({ error: "Catalog product not found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return new Response(JSON.stringify({ error: "Catalog product not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Load variants
@@ -163,7 +166,9 @@ serve(async (req) => {
     // Load approved product knowledge
     const { data: knowledge } = await adminClient
       .from("product_knowledge")
-      .select("benefits, skin_concerns, suitable_spa_types, usage_instructions, sales_pitch, warnings")
+      .select(
+        "benefits, skin_concerns, suitable_spa_types, usage_instructions, sales_pitch, warnings",
+      )
       .eq("catalog_product_id", catalogProductId)
       .eq("is_active", true)
       .eq("qa_status", "approved")
@@ -178,7 +183,7 @@ serve(async (req) => {
         .select("encrypted_api_key, chat_model")
         .eq("provider", "openai")
         .single();
-      
+
       if (settings?.encrypted_api_key) {
         openaiApiKey = await decryptApiKey(settings.encrypted_api_key);
       }
@@ -209,11 +214,17 @@ serve(async (req) => {
 
     const retailVariants = (variants || [])
       .filter((v: any) => v.channel === "retail")
-      .map((v: any) => `- SKU: ${v.sku}, Dung tích: ${v.size_label || "Mặc định"}, Giá: ${formatCurrencyVND(v.price)}`);
+      .map(
+        (v: any) =>
+          `- SKU: ${v.sku}, Dung tích: ${v.size_label || "Mặc định"}, Giá: ${formatCurrencyVND(v.price)}`,
+      );
 
     const salonVariants = (variants || [])
       .filter((v: any) => v.channel === "salon")
-      .map((v: any) => `- SKU: ${v.sku}, Dung tích: ${v.size_label || "Mặc định"}, Giá: ${formatCurrencyVND(v.price)}`);
+      .map(
+        (v: any) =>
+          `- SKU: ${v.sku}, Dung tích: ${v.size_label || "Mặc định"}, Giá: ${formatCurrencyVND(v.price)}`,
+      );
 
     const inputData = {
       product: {
@@ -227,14 +238,16 @@ serve(async (req) => {
         retail: retailVariants,
         salon: salonVariants,
       },
-      knowledge: knowledge ? {
-        benefits: knowledge.benefits || "",
-        skin_concerns: knowledge.skin_concerns || [],
-        suitable_spa_types: knowledge.suitable_spa_types || [],
-        usage_instructions: knowledge.usage_instructions || "",
-        sales_pitch: knowledge.sales_pitch || "",
-        warnings: knowledge.warnings || "",
-      } : null,
+      knowledge: knowledge
+        ? {
+            benefits: knowledge.benefits || "",
+            skin_concerns: knowledge.skin_concerns || [],
+            suitable_spa_types: knowledge.suitable_spa_types || [],
+            usage_instructions: knowledge.usage_instructions || "",
+            sales_pitch: knowledge.sales_pitch || "",
+            warnings: knowledge.warnings || "",
+          }
+        : null,
     };
 
     const systemPrompt = `Bạn là chuyên gia tư vấn sản phẩm và xây dựng tài liệu bán hàng (Product Sales Sheet) cho thương hiệu mỹ phẩm cao cấp Desembre.
@@ -290,13 +303,12 @@ QUY TẮC BẮT BUỘC:
         title: `Sales Sheet - ${product.name}`,
         content_json: contentJson,
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
-
   } catch (err: any) {
-    return new Response(
-      JSON.stringify({ error: err.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

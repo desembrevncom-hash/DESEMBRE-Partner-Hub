@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
     // Initialize Export Record
     const { data: exportRecord, error: exportError } = await serviceClient
       .from("sales_report_exports")
-      .upsert({
+      .insert({
         sale_user_id: saleId,
         report_type: reportType,
         period_start: periodStart,
@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
         export_status: "pending",
         exported_by: user.id,
         error_message: null
-      }, { onConflict: "sale_user_id,report_type,period_start,period_end" })
+      })
       .select()
       .single();
 

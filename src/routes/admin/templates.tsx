@@ -16,7 +16,7 @@ function TemplatesPage() {
           Thiết kế và quản lý các mẫu HTML để in báo giá, product sales sheet chuẩn A4.
         </p>
       </div>
-      
+
       <div className="flex-1 p-4 lg:p-6 pt-0 overflow-hidden">
         <DocumentTemplateManager />
       </div>

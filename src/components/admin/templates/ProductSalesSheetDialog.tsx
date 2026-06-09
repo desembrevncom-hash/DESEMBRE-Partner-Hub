@@ -234,9 +234,13 @@ export function ProductSalesSheetDialog({
       if (tErr) throw tErr;
       setTemplates(templatesData || []);
 
-      const defaultT = templatesData?.find((t: any) => t.is_default === true) || 
-                       templatesData?.find((t: any) => t.name.toLowerCase().includes("premium") || t.name.toLowerCase().includes("chuẩn a4")) ||
-                       templatesData?.[0];
+      const defaultT =
+        templatesData?.find((t: any) => t.is_default === true) ||
+        templatesData?.find(
+          (t: any) =>
+            t.name.toLowerCase().includes("premium") || t.name.toLowerCase().includes("chuẩn a4"),
+        ) ||
+        templatesData?.[0];
 
       // 2. Fetch all existing sales sheets for the product
       let query = supabase
@@ -388,7 +392,7 @@ export function ProductSalesSheetDialog({
   // Save changes
   const handleSave = async (
     newStatus?: "draft" | "approved" | "archived",
-    saveAsNewVersion: boolean = false
+    saveAsNewVersion: boolean = false,
   ) => {
     if (!isAdminOrSub) return;
     setSaving(true);
@@ -429,9 +433,10 @@ export function ProductSalesSheetDialog({
         toast.success(`Cập nhật phiên bản hiện tại (${targetStatus}) thành công!`);
       } else {
         // Create new version
-        const nextVersionNum = versions.length > 0
-          ? Math.max(...versions.map((v) => typeof v.version === "number" ? v.version : 1)) + 1
-          : 1;
+        const nextVersionNum =
+          versions.length > 0
+            ? Math.max(...versions.map((v) => (typeof v.version === "number" ? v.version : 1))) + 1
+            : 1;
 
         const insertPayload = {
           ...payload,
@@ -625,7 +630,9 @@ export function ProductSalesSheetDialog({
             </DialogTitle>
             <p className="text-xs text-slate-500 mt-1">
               {productName} &bull; Trạng thái:{" "}
-              <span className={`font-bold uppercase ${!isAdminOrSub ? "text-emerald-600" : "text-indigo-600"}`}>
+              <span
+                className={`font-bold uppercase ${!isAdminOrSub ? "text-emerald-600" : "text-indigo-600"}`}
+              >
                 {!isAdminOrSub ? "APPROVED" : status}
               </span>
             </p>
@@ -717,9 +724,11 @@ export function ProductSalesSheetDialog({
                         </span>
                       )}
                     </div>
-                    
+
                     {versions.length === 0 ? (
-                      <p className="text-xs text-slate-400 italic">Chưa có phiên bản nào được lưu cho sản phẩm này.</p>
+                      <p className="text-xs text-slate-400 italic">
+                        Chưa có phiên bản nào được lưu cho sản phẩm này.
+                      </p>
                     ) : (
                       <div className="space-y-3">
                         <div className="flex gap-2 items-center">
@@ -731,38 +740,47 @@ export function ProductSalesSheetDialog({
                             {versions.map((v) => {
                               const isCurrent = v.is_current === true;
                               const verNum = typeof v.version === "number" ? v.version : 1;
-                              const formattedDate = v.created_at ? new Date(v.created_at).toLocaleDateString("vi-VN") : "";
+                              const formattedDate = v.created_at
+                                ? new Date(v.created_at).toLocaleDateString("vi-VN")
+                                : "";
                               const statusLabel = v.status === "approved" ? "Duyệt" : "Nháp";
                               return (
                                 <option key={v.id} value={v.id}>
-                                  v{verNum} ({statusLabel}) - {formattedDate} {isCurrent ? "★ Mặc định" : ""}
+                                  v{verNum} ({statusLabel}) - {formattedDate}{" "}
+                                  {isCurrent ? "★ Mặc định" : ""}
                                 </option>
                               );
                             })}
                           </select>
-                          
+
                           {/* Set Current Version Button */}
-                          {isAdminOrSub && salesSheetId && !versions.find(v => v.id === salesSheetId)?.is_current && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleSetCurrentVersion(salesSheetId)}
-                              className="h-9 text-xs border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-bold"
-                              title="Đặt làm phiên bản hiện tại mặc định"
-                            >
-                              Đặt mặc định
-                            </Button>
-                          )}
+                          {isAdminOrSub &&
+                            salesSheetId &&
+                            !versions.find((v) => v.id === salesSheetId)?.is_current && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleSetCurrentVersion(salesSheetId)}
+                                className="h-9 text-xs border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-bold"
+                                title="Đặt làm phiên bản hiện tại mặc định"
+                              >
+                                Đặt mặc định
+                              </Button>
+                            )}
                         </div>
 
                         {/* Active Version Info Badges */}
                         {(() => {
-                          const activeV = versions.find(v => v.id === salesSheetId);
+                          const activeV = versions.find((v) => v.id === salesSheetId);
                           if (!activeV) return null;
                           return (
                             <div className="flex flex-wrap gap-2 text-[10px]">
-                              <span className={`px-2 py-0.5 rounded font-bold ${activeV.status === 'approved' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-                                {activeV.status === 'approved' ? 'Đã duyệt (Approved)' : 'Bản nháp (Draft)'}
+                              <span
+                                className={`px-2 py-0.5 rounded font-bold ${activeV.status === "approved" ? "bg-green-50 text-green-700 border border-green-200" : "bg-amber-50 text-amber-700 border border-amber-200"}`}
+                              >
+                                {activeV.status === "approved"
+                                  ? "Đã duyệt (Approved)"
+                                  : "Bản nháp (Draft)"}
                               </span>
                               {activeV.is_current && (
                                 <span className="px-2 py-0.5 rounded font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-0.5">
@@ -786,7 +804,9 @@ export function ProductSalesSheetDialog({
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <Label className="text-xs font-bold text-slate-500">Tiêu đề Sales Sheet</Label>
+                        <Label className="text-xs font-bold text-slate-500">
+                          Tiêu đề Sales Sheet
+                        </Label>
                         <Input
                           value={title}
                           onChange={(e) => setTitle(e.target.value)}
@@ -1012,7 +1032,8 @@ export function ProductSalesSheetDialog({
                           </Button>
                         )}
                       </div>
-                      {!contentJson.knowledge?.[key] || contentJson.knowledge?.[key]?.length === 0 ? (
+                      {!contentJson.knowledge?.[key] ||
+                      contentJson.knowledge?.[key]?.length === 0 ? (
                         <p className="text-xs text-slate-400 italic">Chưa có dữ liệu.</p>
                       ) : (
                         <div className="space-y-2">
@@ -1020,7 +1041,9 @@ export function ProductSalesSheetDialog({
                             <div key={index} className="flex gap-2 items-center">
                               <Input
                                 value={item}
-                                onChange={(e) => handleKnowledgeFieldChange(key, index, e.target.value)}
+                                onChange={(e) =>
+                                  handleKnowledgeFieldChange(key, index, e.target.value)
+                                }
                                 disabled={!isAdminOrSub}
                                 className="h-8 text-xs border-slate-200 w-full"
                               />
@@ -1060,7 +1083,9 @@ export function ProductSalesSheetDialog({
               )}
 
               {/* Right Panel: Live A4 Preview */}
-              <div className={`bg-slate-100 relative flex flex-col overflow-hidden ${!isAdminOrSub ? "w-full flex-1" : "w-1/2 hidden md:block"}`}>
+              <div
+                className={`bg-slate-100 relative flex flex-col overflow-hidden ${!isAdminOrSub ? "w-full flex-1" : "w-1/2 hidden md:block"}`}
+              >
                 {salesSheetId ? (
                   <A4PreviewFrame
                     ref={previewFrameRef}

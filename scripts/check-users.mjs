@@ -11,7 +11,7 @@ if (!url || !key) {
 const supabase = createClient(url, key);
 
 async function check() {
-  const { data, error } = await supabase.from('ai_settings').select('*');
+  const { data, error } = await supabase.from("ai_settings").select("*");
   console.log("ai_settings:", data, error);
 }
 

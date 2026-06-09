@@ -461,7 +461,11 @@ function detectBrandFromQuery(query: string): BrandSlug | null {
   if (/(vavaw)/i.test(q)) return "vavaw";
   return null;
 }
-function filterChunksByBrand(chunks: any[], detectedBrand: BrandSlug | null, brandIdMap: Record<string, string>) {
+function filterChunksByBrand(
+  chunks: any[],
+  detectedBrand: BrandSlug | null,
+  brandIdMap: Record<string, string>,
+) {
   if (!detectedBrand) return { allowed: chunks, suppressed: [] };
   const targetBrandId = brandIdMap[detectedBrand];
   if (!targetBrandId) return { allowed: chunks, suppressed: [] };
@@ -489,7 +493,7 @@ function filterChunksByBrand(chunks: any[], detectedBrand: BrandSlug | null, bra
       return {
         allowed: [],
         suppressed,
-        noDataMessage: `Mình chưa có dữ liệu tri thức đã duyệt cho sản phẩm ${brandDisplay} bạn hỏi. ${productListStr} hiện đang có dữ liệu dưới brand Desembre, bạn muốn xem thông tin Desembre không?`
+        noDataMessage: `Mình chưa có dữ liệu tri thức đã duyệt cho sản phẩm ${brandDisplay} bạn hỏi. ${productListStr} hiện đang có dữ liệu dưới brand Desembre, bạn muốn xem thông tin Desembre không?`,
       };
     }
   }
@@ -497,12 +501,12 @@ function filterChunksByBrand(chunks: any[], detectedBrand: BrandSlug | null, bra
   if (allowed.length === 0 && (detectedBrand === "dermagarden" || detectedBrand === "vavaw")) {
     const msgs: Record<string, string> = {
       dermagarden: "Hiện tại chưa có dữ liệu tri thức đã duyệt cho Dermagarden.",
-      vavaw: "Hiện tại chưa có dữ liệu tri thức đã duyệt cho VAVAW."
+      vavaw: "Hiện tại chưa có dữ liệu tri thức đã duyệt cho VAVAW.",
     };
     return {
       allowed: [],
       suppressed,
-      noDataMessage: msgs[detectedBrand]
+      noDataMessage: msgs[detectedBrand],
     };
   }
 
@@ -562,7 +566,7 @@ Deno.serve(async (req) => {
         .select("encrypted_api_key")
         .eq("provider", "openai")
         .single();
-      
+
       if (settings?.encrypted_api_key) {
         openaiApiKey = await decryptApiKey(settings.encrypted_api_key);
       }
@@ -689,7 +693,7 @@ Deno.serve(async (req) => {
         // F.3: Brand-aware context guard
         const detectedBrand = detectBrandFromQuery(auditQuery);
         let brandIdMap: Record<string, string> = {};
-        
+
         if (detectedBrand) {
           const { data: brandsData } = await adminClient.from("product_brands").select("id, name");
           brandsData?.forEach((b: any) => {
@@ -703,14 +707,14 @@ Deno.serve(async (req) => {
             // TRADE-OFF DOCUMENTATION:
             // Mode TRUE: Strict DB-layer isolation for performance.
             // When filter_brand_ids is sent, the RPC returns ONLY chunks from this brand.
-            // This means we will NEVER retrieve chunks from other brands, which PREVENTS the 
+            // This means we will NEVER retrieve chunks from other brands, which PREVENTS the
             // F.3 Smart Suggestion (e.g. asking "Dermagarden Milk Essential" won't find Desembre's Milk Essential chunk to suggest it).
             rpcFilterBrandIds = [brandIdMap[detectedBrand]];
           } else {
             // TRADE-OFF DOCUMENTATION:
             // Mode FALSE (Default): Prioritize Smart Suggestion.
-            // RPC retrieves all matching chunks regardless of brand. The F.3 Edge Guard below will 
-            // filter out wrong-brand chunks, but it CAN detect if a product belongs to another brand 
+            // RPC retrieves all matching chunks regardless of brand. The F.3 Edge Guard below will
+            // filter out wrong-brand chunks, but it CAN detect if a product belongs to another brand
             // and return a helpful suggestion message.
           }
         }
@@ -745,7 +749,8 @@ Deno.serve(async (req) => {
             });
             return json({
               retrieved_chunks: [],
-              final_answer: filterResult.noDataMessage || "Không tìm thấy dữ liệu cho thương hiệu này.",
+              final_answer:
+                filterResult.noDataMessage || "Không tìm thấy dữ liệu cho thương hiệu này.",
               prompt_tokens: 0,
               completion_tokens: 0,
               total_tokens: 0,

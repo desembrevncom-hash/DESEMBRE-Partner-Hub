@@ -2,11 +2,14 @@ import { createClient } from "@supabase/supabase-js";
 import fs from "fs";
 
 // Load from .env
-const env = fs.readFileSync(".env", "utf8").split("\n").reduce((acc, line) => {
-  const [key, ...val] = line.split("=");
-  if (key && val.length) acc[key.trim()] = val.join("=").trim();
-  return acc;
-}, {});
+const env = fs
+  .readFileSync(".env", "utf8")
+  .split("\n")
+  .reduce((acc, line) => {
+    const [key, ...val] = line.split("=");
+    if (key && val.length) acc[key.trim()] = val.join("=").trim();
+    return acc;
+  }, {});
 
 const supabaseUrl = env.VITE_SUPABASE_URL;
 const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
@@ -41,23 +44,23 @@ const questions = [
   // 18-20: Edge Cases & Ambiguity
   "Sản phẩm nào của Desembre giá dưới 500k?", // Not in knowledge base (Missing knowledge expected)
   "Có loại sữa rửa mặt nào trị mụn dứt điểm 100% không?", // Tricky claim (Missing or safe policy expected)
-  "Cho tôi biết thông tin chung về thương hiệu Desembre." // Broad question
+  "Cho tôi biết thông tin chung về thương hiệu Desembre.", // Broad question
 ];
 
 async function testQuery(query, index) {
   console.log(`\n--- Q${index + 1}: ${query} ---`);
-  
+
   try {
     const res = await fetch(`${supabaseUrl}/functions/v1/ai-sales-assistant`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${supabaseKey}`
+        Authorization: `Bearer ${supabaseKey}`,
       },
       body: JSON.stringify({
         messages: [{ role: "user", content: query }],
-        userId: "sales-tester-001"
-      })
+        userId: "sales-tester-001",
+      }),
     });
 
     if (!res.ok) {
@@ -83,7 +86,7 @@ async function run() {
     const res = await testQuery(questions[i], i);
     results.push(res);
   }
-  
+
   fs.writeFileSync("ops4_pilot_results.json", JSON.stringify(results, null, 2));
   console.log("\n=== PILOT TEST COMPLETED. Results saved to ops4_pilot_results.json ===");
 }

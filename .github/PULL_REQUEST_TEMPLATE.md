@@ -35,14 +35,15 @@
 
 ## Production Impact
 
-| Item | Answer |
-|------|--------|
-| DB migration required? | Yes / No |
-| Edge Function deploy required? | Yes / No |
-| New environment variables required? | Yes / No |
-| Rollback plan | Vercel rollback / `DROP FUNCTION IF EXISTS ...` / N/A |
+| Item                                | Answer                                                |
+| ----------------------------------- | ----------------------------------------------------- |
+| DB migration required?              | Yes / No                                              |
+| Edge Function deploy required?      | Yes / No                                              |
+| New environment variables required? | Yes / No                                              |
+| Rollback plan                       | Vercel rollback / `DROP FUNCTION IF EXISTS ...` / N/A |
 
 **If DB migration required**, list the migration files:
+
 <!-- - supabase/migrations/YYYYMMDD_xxxxx.sql -->
 
 ---

@@ -47,7 +47,9 @@ if (!targetMode) {
 if (targetMode === "production") {
   const confirmProd = process.env.CONFIRM_PROD_DANGEROUS_ACTION;
   if (confirmProd !== "YES") {
-    console.error("❌ ERROR: TARGET_ENV is 'production'. You must set CONFIRM_PROD_DANGEROUS_ACTION='YES' to run this script.");
+    console.error(
+      "❌ ERROR: TARGET_ENV is 'production'. You must set CONFIRM_PROD_DANGEROUS_ACTION='YES' to run this script.",
+    );
     process.exit(1);
   }
   console.warn("⚠️ WARNING: Running against PRODUCTION database!");
@@ -80,15 +82,9 @@ function assertNotProduction(url: string): void {
       if (!isLocal) {
         // Allow supabase.co staging project (staging projects also on supabase.co)
         // Production guard: warn but allow staging to proceed
-        console.warn(
-          `[WARNING] Supabase URL looks like cloud: ${url.substring(0, 40)}...`
-        );
-        console.warn(
-          "[WARNING] Ensure this is your STAGING project, not production."
-        );
-        console.warn(
-          "[WARNING] If this is production, kill this script immediately."
-        );
+        console.warn(`[WARNING] Supabase URL looks like cloud: ${url.substring(0, 40)}...`);
+        console.warn("[WARNING] Ensure this is your STAGING project, not production.");
+        console.warn("[WARNING] If this is production, kill this script immediately.");
       }
     }
   }
@@ -181,7 +177,9 @@ async function runAudit(): Promise<{
   // product_knowledge counts
   const { data: pkAll, error: pkErr } = await supabase
     .from("product_knowledge")
-    .select("id, product_id, brand_id, category_id, catalog_product_id, qa_status, build_status, is_active");
+    .select(
+      "id, product_id, brand_id, category_id, catalog_product_id, qa_status, build_status, is_active",
+    );
 
   if (pkErr || !pkAll) {
     console.error("[ERROR] Failed to fetch product_knowledge:", pkErr?.message);
@@ -275,7 +273,7 @@ async function runAudit(): Promise<{
 // ============================================================
 
 async function buildMappingCandidates(
-  pkAll: ProductKnowledge[]
+  pkAll: ProductKnowledge[],
 ): Promise<{ candidates: MappingCandidate[]; unmapped: number[] }> {
   console.log("\n====================================================");
   console.log("  SECTION B — MAPPING CANDIDATES");
@@ -293,25 +291,19 @@ async function buildMappingCandidates(
   }
 
   // Fetch brands
-  const { data: brands } = await supabase
-    .from("product_brands")
-    .select("id, name, code, slug");
+  const { data: brands } = await supabase.from("product_brands").select("id, name, code, slug");
 
   // Fetch categories
   const { data: categories } = await supabase
     .from("product_categories")
     .select("id, name, brand_id");
 
-  const brandMap = new Map<string, ProductBrand>(
-    (brands ?? []).map((b) => [b.id, b])
-  );
-  const categoryMap = new Map<string, ProductCategory>(
-    (categories ?? []).map((c) => [c.id, c])
-  );
+  const brandMap = new Map<string, ProductBrand>((brands ?? []).map((b) => [b.id, b]));
+  const categoryMap = new Map<string, ProductCategory>((categories ?? []).map((c) => [c.id, c]));
 
   // Build lookup: product_code → catalog product
   const catalogByCode = new Map<string, CatalogProduct>(
-    (catalogProducts as CatalogProduct[]).map((cp) => [cp.product_code!, cp])
+    (catalogProducts as CatalogProduct[]).map((cp) => [cp.product_code!, cp]),
   );
 
   const candidates: MappingCandidate[] = [];
@@ -362,10 +354,7 @@ async function buildMappingCandidates(
 // DRY-RUN REPORT
 // ============================================================
 
-function printDryRunReport(
-  candidates: MappingCandidate[],
-  unmapped: number[]
-): void {
+function printDryRunReport(candidates: MappingCandidate[], unmapped: number[]): void {
   console.log("\n====================================================");
   console.log("  SECTION C — DRY-RUN MAPPING PREVIEW");
   console.log("====================================================");
@@ -391,14 +380,13 @@ function printDryRunReport(
       "brand_name".padEnd(14) +
       "category".padEnd(22) +
       "catalog_product_name".padEnd(45) +
-      "status"
+      "status",
   );
   console.log("  " + "─".repeat(110));
 
   for (const c of candidates) {
     const alreadyMapped =
-      c.old_brand_id === c.new_brand_id &&
-      c.old_catalog_product_id === c.new_catalog_product_id;
+      c.old_brand_id === c.new_brand_id && c.old_catalog_product_id === c.new_catalog_product_id;
     const prefix = alreadyMapped ? "  [SKIP-SAME]  " : "  [WILL UPDATE]";
     console.log(
       prefix +
@@ -407,14 +395,13 @@ function printDryRunReport(
         c.brand_name.padEnd(14) +
         (c.category_name ?? "—").padEnd(22) +
         c.product_name.substring(0, 44).padEnd(45) +
-        c.catalog_product_status
+        c.catalog_product_status,
     );
   }
 
   const willUpdate = candidates.filter(
     (c) =>
-      c.old_brand_id !== c.new_brand_id ||
-      c.old_catalog_product_id !== c.new_catalog_product_id
+      c.old_brand_id !== c.new_brand_id || c.old_catalog_product_id !== c.new_catalog_product_id,
   );
   console.log("\n  " + "─".repeat(110));
   console.log(`  Records that WILL BE UPDATED  : ${willUpdate.length}`);
@@ -437,7 +424,7 @@ async function applyMapping(candidates: MappingCandidate[]): Promise<{
     (c) =>
       c.old_brand_id !== c.new_brand_id ||
       c.old_catalog_product_id !== c.new_catalog_product_id ||
-      c.old_category_id !== c.new_category_id
+      c.old_category_id !== c.new_category_id,
   );
 
   let knowledgeUpdated = 0;
@@ -455,14 +442,12 @@ async function applyMapping(candidates: MappingCandidate[]): Promise<{
       .eq("id", c.knowledge_id);
 
     if (pkErr) {
-      console.error(
-        `  [ERROR] Failed to update knowledge id=${c.knowledge_id}: ${pkErr.message}`
-      );
+      console.error(`  [ERROR] Failed to update knowledge id=${c.knowledge_id}: ${pkErr.message}`);
       continue;
     }
     knowledgeUpdated++;
     console.log(
-      `  [OK] knowledge product_id=${c.product_id} → brand=${c.brand_code} catalog=${c.new_catalog_product_id.substring(0, 8)}...`
+      `  [OK] knowledge product_id=${c.product_id} → brand=${c.brand_code} catalog=${c.new_catalog_product_id.substring(0, 8)}...`,
     );
 
     // 2. Update matching product_knowledge_chunks
@@ -478,15 +463,13 @@ async function applyMapping(candidates: MappingCandidate[]): Promise<{
 
     if (chunkErr) {
       console.warn(
-        `  [WARN] Failed to update chunks for product_id=${c.product_id}: ${chunkErr.message}`
+        `  [WARN] Failed to update chunks for product_id=${c.product_id}: ${chunkErr.message}`,
       );
     } else {
       const count = updatedChunks?.length ?? 0;
       chunksUpdated += count;
       if (count > 0) {
-        console.log(
-          `  [OK] chunks product_id=${c.product_id} → ${count} chunks updated`
-        );
+        console.log(`  [OK] chunks product_id=${c.product_id} → ${count} chunks updated`);
       }
     }
   }
@@ -509,7 +492,7 @@ async function main() {
 
   if (!DRY_RUN) {
     console.log(
-      "\n  ⚠️  APPLY MODE ACTIVE — DB writes will occur on the connected Supabase project."
+      "\n  ⚠️  APPLY MODE ACTIVE — DB writes will occur on the connected Supabase project.",
     );
     console.log("  ⚠️  Ensure this is STAGING, not production.");
     console.log("  Proceeding in 2 seconds...\n");
@@ -522,7 +505,9 @@ async function main() {
   // Fetch all knowledge records for mapping
   const { data: pkAll, error: pkErr2 } = await supabase
     .from("product_knowledge")
-    .select("id, product_id, brand_id, category_id, catalog_product_id, qa_status, build_status, is_active");
+    .select(
+      "id, product_id, brand_id, category_id, catalog_product_id, qa_status, build_status, is_active",
+    );
 
   if (pkErr2 || !pkAll) {
     console.error("[ERROR] Cannot fetch product_knowledge for mapping");
@@ -530,9 +515,7 @@ async function main() {
   }
 
   // B. Build candidates
-  const { candidates, unmapped } = await buildMappingCandidates(
-    pkAll as ProductKnowledge[]
-  );
+  const { candidates, unmapped } = await buildMappingCandidates(pkAll as ProductKnowledge[]);
 
   // C. Dry-run preview
   printDryRunReport(candidates, unmapped);
@@ -570,7 +553,7 @@ async function main() {
   } else {
     console.log("\n  DRY-RUN complete. No DB changes made.");
     console.log(
-      "  To apply: KNOWLEDGE_MAPPING_STAGING_CONFIRM=MAP_KNOWLEDGE_TO_CATALOG_STAGING npx tsx scripts/map-product-knowledge-catalog.ts"
+      "  To apply: KNOWLEDGE_MAPPING_STAGING_CONFIRM=MAP_KNOWLEDGE_TO_CATALOG_STAGING npx tsx scripts/map-product-knowledge-catalog.ts",
     );
   }
 

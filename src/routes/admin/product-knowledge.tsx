@@ -28,7 +28,13 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/admin/product-knowledge")({
@@ -39,7 +45,7 @@ function AdminProductKnowledge() {
   const { user, isSalesMember, isAdminOrSubAdmin, loading: authLoading } = useAuth();
   const [products, setProducts] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
-  
+
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [filterBrand, setFilterBrand] = useState("all");
@@ -66,9 +72,7 @@ function AdminProductKnowledge() {
 
   const fetchProducts = async () => {
     // F.3: Fetch knowledge with catalog alignment and chunk counts
-    const { data: pkData, error: pkError } = await supabase
-      .from("product_knowledge")
-      .select(`
+    const { data: pkData, error: pkError } = await supabase.from("product_knowledge").select(`
         *,
         product_brands(id, name, slug),
         product_categories(id, name),
@@ -103,17 +107,18 @@ function AdminProductKnowledge() {
       });
     }
 
-    const enrichedProducts = pkData?.map(p => ({
-      ...p,
-      chunk_count: chunkStats[p.product_id]?.count || 0,
-      embedding_model: Array.from(chunkStats[p.product_id]?.models || []).join(", ") || "N/A",
-      embedding_version: Array.from(chunkStats[p.product_id]?.versions || []).join(", ") || "N/A",
-    })) || [];
+    const enrichedProducts =
+      pkData?.map((p) => ({
+        ...p,
+        chunk_count: chunkStats[p.product_id]?.count || 0,
+        embedding_model: Array.from(chunkStats[p.product_id]?.models || []).join(", ") || "N/A",
+        embedding_version: Array.from(chunkStats[p.product_id]?.versions || []).join(", ") || "N/A",
+      })) || [];
 
     setProducts(enrichedProducts);
-    
+
     if (selectedProduct) {
-      const updatedSelected = enrichedProducts.find(p => p.id === selectedProduct.id);
+      const updatedSelected = enrichedProducts.find((p) => p.id === selectedProduct.id);
       if (updatedSelected) setSelectedProduct(updatedSelected);
     }
   };
@@ -185,8 +190,12 @@ function AdminProductKnowledge() {
       toast.error("Chỉ có thể tạo embedding cho Tri thức đã duyệt (Approved)");
       return;
     }
-    
-    if (!confirm(`Bạn có chắc chắn muốn tạo lại embedding cho sản phẩm ${selectedProduct.product_name || selectedProduct.product_id}? Quá trình này sẽ sử dụng API OpenAI.`)) {
+
+    if (
+      !confirm(
+        `Bạn có chắc chắn muốn tạo lại embedding cho sản phẩm ${selectedProduct.product_name || selectedProduct.product_id}? Quá trình này sẽ sử dụng API OpenAI.`,
+      )
+    ) {
       return;
     }
 
@@ -245,9 +254,14 @@ function AdminProductKnowledge() {
   }
 
   // Apply filters
-  const filteredProducts = products.filter(p => {
+  const filteredProducts = products.filter((p) => {
     // Search
-    if (searchQuery && !p.product_id.toString().includes(searchQuery) && !(p.product_name || "").toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (
+      searchQuery &&
+      !p.product_id.toString().includes(searchQuery) &&
+      !(p.product_name || "").toLowerCase().includes(searchQuery.toLowerCase())
+    )
+      return false;
     // Brand
     if (filterBrand !== "all" && p.product_brands?.slug !== filterBrand) return false;
     // QA Status
@@ -277,7 +291,8 @@ function AdminProductKnowledge() {
         <CRMCard className="w-full md:w-[35%] lg:w-[30%] flex flex-col p-0 h-[500px] md:h-full overflow-hidden">
           <div className="p-4 border-b border-slate-100 shrink-0 space-y-3 bg-slate-50/50">
             <h3 className="text-sm font-bold flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-indigo-500" /> Danh sách Tri thức ({filteredProducts.length})
+              <BookOpen className="w-4 h-4 text-indigo-500" /> Danh sách Tri thức (
+              {filteredProducts.length})
             </h3>
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
@@ -288,11 +303,13 @@ function AdminProductKnowledge() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            
+
             {/* Filters */}
             <div className="grid grid-cols-2 gap-2">
               <Select value={filterBrand} onValueChange={setFilterBrand}>
-                <SelectTrigger className="h-8 text-[11px] bg-white"><SelectValue placeholder="Brand" /></SelectTrigger>
+                <SelectTrigger className="h-8 text-[11px] bg-white">
+                  <SelectValue placeholder="Brand" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả Brands</SelectItem>
                   <SelectItem value="desembre">Desembre</SelectItem>
@@ -301,7 +318,9 @@ function AdminProductKnowledge() {
                 </SelectContent>
               </Select>
               <Select value={filterQaStatus} onValueChange={setFilterQaStatus}>
-                <SelectTrigger className="h-8 text-[11px] bg-white"><SelectValue placeholder="QA Status" /></SelectTrigger>
+                <SelectTrigger className="h-8 text-[11px] bg-white">
+                  <SelectValue placeholder="QA Status" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả QA</SelectItem>
                   <SelectItem value="draft">Nháp</SelectItem>
@@ -310,7 +329,9 @@ function AdminProductKnowledge() {
                 </SelectContent>
               </Select>
               <Select value={filterMapped} onValueChange={setFilterMapped}>
-                <SelectTrigger className="h-8 text-[11px] bg-white"><SelectValue placeholder="Mapping" /></SelectTrigger>
+                <SelectTrigger className="h-8 text-[11px] bg-white">
+                  <SelectValue placeholder="Mapping" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả Mapping</SelectItem>
                   <SelectItem value="mapped">Đã map Catalog</SelectItem>
@@ -318,7 +339,9 @@ function AdminProductKnowledge() {
                 </SelectContent>
               </Select>
               <Select value={filterChunks} onValueChange={setFilterChunks}>
-                <SelectTrigger className="h-8 text-[11px] bg-white"><SelectValue placeholder="Chunks" /></SelectTrigger>
+                <SelectTrigger className="h-8 text-[11px] bg-white">
+                  <SelectValue placeholder="Chunks" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả Chunks</SelectItem>
                   <SelectItem value="has_chunks">Có active chunks</SelectItem>
@@ -327,67 +350,79 @@ function AdminProductKnowledge() {
               </Select>
             </div>
           </div>
-          
+
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
             {filteredProducts.map((p) => {
-                const statusVariant: Record<string, CRMStatusBadgeVariant> = {
-                  draft: "neutral",
-                  review: "warning",
-                  approved: "success",
-                  archived: "error",
-                };
-                const statusLabel: Record<string, string> = {
-                  draft: "Nháp",
-                  review: "Duyệt",
-                  approved: "OK",
-                  archived: "Archive",
-                };
-                return (
-                  <div
-                    key={p.id}
-                    onClick={() => handleSelectProduct(p)}
-                    className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                      selectedProduct?.id === p.id
-                        ? "bg-indigo-50/50 border-indigo-200 shadow-sm"
-                        : "border-transparent hover:bg-slate-50"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <div className="text-xs font-bold text-slate-800 line-clamp-1">
-                        {p.product_name || `SP ID: ${p.product_id}`}
-                      </div>
-                      <CRMStatusBadge variant={statusVariant[p.qa_status] || "neutral"}>
-                        {statusLabel[p.qa_status] || p.qa_status}
-                      </CRMStatusBadge>
+              const statusVariant: Record<string, CRMStatusBadgeVariant> = {
+                draft: "neutral",
+                review: "warning",
+                approved: "success",
+                archived: "error",
+              };
+              const statusLabel: Record<string, string> = {
+                draft: "Nháp",
+                review: "Duyệt",
+                approved: "OK",
+                archived: "Archive",
+              };
+              return (
+                <div
+                  key={p.id}
+                  onClick={() => handleSelectProduct(p)}
+                  className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                    selectedProduct?.id === p.id
+                      ? "bg-indigo-50/50 border-indigo-200 shadow-sm"
+                      : "border-transparent hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <div className="text-xs font-bold text-slate-800 line-clamp-1">
+                      {p.product_name || `SP ID: ${p.product_id}`}
                     </div>
-                    
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {p.product_brands?.name && (
-                        <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-white border-slate-200 text-slate-500">
-                          {p.product_brands.name}
-                        </Badge>
-                      )}
-                      {p.catalog_product_id ? (
-                         <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-emerald-50 border-emerald-200 text-emerald-600">
-                           ✅ Mapped
-                         </Badge>
-                      ) : (
-                         <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-amber-50 border-amber-200 text-amber-600">
-                           ⚠️ Unmapped
-                         </Badge>
-                      )}
-                      <Badge variant="outline" className={`text-[9px] h-4 px-1.5 ${p.chunk_count > 0 ? "bg-indigo-50 border-indigo-200 text-indigo-600" : "bg-slate-50 border-slate-200 text-slate-400"}`}>
-                        {p.chunk_count > 0 ? `${p.chunk_count} chunks` : "0 chunks"}
-                      </Badge>
-                    </div>
+                    <CRMStatusBadge variant={statusVariant[p.qa_status] || "neutral"}>
+                      {statusLabel[p.qa_status] || p.qa_status}
+                    </CRMStatusBadge>
                   </div>
-                );
-              })}
-              {filteredProducts.length === 0 && (
-                <div className="text-center p-4 text-xs text-slate-500">
-                  Không tìm thấy kết quả phù hợp.
+
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {p.product_brands?.name && (
+                      <Badge
+                        variant="outline"
+                        className="text-[9px] h-4 px-1.5 bg-white border-slate-200 text-slate-500"
+                      >
+                        {p.product_brands.name}
+                      </Badge>
+                    )}
+                    {p.catalog_product_id ? (
+                      <Badge
+                        variant="outline"
+                        className="text-[9px] h-4 px-1.5 bg-emerald-50 border-emerald-200 text-emerald-600"
+                      >
+                        ✅ Mapped
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-[9px] h-4 px-1.5 bg-amber-50 border-amber-200 text-amber-600"
+                      >
+                        ⚠️ Unmapped
+                      </Badge>
+                    )}
+                    <Badge
+                      variant="outline"
+                      className={`text-[9px] h-4 px-1.5 ${p.chunk_count > 0 ? "bg-indigo-50 border-indigo-200 text-indigo-600" : "bg-slate-50 border-slate-200 text-slate-400"}`}
+                    >
+                      {p.chunk_count > 0 ? `${p.chunk_count} chunks` : "0 chunks"}
+                    </Badge>
+                  </div>
                 </div>
-              )}
+              );
+            })}
+            {filteredProducts.length === 0 && (
+              <div className="text-center p-4 text-xs text-slate-500">
+                Không tìm thấy kết quả phù hợp.
+              </div>
+            )}
           </div>
         </CRMCard>
 
@@ -402,77 +437,127 @@ function AdminProductKnowledge() {
                       {selectedProduct.product_name || `Sản phẩm #${selectedProduct.product_id}`}
                     </h2>
                     <div className="flex items-center gap-2 text-xs text-slate-500">
-                      <span>Brand: <strong className="text-slate-700">{selectedProduct.product_brands?.name || "N/A"}</strong></span>
+                      <span>
+                        Brand:{" "}
+                        <strong className="text-slate-700">
+                          {selectedProduct.product_brands?.name || "N/A"}
+                        </strong>
+                      </span>
                       <span>&bull;</span>
-                      <span>Category: <strong className="text-slate-700">{selectedProduct.product_categories?.name || "N/A"}</strong></span>
+                      <span>
+                        Category:{" "}
+                        <strong className="text-slate-700">
+                          {selectedProduct.product_categories?.name || "N/A"}
+                        </strong>
+                      </span>
                       <span>&bull;</span>
-                      <span>Legacy ID: <strong className="text-slate-700">{selectedProduct.product_id}</strong></span>
+                      <span>
+                        Legacy ID:{" "}
+                        <strong className="text-slate-700">{selectedProduct.product_id}</strong>
+                      </span>
                     </div>
                     {selectedProduct.catalog_product_id && (
                       <div className="text-[11px] text-emerald-600 font-medium">
-                        ↳ Mapped to Catalog: {selectedProduct.catalog_products?.name || selectedProduct.catalog_product_id}
+                        ↳ Mapped to Catalog:{" "}
+                        {selectedProduct.catalog_products?.name ||
+                          selectedProduct.catalog_product_id}
                       </div>
                     )}
                   </div>
-                  
+
                   {/* QA Status Controls */}
                   <div className="flex flex-col gap-2 sm:items-end">
                     <div className="flex items-center gap-1.5">
                       {selectedProduct.qa_status !== "draft" && (
-                        <Button size="sm" variant="outline" onClick={() => handleChangeStatus("draft")} className="gap-1 text-slate-600 h-7 text-xs">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleChangeStatus("draft")}
+                          className="gap-1 text-slate-600 h-7 text-xs"
+                        >
                           <FileEdit className="w-3 h-3" /> Nháp
                         </Button>
                       )}
                       {selectedProduct.qa_status !== "review" && (
-                        <Button size="sm" variant="outline" onClick={() => handleChangeStatus("review")} className="gap-1 text-amber-600 border-amber-200 h-7 text-xs hover:bg-amber-50">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleChangeStatus("review")}
+                          className="gap-1 text-amber-600 border-amber-200 h-7 text-xs hover:bg-amber-50"
+                        >
                           <Eye className="w-3 h-3" /> Gửi Duyệt
                         </Button>
                       )}
                       {selectedProduct.qa_status !== "approved" && (
-                        <Button size="sm" onClick={() => handleChangeStatus("approved")} className="gap-1 bg-emerald-600 hover:bg-emerald-700 h-7 text-xs">
+                        <Button
+                          size="sm"
+                          onClick={() => handleChangeStatus("approved")}
+                          className="gap-1 bg-emerald-600 hover:bg-emerald-700 h-7 text-xs"
+                        >
                           <ShieldCheck className="w-3 h-3" /> Duyệt (AI dùng)
                         </Button>
                       )}
                     </div>
-                    
+
                     {selectedProduct.qa_status === "approved" && (
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         variant="default"
                         onClick={handleRebuild}
                         disabled={isRebuilding}
                         className="gap-1 bg-indigo-600 hover:bg-indigo-700 h-7 text-xs"
                       >
-                        {isRebuilding ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                        {isRebuilding ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <RefreshCw className="w-3 h-3" />
+                        )}
                         Tạo lại Embedding
                       </Button>
                     )}
                   </div>
                 </div>
-                
+
                 {/* Status Conflict Warning */}
                 <div className="mt-4 flex flex-col gap-2">
                   <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-[11px] text-blue-800 flex flex-col gap-1">
                     <div className="font-bold">💡 Trạng thái Đồng bộ (Status Fields)</div>
                     <div>
-                      RAG hiện đang sử dụng <strong>qa_status = '{selectedProduct.qa_status}'</strong>. 
-                      Trường <strong>status = 'published'</strong> là future-state field sẽ được chuẩn hóa trong phase sau.
+                      RAG hiện đang sử dụng{" "}
+                      <strong>qa_status = '{selectedProduct.qa_status}'</strong>. Trường{" "}
+                      <strong>status = 'published'</strong> là future-state field sẽ được chuẩn hóa
+                      trong phase sau.
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-4 text-[11px] text-slate-600 bg-white p-2 border border-slate-100 rounded-lg">
                     <div className="flex gap-2 items-center">
                       <span className="font-semibold">Chunks:</span>
-                      <Badge variant="secondary" className="bg-slate-100 text-slate-700">{selectedProduct.chunk_count}</Badge>
+                      <Badge variant="secondary" className="bg-slate-100 text-slate-700">
+                        {selectedProduct.chunk_count}
+                      </Badge>
                     </div>
                     <div className="flex gap-2 items-center">
                       <span className="font-semibold">Build:</span>
-                      <Badge variant="outline" className={selectedProduct.build_status === "completed" ? "text-emerald-600 border-emerald-200" : "text-amber-600 border-amber-200"}>
+                      <Badge
+                        variant="outline"
+                        className={
+                          selectedProduct.build_status === "completed"
+                            ? "text-emerald-600 border-emerald-200"
+                            : "text-amber-600 border-amber-200"
+                        }
+                      >
                         {selectedProduct.build_status}
                       </Badge>
                     </div>
-                    <div><span className="font-semibold">Model:</span> {selectedProduct.embedding_model} (v{selectedProduct.embedding_version})</div>
-                    <div><span className="font-semibold">Knowledge Ver:</span> {selectedProduct.knowledge_version}</div>
+                    <div>
+                      <span className="font-semibold">Model:</span>{" "}
+                      {selectedProduct.embedding_model} (v{selectedProduct.embedding_version})
+                    </div>
+                    <div>
+                      <span className="font-semibold">Knowledge Ver:</span>{" "}
+                      {selectedProduct.knowledge_version}
+                    </div>
                   </div>
                 </div>
               </div>

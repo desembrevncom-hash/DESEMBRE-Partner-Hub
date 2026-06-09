@@ -5,10 +5,7 @@ import {
   normalizeSku,
   hasDuplicateVariant,
 } from "../src/lib/catalogAdminDb";
-import {
-  stableProductSort,
-  computeNextProductSortOrder,
-} from "../src/lib/catalogSort";
+import { stableProductSort, computeNextProductSortOrder } from "../src/lib/catalogSort";
 
 describe("Product & Variant UI Helpers - Unit Tests", () => {
   describe("isValidImageUrl", () => {
@@ -150,4 +147,3 @@ describe("Product & Variant UI Helpers - Unit Tests", () => {
     });
   });
 });
-
