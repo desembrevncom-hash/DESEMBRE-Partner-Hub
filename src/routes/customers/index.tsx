@@ -56,6 +56,7 @@ import { customerRiskLabels } from "@/lib/workspaceFilterMapping";
 import { classifyCustomerLifecycle } from "@/lib/customerOwnership";
 import { getCustomerVisualState } from "@/lib/customerVisualState";
 import { getCustomerConversationState } from "@/lib/customerConversationState";
+import { getCustomerCardBadges } from "@/lib/customers/cardBadges";
 import { getPriorityScore, getStaleSignals, getSuggestedNextAction } from "@/lib/operationalRules";
 import { buildStaffMap, getStaffDisplayName, getStaffInitials, StaffMap } from "@/lib/staffDisplay";
 import { QuickCallResultDialog } from "@/components/customers/QuickCallResultDialog";
@@ -1733,6 +1734,10 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
   const hasZalo = !!customer.channel_summary?.has_zalo;
   const primaryPhone = customer.phone || "";
 
+  const normalizedBadges = getCustomerCardBadges(customer);
+  const topBadges = normalizedBadges.slice(0, 2);
+  const overflowCount = normalizedBadges.length > 2 ? normalizedBadges.length - 2 : 0;
+
   return (
     <CRMCard
       draggable={draggable}
@@ -1743,48 +1748,61 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
       {/* Header */}
       <div className="flex justify-between items-start">
         <div className="space-y-0.5 max-w-[85%]">
-          <div className="flex items-center gap-1.5 mb-1">
-            <DataHealthBadge customer={customer} mode="compact" />
+          <div className="flex items-center gap-1 mb-1 flex-wrap">
+            {topBadges.map((b) => (
+              <Badge
+                key={b.id}
+                variant="secondary"
+                title={b.tooltip}
+                className={`border-none px-1.5 py-0 text-[9px] h-4 uppercase font-bold ${
+                  b.type === "danger"
+                    ? "bg-rose-50 text-rose-600 hover:bg-rose-100"
+                    : b.type === "warning"
+                      ? "bg-amber-50 text-amber-600 hover:bg-amber-100"
+                      : b.type === "priority" && b.label.includes("Hot")
+                        ? "bg-rose-50 text-rose-600 hover:bg-rose-100"
+                        : b.type === "priority" && b.label.includes("Warm")
+                          ? "bg-orange-50 text-orange-600 hover:bg-orange-100"
+                          : b.type === "vip"
+                            ? "bg-amber-50 text-amber-600 hover:bg-amber-100"
+                            : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {b.label}
+              </Badge>
+            ))}
+            {overflowCount > 0 && (
+              <Badge
+                variant="secondary"
+                className="bg-slate-100 text-slate-500 border-none px-1.5 py-0 text-[9px] h-4 font-bold cursor-help"
+                title={normalizedBadges
+                  .slice(2)
+                  .map((b) => b.label)
+                  .join(", ")}
+              >
+                +{overflowCount} lỗi
+              </Badge>
+            )}
           </div>
-          <h4 className="text-[13px] font-bold text-slate-800 tracking-tight leading-tight group-hover:text-indigo-600 transition-colors line-clamp-1">
+          <h4
+            className="text-[13px] font-bold text-slate-800 tracking-tight leading-tight group-hover:text-indigo-600 transition-colors line-clamp-1"
+            title={
+              customer.business_name ||
+              customer.facility_name ||
+              customer.contact_name ||
+              customer.name
+            }
+          >
             {customer.business_name ||
               customer.facility_name ||
               customer.contact_name ||
               customer.name}
           </h4>
           <div className="flex items-center gap-1.5 flex-wrap">
-            <p className="text-[10px] text-slate-500 font-medium">
+            <p className="text-[10px] text-slate-500 font-medium line-clamp-1">
               {customer.city || "Toàn quốc"} •{" "}
               {customer.customer_channel || customer.source || "N/A"}
             </p>
-
-            {/* Temperature & Signals */}
-            <div className="flex items-center gap-1 border-l border-slate-200 pl-1.5">
-              {convState.temperature === "HOT" && (
-                <Badge
-                  variant="secondary"
-                  className="bg-rose-50 text-rose-600 hover:bg-rose-100 border-none px-1.5 py-0 text-[8px] h-4 uppercase font-bold"
-                >
-                  🔥 Hot
-                </Badge>
-              )}
-              {convState.temperature === "WARM" && (
-                <Badge
-                  variant="secondary"
-                  className="bg-orange-50 text-orange-600 hover:bg-orange-100 border-none px-1.5 py-0 text-[8px] h-4 uppercase font-bold"
-                >
-                  ⭐ Warm
-                </Badge>
-              )}
-              {isVip && (
-                <Badge
-                  variant="secondary"
-                  className="bg-amber-50 text-amber-600 hover:bg-amber-100 border-none px-1.5 py-0 text-[8px] h-4 uppercase font-bold"
-                >
-                  👑 VIP
-                </Badge>
-              )}
-            </div>
           </div>
         </div>
         <div className="shrink-0 z-10" onClick={(e) => e.stopPropagation()}>
@@ -1833,13 +1851,14 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
       {/* Action Row - Primary Action + Quick Shortcuts + Action Icons */}
       <div className="flex items-center gap-1 pt-2 border-t border-slate-50">
         <Button
-          className="rounded-xl h-8 text-[10px] font-black bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm px-3"
+          className={`rounded-xl h-8 text-[10px] font-black shadow-sm px-3 ${primaryPhone ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-slate-100 text-slate-400 cursor-not-allowed hover:bg-slate-200"}`}
           onClick={(e) => {
             e.stopPropagation();
-            window.location.href = `tel:${primaryPhone}`;
+            if (primaryPhone) window.location.href = `tel:${primaryPhone}`;
           }}
+          disabled={!primaryPhone}
         >
-          <Phone className="w-3.5 h-3.5 mr-1.5" /> Gọi điện
+          <Phone className="w-3.5 h-3.5 mr-1.5" /> {primaryPhone ? "Gọi điện" : "Thiếu SĐT"}
         </Button>
 
         <div className="flex items-center gap-0.5 ml-1">
