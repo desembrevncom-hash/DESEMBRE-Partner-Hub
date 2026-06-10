@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import React, { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { ManualReviewQueue } from "./-components/ManualReviewQueue";
 
 export const Route = createFileRoute("/admin/identity-resolution/")({
   component: IdentityResolutionPage,
@@ -54,15 +55,19 @@ function IdentityResolutionPage() {
           </button>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center min-h-[400px] flex flex-col items-center justify-center">
-          <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-            <span className="text-2xl text-slate-400">🕵️</span>
+        {activeTab === "unresolved" ? (
+          <ManualReviewQueue />
+        ) : (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center min-h-[400px] flex flex-col items-center justify-center">
+            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+              <span className="text-2xl text-slate-400">🕵️</span>
+            </div>
+            <h3 className="text-lg font-bold text-slate-700 mb-2">Chưa có dữ liệu</h3>
+            <p className="text-slate-500 text-sm max-w-sm mx-auto">
+              Hàng chờ trống. Các hồ sơ mồ côi (Unlinked PSID) hoặc Link URL bị lỗi phân giải sẽ xuất hiện ở đây.
+            </p>
           </div>
-          <h3 className="text-lg font-bold text-slate-700 mb-2">Chưa có dữ liệu</h3>
-          <p className="text-slate-500 text-sm max-w-sm mx-auto">
-            Hàng chờ trống. Các hồ sơ mồ côi (Unlinked PSID) hoặc Link URL bị lỗi phân giải sẽ xuất hiện ở đây.
-          </p>
-        </div>
+        )}
       </div>
     </div>
   );
