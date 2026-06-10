@@ -210,8 +210,13 @@ serve(async (req) => {
         const isTimeout = err.name === 'TimeoutError' || err.message.includes('timeout');
         const status = isTimeout ? "timeout" : "failed";
         
-        await updateFailure(supabaseAdmin, job_id, status, err.message);
-        await insertResult(supabaseAdmin, job, status, null, latency, err.message);
+        let safeErrorMessage = err.message || "Unknown error";
+        if (APIFY_TOKEN) {
+          safeErrorMessage = safeErrorMessage.split(APIFY_TOKEN).join('[REDACTED_TOKEN]');
+        }
+        
+        await updateFailure(supabaseAdmin, job_id, status, safeErrorMessage);
+        await insertResult(supabaseAdmin, job, status, null, latency, safeErrorMessage);
       }
     })());
 
@@ -227,7 +232,8 @@ async function updateSuccess(supabaseAdmin: any, job: any, uid: string, confiden
   if (job.social_profile_id) {
     await supabaseAdmin.from("customer_social_profiles").update({
       facebook_uid: uid,
-      resolver_status: "verified",
+      resolver_status: "resolved",
+      resolver_method: "external_apify",
       confidence_score: confidence
     }).eq("id", job.social_profile_id);
   }
