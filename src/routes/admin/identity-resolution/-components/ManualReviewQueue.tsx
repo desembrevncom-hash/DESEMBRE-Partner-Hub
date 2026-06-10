@@ -271,6 +271,32 @@ function JobRow({ job }: { job: ManualReviewJob }) {
               <AlertCircle className="w-3 h-3" /> Đánh dấu lỗi
             </button>
           </div>
+          
+          {/* Duplicate candidate warning & link */}
+          {(job.status === 'duplicate_candidate' || job.auto_resolve_status === 'duplicate_detected') && (
+            <div className="mt-2 bg-rose-50 border border-rose-200 p-3 rounded-lg text-xs text-rose-700">
+              <div className="flex items-start gap-1 font-bold mb-2">
+                <AlertCircle className="w-4 h-4 mt-0.5" /> Phát hiện trùng lặp UID!
+              </div>
+              <div className="mb-2">UID phân giải được đã thuộc về một khách hàng khác. Bạn cần kiểm tra xem đây là khách cũ hay khách mới bị trùng.</div>
+              {job.duplicate_profile?.customers && (
+                <div className="bg-white p-2 rounded border border-rose-100 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-bold text-slate-800 truncate">{job.duplicate_profile.customers.name}</div>
+                    <div className="text-slate-500 text-[10px] truncate">{job.duplicate_profile.customers.phone || 'Không có SĐT'}</div>
+                  </div>
+                  <Link
+                    to="/customers/$id"
+                    params={{ id: job.duplicate_profile.customers.id }}
+                    target="_blank"
+                    className="flex-shrink-0 flex items-center gap-1 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold px-2 py-1.5 rounded transition-colors whitespace-nowrap"
+                  >
+                    Mở khách cũ <ExternalLink className="w-3 h-3" />
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </td>
     </tr>
