@@ -62,6 +62,7 @@ export const createContactChannel = async ({
   is_primary: boolean;
   notes?: string;
   user: any;
+  social_profile_id?: string;
 }) => {
   const { normalizedValue, resolveStatus } = normalizeContactChannel(channelType, value);
   const visibility = scope === "official" ? "official" : "private";
@@ -80,6 +81,7 @@ export const createContactChannel = async ({
     is_primary: !!is_primary,
     channel_purpose: channel_purpose || "sales",
     notes: notes || null,
+    social_profile_id: social_profile_id || null,
   };
 
   // 1. Check for duplicates

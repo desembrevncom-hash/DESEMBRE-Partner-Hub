@@ -47,7 +47,7 @@ import { VIETNAM_PROVINCES, stripAccents, findProvinceByName } from "@/lib/vietn
 import { createLeadAssignedAutomation } from "@/lib/automation";
 import { Badge } from "@/components/ui/badge";
 import { createContactChannel } from "@/lib/contactChannels";
-import { parseFacebookUrl, ParsedFacebookProfile } from "@/lib/customers/facebookUrlParser";
+import { classifyFacebookUrl, FacebookUrlClassification } from "@/lib/customers/facebookUrlClassifier";
 import { checkCustomerDuplicate } from "@/lib/customers/customerDuplicateChecker";
 interface AddCustomerDialogProps {
   open: boolean;
@@ -83,8 +83,8 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
   const [previewDuplicateInfo, setPreviewDuplicateInfo] = useState<any>(null);
 
   // --- FACEBOOK URL STATES ---
-  const [fbPreviewStatus, setFbPreviewStatus] = useState<"idle" | "loading" | "uid" | "username" | "invalid_fb" | "invalid">("idle");
-  const [fbParsedData, setFbParsedData] = useState<ParsedFacebookProfile | null>(null);
+  const [fbPreviewStatus, setFbPreviewStatus] = useState<"idle" | "loading" | "uid" | "username" | "invalid_type" | "invalid_fb" | "invalid">("idle");
+  const [fbParsedData, setFbParsedData] = useState<FacebookUrlClassification | null>(null);
   const [fbDuplicateInfo, setFbDuplicateInfo] = useState<any>(null);
 
   useEffect(() => {
@@ -144,12 +144,16 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
     setFbDuplicateInfo(null);
 
     const timer = setTimeout(async () => {
-      const parsed = parseFacebookUrl(val);
+      const parsed = classifyFacebookUrl(val);
       setFbParsedData(parsed);
 
-      if (parsed.facebookUid) {
+      if (parsed.type === 'INVALID') {
+         setFbPreviewStatus("invalid");
+      } else if (['GROUP', 'POST', 'REEL', 'STORY', 'MESSENGER'].includes(parsed.type)) {
+         setFbPreviewStatus("invalid_type");
+      } else if (parsed.uid) {
         setFbPreviewStatus("uid");
-      } else if (parsed.facebookUsername) {
+      } else if (parsed.username) {
         setFbPreviewStatus("username");
       } else if (val.toLowerCase().includes("facebook.com") || val.toLowerCase().includes("fb.com")) {
         setFbPreviewStatus("invalid_fb");
@@ -160,8 +164,8 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
       // Check duplicate
       const dupRes = await checkCustomerDuplicate({
         phone: form.phone,
-        facebookUid: parsed.facebookUid || undefined,
-        facebookUsername: parsed.facebookUsername || undefined,
+        facebookUid: parsed.uid || undefined,
+        facebookUsername: parsed.username || undefined,
         normalizedUrl: parsed.normalizedUrl || undefined,
       });
 
@@ -508,7 +512,94 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
         );
       }
 
-      // 4. Handle Primary Channel
+      // 4. Handle Facebook Profile First (so we can get social_profile_id)
+      let currentSocialProfileId: string | null = null;
+      if (form.primary_channel_type === "facebook" && form.primary_channel_value.trim()) {
+        const rawUrl = form.primary_channel_value.trim();
+        const uid = fbParsedData?.uid;
+        const username = fbParsedData?.username;
+        const normalized = fbParsedData?.normalizedUrl;
+        const fbType = fbParsedData?.type || 'UNKNOWN';
+        
+        const isUnsupported = ['GROUP', 'POST', 'REEL', 'STORY', 'MESSENGER', 'INVALID'].includes(fbType);
+        
+        let resolver_status = "unresolved";
+        let confidence_score = null;
+        if (uid) {
+          resolver_status = "resolved";
+          confidence_score = 100;
+        } else if (username) {
+          resolver_status = "parsed_only";
+          confidence_score = 40;
+        }
+
+        // Insert social profile if we parsed something or if it's a valid link
+        if (fbType !== 'INVALID') {
+          const { data: spData, error: spErr } = await supabase.from("customer_social_profiles").insert({
+            customer_id: newCustomer.id,
+            platform: "facebook",
+            raw_url: rawUrl,
+            normalized_url: normalized,
+            facebook_uid: uid,
+            facebook_username: username,
+            resolver_status,
+            resolver_method: "local_parser",
+            confidence_score
+          }).select('id').single();
+          
+          if (spErr) {
+            console.warn("Failed to insert customer_social_profiles:", spErr);
+            toast.warning("Lỗi lưu hồ sơ Facebook: " + spErr.message);
+          } else if (spData) {
+            currentSocialProfileId = spData.id;
+          }
+        }
+
+        // Determine if we need a job and what status it should have
+        if (fbType !== 'INVALID' && !uid) {
+          let auto_resolve_status = 'not_attempted';
+          let jobStatus = 'manual_review_required';
+          let errorLog = null;
+          
+          if (isUnsupported) {
+            auto_resolve_status = 'skipped_invalid_type';
+            errorLog = `Unsupported Facebook URL type: ${fbType}`;
+          }
+          
+          const { data: jobData, error: jobErr } = await supabase.from("facebook_identity_resolution_jobs").insert({
+            customer_id: newCustomer.id,
+            raw_url: rawUrl,
+            status: jobStatus,
+            resolver_method: "local_parser",
+            confidence_score: confidence_score || 0,
+            created_by: user?.id,
+            auto_resolve_status: auto_resolve_status,
+            last_auto_resolve_error: errorLog
+          }).select('id').single();
+          
+          if (jobErr) {
+            console.warn("Failed to insert facebook_identity_resolution_jobs:", jobErr);
+          } else if (jobData) {
+            if (isUnsupported) {
+               // Log audit skipped
+               await supabase.from("facebook_identity_resolution_audit").insert({
+                  job_id: jobData.id,
+                  provider_status: 'skipped_invalid_type',
+                  raw_response: { error: errorLog }
+               }).catch(e => console.warn(e));
+               toast.info("Link Facebook thuộc loại nhóm/bài viết, sẽ bỏ qua phân giải tự động.");
+            } else {
+               // Trigger background auto-resolver silently
+               supabase.functions.invoke("resolve-facebook-uid", {
+                 body: { job_id: jobData.id }
+               }).catch(e => console.warn("Auto-resolver invoke failed:", e));
+               toast.info("Hệ thống đang thử tìm UID tự động trong nền...");
+            }
+          }
+        }
+      }
+
+      // 5. Handle Primary Channel
       const scope = isAdmin || isSubAdmin ? "official" : "private";
 
       // Create Phone Channel (always created)
@@ -537,6 +628,7 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
             is_primary: true,
             channel_purpose: "sales",
             user,
+            social_profile_id: currentSocialProfileId || undefined
           });
           if (resErr) throw resErr;
           toast.success("Đã tạo khách hàng mới.");
@@ -545,83 +637,6 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
         }
       } else {
         toast.success("Đã tạo khách hàng mới.");
-      }
-
-      // --- 5. Facebook Identity Save ---
-      if (form.primary_channel_type === "facebook" && form.primary_channel_value.trim()) {
-        const rawUrl = form.primary_channel_value.trim();
-        const uid = fbParsedData?.facebookUid;
-        const username = fbParsedData?.facebookUsername;
-        const normalized = fbParsedData?.normalizedUrl;
-        
-        let resolver_status = "unresolved";
-        let confidence_score = null;
-        if (uid) {
-          resolver_status = "resolved";
-          confidence_score = 100;
-        } else if (username) {
-          resolver_status = "parsed_only";
-          confidence_score = 40;
-        }
-
-        // Insert social profile if we parsed something
-        if (uid || username) {
-          const { error: spErr } = await supabase.from("customer_social_profiles").insert({
-            customer_id: newCustomer.id,
-            platform: "facebook",
-            raw_url: rawUrl,
-            normalized_url: normalized,
-            facebook_uid: uid,
-            facebook_username: username,
-            resolver_status,
-            resolver_method: "local_parser",
-            confidence_score
-          });
-          if (spErr) {
-            console.warn("Failed to insert customer_social_profiles:", spErr);
-            toast.warning("Lỗi lưu hồ sơ Facebook: " + spErr.message);
-          }
-        }
-
-        // Insert job if it needs manual review (username only, or unresolved but it's a FB url)
-        if (!uid && username) {
-          const { data: jobData, error: jobErr } = await supabase.from("facebook_identity_resolution_jobs").insert({
-            customer_id: newCustomer.id,
-            raw_url: rawUrl,
-            status: "manual_review_required",
-            resolver_method: "local_parser",
-            confidence_score,
-            created_by: user?.id
-          }).select('id').single();
-          
-          if (jobErr) {
-            console.warn("Failed to insert facebook_identity_resolution_jobs:", jobErr);
-          } else if (jobData) {
-            // Trigger background auto-resolver silently
-            supabase.functions.invoke("resolve-facebook-uid", {
-              body: { job_id: jobData.id }
-            }).catch(e => console.warn("Auto-resolver invoke failed:", e));
-            toast.info("Hệ thống đang thử tìm UID tự động trong nền...");
-          }
-        } else if (!uid && !username && (rawUrl.toLowerCase().includes("facebook.com") || rawUrl.toLowerCase().includes("fb.com"))) {
-           const { data: jobData, error: jobErr } = await supabase.from("facebook_identity_resolution_jobs").insert({
-            customer_id: newCustomer.id,
-            raw_url: rawUrl,
-            status: "manual_review_required",
-            resolver_method: "local_parser",
-            confidence_score: 0,
-            created_by: user?.id
-          }).select('id').single();
-          
-          if (jobErr) {
-            console.warn("Failed to insert facebook_identity_resolution_jobs invalid fb:", jobErr);
-          } else if (jobData) {
-            supabase.functions.invoke("resolve-facebook-uid", {
-              body: { job_id: jobData.id }
-            }).catch(e => console.warn("Auto-resolver invoke failed:", e));
-            toast.info("Hệ thống đang thử tìm UID tự động trong nền...");
-          }
-        }
       }
       // --- End Facebook Identity Save ---
 
@@ -1065,17 +1080,34 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
                       </div>
                     )}
                     {fbPreviewStatus === "uid" && (
-                      <div className="text-xs text-emerald-700 bg-emerald-50/80 px-3 py-2 rounded-xl flex items-center gap-2 border border-emerald-100">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                        <span>Đã nhận diện UID: <span className="font-bold">{fbParsedData?.facebookUid}</span></span>
+                      <div className="text-xs text-emerald-700 bg-emerald-50/80 px-3 py-2.5 rounded-xl flex items-start gap-2 border border-emerald-100">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-px shrink-0" />
+                        <div>
+                          <span className="font-bold">Nhận diện được UID: </span>
+                          <span className="font-mono bg-white px-1 py-0.5 rounded text-emerald-600 border border-emerald-100">
+                            {fbParsedData?.uid}
+                          </span>
+                        </div>
                       </div>
                     )}
                     {fbPreviewStatus === "username" && (
                       <div className="text-xs text-amber-700 bg-amber-50/80 px-3 py-2.5 rounded-xl flex items-start gap-2 border border-amber-100">
                         <AlertCircle className="w-4 h-4 text-amber-500 mt-px shrink-0" />
                         <div>
-                          <span>Đã nhận diện username: <span className="font-bold">{fbParsedData?.facebookUsername}</span></span>
+                          <span className="font-bold">Đã nhận diện username: </span>
+                          <span className="font-mono bg-white px-1 py-0.5 rounded text-amber-600 border border-amber-100">
+                            {fbParsedData?.username}
+                          </span>
                           <div className="opacity-80 text-[10px] mt-0.5">Chưa có UID ổn định. Bạn vẫn có thể tiếp tục tạo khách hàng.</div>
+                        </div>
+                      </div>
+                    )}
+                    {fbPreviewStatus === "invalid_type" && (
+                      <div className="text-xs text-amber-700 bg-amber-50/80 px-3 py-2.5 rounded-xl flex items-start gap-2 border border-amber-100">
+                        <AlertCircle className="w-4 h-4 text-amber-500 mt-px shrink-0" />
+                        <div>
+                          <span className="font-bold">Hệ thống không tự động phân giải loại link này (Group, Bài viết, Reel...).</span>
+                          <div className="opacity-80 text-[10px] mt-0.5">Sẽ đưa vào hàng đợi kiểm tra thủ công.</div>
                         </div>
                       </div>
                     )}

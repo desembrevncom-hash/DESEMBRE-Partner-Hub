@@ -192,8 +192,8 @@ serve(async (req) => {
         }
 
         if (isNumeric && returnedUid) {
-          await updateSuccess(supabaseAdmin, job, returnedUid, 80);
-          await insertResult(supabaseAdmin, job, "resolved", returnedUid, latency, null, item);
+          const resolveStatus = await updateSuccess(supabaseAdmin, job, returnedUid, 80);
+          await insertResult(supabaseAdmin, job, resolveStatus, returnedUid, latency, null, item);
         } else {
           await updateFailure(supabaseAdmin, job_id, "not_found", "No numeric UID returned");
           await insertResult(supabaseAdmin, job, "not_found", null, latency, "No numeric UID returned", item);
@@ -216,7 +216,27 @@ serve(async (req) => {
   }
 });
 
-async function updateSuccess(supabaseAdmin: any, job: any, uid: string, confidence: number) {
+async function updateSuccess(supabaseAdmin: any, job: any, uid: string, confidence: number): Promise<string> {
+  // Check for duplicate
+  const { data: existingProfiles, error: dupErr } = await supabaseAdmin
+    .from("customer_social_profiles")
+    .select("id")
+    .eq("facebook_uid", uid)
+    .limit(1);
+
+  if (existingProfiles && existingProfiles.length > 0) {
+    const duplicateProfileId = existingProfiles[0].id;
+    // Update job to duplicate_candidate
+    await supabaseAdmin.from("facebook_identity_resolution_jobs").update({
+      status: "duplicate_candidate",
+      auto_resolve_status: "duplicate_detected",
+      duplicate_social_profile_id: duplicateProfileId,
+      last_auto_resolve_at: new Date().toISOString(),
+      last_auto_resolve_error: "Duplicate UID detected"
+    }).eq("id", job.id);
+    return "duplicate_detected";
+  }
+
   // First update social profile if we have customer ID
   if (job.customer_id) {
     await supabaseAdmin.from("customer_social_profiles").update({
@@ -234,6 +254,8 @@ async function updateSuccess(supabaseAdmin: any, job: any, uid: string, confiden
     last_auto_resolve_at: new Date().toISOString(),
     last_auto_resolve_error: null
   }).eq("id", job.id);
+
+  return "resolved";
 }
 
 async function updateFailure(supabaseAdmin: any, job_id: string, status: string, errorMsg: string) {

@@ -5,7 +5,7 @@ export interface ManualReviewJob {
   id: string;
   customer_id: string;
   raw_url: string;
-  status: 'pending' | 'resolved' | 'failed' | 'manual_review_required';
+  status: 'pending' | 'resolved' | 'failed' | 'manual_review_required' | 'duplicate_candidate' | 'ignored';
   created_at: string;
   customers?: {
     id: string;
@@ -13,7 +13,8 @@ export interface ManualReviewJob {
     phone: string | null;
     owner_sale_id: string | null;
   };
-  auto_resolve_status?: 'not_attempted' | 'queued' | 'resolving' | 'resolved' | 'failed' | 'timeout' | 'rate_limited' | 'disabled' | 'cached';
+  auto_resolve_status?: 'not_attempted' | 'queued' | 'resolving' | 'resolved' | 'failed' | 'timeout' | 'rate_limited' | 'disabled' | 'cached' | 'skipped_invalid_type' | 'duplicate_detected';
+  duplicate_social_profile_id?: string | null;
   auto_resolve_attempts?: number;
   last_auto_resolve_at?: string | null;
   last_auto_resolve_error?: string | null;
@@ -42,7 +43,7 @@ export function useManualReviewJobsQuery() {
             owner_sale_id
           )
         `)
-        .eq("status", "manual_review_required")
+        .in("status", ["manual_review_required", "duplicate_candidate"])
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -57,7 +58,7 @@ export function useManualReviewJobsQuery() {
 export interface ResolveManualJobPayload {
   jobId: string;
   numericUid?: string | null;
-  status: 'resolved' | 'failed';
+  status: 'resolved' | 'failed' | 'ignored' | 'duplicate_candidate';
   note?: string | null;
 }
 
