@@ -69,6 +69,7 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
   const [showAddForm, setShowAddForm] = useState(false);
   const [togglingPrimary, setTogglingPrimary] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
+  const [socialProfiles, setSocialProfiles] = useState<Record<string, any>>({});
 
   const [form, setForm] = useState({
     channelType: "zalo",
@@ -104,6 +105,21 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
           profs.forEach((p: any) => (map[p.id] = p.display_name || p.email || "Unknown"));
           setProfiles(map);
         }
+      }
+
+      // Fetch social profiles to get platform_uid
+      const { data: socialData } = await supabase
+        .from("customer_social_profiles")
+        .select("*")
+        .eq("customer_id", customerId);
+        
+      if (socialData) {
+        const socialMap: Record<string, any> = {};
+        socialData.forEach((sp: any) => {
+          if (sp.raw_url) socialMap[sp.raw_url] = sp;
+          if (sp.normalized_url) socialMap[sp.normalized_url] = sp;
+        });
+        setSocialProfiles(socialMap);
       }
     } catch (err: any) {
       console.error("Error fetching channels:", err);
@@ -315,11 +331,20 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
         <div className="flex items-center justify-between gap-3">
           {/* Left info */}
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xl leading-none">{icon}</span>
-              <div className="text-lg font-black text-slate-800 truncate" title={c.channel_value}>
-                {c.normalized_value || c.channel_value}
+            <div className="flex flex-col gap-1 mb-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xl leading-none">{icon}</span>
+                <div className="text-lg font-black text-slate-800 truncate" title={c.channel_value}>
+                  {c.normalized_value || c.channel_value}
+                </div>
               </div>
+              {/* Display UID if available */}
+              {socialProfiles[c.channel_value]?.platform_uid && (
+                <div className="flex items-center gap-1.5 pl-7 text-xs font-semibold text-emerald-600">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  UID: {socialProfiles[c.channel_value].platform_uid}
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-1.5 mt-1.5">

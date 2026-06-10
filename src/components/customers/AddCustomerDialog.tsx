@@ -564,9 +564,10 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
           confidence_score = 40;
         }
 
+        let newSocialProfileId = null;
         // Insert social profile if we parsed something
         if (uid || username) {
-          const { error: spErr } = await supabase.from("customer_social_profiles").insert({
+          const { data: spData, error: spErr } = await supabase.from("customer_social_profiles").insert({
             customer_id: newCustomer.id,
             platform: "facebook",
             raw_url: rawUrl,
@@ -576,10 +577,13 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
             resolver_status,
             resolver_method: "local_parser",
             confidence_score
-          });
+          }).select('id').single();
+          
           if (spErr) {
             console.warn("Failed to insert customer_social_profiles:", spErr);
             toast.warning("Lỗi lưu hồ sơ Facebook: " + spErr.message);
+          } else if (spData) {
+            newSocialProfileId = spData.id;
           }
         }
 
