@@ -66,6 +66,7 @@ import { Route as AdminAutomationGovernanceRouteImport } from './routes/admin/au
 import { Route as AdminAutomationRouteImport } from './routes/admin/automation'
 import { Route as AdminAiSettingsRouteImport } from './routes/admin/ai-settings'
 import { Route as AdminAiDebugRouteImport } from './routes/admin/ai-debug'
+import { Route as AdminIdentityResolutionIndexRouteImport } from './routes/admin/identity-resolution/index'
 
 const WorkspaceRoute = WorkspaceRouteImport.update({
   id: '/workspace',
@@ -354,6 +355,12 @@ const AdminAiDebugRoute = AdminAiDebugRouteImport.update({
   path: '/admin/ai-debug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIdentityResolutionIndexRoute =
+  AdminIdentityResolutionIndexRouteImport.update({
+    id: '/admin/identity-resolution/',
+    path: '/admin/identity-resolution/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -413,6 +420,7 @@ export interface FileRoutesByFullPath {
   '/marketing/': typeof MarketingIndexRoute
   '/orders/': typeof OrdersIndexRoute
   '/reports/': typeof ReportsIndexRoute
+  '/admin/identity-resolution/': typeof AdminIdentityResolutionIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -471,6 +479,7 @@ export interface FileRoutesByTo {
   '/marketing': typeof MarketingIndexRoute
   '/orders': typeof OrdersIndexRoute
   '/reports': typeof ReportsIndexRoute
+  '/admin/identity-resolution': typeof AdminIdentityResolutionIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -531,6 +540,7 @@ export interface FileRoutesById {
   '/marketing/': typeof MarketingIndexRoute
   '/orders/': typeof OrdersIndexRoute
   '/reports/': typeof ReportsIndexRoute
+  '/admin/identity-resolution/': typeof AdminIdentityResolutionIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -592,6 +602,7 @@ export interface FileRouteTypes {
     | '/marketing/'
     | '/orders/'
     | '/reports/'
+    | '/admin/identity-resolution/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -650,6 +661,7 @@ export interface FileRouteTypes {
     | '/marketing'
     | '/orders'
     | '/reports'
+    | '/admin/identity-resolution'
   id:
     | '__root__'
     | '/'
@@ -709,6 +721,7 @@ export interface FileRouteTypes {
     | '/marketing/'
     | '/orders/'
     | '/reports/'
+    | '/admin/identity-resolution/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -766,6 +779,7 @@ export interface RootRouteChildren {
   MarketingIndexRoute: typeof MarketingIndexRoute
   OrdersIndexRoute: typeof OrdersIndexRoute
   ReportsIndexRoute: typeof ReportsIndexRoute
+  AdminIdentityResolutionIndexRoute: typeof AdminIdentityResolutionIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1169,6 +1183,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAiDebugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/identity-resolution/': {
+      id: '/admin/identity-resolution/'
+      path: '/admin/identity-resolution'
+      fullPath: '/admin/identity-resolution/'
+      preLoaderRoute: typeof AdminIdentityResolutionIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1243,6 +1264,7 @@ const rootRouteChildren: RootRouteChildren = {
   MarketingIndexRoute: MarketingIndexRoute,
   OrdersIndexRoute: OrdersIndexRoute,
   ReportsIndexRoute: ReportsIndexRoute,
+  AdminIdentityResolutionIndexRoute: AdminIdentityResolutionIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
