@@ -166,7 +166,7 @@ serve(async (req) => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            fbUrls: [safeUrl],
+            fbUrls: [{ url: safeUrl }],
             extractMetadata: true,
             checkAdsLibrary: false
           }),
