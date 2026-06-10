@@ -175,6 +175,7 @@ serve(async (req) => {
         let res = null;
         let lastErrorData = null;
         let successfulPayload = null;
+        let latency = 0;
 
         for (const payload of payloadsToTry) {
           res = await fetch(apifyUrl, {
@@ -209,6 +210,8 @@ serve(async (req) => {
 
           return;
         }
+
+        latency = Date.now() - startTime;
 
         const { data: currentJob } = await supabaseAdmin.from("facebook_identity_resolution_jobs").select("status").eq("id", job_id).single();
         if (currentJob?.status !== "manual_review_required") {
