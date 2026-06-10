@@ -15,6 +15,14 @@ export interface ManualReviewJob {
   };
   auto_resolve_status?: 'not_attempted' | 'queued' | 'resolving' | 'resolved' | 'failed' | 'timeout' | 'rate_limited' | 'disabled' | 'cached' | 'skipped_invalid_type' | 'duplicate_detected';
   duplicate_social_profile_id?: string | null;
+  duplicate_profile?: {
+    customer_id: string;
+    customers?: {
+      id: string;
+      name: string;
+      phone: string | null;
+    };
+  } | null;
   auto_resolve_attempts?: number;
   last_auto_resolve_at?: string | null;
   last_auto_resolve_error?: string | null;
@@ -36,7 +44,16 @@ export function useManualReviewJobsQuery() {
           auto_resolve_attempts,
           last_auto_resolve_at,
           last_auto_resolve_error,
-          customers (
+          duplicate_social_profile_id,
+          duplicate_profile:customer_social_profiles!facebook_identity_resolution_jobs_duplicate_social_profile_id_fkey (
+            customer_id,
+            customers (
+              id,
+              name,
+              phone
+            )
+          ),
+          customers!facebook_identity_resolution_jobs_customer_id_fkey (
             id,
             name,
             phone,
