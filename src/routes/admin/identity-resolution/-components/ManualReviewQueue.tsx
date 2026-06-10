@@ -211,23 +211,29 @@ function JobRow({ job }: { job: ManualReviewJob }) {
       <td className="px-4 py-3 align-top">
         <div className="flex flex-col gap-2 items-start">
           <div className="flex items-center gap-2 max-w-xs break-all">
-            <span className="text-slate-700 font-medium bg-slate-100 px-2 py-1 rounded">{job.raw_url}</span>
+            <span className="text-slate-700 font-medium bg-slate-100 px-2 py-1 rounded">{job.raw_url || "Chưa có Link"}</span>
           </div>
           <div className="flex items-center gap-2">
-            <a
-              href={job.raw_url.startsWith('http') ? job.raw_url : `https://${job.raw_url}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-xs text-blue-600 hover:underline bg-blue-50 px-2 py-1 rounded"
-            >
-              <ExternalLink className="w-3 h-3" /> Mở Link
-            </a>
-            <button
-              onClick={() => handleCopy(job.raw_url)}
-              className="flex items-center gap-1 text-xs text-slate-600 hover:bg-slate-200 bg-slate-100 px-2 py-1 rounded transition-colors"
-            >
-              <Copy className="w-3 h-3" /> Copy Link
-            </button>
+            {job.raw_url ? (
+              <>
+                <a
+                  href={job.raw_url.startsWith('http') ? job.raw_url : `https://${job.raw_url}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs text-blue-600 hover:underline bg-blue-50 px-2 py-1 rounded"
+                >
+                  <ExternalLink className="w-3 h-3" /> Mở Link
+                </a>
+                <button
+                  onClick={() => handleCopy(job.raw_url)}
+                  className="flex items-center gap-1 text-xs text-slate-600 hover:bg-slate-200 bg-slate-100 px-2 py-1 rounded transition-colors"
+                >
+                  <Copy className="w-3 h-3" /> Copy Link
+                </button>
+              </>
+            ) : (
+              <span className="text-xs text-slate-400 italic">Không có link</span>
+            )}
           </div>
           {renderAutoStatus()}
         </div>

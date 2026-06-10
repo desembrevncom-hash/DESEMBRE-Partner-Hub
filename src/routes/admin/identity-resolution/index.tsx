@@ -126,7 +126,7 @@ function IdentityResolutionPage() {
                       <tbody>
                         {unlinkedEvents.map((event) => {
                           const snippet = event.source_payload?._extracted_snippet || event.source_payload?.message?.text || "Không có nội dung";
-                          const maskedPsid = event.facebook_psid ? event.facebook_psid.substring(0, 4) + "..." + event.facebook_psid.slice(-4) : "N/A";
+                          const maskedPsid = event.facebook_psid ? String(event.facebook_psid).substring(0, 4) + "..." + String(event.facebook_psid).slice(-4) : "N/A";
                           
                           return (
                             <tr key={event.id} className="border-b border-slate-50 hover:bg-slate-50/50">
