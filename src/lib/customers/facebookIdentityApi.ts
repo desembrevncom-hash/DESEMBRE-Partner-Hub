@@ -45,7 +45,7 @@ export function useManualReviewJobsQuery() {
           last_auto_resolve_at,
           last_auto_resolve_error,
           duplicate_social_profile_id,
-          duplicate_profile:customer_social_profiles (
+          duplicate_profile:customer_social_profiles!duplicate_social_profile_id (
             customer_id,
             customers (
               id,
