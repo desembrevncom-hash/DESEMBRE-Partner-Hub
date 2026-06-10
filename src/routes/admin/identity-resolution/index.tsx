@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/admin/identity-resolution/")({
   component: IdentityResolutionPage,
@@ -9,6 +10,39 @@ export const Route = createFileRoute("/admin/identity-resolution/")({
 function IdentityResolutionPage() {
   const { isManager } = useAuth();
   const [activeTab, setActiveTab] = useState<"unresolved" | "duplicate_candidates">("unresolved");
+  const [unlinkedEvents, setUnlinkedEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isManager && activeTab === "unresolved") {
+      fetchUnlinkedEvents();
+    }
+  }, [isManager, activeTab]);
+
+  const fetchUnlinkedEvents = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("facebook_identity_events")
+      .select("*")
+      .eq("processing_status", "unlinked")
+      .order("created_at", { ascending: false });
+
+    if (!error && data) {
+      setUnlinkedEvents(data);
+    }
+    setLoading(false);
+  };
+
+  const handleIgnore = async (id: string) => {
+    const { error } = await supabase
+      .from("facebook_identity_events")
+      .update({ processing_status: "ignored" })
+      .eq("id", id);
+      
+    if (!error) {
+      setUnlinkedEvents((prev) => prev.filter((e) => e.id !== id));
+    }
+  };
 
   if (!isManager) {
     return (
@@ -54,15 +88,80 @@ function IdentityResolutionPage() {
           </button>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center min-h-[400px] flex flex-col items-center justify-center">
-          <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-            <span className="text-2xl text-slate-400">🕵️</span>
+        {activeTab === "unresolved" && (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            {loading ? (
+              <div className="text-center py-10 text-slate-500">Đang tải...</div>
+            ) : unlinkedEvents.length === 0 ? (
+              <div className="text-center py-10">
+                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl text-slate-400">🕵️</span>
+                </div>
+                <h3 className="text-lg font-bold text-slate-700 mb-2">Chưa có dữ liệu</h3>
+                <p className="text-slate-500 text-sm max-w-sm mx-auto">
+                  Hàng chờ trống. Không có sự kiện Messenger nào bị mồ côi.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-slate-500 uppercase text-xs">
+                      <th className="py-3 px-4 font-bold">Thời gian</th>
+                      <th className="py-3 px-4 font-bold">Page ID</th>
+                      <th className="py-3 px-4 font-bold">PSID</th>
+                      <th className="py-3 px-4 font-bold">Nội dung</th>
+                      <th className="py-3 px-4 font-bold text-right">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {unlinkedEvents.map((event) => {
+                      const snippet = event.source_payload?._extracted_snippet || event.source_payload?.message?.text || "Không có nội dung";
+                      const maskedPsid = event.facebook_psid ? event.facebook_psid.substring(0, 4) + "..." + event.facebook_psid.slice(-4) : "N/A";
+                      
+                      return (
+                        <tr key={event.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+                          <td className="py-3 px-4 text-slate-600">
+                            {new Date(event.created_at).toLocaleString("vi-VN")}
+                          </td>
+                          <td className="py-3 px-4 font-mono text-xs text-slate-700">
+                            {event.facebook_page_id || "N/A"}
+                          </td>
+                          <td className="py-3 px-4 font-mono text-xs text-slate-700 font-bold">
+                            {maskedPsid}
+                          </td>
+                          <td className="py-3 px-4 text-slate-600 max-w-xs truncate" title={snippet}>
+                            {snippet}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <button
+                              onClick={() => handleIgnore(event.id)}
+                              className="text-xs font-bold text-rose-600 hover:bg-rose-50 px-3 py-1.5 rounded-lg transition-colors border border-rose-200"
+                            >
+                              Bỏ qua
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-          <h3 className="text-lg font-bold text-slate-700 mb-2">Chưa có dữ liệu</h3>
-          <p className="text-slate-500 text-sm max-w-sm mx-auto">
-            Hàng chờ trống. Các hồ sơ mồ côi (Unlinked PSID) hoặc Link URL bị lỗi phân giải sẽ xuất hiện ở đây.
-          </p>
-        </div>
+        )}
+        
+        {activeTab === "duplicate_candidates" && (
+           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center min-h-[400px] flex flex-col items-center justify-center">
+             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+               <span className="text-2xl text-slate-400">🕵️</span>
+             </div>
+             <h3 className="text-lg font-bold text-slate-700 mb-2">Chưa có dữ liệu</h3>
+             <p className="text-slate-500 text-sm max-w-sm mx-auto">
+               Chưa có tính năng này trong MVP.
+             </p>
+           </div>
+        )}
       </div>
     </div>
   );

@@ -191,6 +191,11 @@ function AdminControlHub() {
           to: "/admin/webhooks",
           icon: <DatabaseZap className="w-4 h-4" />,
         },
+        {
+          label: "Identity Resolution Queue",
+          to: "/admin/identity-resolution",
+          icon: <Shield className="w-4 h-4" />,
+        },
       ],
     },
   ];
