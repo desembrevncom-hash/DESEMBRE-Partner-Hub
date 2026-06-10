@@ -107,7 +107,7 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
         }
       }
 
-      // Fetch social profiles to get platform_uid
+      // Fetch social profiles to get facebook_uid
       const { data: socialData } = await supabase
         .from("customer_social_profiles")
         .select("*")
@@ -339,10 +339,10 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
                 </div>
               </div>
               {/* Display UID if available */}
-              {socialProfiles[c.channel_value]?.platform_uid && (
+              {socialProfiles[c.channel_value]?.facebook_uid && (
                 <div className="flex items-center gap-1.5 pl-7 text-xs font-semibold text-emerald-600">
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  UID: {socialProfiles[c.channel_value].platform_uid}
+                  UID: {socialProfiles[c.channel_value].facebook_uid}
                 </div>
               )}
             </div>

@@ -223,14 +223,13 @@ serve(async (req) => {
 });
 
 async function updateSuccess(supabaseAdmin: any, job: any, uid: string, confidence: number) {
-  // First update social profile if we have customer ID
-  if (job.customer_id) {
+  // Update social profile
+  if (job.social_profile_id) {
     await supabaseAdmin.from("customer_social_profiles").update({
       facebook_uid: uid,
-      resolver_status: "resolved",
-      resolver_method: "external_apify",
-      confidence_score: confidence,
-    }).eq("customer_id", job.customer_id).eq("platform", "facebook").is("facebook_uid", null);
+      resolver_status: "verified",
+      confidence_score: confidence
+    }).eq("id", job.social_profile_id);
   }
 
   // Update job
