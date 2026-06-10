@@ -179,24 +179,34 @@ function JobRow({ job }: { job: ManualReviewJob }) {
   return (
     <tr className="hover:bg-slate-50 transition-colors">
       <td className="px-4 py-3 align-top">
-        {job.customers ? (
-          <div>
-            <Link
-              to="/customers/$id"
-              params={{ id: job.customers.id }}
-              className="font-bold text-indigo-600 hover:text-indigo-800"
-              target="_blank"
-            >
-              {job.customers.name}
-            </Link>
-            {job.customers.phone && <div className="text-slate-500 mt-1">{job.customers.phone}</div>}
-            <div className="text-xs text-slate-400 mt-1" title={new Date(job.created_at).toLocaleString()}>
-              {new Date(job.created_at).toLocaleDateString()}
-            </div>
-          </div>
-        ) : (
-          <span className="text-slate-400">Khách hàng đã xóa</span>
-        )}
+        {(() => {
+          const mainCustomer = Array.isArray(job.customers) ? job.customers[0] : job.customers;
+          
+          if (mainCustomer) {
+            return (
+              <div>
+                {mainCustomer.id ? (
+                  <Link
+                    to="/customers/$id"
+                    params={{ id: mainCustomer.id }}
+                    className="font-bold text-indigo-600 hover:text-indigo-800"
+                    target="_blank"
+                  >
+                    {mainCustomer.name}
+                  </Link>
+                ) : (
+                  <span className="font-bold text-indigo-600">{mainCustomer.name}</span>
+                )}
+                {mainCustomer.phone && <div className="text-slate-500 mt-1">{mainCustomer.phone}</div>}
+                <div className="text-xs text-slate-400 mt-1" title={new Date(job.created_at).toLocaleString()}>
+                  {new Date(job.created_at).toLocaleDateString()}
+                </div>
+              </div>
+            );
+          }
+          
+          return <span className="text-slate-400">Khách hàng đã xóa</span>;
+        })()}
       </td>
       <td className="px-4 py-3 align-top">
         <div className="flex flex-col gap-2 items-start">
@@ -279,22 +289,32 @@ function JobRow({ job }: { job: ManualReviewJob }) {
                 <AlertCircle className="w-4 h-4 mt-0.5" /> Phát hiện trùng lặp UID!
               </div>
               <div className="mb-2">UID phân giải được đã thuộc về một khách hàng khác. Bạn cần kiểm tra xem đây là khách cũ hay khách mới bị trùng.</div>
-              {job.duplicate_profile?.customers && (
-                <div className="bg-white p-2 rounded border border-rose-100 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="font-bold text-slate-800 truncate">{job.duplicate_profile.customers.name}</div>
-                    <div className="text-slate-500 text-[10px] truncate">{job.duplicate_profile.customers.phone || 'Không có SĐT'}</div>
+              {(() => {
+                const dupCustomer = Array.isArray(job.duplicate_profile?.customers) 
+                  ? job.duplicate_profile?.customers[0] 
+                  : job.duplicate_profile?.customers;
+                  
+                if (!dupCustomer) return null;
+                
+                return (
+                  <div className="bg-white p-2 rounded border border-rose-100 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-bold text-slate-800 truncate">{dupCustomer.name}</div>
+                      <div className="text-slate-500 text-[10px] truncate">{dupCustomer.phone || 'Không có SĐT'}</div>
+                    </div>
+                    {dupCustomer.id && (
+                      <Link
+                        to="/customers/$id"
+                        params={{ id: dupCustomer.id }}
+                        target="_blank"
+                        className="flex-shrink-0 flex items-center gap-1 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold px-2 py-1.5 rounded transition-colors whitespace-nowrap"
+                      >
+                        Mở khách cũ <ExternalLink className="w-3 h-3" />
+                      </Link>
+                    )}
                   </div>
-                  <Link
-                    to="/customers/$id"
-                    params={{ id: job.duplicate_profile.customers.id }}
-                    target="_blank"
-                    className="flex-shrink-0 flex items-center gap-1 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold px-2 py-1.5 rounded transition-colors whitespace-nowrap"
-                  >
-                    Mở khách cũ <ExternalLink className="w-3 h-3" />
-                  </Link>
-                </div>
-              )}
+                );
+              })()}
             </div>
           )}
         </div>

@@ -47,13 +47,13 @@ export function useManualReviewJobsQuery() {
           duplicate_social_profile_id,
           duplicate_profile:customer_social_profiles!duplicate_social_profile_id (
             customer_id,
-            customers (
+            customers!customer_id (
               id,
               name,
               phone
             )
           ),
-          customers!facebook_identity_resolution_jobs_customer_id_fkey (
+          customers!customer_id (
             id,
             name,
             phone,
