@@ -253,7 +253,7 @@ serve(async (req) => {
         const item = items[0];
         itemToLog = item;
 
-        console.log(JSON.stringify({ actorId, normalizedUrl, payloadShape, httpStatus: res.status, providerErrorType: "none", message: "success", latencyMs }));
+        console.log(JSON.stringify({ actorId, normalizedUrl, payloadShape: successfulPayloadShape, httpStatus: res.status, providerErrorType: "none", message: "success", latencyMs }));
 
         const { data: currentJob } = await supabaseAdmin.from("facebook_identity_resolution_jobs").select("status").eq("id", job_id).single();
         if (currentJob?.status !== "manual_review_required") {
