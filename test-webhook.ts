@@ -1,8 +1,10 @@
 import crypto from "crypto";
 
-const WEBHOOK_URL = "http://127.0.0.1:54321/functions/v1/fb-messenger-webhook";
-const META_WEBHOOK_VERIFY_TOKEN = "test_verify_token_123";
-const META_APP_SECRET = "test_app_secret_456";
+const WEBHOOK_URL = "https://wmhfvggbthyikqvlyqup.supabase.co/functions/v1/fb-messenger-webhook";
+
+// ⚠️ IMPORTANT: Replace these with your actual Staging secrets before running this script
+const META_WEBHOOK_VERIFY_TOKEN = "desembre_fb_webhook_staging_2026_x7Kp92";
+const META_APP_SECRET = "7e2ea11f6c100f9b72a781d28ddf0066";
 
 // Helper to generate HMAC SHA256 signature
 function generateSignature(payload: string): string {

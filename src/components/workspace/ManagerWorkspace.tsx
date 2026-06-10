@@ -19,6 +19,7 @@ import {
   Activity,
   Target,
   UsersRound,
+  Link2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
@@ -155,6 +156,15 @@ export const ManagerWorkspace: React.FC = () => {
                   className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-9 px-3 rounded-xl flex items-center gap-1.5"
                 >
                   <UsersRound className="w-3.5 h-3.5 text-blue-600" /> NHÂN SỰ
+                </Button>
+              </Link>
+              <Link to="/admin/identity-resolution">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-black uppercase h-9 px-3 rounded-xl flex items-center gap-1.5"
+                >
+                  <Link2 className="w-3.5 h-3.5 text-indigo-500" /> ĐỊNH DANH FB
                 </Button>
               </Link>
             </>
