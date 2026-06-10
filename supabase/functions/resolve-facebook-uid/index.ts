@@ -154,7 +154,8 @@ serve(async (req) => {
     EdgeRuntime.waitUntil((async () => {
       const startTime = Date.now();
       try {
-        const apifyUrl = `https://api.apify.com/v2/acts/${ACTOR}/run-sync-get-dataset-items?token=${APIFY_TOKEN}`;
+        const actorPath = ACTOR.replace('/', '~');
+        const apifyUrl = `https://api.apify.com/v2/acts/${actorPath}/run-sync-get-dataset-items?token=${APIFY_TOKEN}`;
         
         const res = await fetch(apifyUrl, {
           method: "POST",
