@@ -157,11 +157,16 @@ serve(async (req) => {
         const actorPath = ACTOR.replace('/', '~');
         const apifyUrl = `https://api.apify.com/v2/acts/${actorPath}/run-sync-get-dataset-items?token=${APIFY_TOKEN}`;
         
+        let cleanUrl = job.raw_url.trim();
+        if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+          cleanUrl = 'https://' + cleanUrl;
+        }
+
         const res = await fetch(apifyUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            fbUrls: [job.raw_url],
+            fbUrls: [{ url: cleanUrl }],
             extractMetadata: true,
             checkAdsLibrary: false
           }),
