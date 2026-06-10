@@ -13,6 +13,10 @@ export interface ManualReviewJob {
     phone: string | null;
     owner_sale_id: string | null;
   };
+  auto_resolve_status?: 'not_attempted' | 'queued' | 'resolving' | 'resolved' | 'failed' | 'timeout' | 'rate_limited' | 'disabled' | 'cached';
+  auto_resolve_attempts?: number;
+  last_auto_resolve_at?: string | null;
+  last_auto_resolve_error?: string | null;
 }
 
 export function useManualReviewJobsQuery() {
@@ -27,6 +31,10 @@ export function useManualReviewJobsQuery() {
           raw_url,
           status,
           created_at,
+          auto_resolve_status,
+          auto_resolve_attempts,
+          last_auto_resolve_at,
+          last_auto_resolve_error,
           customers (
             id,
             name,
@@ -67,6 +75,32 @@ export function useResolveManualReviewJobMutation() {
 
       if (error) {
         throw new Error(error.message);
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["facebook-identity-manual-review-jobs"] });
+    },
+  });
+}
+
+export function useTriggerAutoResolveMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (jobId: string) => {
+      const { data, error } = await supabase.functions.invoke("resolve-facebook-uid", {
+        body: { job_id: jobId },
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // Check if Edge Function returned an error in the payload
+      if (data && data.error) {
+        throw new Error(data.error);
       }
 
       return data;

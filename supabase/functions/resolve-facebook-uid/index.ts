@@ -1,0 +1,263 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+interface ResolveFacebookUidPayload {
+  job_id: string;
+}
+
+const ENABLED = Deno.env.get("FACEBOOK_UID_AUTO_RESOLVE_ENABLED") === "true";
+const APIFY_TOKEN = Deno.env.get("APIFY_TOKEN");
+const ACTOR = Deno.env.get("APIFY_FACEBOOK_URL_TO_ID_ACTOR") || "apify/facebook-url-to-id";
+const TIMEOUT_MS = parseInt(Deno.env.get("FACEBOOK_UID_PROVIDER_TIMEOUT_MS") || "15000");
+const DAILY_LIMIT = parseInt(Deno.env.get("FACEBOOK_UID_PROVIDER_DAILY_LIMIT") || "50");
+const COOLDOWN_MINUTES = parseInt(Deno.env.get("FACEBOOK_UID_PROVIDER_COOLDOWN_MINUTES") || "10");
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Missing authorization" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    
+    // Create admin client for internal ops
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { persistSession: false, autoRefreshToken: false }
+    });
+
+    // Verify user JWT
+    const supabaseUserClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") || "", {
+      global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false, autoRefreshToken: false }
+    });
+    
+    const { data: { user }, error: userErr } = await supabaseUserClient.auth.getUser();
+    if (userErr || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Get user roles
+    const { data: userData } = await supabaseAdmin.from('users_roles').select('role').eq('user_id', user.id).single();
+    const role = userData?.role || 'sale';
+    const isAdmin = role === 'admin' || role === 'sub_admin';
+
+    const { job_id } = (await req.json()) as ResolveFacebookUidPayload;
+    if (!job_id) {
+      return new Response(JSON.stringify({ error: "Missing job_id" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Fetch Job securely
+    const { data: job, error: jobErr } = await supabaseAdmin
+      .from("facebook_identity_resolution_jobs")
+      .select("*, customers(owner_sale_id, owner_tele_id, created_by)")
+      .eq("id", job_id)
+      .single();
+
+    if (jobErr || !job) {
+      return new Response(JSON.stringify({ error: "Job not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Authorize
+    if (!isAdmin) {
+      const ownerSale = job.customers?.owner_sale_id;
+      const ownerTele = job.customers?.owner_tele_id;
+      const createdBy = job.customers?.created_by;
+      if (ownerSale !== user.id && ownerTele !== user.id && createdBy !== user.id) {
+        return new Response(JSON.stringify({ error: "Forbidden. Not your customer." }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
+    // Validate Status
+    if (job.status !== "manual_review_required") {
+      return new Response(JSON.stringify({ error: "Job is not in manual_review_required state" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Validate URL
+    const urlLower = job.raw_url.toLowerCase();
+    if (!urlLower.includes("facebook.com") && !urlLower.includes("fb.com")) {
+      return new Response(JSON.stringify({ error: "Not a valid Facebook URL" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Feature Flag Check
+    if (!ENABLED) {
+      await supabaseAdmin.from("facebook_identity_resolution_jobs").update({
+        auto_resolve_status: "disabled",
+        last_auto_resolve_at: new Date().toISOString(),
+        last_auto_resolve_error: "Feature disabled by admin"
+      }).eq("id", job_id);
+
+      await insertResult(supabaseAdmin, job, "disabled", null, 0, "Feature flag is OFF");
+
+      return new Response(JSON.stringify({ status: "disabled", message: "Auto-resolver is currently disabled" }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    // Cooldown & Cache check
+    const { data: previousResults } = await supabaseAdmin
+      .from("facebook_uid_resolver_results")
+      .select("provider_status, created_at, returned_uid")
+      .eq("raw_url", job.raw_url)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (previousResults && previousResults.length > 0) {
+      const last = previousResults[0];
+      if (last.provider_status === 'resolved' && last.returned_uid) {
+        // Cache hit
+        await updateSuccess(supabaseAdmin, job, last.returned_uid, 80);
+        await insertResult(supabaseAdmin, job, "cached", last.returned_uid, 0, null);
+        return new Response(JSON.stringify({ status: "cached", uid: last.returned_uid }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      
+      if (last.provider_status === 'failed' || last.provider_status === 'timeout' || last.provider_status === 'not_found') {
+        const lastTime = new Date(last.created_at).getTime();
+        const now = Date.now();
+        if (now - lastTime < COOLDOWN_MINUTES * 60 * 1000) {
+          return new Response(JSON.stringify({ status: "cooldown", message: "Cooling down from recent failure" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      }
+    }
+
+    // Daily Limit Check
+    const startOfDay = new Date();
+    startOfDay.setUTCHours(0,0,0,0);
+    const { count } = await supabaseAdmin
+      .from("facebook_uid_resolver_results")
+      .select("*", { count: 'exact', head: true })
+      .gte("created_at", startOfDay.toISOString());
+      
+    if (count !== null && count >= DAILY_LIMIT) {
+      await insertResult(supabaseAdmin, job, "rate_limited", null, 0, "Daily limit reached");
+      return new Response(JSON.stringify({ status: "rate_limited", message: "Daily limit reached" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Mark Resolving
+    await supabaseAdmin.from("facebook_identity_resolution_jobs").update({
+      auto_resolve_status: "resolving",
+      auto_resolve_attempts: (job.auto_resolve_attempts || 0) + 1,
+      last_auto_resolve_at: new Date().toISOString()
+    }).eq("id", job_id);
+
+    // Background Processing
+    EdgeRuntime.waitUntil((async () => {
+      const startTime = Date.now();
+      try {
+        const apifyUrl = `https://api.apify.com/v2/acts/${ACTOR}/run-sync-get-dataset-items?token=${APIFY_TOKEN}`;
+        
+        const res = await fetch(apifyUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fbUrls: [job.raw_url],
+            extractMetadata: true,
+            checkAdsLibrary: false
+          }),
+          signal: AbortSignal.timeout(TIMEOUT_MS)
+        });
+
+        const latency = Date.now() - startTime;
+        
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`Apify HTTP ${res.status}: ${errText.substring(0, 200)}`);
+        }
+
+        const items = await res.json();
+        const item = items[0];
+
+        // Re-check race condition
+        const { data: currentJob } = await supabaseAdmin.from("facebook_identity_resolution_jobs").select("status").eq("id", job_id).single();
+        if (currentJob?.status !== "manual_review_required") {
+          console.log("Job already resolved manually while Apify was running.");
+          return;
+        }
+
+        let returnedUid = null;
+        let isNumeric = false;
+        if (item) {
+          returnedUid = item.facebookId || item.id || null;
+          isNumeric = !!(returnedUid && /^\\d+$/.test(returnedUid));
+        }
+
+        if (isNumeric && returnedUid) {
+          await updateSuccess(supabaseAdmin, job, returnedUid, 80);
+          await insertResult(supabaseAdmin, job, "resolved", returnedUid, latency, null, item);
+        } else {
+          await updateFailure(supabaseAdmin, job_id, "not_found", "No numeric UID returned");
+          await insertResult(supabaseAdmin, job, "not_found", null, latency, "No numeric UID returned", item);
+        }
+
+      } catch (err: any) {
+        const latency = Date.now() - startTime;
+        const isTimeout = err.name === 'TimeoutError' || err.message.includes('timeout');
+        const status = isTimeout ? "timeout" : "failed";
+        
+        await updateFailure(supabaseAdmin, job_id, status, err.message);
+        await insertResult(supabaseAdmin, job, status, null, latency, err.message);
+      }
+    })());
+
+    return new Response(JSON.stringify({ status: "queued", message: "Background resolution started" }), { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+});
+
+async function updateSuccess(supabaseAdmin: any, job: any, uid: string, confidence: number) {
+  // First update social profile if we have customer ID
+  if (job.customer_id) {
+    await supabaseAdmin.from("customer_social_profiles").update({
+      facebook_uid: uid,
+      resolver_status: "resolved",
+      resolver_method: "external_apify",
+      confidence_score: confidence,
+    }).eq("customer_id", job.customer_id).eq("platform", "facebook").is("facebook_uid", null);
+  }
+
+  // Update job
+  await supabaseAdmin.from("facebook_identity_resolution_jobs").update({
+    status: "resolved",
+    auto_resolve_status: "resolved",
+    last_auto_resolve_at: new Date().toISOString(),
+    last_auto_resolve_error: null
+  }).eq("id", job.id);
+}
+
+async function updateFailure(supabaseAdmin: any, job_id: string, status: string, errorMsg: string) {
+  await supabaseAdmin.from("facebook_identity_resolution_jobs").update({
+    auto_resolve_status: status,
+    last_auto_resolve_at: new Date().toISOString(),
+    last_auto_resolve_error: errorMsg.substring(0, 200)
+  }).eq("id", job_id);
+}
+
+async function insertResult(supabaseAdmin: any, job: any, status: string, uid: string | null, latency: number, errorMsg: string | null, responseJson: any = {}) {
+  // sanitize responseJson
+  if (responseJson && Array.isArray(responseJson)) {
+      responseJson = responseJson[0] || {};
+  }
+  await supabaseAdmin.from("facebook_uid_resolver_results").insert({
+    job_id: job.id,
+    customer_id: job.customer_id,
+    raw_url: job.raw_url,
+    returned_uid: uid,
+    provider_status: status,
+    latency_ms: latency,
+    error_message: errorMsg,
+    response_json: responseJson,
+    created_by: job.created_by
+  });
+}

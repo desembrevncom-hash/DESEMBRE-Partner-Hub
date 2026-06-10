@@ -585,25 +585,42 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
 
         // Insert job if it needs manual review (username only, or unresolved but it's a FB url)
         if (!uid && username) {
-          const { error: jobErr } = await supabase.from("facebook_identity_resolution_jobs").insert({
+          const { data: jobData, error: jobErr } = await supabase.from("facebook_identity_resolution_jobs").insert({
             customer_id: newCustomer.id,
             raw_url: rawUrl,
             status: "manual_review_required",
             resolver_method: "local_parser",
             confidence_score,
             created_by: user?.id
-          });
-          if (jobErr) console.warn("Failed to insert facebook_identity_resolution_jobs:", jobErr);
+          }).select('id').single();
+          
+          if (jobErr) {
+            console.warn("Failed to insert facebook_identity_resolution_jobs:", jobErr);
+          } else if (jobData) {
+            // Trigger background auto-resolver silently
+            supabase.functions.invoke("resolve-facebook-uid", {
+              body: { job_id: jobData.id }
+            }).catch(e => console.warn("Auto-resolver invoke failed:", e));
+            toast.info("Hệ thống đang thử tìm UID tự động trong nền...");
+          }
         } else if (!uid && !username && (rawUrl.toLowerCase().includes("facebook.com") || rawUrl.toLowerCase().includes("fb.com"))) {
-           const { error: jobErr } = await supabase.from("facebook_identity_resolution_jobs").insert({
+           const { data: jobData, error: jobErr } = await supabase.from("facebook_identity_resolution_jobs").insert({
             customer_id: newCustomer.id,
             raw_url: rawUrl,
             status: "manual_review_required",
             resolver_method: "local_parser",
             confidence_score: 0,
             created_by: user?.id
-          });
-          if (jobErr) console.warn("Failed to insert facebook_identity_resolution_jobs invalid fb:", jobErr);
+          }).select('id').single();
+          
+          if (jobErr) {
+            console.warn("Failed to insert facebook_identity_resolution_jobs invalid fb:", jobErr);
+          } else if (jobData) {
+            supabase.functions.invoke("resolve-facebook-uid", {
+              body: { job_id: jobData.id }
+            }).catch(e => console.warn("Auto-resolver invoke failed:", e));
+            toast.info("Hệ thống đang thử tìm UID tự động trong nền...");
+          }
         }
       }
       // --- End Facebook Identity Save ---
