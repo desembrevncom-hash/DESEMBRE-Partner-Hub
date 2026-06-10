@@ -163,33 +163,61 @@ serve(async (req) => {
           cleanUrl = 'https://' + cleanUrl;
         }
 
-        const res = await fetch(apifyUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fbUrls: [cleanUrl],
-            extractMetadata: true,
-            checkAdsLibrary: false
-          }),
-          signal: AbortSignal.timeout(TIMEOUT_MS)
-        });
+        const payloadsToTry = [
+          { fbUrls: [cleanUrl] },
+          { fbUrls: [{ url: cleanUrl }] },
+          { startUrls: [{ url: cleanUrl }] },
+          { urls: [{ url: cleanUrl }] },
+          { fbUrls: [`${cleanUrl}/`] },
+          { fbUrls: [cleanUrl.replace('https://www.', 'https://')] }
+        ];
 
-        const latency = Date.now() - startTime;
-        
-        if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(`Apify HTTP ${res.status}: ${errText.substring(0, 200)}`);
+        let res = null;
+        let lastErrorData = null;
+        let successfulPayload = null;
+
+        for (const payload of payloadsToTry) {
+          res = await fetch(apifyUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...payload,
+              extractMetadata: true,
+              checkAdsLibrary: false
+            }),
+          });
+          
+          if (res.status === 200 || res.status === 201) {
+            successfulPayload = payload;
+            break;
+          } else {
+            lastErrorData = await res.json().catch(() => null);
+            if (res.status !== 400) {
+               break; // If it's 401 or 404, no need to keep trying payloads
+            }
+          }
         }
 
-        const items = await res.json();
-        const item = items[0];
+        if (!res.ok) {
+          console.error("Apify API error:", res.status, lastErrorData);
+          
+          // Log failed attempt with diagnostic info
+          await supabaseAdmin.from("facebook_identity_resolution_jobs").update({
+            auto_resolve_status: "failed",
+            last_auto_resolve_error: `Apify HTTP ${res.status}: ${JSON.stringify(lastErrorData)} | DIAG: tried ${payloadsToTry.length} payloads`
+          }).eq("id", job_id);
 
-        // Re-check race condition
+          return;
+        }
+
         const { data: currentJob } = await supabaseAdmin.from("facebook_identity_resolution_jobs").select("status").eq("id", job_id).single();
         if (currentJob?.status !== "manual_review_required") {
           console.log("Job already resolved manually while Apify was running.");
           return;
         }
+
+        const items = await res.json();
+        const item = items[0];
 
         let returnedUid = null;
         let isNumeric = false;
