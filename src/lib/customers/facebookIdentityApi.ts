@@ -13,7 +13,7 @@ export interface ManualReviewJob {
     phone: string | null;
     owner_sale_id: string | null;
   };
-  auto_resolve_status?: 'not_attempted' | 'queued' | 'resolving' | 'resolved' | 'failed' | 'timeout' | 'rate_limited' | 'disabled' | 'cached';
+  auto_resolve_status?: 'not_attempted' | 'queued' | 'resolving' | 'resolved' | 'not_found' | 'failed' | 'timeout' | 'rate_limited' | 'disabled' | 'cached';
   auto_resolve_attempts?: number;
   last_auto_resolve_at?: string | null;
   last_auto_resolve_error?: string | null;
