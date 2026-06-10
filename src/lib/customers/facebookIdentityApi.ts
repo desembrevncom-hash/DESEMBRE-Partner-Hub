@@ -103,6 +103,18 @@ export function useTriggerAutoResolveMutation() {
         throw new Error(data.error);
       }
 
+      if (data && data.status === "cooldown") {
+        throw new Error("Đang trong thời gian chờ sau khi lỗi. Vui lòng thử lại sau 10 phút.");
+      }
+
+      if (data && data.status === "rate_limited") {
+        throw new Error("Đã vượt quá giới hạn API trong ngày.");
+      }
+      
+      if (data && data.status === "disabled") {
+        throw new Error("Tính năng này đang bị tắt.");
+      }
+
       return data;
     },
     onSuccess: () => {
