@@ -53,6 +53,7 @@ export const createContactChannel = async ({
   is_primary,
   notes,
   user,
+  social_profile_id,
 }: {
   customerId: string;
   channelType: string;
