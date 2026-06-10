@@ -176,50 +176,77 @@ serve(async (req) => {
         const actorId = (ACTOR.includes('~') ? ACTOR : ACTOR.replace('/', '~'));
         const apifyUrl = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?format=json&clean=true&token=${APIFY_TOKEN}`;
 
-        const payloadShape = "string_array";
-        const payload = { fbUrls: [normalizedUrl] };
+        const payloadsToTry = [
+          { fbUrls: [normalizedUrl] },
+          { fbUrls: [{ url: normalizedUrl }] },
+          { startUrls: [{ url: normalizedUrl }] },
+          { urls: [{ url: normalizedUrl }] },
+          { fbUrls: [`${normalizedUrl}/`] },
+          { startUrls: [{ url: `${normalizedUrl}/` }] }
+        ];
 
         const timeoutMs = parseInt(Deno.env.get("FACEBOOK_UID_PROVIDER_TIMEOUT_MS") || "15000", 10);
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
         let res;
-        try {
-          res = await fetch(apifyUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              ...payload,
-              extractMetadata: true,
-              checkAdsLibrary: false
-            }),
-            signal: controller.signal
-          });
-        } finally {
-          clearTimeout(timeoutId);
+        let successfulPayloadShape = "none";
+        let lastErrorText = "";
+        
+        for (const payload of payloadsToTry) {
+          try {
+            res = await fetch(apifyUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ...payload,
+                extractMetadata: true,
+                checkAdsLibrary: false
+              }),
+              signal: controller.signal
+            });
+            
+            if (res.status === 200 || res.status === 201) {
+              const key = Object.keys(payload)[0];
+              const val = (payload as any)[key][0];
+              successfulPayloadShape = `${key}_${typeof val === 'string' ? 'string' : 'object'}`;
+              break;
+            }
+            
+            lastErrorText = await res.text();
+            
+            if (res.status !== 400) {
+              break; // Stop trying if it's not a validation error (e.g. 401, 403, 500)
+            }
+            
+          } catch (fetchErr: any) {
+            if (fetchErr.name === 'AbortError') throw fetchErr; // Pass abort up
+            break; // Network error
+          }
         }
+        
+        clearTimeout(timeoutId);
 
         latencyMs = Date.now() - startedAt;
 
-        if (!res.ok) {
-           const errText = await res.text();
+        if (!res || !res.ok) {
            let providerErrorType = "unknown";
-           let message = errText;
+           let message = lastErrorText || "Unknown fetch failure";
            try {
-             const json = JSON.parse(errText);
+             const json = JSON.parse(lastErrorText);
              providerErrorType = json.error?.type || "unknown";
-             message = json.error?.message || errText;
+             message = json.error?.message || lastErrorText;
            } catch {}
            
-           console.log(JSON.stringify({ actorId, normalizedUrl, payloadShape, httpStatus: res.status, providerErrorType, message, latencyMs }));
+           console.log(JSON.stringify({ actorId, normalizedUrl, payloadShape: "failed_all_fallbacks", httpStatus: res?.status || 0, providerErrorType, message, latencyMs }));
            
-           if (res.status === 400 && providerErrorType === "invalid-input") {
+           if (res?.status === 400 && providerErrorType === "invalid-input") {
              finalStatus = "failed";
              finalError = "Apify invalid input: normalized URL rejected";
              return;
            }
 
-           throw new Error(`Apify HTTP ${res.status}: ${message}`);
+           throw new Error(`Apify HTTP ${res?.status || 0}: ${message}`);
         }
 
         const items = await res.json();
