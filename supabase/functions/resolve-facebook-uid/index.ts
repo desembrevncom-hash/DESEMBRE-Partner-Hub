@@ -157,7 +157,8 @@ serve(async (req) => {
         const actorPath = ACTOR.replace('/', '~');
         const apifyUrl = `https://api.apify.com/v2/acts/${actorPath}/run-sync-get-dataset-items?token=${APIFY_TOKEN}`;
         
-        let cleanUrl = job.raw_url.trim();
+        // Strip invisible characters and trim
+        let cleanUrl = job.raw_url.replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
         if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
           cleanUrl = 'https://' + cleanUrl;
         }
@@ -166,7 +167,7 @@ serve(async (req) => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            fbUrls: [{ url: cleanUrl }],
+            fbUrls: [cleanUrl],
             extractMetadata: true,
             checkAdsLibrary: false
           }),
