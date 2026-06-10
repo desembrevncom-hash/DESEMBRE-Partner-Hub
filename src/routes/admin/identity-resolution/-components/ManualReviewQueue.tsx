@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { useManualReviewJobsQuery, useResolveManualReviewJobMutation, ManualReviewJob } from "@/lib/customers/facebookIdentityApi";
+import { useManualReviewJobsQuery, useResolveManualReviewJobMutation, ManualReviewJob, useTriggerAutoResolveMutation } from "@/lib/customers/facebookIdentityApi";
 import { toast } from "sonner";
 import { Copy, ExternalLink, AlertCircle, CheckCircle2, RefreshCw, Clock, AlertTriangle, XCircle, Search } from "lucide-react";
 
