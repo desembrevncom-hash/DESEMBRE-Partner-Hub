@@ -71,3 +71,6 @@ entrypoint = "./functions/admin-ai-settings/index.ts"
 
 [functions.fb-messenger-webhook]
 verify_jwt = false
+
+[functions.resolve-facebook-uid]
+verify_jwt = true
