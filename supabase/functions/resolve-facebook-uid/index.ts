@@ -83,11 +83,25 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Job is not in manual_review_required state" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Validate URL
-    const urlLower = job.raw_url.toLowerCase();
-    if (!urlLower.includes("facebook.com") && !urlLower.includes("fb.com")) {
+    // Validate and Normalize URL
+    let raw = (job.raw_url || "").trim();
+    if (raw.startsWith("facebook.com/") || raw.startsWith("www.facebook.com/")) {
+      raw = "https://" + raw;
+    } else if (!raw.startsWith("http://") && !raw.startsWith("https://")) {
+      raw = "https://www.facebook.com/" + raw;
+    }
+    
+    let normalizedUrl = raw;
+    try {
+      const parsed = new URL(normalizedUrl);
+      if (!parsed.hostname.endsWith("facebook.com") && !parsed.hostname.endsWith("fb.com")) {
+        throw new Error("Not a facebook domain");
+      }
+    } catch {
       return new Response(JSON.stringify({ error: "Not a valid Facebook URL" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+    
+    console.log("Sanitized normalizedUrl:", normalizedUrl);
 
     // Feature Flag Check
     if (!ENABLED) {
@@ -152,66 +166,54 @@ serve(async (req) => {
 
     // Background Processing
     EdgeRuntime.waitUntil((async () => {
-      const startTime = Date.now();
+      const startedAt = Date.now();
+      let latencyMs = 0;
       try {
-        const actorPath = ACTOR.replace('/', '~');
-        const apifyUrl = `https://api.apify.com/v2/acts/${actorPath}/run-sync-get-dataset-items?token=${APIFY_TOKEN}`;
-        
-        // Strip invisible characters and trim
-        let cleanUrl = job.raw_url.replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
-        if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
-          cleanUrl = 'https://' + cleanUrl;
-        }
+        const actorId = (ACTOR.includes('~') ? ACTOR : ACTOR.replace('/', '~'));
+        const apifyUrl = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?format=json&clean=true&token=${APIFY_TOKEN}`;
 
-        const payloadsToTry = [
-          { fbUrls: [cleanUrl] },
-          { fbUrls: [{ url: cleanUrl }] },
-          { startUrls: [{ url: cleanUrl }] },
-          { urls: [{ url: cleanUrl }] },
-          { fbUrls: [`${cleanUrl}/`] },
-          { fbUrls: [cleanUrl.replace('https://www.', 'https://')] }
-        ];
+        const payloadShape = "string_array";
+        const payload = { fbUrls: [normalizedUrl] };
 
-        let res = null;
-        let lastErrorData = null;
-        let successfulPayload = null;
-        let latency = 0;
+        const res = await fetch(apifyUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...payload,
+            extractMetadata: true,
+            checkAdsLibrary: false
+          }),
+        });
 
-        for (const payload of payloadsToTry) {
-          res = await fetch(apifyUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              ...payload,
-              extractMetadata: true,
-              checkAdsLibrary: false
-            }),
-          });
-          
-          if (res.status === 200 || res.status === 201) {
-            successfulPayload = payload;
-            break;
-          } else {
-            lastErrorData = await res.json().catch(() => null);
-            if (res.status !== 400) {
-               break; // If it's 401 or 404, no need to keep trying payloads
-            }
-          }
-        }
+        latencyMs = Date.now() - startedAt;
 
         if (!res.ok) {
-          console.error("Apify API error:", res.status, lastErrorData);
-          
-          // Log failed attempt with diagnostic info
-          await supabaseAdmin.from("facebook_identity_resolution_jobs").update({
-            auto_resolve_status: "failed",
-            last_auto_resolve_error: `Apify HTTP ${res.status}: ${JSON.stringify(lastErrorData)} | DIAG: tried ${payloadsToTry.length} payloads`
-          }).eq("id", job_id);
+           const errText = await res.text();
+           let providerErrorType = "unknown";
+           let message = errText;
+           try {
+             const json = JSON.parse(errText);
+             providerErrorType = json.error?.type || "unknown";
+             message = json.error?.message || errText;
+           } catch {}
+           
+           console.log(JSON.stringify({ actorId, normalizedUrl, payloadShape, httpStatus: res.status, providerErrorType, message, latencyMs }));
+           
+           if (res.status === 400 && providerErrorType === "invalid-input") {
+             await supabaseAdmin.from("facebook_identity_resolution_jobs").update({
+               auto_resolve_status: "failed",
+               last_auto_resolve_error: "Apify invalid input: normalized URL rejected"
+             }).eq("id", job_id);
+             return;
+           }
 
-          return;
+           throw new Error(`Apify HTTP ${res.status}: ${message}`);
         }
 
-        latency = Date.now() - startTime;
+        const items = await res.json();
+        const item = items[0];
+
+        console.log(JSON.stringify({ actorId, normalizedUrl, payloadShape, httpStatus: res.status, providerErrorType: "none", message: "success", latencyMs }));
 
         const { data: currentJob } = await supabaseAdmin.from("facebook_identity_resolution_jobs").select("status").eq("id", job_id).single();
         if (currentJob?.status !== "manual_review_required") {
@@ -219,35 +221,36 @@ serve(async (req) => {
           return;
         }
 
-        const items = await res.json();
-        const item = items[0];
-
         let returnedUid = null;
         let isNumeric = false;
         if (item) {
-          returnedUid = item.facebookId || item.id || null;
-          isNumeric = !!(returnedUid && /^\\d+$/.test(returnedUid));
+          returnedUid = item.facebookId || item.facebook_id || item.id || item.uid || item.userId || null;
+          if (returnedUid) {
+            returnedUid = String(returnedUid);
+            isNumeric = /^\d+$/.test(returnedUid);
+          }
         }
 
-        if (isNumeric && returnedUid) {
+        if (returnedUid && isNumeric) {
           const resolveStatus = await updateSuccess(supabaseAdmin, job, returnedUid, 80);
-          await insertResult(supabaseAdmin, job, resolveStatus, returnedUid, latency, null, item);
+          await insertResult(supabaseAdmin, job, resolveStatus, returnedUid, latencyMs, null, item);
         } else {
           await updateFailure(supabaseAdmin, job_id, "not_found", "No numeric UID returned");
-          await insertResult(supabaseAdmin, job, "not_found", null, latency, "No numeric UID returned", item);
+          await insertResult(supabaseAdmin, job, "not_found", null, latencyMs, "No numeric UID returned", item);
         }
 
       } catch (err: any) {
-        const latency = Date.now() - startTime;
-        const isTimeout = err.name === 'TimeoutError' || err.message.includes('timeout');
-        const status = isTimeout ? "timeout" : "failed";
-        
-        await updateFailure(supabaseAdmin, job_id, status, err.message);
-        await insertResult(supabaseAdmin, job, status, null, latency, err.message);
+        latencyMs = Date.now() - startedAt;
+        console.error("Auto-resolve background error:", err);
+        console.log(JSON.stringify({ actorId: ACTOR, normalizedUrl, payloadShape: "unknown", httpStatus: 0, providerErrorType: "exception", message: err.message, latencyMs }));
+        await updateFailure(supabaseAdmin, job_id, "failed", err.message);
+        await insertResult(supabaseAdmin, job, "failed", null, latencyMs, err.message);
       }
     })());
 
-    return new Response(JSON.stringify({ status: "queued", message: "Background resolution started" }), { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ status: "processing", message: "Job sent to background for resolution" }), {
+      status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
 
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
