@@ -588,8 +588,6 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
           const { error: jobErr } = await supabase.from("facebook_identity_resolution_jobs").insert({
             customer_id: newCustomer.id,
             raw_url: rawUrl,
-            normalized_url: normalized,
-            facebook_username: username,
             status: "manual_review_required",
             resolver_method: "local_parser",
             confidence_score,
