@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { normalizePhone } from "../utils";
+import { normalizePhone } from "../phone";
 
 export interface DuplicateCheckParams {
   phone?: string;

@@ -47,7 +47,8 @@ import { VIETNAM_PROVINCES, stripAccents, findProvinceByName } from "@/lib/vietn
 import { createLeadAssignedAutomation } from "@/lib/automation";
 import { Badge } from "@/components/ui/badge";
 import { createContactChannel } from "@/lib/contactChannels";
-
+import { parseFacebookUrl, ParsedFacebookProfile } from "@/lib/customers/facebookUrlParser";
+import { checkCustomerDuplicate } from "@/lib/customers/customerDuplicateChecker";
 interface AddCustomerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -81,6 +82,11 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
   const [parsedPreview, setParsedPreview] = useState<any>(null);
   const [previewDuplicateInfo, setPreviewDuplicateInfo] = useState<any>(null);
 
+  // --- FACEBOOK URL STATES ---
+  const [fbPreviewStatus, setFbPreviewStatus] = useState<"idle" | "loading" | "uid" | "username" | "invalid_fb" | "invalid">("idle");
+  const [fbParsedData, setFbParsedData] = useState<ParsedFacebookProfile | null>(null);
+  const [fbDuplicateInfo, setFbDuplicateInfo] = useState<any>(null);
+
   useEffect(() => {
     if (open) {
       setForm({
@@ -99,8 +105,77 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
       setPasteText("");
       setParsedPreview(null);
       setPreviewDuplicateInfo(null);
+      
+      setFbPreviewStatus("idle");
+      setFbParsedData(null);
+      setFbDuplicateInfo(null);
     }
   }, [open]);
+
+  // Helper for duplicate info owner name
+  const fetchOwnerName = async (c: any) => {
+    let ownerName = "Chưa phân bổ";
+    const ownerId = c.owner_sale_id || c.owner_tele_id;
+    if (ownerId) {
+      const { data: p } = await supabase.from("profiles").select("display_name, email").eq("id", ownerId).single();
+      if (p) ownerName = p.display_name || p.email || ownerName;
+    }
+    return ownerName;
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    if (form.primary_channel_type !== "facebook") {
+      setFbPreviewStatus("idle");
+      setFbParsedData(null);
+      setFbDuplicateInfo(null);
+      return;
+    }
+    
+    const val = form.primary_channel_value.trim();
+    if (!val) {
+      setFbPreviewStatus("idle");
+      setFbParsedData(null);
+      setFbDuplicateInfo(null);
+      return;
+    }
+
+    setFbPreviewStatus("loading");
+    setFbDuplicateInfo(null);
+
+    const timer = setTimeout(async () => {
+      const parsed = parseFacebookUrl(val);
+      setFbParsedData(parsed);
+
+      if (parsed.facebookUid) {
+        setFbPreviewStatus("uid");
+      } else if (parsed.facebookUsername) {
+        setFbPreviewStatus("username");
+      } else if (val.toLowerCase().includes("facebook.com") || val.toLowerCase().includes("fb.com")) {
+        setFbPreviewStatus("invalid_fb");
+      } else {
+        setFbPreviewStatus("invalid");
+      }
+
+      // Check duplicate
+      const dupRes = await checkCustomerDuplicate({
+        phone: form.phone,
+        facebookUid: parsed.facebookUid || undefined,
+        facebookUsername: parsed.facebookUsername || undefined,
+        normalizedUrl: parsed.normalizedUrl || undefined,
+      });
+
+      if (dupRes.isDuplicate && dupRes.customerData) {
+        setFbDuplicateInfo({
+          ...dupRes.customerData,
+          matchReason: dupRes.matchReason,
+          ownerName: await fetchOwnerName(dupRes.customerData),
+        });
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [form.primary_channel_type, form.primary_channel_value, open]);
 
   const handleOpenCustomer = (id: string) => {
     // Tắt modal và emit sự kiện mở drawer
@@ -471,6 +546,69 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
       } else {
         toast.success("Đã tạo khách hàng mới.");
       }
+
+      // --- 5. Facebook Identity Save ---
+      if (form.primary_channel_type === "facebook" && form.primary_channel_value.trim()) {
+        const rawUrl = form.primary_channel_value.trim();
+        const uid = fbParsedData?.facebookUid;
+        const username = fbParsedData?.facebookUsername;
+        const normalized = fbParsedData?.normalizedUrl;
+        
+        let resolver_status = "unresolved";
+        let confidence_score = null;
+        if (uid) {
+          resolver_status = "resolved";
+          confidence_score = 100;
+        } else if (username) {
+          resolver_status = "parsed_only";
+          confidence_score = 40;
+        }
+
+        // Insert social profile if we parsed something
+        if (uid || username) {
+          const { error: spErr } = await supabase.from("customer_social_profiles").insert({
+            customer_id: newCustomer.id,
+            platform: "facebook",
+            raw_url: rawUrl,
+            normalized_url: normalized,
+            facebook_uid: uid,
+            facebook_username: username,
+            resolver_status,
+            resolver_method: "local_parser",
+            confidence_score
+          });
+          if (spErr) {
+            console.warn("Failed to insert customer_social_profiles:", spErr);
+            toast.warning("Lỗi lưu hồ sơ Facebook: " + spErr.message);
+          }
+        }
+
+        // Insert job if it needs manual review (username only, or unresolved but it's a FB url)
+        if (!uid && username) {
+          const { error: jobErr } = await supabase.from("facebook_identity_resolution_jobs").insert({
+            customer_id: newCustomer.id,
+            raw_url: rawUrl,
+            normalized_url: normalized,
+            facebook_username: username,
+            status: "manual_review_required",
+            resolver_method: "local_parser",
+            confidence_score,
+            created_by: user?.id
+          });
+          if (jobErr) console.warn("Failed to insert facebook_identity_resolution_jobs:", jobErr);
+        } else if (!uid && !username && (rawUrl.toLowerCase().includes("facebook.com") || rawUrl.toLowerCase().includes("fb.com"))) {
+           const { error: jobErr } = await supabase.from("facebook_identity_resolution_jobs").insert({
+            customer_id: newCustomer.id,
+            raw_url: rawUrl,
+            status: "manual_review_required",
+            resolver_method: "local_parser",
+            confidence_score: 0,
+            created_by: user?.id
+          });
+          if (jobErr) console.warn("Failed to insert facebook_identity_resolution_jobs invalid fb:", jobErr);
+        }
+      }
+      // --- End Facebook Identity Save ---
 
       onOpenChange(false);
       if (onSuccess) onSuccess();
@@ -901,6 +1039,90 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
                     />
                   )}
                 </div>
+
+                {/* Facebook URL Preview & Duplicate Check */}
+                {form.primary_channel_type === "facebook" && form.primary_channel_value && fbPreviewStatus !== "idle" && (
+                  <div className="mt-4 border-t border-indigo-50 pt-3">
+                    {fbPreviewStatus === "loading" && (
+                      <div className="text-xs text-slate-500 flex items-center gap-2 px-2">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                        <span>Đang kiểm tra Facebook...</span>
+                      </div>
+                    )}
+                    {fbPreviewStatus === "uid" && (
+                      <div className="text-xs text-emerald-700 bg-emerald-50/80 px-3 py-2 rounded-xl flex items-center gap-2 border border-emerald-100">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                        <span>Đã nhận diện UID: <span className="font-bold">{fbParsedData?.facebookUid}</span></span>
+                      </div>
+                    )}
+                    {fbPreviewStatus === "username" && (
+                      <div className="text-xs text-amber-700 bg-amber-50/80 px-3 py-2.5 rounded-xl flex items-start gap-2 border border-amber-100">
+                        <AlertCircle className="w-4 h-4 text-amber-500 mt-px shrink-0" />
+                        <div>
+                          <span>Đã nhận diện username: <span className="font-bold">{fbParsedData?.facebookUsername}</span></span>
+                          <div className="opacity-80 text-[10px] mt-0.5">Chưa có UID ổn định. Bạn vẫn có thể tiếp tục tạo khách hàng.</div>
+                        </div>
+                      </div>
+                    )}
+                    {fbPreviewStatus === "invalid_fb" && (
+                      <div className="text-xs text-amber-700 bg-amber-50/80 px-3 py-2.5 rounded-xl flex items-start gap-2 border border-amber-100">
+                        <AlertCircle className="w-4 h-4 text-amber-500 mt-px shrink-0" />
+                        <div>
+                          <span className="font-bold">Không nhận diện được Facebook URL.</span>
+                          <div className="opacity-80 text-[10px] mt-0.5">Hệ thống sẽ ghi nhận tạm để xử lý thủ công. Vẫn có thể tạo khách.</div>
+                        </div>
+                      </div>
+                    )}
+                    {fbPreviewStatus === "invalid" && (
+                      <div className="text-xs text-slate-600 bg-slate-50 px-3 py-2 rounded-xl flex items-center gap-2 border border-slate-200">
+                        <Info className="w-4 h-4 text-slate-400" />
+                        <span>Định dạng không phải là Facebook URL. Sẽ lưu dưới dạng văn bản thường.</span>
+                      </div>
+                    )}
+
+                    {fbDuplicateInfo && (
+                      <div className="mt-3 bg-rose-50/80 border border-rose-200 rounded-xl p-3 shadow-sm animate-in fade-in zoom-in-95 flex items-start gap-3">
+                        <BadgeAlert className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <h4 className="text-sm font-bold text-rose-800 leading-none">Phát hiện dữ liệu trùng lặp!</h4>
+                          <p className="text-[11px] text-rose-600 mt-1.5 leading-snug">
+                            Hệ thống cảnh báo đã có khách hàng mang thông tin Facebook này. Tuy nhiên, <b>bạn vẫn có thể tạo khách hàng mới</b> nếu muốn.
+                          </p>
+                          <div className="mt-2.5 bg-white p-2.5 rounded-lg border border-rose-100 space-y-1.5">
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="text-slate-500 uppercase text-[10px] font-bold">Khách:</span>
+                              <span className="font-bold text-slate-800">{fbDuplicateInfo.facility_name || fbDuplicateInfo.name}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="text-slate-500 uppercase text-[10px] font-bold">Quản lý:</span>
+                              <span className="font-medium text-slate-700">{fbDuplicateInfo.ownerName}</span>
+                            </div>
+                          </div>
+                          <div className="mt-3 flex items-center gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              type="button"
+                              onClick={() => handleOpenCustomer(fbDuplicateInfo.id)} 
+                              className="h-8 text-[11px] font-bold border-rose-200 text-rose-700 hover:bg-rose-100 px-3 rounded-lg flex-1"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5 mr-1.5" /> MỞ KHÁCH CŨ
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              type="button"
+                              onClick={() => setFbDuplicateInfo(null)}
+                              className="h-8 text-[11px] font-bold text-slate-500 hover:text-slate-700 px-3 rounded-lg"
+                            >
+                              BỎ QUA CẢNH BÁO
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Ghi chú */}
