@@ -168,6 +168,10 @@ serve(async (req) => {
     EdgeRuntime.waitUntil((async () => {
       const startedAt = Date.now();
       let latencyMs = 0;
+      let finalStatus = "failed";
+      let finalError = "Unknown error";
+      let itemToLog = null;
+
       try {
         const actorId = (ACTOR.includes('~') ? ACTOR : ACTOR.replace('/', '~'));
         const apifyUrl = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?format=json&clean=true&token=${APIFY_TOKEN}`;
@@ -175,15 +179,25 @@ serve(async (req) => {
         const payloadShape = "string_array";
         const payload = { fbUrls: [normalizedUrl] };
 
-        const res = await fetch(apifyUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...payload,
-            extractMetadata: true,
-            checkAdsLibrary: false
-          }),
-        });
+        const timeoutMs = parseInt(Deno.env.get("FACEBOOK_UID_PROVIDER_TIMEOUT_MS") || "15000", 10);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+        let res;
+        try {
+          res = await fetch(apifyUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...payload,
+              extractMetadata: true,
+              checkAdsLibrary: false
+            }),
+            signal: controller.signal
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
         latencyMs = Date.now() - startedAt;
 
@@ -200,10 +214,8 @@ serve(async (req) => {
            console.log(JSON.stringify({ actorId, normalizedUrl, payloadShape, httpStatus: res.status, providerErrorType, message, latencyMs }));
            
            if (res.status === 400 && providerErrorType === "invalid-input") {
-             await supabaseAdmin.from("facebook_identity_resolution_jobs").update({
-               auto_resolve_status: "failed",
-               last_auto_resolve_error: "Apify invalid input: normalized URL rejected"
-             }).eq("id", job_id);
+             finalStatus = "failed";
+             finalError = "Apify invalid input: normalized URL rejected";
              return;
            }
 
@@ -212,12 +224,15 @@ serve(async (req) => {
 
         const items = await res.json();
         const item = items[0];
+        itemToLog = item;
 
         console.log(JSON.stringify({ actorId, normalizedUrl, payloadShape, httpStatus: res.status, providerErrorType: "none", message: "success", latencyMs }));
 
         const { data: currentJob } = await supabaseAdmin.from("facebook_identity_resolution_jobs").select("status").eq("id", job_id).single();
         if (currentJob?.status !== "manual_review_required") {
           console.log("Job already resolved manually while Apify was running.");
+          finalStatus = "skipped_invalid_type";
+          finalError = "Job no longer requires manual review";
           return;
         }
 
@@ -233,18 +248,32 @@ serve(async (req) => {
 
         if (returnedUid && isNumeric) {
           const resolveStatus = await updateSuccess(supabaseAdmin, job, returnedUid, 80);
-          await insertResult(supabaseAdmin, job, resolveStatus, returnedUid, latencyMs, null, item);
+          finalStatus = resolveStatus; // either 'resolved' or 'duplicate_detected'
+          finalError = "";
+          await insertResult(supabaseAdmin, job, resolveStatus, returnedUid, latencyMs, null, itemToLog);
         } else {
-          await updateFailure(supabaseAdmin, job_id, "not_found", "No numeric UID returned");
-          await insertResult(supabaseAdmin, job, "not_found", null, latencyMs, "No numeric UID returned", item);
+          finalStatus = "not_found";
+          finalError = "No numeric UID returned";
+          await insertResult(supabaseAdmin, job, "not_found", null, latencyMs, finalError, itemToLog);
         }
 
       } catch (err: any) {
         latencyMs = Date.now() - startedAt;
+        if (err.name === 'AbortError') {
+           finalStatus = "timeout";
+           const tMs = parseInt(Deno.env.get("FACEBOOK_UID_PROVIDER_TIMEOUT_MS") || "15000", 10);
+           finalError = `Provider timeout after ${tMs}ms`;
+        } else {
+           finalStatus = "failed";
+           finalError = err.message;
+        }
         console.error("Auto-resolve background error:", err);
         console.log(JSON.stringify({ actorId: ACTOR, normalizedUrl, payloadShape: "unknown", httpStatus: 0, providerErrorType: "exception", message: err.message, latencyMs }));
-        await updateFailure(supabaseAdmin, job_id, "failed", err.message);
-        await insertResult(supabaseAdmin, job, "failed", null, latencyMs, err.message);
+        await insertResult(supabaseAdmin, job, finalStatus, null, latencyMs, finalError, itemToLog);
+      } finally {
+        if (finalStatus !== "resolved" && finalStatus !== "duplicate_detected" && finalStatus !== "skipped_invalid_type") {
+           await updateFailure(supabaseAdmin, job_id, finalStatus, finalError);
+        }
       }
     })());
 

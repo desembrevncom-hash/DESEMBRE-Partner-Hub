@@ -1,11 +1,22 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "@tanstack/react-router";
 import { useManualReviewJobsQuery, useResolveManualReviewJobMutation, ManualReviewJob, useTriggerAutoResolveMutation } from "@/lib/customers/facebookIdentityApi";
 import { toast } from "sonner";
 import { Copy, ExternalLink, AlertCircle, CheckCircle2, RefreshCw, Clock, AlertTriangle, XCircle, Search } from "lucide-react";
 
 export function ManualReviewQueue() {
-  const { data: jobs, isLoading, error } = useManualReviewJobsQuery();
+  const { data: jobs, isLoading, error, refetch } = useManualReviewJobsQuery();
+
+  useEffect(() => {
+    if (!jobs) return;
+    const hasResolving = jobs.some(j => j.auto_resolve_status === 'resolving' || j.auto_resolve_status === 'queued');
+    if (hasResolving) {
+      const timer = setInterval(() => {
+        refetch();
+      }, 5000);
+      return () => clearInterval(timer);
+    }
+  }, [jobs, refetch]);
 
   if (isLoading) {
     return (
