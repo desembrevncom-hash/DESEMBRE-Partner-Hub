@@ -38,25 +38,64 @@ export function ManualReviewQueue() {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-medium">
-            <tr>
-              <th className="px-4 py-3">Khách hàng</th>
-              <th className="px-4 py-3">Link / Username</th>
-              <th className="px-4 py-3 w-72">Thao tác xử lý UID</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {jobs.map((job) => (
-              <JobRow key={job.id} job={job} />
-            ))}
-          </tbody>
-        </table>
+    <SafeManualReviewQueueWrapper>
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-medium">
+              <tr>
+                <th className="px-4 py-3">Khách hàng</th>
+                <th className="px-4 py-3">Link / Username</th>
+                <th className="px-4 py-3 w-72">Thao tác xử lý UID</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {jobs.map((job) => (
+                <SafeJobRow key={job.id} job={job} />
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </SafeManualReviewQueueWrapper>
   );
+}
+
+class SafeManualReviewQueueWrapper extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: any }> {
+  state = { hasError: false, error: null };
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 bg-red-50 text-red-600 rounded-lg">
+          Lỗi render Queue: {this.state.error?.message}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+class SafeJobRow extends React.Component<{ job: ManualReviewJob }, { hasError: boolean; error: any }> {
+  state = { hasError: false, error: null };
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <tr>
+          <td colSpan={3} className="px-4 py-3 text-red-500 bg-red-50">
+            <AlertCircle className="w-4 h-4 inline mr-2" />
+            Lỗi render Row: {this.state.error?.message}
+          </td>
+        </tr>
+      );
+    }
+    return <JobRow job={this.props.job} />;
+  }
 }
 
 function JobRow({ job }: { job: ManualReviewJob }) {
