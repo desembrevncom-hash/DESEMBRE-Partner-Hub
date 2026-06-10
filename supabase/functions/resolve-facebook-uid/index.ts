@@ -12,7 +12,7 @@ interface ResolveFacebookUidPayload {
 
 const ENABLED = Deno.env.get("FACEBOOK_UID_AUTO_RESOLVE_ENABLED") === "true";
 const APIFY_TOKEN = Deno.env.get("APIFY_TOKEN");
-const ACTOR = Deno.env.get("APIFY_FACEBOOK_URL_TO_ID_ACTOR") || "apify/facebook-url-to-id";
+const ACTOR = Deno.env.get("APIFY_FACEBOOK_URL_TO_ID_ACTOR") || "apify~facebook-url-to-id";
 const TIMEOUT_MS = parseInt(Deno.env.get("FACEBOOK_UID_PROVIDER_TIMEOUT_MS") || "15000");
 const DAILY_LIMIT = parseInt(Deno.env.get("FACEBOOK_UID_PROVIDER_DAILY_LIMIT") || "50");
 const COOLDOWN_MINUTES = parseInt(Deno.env.get("FACEBOOK_UID_PROVIDER_COOLDOWN_MINUTES") || "10");
@@ -154,7 +154,8 @@ serve(async (req) => {
     EdgeRuntime.waitUntil((async () => {
       const startTime = Date.now();
       try {
-        const apifyUrl = `https://api.apify.com/v2/acts/${ACTOR}/run-sync-get-dataset-items?token=${APIFY_TOKEN}`;
+        const safeActor = ACTOR.replace('/', '~');
+        const apifyUrl = `https://api.apify.com/v2/acts/${safeActor}/run-sync-get-dataset-items?token=${APIFY_TOKEN}`;
         
         const res = await fetch(apifyUrl, {
           method: "POST",
