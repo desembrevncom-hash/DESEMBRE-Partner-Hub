@@ -194,7 +194,7 @@ serve(async (req) => {
         let isNumeric = false;
         if (item) {
           returnedUid = item.facebookId || item.id || null;
-          isNumeric = !!(returnedUid && /^\\d+$/.test(returnedUid));
+          isNumeric = !!(returnedUid && /^\d+$/.test(String(returnedUid)));
         }
 
         if (isNumeric && returnedUid) {
