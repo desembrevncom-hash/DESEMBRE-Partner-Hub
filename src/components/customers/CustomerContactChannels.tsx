@@ -352,7 +352,6 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
               )}
               <span className="opacity-80 flex gap-1.5 items-center">
                 {renderStatus(c.resolve_status)}
-                {c.channel_purpose && renderPurpose(c.channel_purpose)}
                 {c.remarketing_enabled && (
                   <Badge className="bg-amber-50 text-amber-600 border-none text-[10px] px-2 py-0.5">
                     <Target className="w-2.5 h-2.5 mr-1" /> Remarketing
