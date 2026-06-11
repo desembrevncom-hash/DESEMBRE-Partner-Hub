@@ -23,7 +23,8 @@ export function useNotifications(pollIntervalMs = 30000) {
 
       if (rpcError) throw rpcError;
 
-      const rawNotifications = (res.notifications || []) as NotificationItem[];
+      const res = data as any;
+      const rawNotifications = (res?.notifications || []) as NotificationItem[];
 
       // Deduplicate: If there is a task_assigned notification and a lead_assigned notification for the same customer
       // created within a minute, hide the task_assigned notification to reduce noise.
