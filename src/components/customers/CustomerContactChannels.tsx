@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { createContactChannel } from "@/lib/contactChannels";
+import { useCustomerFacebookIdentityQuery } from "@/lib/customers/facebookIdentityApi";
 
 interface CustomerContactChannelsProps {
   customerId: string;
@@ -69,6 +70,18 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
   const [showAddForm, setShowAddForm] = useState(false);
   const [togglingPrimary, setTogglingPrimary] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
+
+  const { data: identityData, refetch: refetchIdentity } = useCustomerFacebookIdentityQuery(customerId);
+  const profilesData = identityData?.profiles || [];
+  const jobsData = identityData?.jobs || [];
+
+  useEffect(() => {
+    const hasResolving = jobsData.some((j: any) => j.auto_resolve_status === "resolving");
+    if (hasResolving) {
+      const interval = setInterval(() => refetchIdentity(), 5000);
+      return () => clearInterval(interval);
+    }
+  }, [jobsData, refetchIdentity]);
 
   const [form, setForm] = useState({
     channelType: "zalo",
@@ -345,6 +358,60 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
                   </Badge>
                 )}
               </span>
+              
+              {c.channel_type === "facebook" && (() => {
+                const profile = profilesData.find((p: any) => p.raw_url === c.channel_value || p.normalized_url === c.normalized_value || (c.social_profile_id && p.id === c.social_profile_id));
+                const job = jobsData.find((j: any) => j.raw_url === c.channel_value || j.id === c.identity_job_id);
+                
+                if (profile?.facebook_uid) {
+                  return (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-[10px] px-2 py-0.5 cursor-help">
+                            <CheckCircle2 className="w-2.5 h-2.5 mr-1" /> UID: {profile.facebook_uid}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>Nguồn: {profile.resolver_method || "Không rõ"}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  );
+                } else if (job) {
+                  if (job.auto_resolve_status === "resolving" || job.auto_resolve_status === "queued") {
+                    return (
+                      <Badge className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] px-2 py-0.5">
+                        <Loader2 className="w-2.5 h-2.5 mr-1 animate-spin" /> Đang tìm UID...
+                      </Badge>
+                    );
+                  } else if (job.status === "duplicate_candidate" || job.auto_resolve_status === "duplicate_detected") {
+                    const link = job.duplicate_profile?.customers?.id ? `/customers?id=${job.duplicate_profile.customers.id}` : null;
+                    return (
+                      <Badge className="bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-[10px] px-2 py-0.5 flex items-center gap-1">
+                        <AlertCircle className="w-2.5 h-2.5" /> UID trùng khách khác
+                        {link && (
+                          <Button variant="link" className="h-auto p-0 text-[10px] text-rose-700 underline flex items-center" onClick={(e) => { e.stopPropagation(); window.open(link, "_blank"); }}>
+                            (Mở khách cũ)
+                          </Button>
+                        )}
+                      </Badge>
+                    );
+                  } else if (job.auto_resolve_status === "failed" || job.auto_resolve_status === "timeout" || job.auto_resolve_status === "not_found") {
+                    return (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge className="bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-[10px] px-2 py-0.5 cursor-help">
+                              <AlertCircle className="w-2.5 h-2.5 mr-1" /> Chưa tìm được UID
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>{job.last_auto_resolve_error || "Lỗi không xác định"}</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    );
+                  }
+                }
+                return null;
+              })()}
             </div>
           </div>
 

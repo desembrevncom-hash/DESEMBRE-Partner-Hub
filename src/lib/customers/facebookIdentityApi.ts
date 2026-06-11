@@ -28,6 +28,36 @@ export interface ManualReviewJob {
   last_auto_resolve_error?: string | null;
 }
 
+export function useCustomerFacebookIdentityQuery(customerId: string) {
+  return useQuery({
+    queryKey: ["facebook-identity", customerId],
+    queryFn: async () => {
+      // Fetch social profiles
+      const { data: profiles } = await supabase
+        .from("customer_social_profiles")
+        .select("*")
+        .eq("customer_id", customerId)
+        .eq("platform", "facebook");
+        
+      // Fetch jobs
+      const { data: jobs } = await supabase
+        .from("facebook_identity_resolution_jobs")
+        .select(`
+          *,
+          duplicate_profile:customer_social_profiles!duplicate_social_profile_id (
+            customer_id,
+            customers!customer_id (id, name, phone)
+          )
+        `)
+        .eq("customer_id", customerId)
+        .order("created_at", { ascending: false });
+
+      return { profiles: profiles || [], jobs: jobs || [] };
+    },
+    enabled: !!customerId,
+  });
+}
+
 export function useManualReviewJobsQuery() {
   return useQuery({
     queryKey: ["facebook-identity-manual-review-jobs"],

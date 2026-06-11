@@ -560,6 +560,7 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
           let auto_resolve_status = 'not_attempted';
           let jobStatus = 'manual_review_required';
           let errorLog = null;
+          let isResolvingBackground = false;
           
           if (isUnsupported) {
             auto_resolve_status = 'skipped_invalid_type';
@@ -593,7 +594,7 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
                supabase.functions.invoke("resolve-facebook-uid", {
                  body: { job_id: jobData.id }
                }).catch(e => console.warn("Auto-resolver invoke failed:", e));
-               toast.info("Hệ thống đang thử tìm UID tự động trong nền...");
+               isResolvingBackground = true;
             }
           }
         }
@@ -631,12 +632,12 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
             social_profile_id: currentSocialProfileId || undefined
           });
           if (resErr) throw resErr;
-          toast.success("Đã tạo khách hàng mới.");
+          toast.success(isResolvingBackground ? "Đã tạo khách. Hệ thống đang thử tìm UID tự động." : "Đã tạo khách hàng mới.");
         } catch (err: any) {
           toast.warning("Khách đã tạo, nhưng kênh liên hệ chính chưa lưu được: " + err.message);
         }
       } else {
-        toast.success("Đã tạo khách hàng mới.");
+        toast.success(isResolvingBackground ? "Đã tạo khách. Hệ thống đang thử tìm UID tự động." : "Đã tạo khách hàng mới.");
       }
       // --- End Facebook Identity Save ---
 
