@@ -505,17 +505,6 @@ export function CustomerContactChannels({ customerId, customer }: CustomerContac
               </Button>
             )}
           </div>
-          {/* ADD DEBUG JSON FOR APIFY */}
-          {resultsData.length > 0 && (
-            <div className="mt-4 p-2 bg-slate-900 text-green-400 text-[10px] font-mono break-all max-h-64 overflow-auto rounded">
-              <strong>[DEBUG] APIFY RESULT (ID: {resultsData[0]?.id}):</strong>
-              <div>Status: {resultsData[0]?.provider_status}</div>
-              <div>Error: {resultsData[0]?.error_message || "None"}</div>
-              <div>Latency: {resultsData[0]?.latency_ms}ms</div>
-              <strong>PAYLOAD:</strong>
-              <pre>{JSON.stringify(resultsData[0]?.response_json, null, 2)}</pre>
-            </div>
-          )}
         </div>
       </div>
     );

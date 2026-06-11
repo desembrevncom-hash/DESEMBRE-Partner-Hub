@@ -128,6 +128,11 @@ serve(async (req) => {
 
     if (previousResults && previousResults.length > 0) {
       const last = previousResults[0];
+      
+      // If the job is explicitly forced to manual_review_required, we want to bypass the cache.
+      // But if it was recently failed, we might still want to cooldown? 
+      // No, if user clicks "Tìm Tên FB", we want to force run it regardless of cooldown!
+      /*
       if (last.provider_status === 'resolved' && last.returned_uid) {
         // Cache hit
         await updateSuccess(supabaseAdmin, job, last.returned_uid, 80);
@@ -142,6 +147,7 @@ serve(async (req) => {
           return new Response(JSON.stringify({ status: "cooldown", message: "Cooling down from recent failure" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
       }
+      */
     }
 
     // Daily Limit Check
