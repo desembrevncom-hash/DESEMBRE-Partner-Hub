@@ -321,7 +321,8 @@ serve(async (req) => {
     });
 
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    console.error("Critical Edge Function Error:", err);
+    return new Response(JSON.stringify({ error: err.message, stack: err.stack }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
 
