@@ -401,7 +401,7 @@ export function CustomerContactChannels({ customerId, customer }: CustomerContac
                           }
                         });
                       }}
-                      isFetchPending={fetchMissingNameMutation.isPending && fetchMissingNameMutation.variables?.rawUrl === c.channel_value}
+                      isFetchPending={(fetchMissingNameMutation.isPending && fetchMissingNameMutation.variables?.rawUrl === c.channel_value) || job?.status === "manual_review_required"}
                     onApplyName={(name) => {
                       if (!customer) return;
                       const isUrl = customer.contact_name?.includes("http") || customer.contact_name?.includes("facebook.com");

@@ -62,6 +62,10 @@ export function useCustomerFacebookIdentityQuery(customerId: string) {
       return { profiles: profiles || [], jobs: jobs || [], results: results || [] };
     },
     enabled: !!customerId,
+    refetchInterval: (query) => {
+      const hasPending = query.state.data?.jobs?.some((j: any) => j.status === "manual_review_required");
+      return hasPending ? 3000 : false;
+    },
   });
 }
 
