@@ -153,17 +153,18 @@ serve(async (req) => {
       }
     }
 
-    // Daily Limit Check
+    // Check daily limit
     const startOfDay = new Date();
     startOfDay.setUTCHours(0,0,0,0);
-    const { count } = await supabaseAdmin
+    const { data: todayJobs, error: tlErr } = await supabaseAdmin
       .from("facebook_uid_resolver_results")
-      .select("*", { count: 'exact', head: true })
+      .select("id", { count: "exact" })
       .gte("created_at", startOfDay.toISOString());
-      
-    if (count !== null && count >= DAILY_LIMIT) {
-      await insertResult(supabaseAdmin, job, "rate_limited", null, 0, "Daily limit reached");
-      return new Response(JSON.stringify({ status: "rate_limited", message: "Daily limit reached" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+    if (tlErr) throw tlErr;
+    if (todayJobs && todayJobs.length >= DAILY_LIMIT) {
+      await updateFailure(supabaseAdmin, job_id, "rate_limited", `Daily limit of ${DAILY_LIMIT} reached`);
+      return new Response(JSON.stringify({ accepted: false, status: "rate_limited", message: "Daily limit reached" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Acknowledge and process in background
@@ -225,12 +226,12 @@ serve(async (req) => {
             lastErrorText = await res.text();
             
             if (res.status !== 400) {
-              break; // Stop trying if it's not a validation error (e.g. 401, 403, 500)
+              break;
             }
             
           } catch (fetchErr: any) {
-            if (fetchErr.name === 'AbortError') throw fetchErr; // Pass abort up
-            break; // Network error
+            if (fetchErr.name === 'AbortError') throw fetchErr;
+            break;
           }
         }
         
@@ -287,7 +288,7 @@ serve(async (req) => {
 
         if (returnedUid && isNumeric) {
           const resolveStatus = await updateSuccess(supabaseAdmin, job, returnedUid, 80, returnedName);
-          finalStatus = resolveStatus; // either 'resolved' or 'duplicate_detected'
+          finalStatus = resolveStatus;
           finalError = "";
           await insertResult(supabaseAdmin, job, resolveStatus, returnedUid, latencyMs, null, itemToLog, returnedName);
         } else {
@@ -330,6 +331,8 @@ function extractFacebookDisplayName(item: any): string | null {
   if (!item || typeof item !== 'object') return null;
 
   const rawName = 
+    item.openGraph?.title || 
+    item.openGraph?.alt || 
     item.name || 
     item.title || 
     item.fullName || 
@@ -337,21 +340,18 @@ function extractFacebookDisplayName(item: any): string | null {
     item.displayName || 
     item.facebookName || 
     item.pageName || 
-    item.openGraph?.title || 
-    item.openGraph?.alt || 
-    item.openGraph?.name || 
     item.user?.name || 
     item.user?.title || 
-    item.user?.displayName || 
-    item.user?.profileName || 
     item.page?.name || 
-    item.pageAdLibrary?.pageName || 
     null;
 
   let cleanName = null;
 
   if (typeof rawName === 'string') {
     cleanName = rawName.replace(/[\x00-\x1F\x7F-\x9F]/g, "").trim();
+    if (cleanName.includes(" | Facebook")) {
+      cleanName = cleanName.split(" | Facebook")[0].trim();
+    }
   }
 
   // Fallback to directory tile if still null
@@ -362,21 +362,27 @@ function extractFacebookDisplayName(item: any): string | null {
     }
   }
 
-  if (!cleanName) return null;
+  if (!cleanName || cleanName.length > 120) return null;
 
   // Rejection rules
   const lowerName = cleanName.toLowerCase();
   
   if (lowerName === "facebook" || lowerName === "com.facebook.katana") {
-    return null; // Rejected openGraph values
+    return null; // Rejected values
   }
   if (lowerName.includes("facebook.com") || lowerName.startsWith("http://") || lowerName.startsWith("https://")) {
     return null; // No URLs
   }
-  if (lowerName === "facebook") {
-    return null; // Generic words
+  if (
+    lowerName === "instagram" ||
+    lowerName === "whatsapp" ||
+    lowerName === "meta" ||
+    lowerName.startsWith("log in") ||
+    lowerName.startsWith("sign up") ||
+    lowerName.length <= 1
+  ) {
+    return null;
   }
-
   // Clean " | Facebook"
   if (cleanName.endsWith(" | Facebook")) {
     cleanName = cleanName.substring(0, cleanName.length - " | Facebook".length).trim();

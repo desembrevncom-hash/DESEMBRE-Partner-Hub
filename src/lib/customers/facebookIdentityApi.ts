@@ -159,6 +159,10 @@ export function useTriggerAutoResolveMutation() {
         throw new Error(error.message);
       }
 
+      if (data && data.error) {
+        throw new Error(data.error + (data.stack ? "\\n" + data.stack : ""));
+      }
+
       // Check if Edge Function returned an error in the payload
       if (data && data.error) {
         throw new Error(data.error);

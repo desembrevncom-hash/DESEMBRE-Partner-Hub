@@ -101,7 +101,7 @@ export function FacebookIdentityBadge({
             )}
           </div>
         ) : (
-          onFetchMissingName && (
+            canApplyName && onFetchMissingName && jobStatus !== 'duplicate_candidate' && autoResolveStatus !== 'duplicate_detected' && autoResolveStatus !== 'failed' ? (
             <Button
               variant="outline"
               size="sm"
@@ -114,6 +114,10 @@ export function FacebookIdentityBadge({
             >
               {isFetchPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Tìm Tên FB"}
             </Button>
+          ) : (
+            <Badge className="bg-slate-50 text-slate-500 border border-slate-200 text-[10px] px-2 py-0.5">
+              Tên Facebook chưa có
+            </Badge>
           )
         )}
       </div>

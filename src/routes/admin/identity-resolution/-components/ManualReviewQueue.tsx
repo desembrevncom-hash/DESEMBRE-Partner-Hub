@@ -197,7 +197,6 @@ function JobRow({ job }: { job: ManualReviewJob }) {
       setErrorMsg("UID phải là chuỗi số (chỉ chứa các chữ số).");
       return;
     }
-
     resolveMutation.mutate(
       { jobId: job.id, status: "resolved", numericUid: trimmedUid, note: note.trim(), facebookName: nameInput.trim() || null },
       {
@@ -210,6 +209,20 @@ function JobRow({ job }: { job: ManualReviewJob }) {
       }
     );
   };
+
+  const isFinalState = 
+    job.status === 'resolved' || 
+    job.status === 'duplicate_candidate' || 
+    job.status === 'failed' || 
+    job.status === 'ignored' || 
+    job.auto_resolve_status === 'resolved' || 
+    job.auto_resolve_status === 'duplicate_detected' || 
+    job.auto_resolve_status === 'skipped_invalid_type' || 
+    job.auto_resolve_status === 'disabled' || 
+    job.auto_resolve_status === 'rate_limited';
+
+  const isDuplicate = job.status === 'duplicate_candidate' || job.auto_resolve_status === 'duplicate_detected';
+  const isFailed = job.auto_resolve_status === 'failed' || job.auto_resolve_status === 'timeout' || job.auto_resolve_status === 'not_found';
 
   const handleFail = () => {
     if (!confirm("Bạn có chắc chắn link này không thể phân giải hoặc bị lỗi?")) return;
@@ -313,14 +326,16 @@ function JobRow({ job }: { job: ManualReviewJob }) {
               />
               {errorMsg && <div className="text-red-500 text-xs mt-1">{errorMsg}</div>}
             </div>
-            <button
-              onClick={handleTriggerAuto}
-              disabled={autoResolveMutation.isPending || resolveMutation.isPending || job.auto_resolve_status === "resolving" || job.auto_resolve_status === "queued"}
-              className="flex items-center justify-center gap-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 text-xs font-bold px-3 rounded shadow-sm disabled:opacity-50 transition-colors whitespace-nowrap"
-              title="Tìm UID tự động (nền)"
-            >
-              <Search className={`w-3 h-3 ${(autoResolveMutation.isPending || job.auto_resolve_status === "resolving") ? "animate-spin" : ""}`} /> Tìm tự động
-            </button>
+            {!isDuplicate && !job.auto_resolve_status?.match(/^(resolved|disabled|rate_limited|skipped_invalid_type)$/) && (
+              <button
+                onClick={handleTriggerAuto}
+                disabled={autoResolveMutation.isPending || resolveMutation.isPending || job.auto_resolve_status === "resolving" || job.auto_resolve_status === "queued" || isFinalState}
+                className="flex items-center justify-center gap-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 text-xs font-bold px-3 rounded shadow-sm disabled:opacity-50 transition-colors whitespace-nowrap"
+                title={isFailed ? "Thử lại tự động" : "Tìm UID tự động (nền)"}
+              >
+                <Search className={`w-3 h-3 ${(autoResolveMutation.isPending || job.auto_resolve_status === "resolving") ? "animate-spin" : ""}`} /> {isFailed ? "Thử lại" : "Tìm tự động"}
+              </button>
+            )}
           </div>
           <input
             type="text"
@@ -348,7 +363,7 @@ function JobRow({ job }: { job: ManualReviewJob }) {
           </div>
           
           {/* Duplicate candidate warning & link */}
-          {(job.status === 'duplicate_candidate' || job.auto_resolve_status === 'duplicate_detected') && (
+          {isDuplicate && (
             <div className="mt-2 bg-rose-50 border border-rose-200 p-3 rounded-lg text-xs text-rose-700">
               <div className="flex items-start gap-1 font-bold mb-2">
                 <AlertCircle className="w-4 h-4 mt-0.5" /> Phát hiện trùng lặp UID!
@@ -366,6 +381,9 @@ function JobRow({ job }: { job: ManualReviewJob }) {
                     <div className="min-w-0">
                       <div className="font-bold text-slate-800 truncate">{dupCustomer.name}</div>
                       <div className="text-slate-500 text-[10px] truncate">{dupCustomer.phone || 'Không có SĐT'}</div>
+                      {job.duplicate_profile?.facebook_display_name && (
+                        <div className="text-slate-600 font-semibold mt-0.5">Tên Facebook: {job.duplicate_profile.facebook_display_name}</div>
+                      )}
                     </div>
                     {dupCustomer.id && (
                       <Link
