@@ -390,15 +390,12 @@ export function CustomerContactChannels({ customerId, customer }: CustomerContac
                     onFetchMissingName={() => {
                         fetchMissingNameMutation.mutate({ customerId, rawUrl: c.channel_value }, {
                           onSuccess: () => {
-                            toast({
-                              title: "Đã đưa vào hàng đợi",
+                            toast.success("Đã đưa vào hàng đợi", {
                               description: "Hệ thống đang quét lại Facebook để lấy tên, vui lòng chờ trong giây lát...",
                             });
                           },
                           onError: (err: any) => {
-                            toast({
-                              variant: "destructive",
-                              title: "Lỗi",
+                            toast.error("Lỗi", {
                               description: err.message,
                             });
                           }
