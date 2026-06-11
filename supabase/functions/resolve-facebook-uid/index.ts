@@ -273,7 +273,7 @@ serve(async (req) => {
             isNumeric = /^\d+$/.test(returnedUid);
           }
           
-          const rawName = item.name || item.title || item.fullName || item.profileName || item.displayName || item.facebookName || item.pageName || item.profile?.name || item.user?.name || item.page?.name || null;
+          const rawName = item.name || item.title || item.fullName || item.profileName || item.displayName || item.facebookName || item.pageName || item.profile?.name || item.user?.name || item.page?.name || item.profile_header_renderer?.user?.name || item.profile_header_renderer?.page?.name || null;
           if (typeof rawName === 'string') {
             const cleanName = rawName.replace(/[\x00-\x1F\x7F-\x9F]/g, "").trim();
             if (cleanName.length > 0) {
