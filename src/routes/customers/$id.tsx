@@ -42,6 +42,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CustomerUpsellIntel } from "@/components/customers/CustomerUpsellIntel";
+import { CustomerContactChannels } from "@/components/customers/CustomerContactChannels";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -963,6 +964,14 @@ function CustomerDetailPage() {
                       </Badge>
                     </div>
                   </div>
+                </Card>
+
+                {/* Contact Channels card */}
+                <Card className="rounded-3xl border-none shadow-3xs bg-white p-6 md:col-span-3">
+                  <h3 className="text-xs font-black uppercase text-slate-800 tracking-wider mb-5 flex items-center gap-2">
+                    <Target className="w-4 h-4 text-indigo-500" /> Kênh liên hệ & Remarketing
+                  </h3>
+                  <CustomerContactChannels customerId={customer.id} />
                 </Card>
 
                 {/* Purchase KPIs card */}

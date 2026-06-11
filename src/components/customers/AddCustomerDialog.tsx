@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -53,10 +54,12 @@ interface AddCustomerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  initialPhone?: string;
 }
 
-export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomerDialogProps) {
+export function AddCustomerDialog({ open, onOpenChange, onSuccess, initialPhone }: AddCustomerDialogProps) {
   const { user, isSale, isTeleLead, isAdmin, isSubAdmin } = useAuth();
+  const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [isCheckingPhone, setIsCheckingPhone] = useState(false);
   const [cityOpen, setCityOpen] = useState(false);
@@ -640,6 +643,11 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
         toast.success(isResolvingBackground ? "Đã tạo khách. Hệ thống đang thử tìm UID tự động." : "Đã tạo khách hàng mới.");
       }
       // --- End Facebook Identity Save ---
+
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      queryClient.invalidateQueries({ queryKey: ["contact-channels"] });
+      queryClient.invalidateQueries({ queryKey: ["facebook-identity"] });
+      queryClient.invalidateQueries({ queryKey: ["facebook-identity-manual-review-jobs"] });
 
       onOpenChange(false);
       if (onSuccess) onSuccess();
