@@ -17,6 +17,8 @@ interface FacebookIdentityBadgeProps {
   onApplyName?: (name: string) => void;
   isApplyPending?: boolean;
   canApplyName?: boolean;
+  onFetchMissingName?: () => void;
+  isFetchPending?: boolean;
   duplicateProfile?: {
     customers?: {
       id?: string;
@@ -39,6 +41,8 @@ export function FacebookIdentityBadge({
   onApplyName,
   isApplyPending,
   canApplyName,
+  onFetchMissingName,
+  isFetchPending,
   duplicateProfile,
 }: FacebookIdentityBadgeProps) {
   // A. UID & Display Name exists
@@ -96,6 +100,21 @@ export function FacebookIdentityBadge({
               </Button>
             )}
           </div>
+        ) : (
+          onFetchMissingName && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 text-[10px] px-2 bg-white text-slate-600 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600"
+              onClick={(e) => {
+                e.stopPropagation();
+                onFetchMissingName();
+              }}
+              disabled={isFetchPending}
+            >
+              {isFetchPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Tìm Tên FB"}
+            </Button>
+          )
         )}
       </div>
     );

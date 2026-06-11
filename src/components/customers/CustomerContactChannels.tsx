@@ -36,7 +36,7 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { createContactChannel } from "@/lib/contactChannels";
-import { useCustomerFacebookIdentityQuery, useApplyFacebookNameMutation } from "@/lib/customers/facebookIdentityApi";
+import { useCustomerFacebookIdentityQuery, useApplyFacebookNameMutation, useFetchMissingFacebookNameMutation } from "@/lib/customers/facebookIdentityApi";
 import { FacebookIdentityBadge } from "./FacebookIdentityBadge";
 
 interface CustomerContactChannelsProps {
@@ -77,6 +77,7 @@ export function CustomerContactChannels({ customerId, customer }: CustomerContac
   const profilesData = identityData?.profiles || [];
   const jobsData = identityData?.jobs || [];
   const applyNameMutation = useApplyFacebookNameMutation();
+  const fetchMissingNameMutation = useFetchMissingFacebookNameMutation();
 
   const canApplyName = isAdmin || isSubAdmin || (customer && (customer.owner_sale_id === user?.id || customer.owner_tele_id === user?.id));
 
@@ -386,6 +387,24 @@ export function CustomerContactChannels({ customerId, customer }: CustomerContac
                     displayNameConfidenceScore={profile?.display_name_confidence_score}
                     canApplyName={!!canApplyName}
                     isApplyPending={applyNameMutation.isPending}
+                    onFetchMissingName={() => {
+                        fetchMissingNameMutation.mutate({ customerId, rawUrl: c.channel_value }, {
+                          onSuccess: () => {
+                            toast({
+                              title: "Đã đưa vào hàng đợi",
+                              description: "Hệ thống đang quét lại Facebook để lấy tên, vui lòng chờ trong giây lát...",
+                            });
+                          },
+                          onError: (err: any) => {
+                            toast({
+                              variant: "destructive",
+                              title: "Lỗi",
+                              description: err.message,
+                            });
+                          }
+                        });
+                      }}
+                      isFetchPending={fetchMissingNameMutation.isPending && fetchMissingNameMutation.variables?.rawUrl === c.channel_value}
                     onApplyName={(name) => {
                       if (!customer) return;
                       const isUrl = customer.contact_name?.includes("http") || customer.contact_name?.includes("facebook.com");

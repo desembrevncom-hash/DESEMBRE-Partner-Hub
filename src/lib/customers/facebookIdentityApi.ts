@@ -52,7 +52,14 @@ export function useCustomerFacebookIdentityQuery(customerId: string) {
         .eq("customer_id", customerId)
         .order("created_at", { ascending: false });
 
-      return { profiles: profiles || [], jobs: jobs || [] };
+      // Fetch resolver results for debug
+      const { data: results } = await supabase
+        .from("facebook_uid_resolver_results")
+        .select("*")
+        .eq("customer_id", customerId)
+        .order("created_at", { ascending: false });
+
+      return { profiles: profiles || [], jobs: jobs || [], results: results || [] };
     },
     enabled: !!customerId,
   });
@@ -183,6 +190,65 @@ export function useApplyFacebookNameMutation() {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
       queryClient.invalidateQueries({ queryKey: ["customer", variables.customerId] });
       queryClient.invalidateQueries({ queryKey: ["contact-channels", variables.customerId] });
+    },
+  });
+}
+
+export function useFetchMissingFacebookNameMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ customerId, rawUrl }: { customerId: string; rawUrl: string }) => {
+      // 1. Find if a job already exists for this raw_url
+      const { data: existingJobs } = await supabase
+        .from("facebook_identity_resolution_jobs")
+        .select("id, status")
+        .eq("customer_id", customerId)
+        .eq("raw_url", rawUrl)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      let jobId = existingJobs?.[0]?.id;
+
+      // 2. If no job, create one
+      if (!jobId) {
+        const { data: newJob, error: insertError } = await supabase
+          .from("facebook_identity_resolution_jobs")
+          .insert({
+            customer_id: customerId,
+            raw_url: rawUrl,
+            status: "manual_review_required",
+          })
+          .select("id")
+          .single();
+          
+        if (insertError) throw new Error("Could not create resolution job: " + insertError.message);
+        jobId = newJob.id;
+      } else {
+        // If job exists but is resolved, reset it so we can run edge function again
+        await supabase
+          .from("facebook_identity_resolution_jobs")
+          .update({ status: "manual_review_required" })
+          .eq("id", jobId);
+      }
+
+      // 3. Trigger edge function
+      const { data, error } = await supabase.functions.invoke("resolve-facebook-uid", {
+        body: { job_id: jobId },
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data && data.error) {
+        throw new Error(data.error);
+      }
+
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["facebook-identity", variables.customerId] });
     },
   });
 }
