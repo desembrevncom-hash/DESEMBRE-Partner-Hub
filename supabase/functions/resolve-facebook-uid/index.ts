@@ -359,7 +359,7 @@ async function updateSuccess(supabaseAdmin: any, job: any, uid: string, confiden
       updateData.display_name_updated_at = new Date().toISOString();
     }
 
-    await supabaseAdmin.from("customer_social_profiles").update(updateData).eq("customer_id", job.customer_id).eq("platform", "facebook").is("facebook_uid", null);
+    await supabaseAdmin.from("customer_social_profiles").update(updateData).eq("customer_id", job.customer_id).eq("platform", "facebook");
   }
 
   // Update job
