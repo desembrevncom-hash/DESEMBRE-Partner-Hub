@@ -185,7 +185,7 @@ serve(async (req) => {
           { startUrls: [{ url: `${normalizedUrl}/` }] }
         ];
 
-        const timeoutMs = parseInt(Deno.env.get("FACEBOOK_UID_PROVIDER_TIMEOUT_MS") || "15000", 10);
+        const timeoutMs = parseInt(Deno.env.get("FACEBOOK_UID_PROVIDER_TIMEOUT_MS") || "45000", 10);
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -297,7 +297,7 @@ serve(async (req) => {
         latencyMs = Date.now() - startedAt;
         if (err.name === 'AbortError') {
            finalStatus = "timeout";
-           const tMs = parseInt(Deno.env.get("FACEBOOK_UID_PROVIDER_TIMEOUT_MS") || "15000", 10);
+           const tMs = parseInt(Deno.env.get("FACEBOOK_UID_PROVIDER_TIMEOUT_MS") || "45000", 10);
            finalError = `Provider timeout after ${tMs}ms`;
         } else {
            finalStatus = "failed";
