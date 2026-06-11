@@ -166,7 +166,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ status: "rate_limited", message: "Daily limit reached" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Mark Resolving
+    // Acknowledge and process in background
     await supabaseAdmin.from("facebook_identity_resolution_jobs").update({
       auto_resolve_status: "resolving",
       auto_resolve_attempts: (job.auto_resolve_attempts || 0) + 1,
@@ -174,7 +174,7 @@ serve(async (req) => {
     }).eq("id", job_id);
 
     // Background Processing
-    EdgeRuntime.waitUntil((async () => {
+    (async () => {
       const startedAt = Date.now();
       let latencyMs = 0;
       let finalStatus = "failed";
@@ -314,7 +314,7 @@ serve(async (req) => {
            await updateFailure(supabaseAdmin, job_id, finalStatus, finalError);
         }
       }
-    })());
+    })();
 
     return new Response(JSON.stringify({ status: "processing", message: "Job sent to background for resolution" }), {
       status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" }
