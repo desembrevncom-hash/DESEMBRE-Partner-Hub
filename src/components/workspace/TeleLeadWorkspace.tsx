@@ -484,7 +484,7 @@ export const TeleLeadWorkspace: React.FC = () => {
                       {t.customer && (
                         <span className="flex items-center gap-1">
                           <User className="w-3.5 h-3.5 text-slate-400" />
-                          {t.customer.name} ({t.customer.facility_name || "Spa tự do"}) - 📞{" "}
+                          🏢 {t.customer.business_name || t.customer.facility_name || t.customer.contact_name || t.customer.name || t.customer.facebook_display_name || "Spa tự do"} - 📞{" "}
                           {t.customer.phone || "Chưa cập nhật"}
                         </span>
                       )}
@@ -668,7 +668,7 @@ export const TeleLeadWorkspace: React.FC = () => {
                         </div>
                         {item.customer && (
                           <div className="text-[10px] text-slate-450 font-bold mt-1">
-                            🏢 {item.customer.name} ({item.customer.facility_name || "Spa tự do"})
+                            🏢 {item.customer.business_name || item.customer.facility_name || item.customer.contact_name || item.customer.name || item.customer.facebook_display_name || "Spa tự do"}
                           </div>
                         )}
                       </div>
@@ -737,7 +737,7 @@ export const TeleLeadWorkspace: React.FC = () => {
                       )}
                       {item.customer && (
                         <div className="text-[9px] font-bold text-slate-400">
-                          Khách hàng: {item.customer.name}
+                          Khách hàng: {item.customer.business_name || item.customer.facility_name || item.customer.contact_name || item.customer.name || item.customer.facebook_display_name}
                         </div>
                       )}
                     </div>

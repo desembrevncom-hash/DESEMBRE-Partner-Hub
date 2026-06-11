@@ -505,7 +505,7 @@ function CRMOpsWorkspace() {
                           </td>
                           <td className="px-4 py-3">
                             <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                              {customer.name || customer.facility_name || "Không rõ tên"}
+                              {customer.business_name || customer.facility_name || customer.contact_name || customer.facebook_display_name || customer.name || "Không rõ tên"}
                               {missingContact && (
                                 <span className="inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                                   <PhoneOff className="w-2.5 h-2.5" /> Thiếu liên hệ
@@ -817,7 +817,7 @@ function CRMOpsWorkspace() {
                           />
                         </td>
                         <td className="px-4 py-3">
-                          <div className="font-bold text-slate-900">{customer.name}</div>
+                          <div className="font-bold text-slate-900">{customer.business_name || customer.facility_name || customer.contact_name || customer.facebook_display_name || customer.name}</div>
                           <div className="text-[10px] text-slate-500 uppercase mt-0.5">
                             {customer.owner_sale_id
                               ? getStaffDisplayName(customer.owner_sale_id, staffMap)
@@ -908,7 +908,7 @@ function CRMOpsWorkspace() {
                           />
                         </td>
                         <td className="px-4 py-3">
-                          <div className="font-bold text-slate-900">{customer.name}</div>
+                          <div className="font-bold text-slate-900">{customer.business_name || customer.facility_name || customer.contact_name || customer.facebook_display_name || customer.name}</div>
                           <div className="text-[10px] text-slate-500 uppercase mt-0.5 truncate max-w-[150px]">
                             {customer.phone || customer.email || "Không rõ kênh"}
                           </div>

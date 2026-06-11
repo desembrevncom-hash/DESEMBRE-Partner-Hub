@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner";
 import { createNotification } from "@/lib/notifications";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
+import { getCustomerCardTitle } from "@/lib/customers/customerDisplayName";
 
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -67,21 +68,21 @@ export function RoutingAlertsWidget() {
         ] = await Promise.all([
           supabase
             .from("customers")
-            .select("id, name, facility_name, customer_distance_type")
+            .select("id, name, facility_name, customer_distance_type, phone, contact_name, business_name")
             .is("deleted_at", null)
             .is("owner_sale_id", null)
             .in("customer_distance_type", ["near_company", "same_city"])
             .limit(50),
           supabase
             .from("customers")
-            .select("id, name, facility_name, customer_distance_type")
+            .select("id, name, facility_name, customer_distance_type, phone, contact_name, business_name")
             .is("deleted_at", null)
             .is("owner_tele_id", null)
             .in("customer_distance_type", ["province", "far_city"])
             .limit(50),
           supabase
             .from("customers")
-            .select("id, name, facility_name")
+            .select("id, name, facility_name, phone, contact_name, business_name")
             .is("deleted_at", null)
             .or("latitude.is.null,longitude.is.null")
             .limit(50),
@@ -311,7 +312,7 @@ export function RoutingAlertsWidget() {
                       />
                       <div>
                         <p className="text-[11px] font-bold text-slate-800">
-                          {c.facility_name || c.name}
+                          {getCustomerCardTitle(c)}
                         </p>
                         <p className="text-[9px] text-slate-400 font-medium mt-0.5">
                           {c.customer_distance_type === "near_company"
@@ -368,7 +369,7 @@ export function RoutingAlertsWidget() {
                       />
                       <div>
                         <p className="text-[11px] font-bold text-slate-800">
-                          {c.facility_name || c.name}
+                          {getCustomerCardTitle(c)}
                         </p>
                         <p className="text-[9px] text-slate-400 font-medium mt-0.5">
                           {c.customer_distance_type === "province" ? "Ngoại tỉnh" : "Vùng sâu/xa"}
@@ -407,7 +408,7 @@ export function RoutingAlertsWidget() {
                     <div className="flex items-center gap-3">
                       <div>
                         <p className="text-[11px] font-bold text-slate-800">
-                          {c.facility_name || c.name}
+                          {getCustomerCardTitle(c)}
                         </p>
                         <p className="text-[9px] text-rose-400 font-medium mt-0.5">
                           Chưa có tọa độ bản đồ

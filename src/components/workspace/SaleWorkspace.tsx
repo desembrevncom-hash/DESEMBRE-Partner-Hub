@@ -461,7 +461,7 @@ export const SaleWorkspace: React.FC = () => {
                         </div>
                         {item.customer && (
                           <div className="text-[10px] text-slate-450 font-bold mt-1">
-                            🏢 {item.customer.name} ({item.customer.facility_name || "Spa tự do"})
+                            🏢 {item.customer.business_name || item.customer.facility_name || item.customer.contact_name || item.customer.name || item.customer.facebook_display_name || "Spa tự do"}
                           </div>
                         )}
                       </div>

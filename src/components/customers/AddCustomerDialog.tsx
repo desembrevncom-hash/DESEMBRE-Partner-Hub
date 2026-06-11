@@ -407,8 +407,8 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess, initialPhone 
   };
 
   const handleSave = async () => {
-    if (!form.phone.trim()) {
-      toast.error("Vui lòng nhập số điện thoại (Bắt buộc)");
+    if (!form.phone.trim() && !form.primary_channel_value.trim()) {
+      toast.error("Vui lòng nhập Số điện thoại hoặc Kênh liên hệ chính");
       return;
     }
 
@@ -420,20 +420,25 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess, initialPhone 
     setSaving(true);
     setDuplicateInfo(null);
 
-    const normPhone = normalizePhone(form.phone);
-    if (!normPhone) {
-      toast.error("Số điện thoại không hợp lệ.");
-      setSaving(false);
-      return;
+    let normPhone = null;
+    if (form.phone.trim()) {
+      normPhone = normalizePhone(form.phone);
+      if (!normPhone) {
+        toast.error("Số điện thoại không hợp lệ.");
+        setSaving(false);
+        return;
+      }
     }
 
     try {
       // 1. Double check duplicate just in case
-      const isDup = await checkPhoneDuplicate(form.phone, false);
-      if (isDup) {
-        toast.error("Số điện thoại này đã tồn tại trong hệ thống.");
-        setSaving(false);
-        return;
+      if (form.phone.trim()) {
+        const isDup = await checkPhoneDuplicate(form.phone, false);
+        if (isDup) {
+          toast.error("Số điện thoại này đã tồn tại trong hệ thống.");
+          setSaving(false);
+          return;
+        }
       }
 
       // 2. Prepare payload
@@ -607,19 +612,21 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess, initialPhone 
       // 5. Handle Primary Channel
       const scope = isAdmin || isSubAdmin ? "official" : "private";
 
-      // Create Phone Channel (always created)
-      try {
-        await createContactChannel({
-          customerId: newCustomer.id,
-          channelType: "phone",
-          value: form.phone.trim(),
-          scope,
-          is_primary: form.primary_channel_type === "phone",
-          channel_purpose: "sales",
-          user,
-        });
-      } catch (phoneErr: any) {
-        toast.warning("Khách đã tạo, nhưng không lưu được kênh SĐT: " + phoneErr.message);
+      // Create Phone Channel (if provided)
+      if (form.phone.trim()) {
+        try {
+          await createContactChannel({
+            customerId: newCustomer.id,
+            channelType: "phone",
+            value: form.phone.trim(),
+            scope,
+            is_primary: form.primary_channel_type === "phone",
+            channel_purpose: "sales",
+            user,
+          });
+        } catch (phoneErr: any) {
+          toast.warning("Khách đã tạo, nhưng không lưu được kênh SĐT: " + phoneErr.message);
+        }
       }
 
       if (form.primary_channel_type !== "phone" && form.primary_channel_value.trim()) {
@@ -636,12 +643,16 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess, initialPhone 
             social_profile_id: currentSocialProfileId || undefined
           });
           if (resErr) throw resErr;
-          toast.success(isResolvingBackground ? "Đã tạo khách. Hệ thống đang thử tìm UID tự động." : "Đã tạo khách hàng mới.");
+          toast.success("Đã tạo khách", {
+            description: isResolvingBackground ? "Hệ thống đang thử tìm UID và tên Facebook trong nền. Tên sẽ hiển thị nếu provider trả về." : "Đã tạo khách hàng mới."
+          });
         } catch (err: any) {
           toast.warning("Khách đã tạo, nhưng kênh liên hệ chính chưa lưu được: " + err.message);
         }
       } else {
-        toast.success(isResolvingBackground ? "Đã tạo khách. Hệ thống đang thử tìm UID tự động." : "Đã tạo khách hàng mới.");
+        toast.success("Đã tạo khách", {
+          description: isResolvingBackground ? "Hệ thống đang thử tìm UID và tên Facebook trong nền. Tên sẽ hiển thị nếu provider trả về." : "Đã tạo khách hàng mới."
+        });
       }
       // --- End Facebook Identity Save ---
 
@@ -893,7 +904,7 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess, initialPhone 
               <div className="space-y-2 col-span-2">
                 <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
                   <Phone className="w-3.5 h-3.5 text-indigo-500" /> Số điện thoại{" "}
-                  <span className="text-rose-500 text-sm">*</span>
+                  {!form.primary_channel_value.trim() && <span className="text-rose-500 text-sm">*</span>}
                   {isCheckingPhone && (
                     <Loader2 className="w-3 h-3 text-indigo-400 animate-spin ml-1" />
                   )}
