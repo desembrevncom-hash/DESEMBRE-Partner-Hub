@@ -76,6 +76,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getCustomerDisplayName } from "@/lib/customers/customerDisplayName";
 
 const DEFAULT_CROSS_SELL_RULES = [
   {
@@ -529,6 +530,14 @@ function CustomerDetailPage() {
     fetchAppointments();
     fetchEvents();
     fetchOrderItems();
+
+    const handleCustomerUpdated = (e: any) => {
+      if (e.detail?.id === id) {
+        fetchCustomer();
+      }
+    };
+    window.addEventListener("customer_updated", handleCustomerUpdated);
+    return () => window.removeEventListener("customer_updated", handleCustomerUpdated);
   }, [id]);
 
   useEffect(() => {
@@ -695,10 +704,7 @@ function CustomerDetailPage() {
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none">
-                  {customer.business_name ||
-                    customer.facility_name ||
-                    customer.name ||
-                    "Khách Hàng Tự Do"}
+                  {getCustomerDisplayName(customer)}
                 </h1>
                 {renderStatusBadge(customer.lifecycle_stage)}
                 <Badge

@@ -181,9 +181,37 @@ export function useApplyFacebookNameMutation() {
 
   return useMutation({
     mutationFn: async ({ customerId, name }: { customerId: string; name: string }) => {
+      const cleanName = name.trim();
+
+      // Get current customer name state
+      const { data: current, error: fetchError } = await supabase
+        .from("customers")
+        .select("name, contact_name")
+        .eq("id", customerId)
+        .single();
+
+      if (fetchError) {
+        throw new Error(fetchError.message);
+      }
+
+      const updates: any = {
+        contact_name: cleanName,
+      };
+
+      const currentName = current.name || "";
+      const isNameEmptyOrUrl =
+        !currentName.trim() ||
+        currentName.includes("facebook.com") ||
+        currentName.includes("http") ||
+        currentName.includes("profile.php");
+
+      if (isNameEmptyOrUrl) {
+        updates.name = cleanName;
+      }
+
       const { data, error } = await supabase
         .from("customers")
-        .update({ contact_name: name })
+        .update(updates)
         .eq("id", customerId)
         .select()
         .single();
@@ -198,6 +226,8 @@ export function useApplyFacebookNameMutation() {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
       queryClient.invalidateQueries({ queryKey: ["customer", variables.customerId] });
       queryClient.invalidateQueries({ queryKey: ["contact-channels", variables.customerId] });
+      window.dispatchEvent(new Event("customer_timeline_refresh"));
+      window.dispatchEvent(new CustomEvent("customer_updated", { detail: { id: variables.customerId } }));
     },
   });
 }

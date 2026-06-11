@@ -123,6 +123,7 @@ import { CommunicationLaunchers } from "./CommunicationLaunchers";
 import { FocusInteractionPanel } from "./FocusInteractionPanel";
 import { useCopilotContext } from "../chat/ProductCopilotContext";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
+import { getCustomerDisplayName } from "@/lib/customers/customerDisplayName";
 
 const drawerCache: Record<string, { data: any; timestamp: number }> = {};
 
@@ -299,8 +300,18 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       setCustomerContext(null);
     }
 
+    const handleCustomerUpdated = (e: any) => {
+      if (e.detail?.id === customerProp?.id) {
+        // Clear cache so it fetches fresh
+        delete drawerCache[customerProp.id];
+        fetchCustomerDetails();
+      }
+    };
+    window.addEventListener("customer_updated", handleCustomerUpdated);
+
     // Clear on unmount
     return () => {
+      window.removeEventListener("customer_updated", handleCustomerUpdated);
       setCustomerContext(null);
     };
   }, [open, customerProp?.id, initialQuickAction]);
@@ -699,7 +710,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   };
 
   const handleCopyMessage = () => {
-    const text = `Kính gửi anh/chị ${customer.contact_name || customer.name || "chủ Spa"}, Desembre xin phép gửi thông tin hỗ trợ...`;
+    const text = `Kính gửi anh/chị ${getCustomerDisplayName(customer)}, Desembre xin phép gửi thông tin hỗ trợ...`;
     navigator.clipboard.writeText(text);
     toast.success("Đã copy tin nhắn mẫu!");
   };
@@ -1208,9 +1219,9 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
               <h2 className="text-xl font-black tracking-tight leading-snug flex items-center gap-2">
                 <span
                   className="truncate"
-                  title={customer.contact_name || customer.name || "Khách hàng mới"}
+                  title={getCustomerDisplayName(customer)}
                 >
-                  {customer.contact_name || customer.name || "Khách hàng mới"}
+                  {getCustomerDisplayName(customer)}
                 </span>
                 {suggestedAction && (
                   <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30 uppercase tracking-widest whitespace-nowrap shrink-0">
@@ -1343,7 +1354,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 <div className="space-y-1">
                   <span className="text-[10px] font-bold text-slate-500 uppercase">Khách hàng</span>
                   <div className="text-[11px] font-bold text-slate-900 break-words">
-                    {customer.contact_name || customer.name || "Chưa có"}
+                    {getCustomerDisplayName(customer)}
                   </div>
                 </div>
                 <div className="space-y-1">

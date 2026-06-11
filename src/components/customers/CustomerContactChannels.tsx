@@ -405,14 +405,22 @@ export function CustomerContactChannels({ customerId, customer }: CustomerContac
                       isFetchPending={(fetchMissingNameMutation.isPending && fetchMissingNameMutation.variables?.rawUrl === c.channel_value) || job?.status === "manual_review_required"}
                     onApplyName={(name) => {
                       if (!customer) return;
-                      const isUrl = customer.contact_name?.includes("http") || customer.contact_name?.includes("facebook.com");
-                      if (customer.contact_name && !isUrl) {
-                        if (!confirm(`Khách hàng đang có tên liên hệ là "${customer.contact_name}". Bạn có chắc chắn muốn ghi đè bằng "${name}" không?`)) {
+                      
+                      const currentName = customer.name || "";
+                      const isNameUrl = !currentName.trim() || currentName.includes("facebook.com") || currentName.includes("http") || currentName.includes("profile.php");
+                      
+                      const currentContactName = customer.contact_name || "";
+                      const isContactUrl = !currentContactName.trim() || currentContactName.includes("facebook.com") || currentContactName.includes("http") || currentContactName.includes("profile.php");
+
+                      if (!isNameUrl || !isContactUrl) {
+                        const existingNames = Array.from(new Set([currentName, currentContactName].filter(n => n && !n.includes("facebook.com") && !n.includes("http")))).join(" / ");
+                        if (existingNames && !confirm(`Khách hàng đang có tên là "${existingNames}". Bạn có chắc chắn muốn cập nhật thành "${name}" không?`)) {
                           return;
                         }
                       }
+
                       applyNameMutation.mutate({ customerId, name }, {
-                        onSuccess: () => toast.success(`Đã cập nhật tên liên hệ thành: ${name}`)
+                        onSuccess: () => toast.success(`Đã áp dụng tên Facebook vào tên khách hàng.`)
                       });
                     }}
                     duplicateProfile={job?.duplicate_profile}
