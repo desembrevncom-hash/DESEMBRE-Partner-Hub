@@ -42,6 +42,7 @@ import {
   XCircle,
   AlertCircle,
   X,
+  Facebook,
 } from "lucide-react";
 import { normalizePhone } from "@/lib/phone";
 import { VIETNAM_PROVINCES, stripAccents, findProvinceByName } from "@/lib/vietnamProvinces";
@@ -1058,7 +1059,11 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess, initialPhone 
                     <SelectContent>
                       <SelectItem value="phone">📞 Gọi/SMS</SelectItem>
                       <SelectItem value="zalo">💬 Zalo</SelectItem>
-                      <SelectItem value="facebook">📘 Facebook</SelectItem>
+                      <SelectItem value="facebook">
+                        <span className="flex items-center gap-1.5">
+                          <Facebook className="w-3.5 h-3.5 text-[#1877F2] fill-current" /> Facebook
+                        </span>
+                      </SelectItem>
                       <SelectItem value="email">📧 Email</SelectItem>
                       <SelectItem value="tiktok">🎵 TikTok</SelectItem>
                       <SelectItem value="website">🌐 Website</SelectItem>
