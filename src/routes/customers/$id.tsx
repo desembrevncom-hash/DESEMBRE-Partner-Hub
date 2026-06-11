@@ -76,7 +76,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getCustomerDisplayName } from "@/lib/customers/customerDisplayName";
+import { getCustomerPersonDisplayName } from "@/lib/customers/customerDisplayName";
 
 const DEFAULT_CROSS_SELL_RULES = [
   {
@@ -704,7 +704,7 @@ function CustomerDetailPage() {
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none">
-                  {getCustomerDisplayName(customer)}
+                  {getCustomerPersonDisplayName(customer)}
                 </h1>
                 {renderStatusBadge(customer.lifecycle_stage)}
                 <Badge

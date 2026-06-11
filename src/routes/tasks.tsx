@@ -29,7 +29,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { getCustomerDisplayName } from "@/lib/customers/customerDisplayName";
+import { getCustomerPersonDisplayName } from "@/lib/customers/customerDisplayName";
 import {
   Select,
   SelectContent,
@@ -259,7 +259,7 @@ export function TasksPage() {
         let cPhone = "—";
 
         if (t.customer) {
-          cName = getCustomerDisplayName(t.customer);
+          cName = getCustomerPersonDisplayName(t.customer);
           cPhone = t.customer.phone || "";
         }
 

@@ -61,7 +61,7 @@ import { getPriorityScore, getStaleSignals, getSuggestedNextAction } from "@/lib
 import { buildStaffMap, getStaffDisplayName, getStaffInitials, StaffMap } from "@/lib/staffDisplay";
 import { QuickCallResultDialog } from "@/components/customers/QuickCallResultDialog";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
-import { getCustomerBusinessOrDisplayName, getCustomerDisplayName } from "@/lib/customers/customerDisplayName";
+import { getCustomerCardTitle, getCustomerPersonDisplayName } from "@/lib/customers/customerDisplayName";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
 import { Loader2 } from "lucide-react";
@@ -1824,9 +1824,9 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
           </div>
           <h4
             className="text-[13px] font-bold text-slate-800 tracking-tight leading-tight group-hover:text-indigo-600 transition-colors line-clamp-1"
-            title={getCustomerBusinessOrDisplayName(customer)}
+            title={getCustomerCardTitle(customer)}
           >
-            {getCustomerBusinessOrDisplayName(customer)}
+            {getCustomerCardTitle(customer)}
           </h4>
           <div className="flex items-center gap-1.5 flex-wrap">
             <p className="text-[10px] text-slate-500 font-medium line-clamp-1">
@@ -2055,7 +2055,7 @@ const ManagerCustomerCard = React.memo(function ManagerCustomerCard({
               <DataHealthBadge customer={customer} mode="compact" />
             </div>
             <h4 className="text-[13px] font-bold tracking-tight text-slate-800 leading-tight group-hover:text-indigo-600 transition-colors line-clamp-1">
-              {getCustomerBusinessOrDisplayName(customer)}
+              {getCustomerCardTitle(customer)}
             </h4>
             <div className="flex items-center gap-1.5 flex-wrap">
               <p className="text-[10px] text-slate-500 font-medium">
@@ -2247,7 +2247,7 @@ function CustomerIntelligenceRow({
             <DataHealthBadge customer={customer} mode="compact" />
           </div>
           <h4 className="text-sm font-black text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">
-            {getCustomerBusinessOrDisplayName(customer)}
+            {getCustomerCardTitle(customer)}
           </h4>
           <p className="text-xs font-bold text-slate-500 mt-0.5 flex items-center gap-1">
             {customer.city || "Toàn quốc"} • {customer.customer_channel || customer.source || "N/A"}{" "}

@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { buildStaffMap, getStaffDisplayName, StaffMap } from "@/lib/staffDisplay";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
-import { getCustomerBusinessOrDisplayName, getCustomerDisplayName } from "@/lib/customers/customerDisplayName";
+import { getCustomerCardTitle, getCustomerPersonDisplayName } from "@/lib/customers/customerDisplayName";
 import { RoutingReviewDialog } from "@/components/customers/RoutingReviewDialog";
 import { CRMCard } from "@/components/crm/CRMCard";
 import { CRMStatusBadge } from "@/components/crm/CRMStatusBadge";
@@ -769,7 +769,7 @@ function CustomerMapPage() {
         // Open preview drawer directly if they have no coordinates so they can pin it
         setPreviewCustomer(customer);
         toast.info(
-          `Khách hàng "${getCustomerBusinessOrDisplayName(customer)}" chưa có vị trí bản đồ. Hãy ghim vị trí ở bảng điều khiển.`,
+          `Khách hàng "${getCustomerCardTitle(customer)}" chưa có vị trí bản đồ. Hãy ghim vị trí ở bảng điều khiển.`,
         );
       }
     }
@@ -1404,7 +1404,7 @@ function CustomerMapPage() {
                             )}
                             <div>
                               <h4 className="text-xs font-black text-slate-900 group-hover:text-indigo-600 transition-colors leading-tight">
-                                {getCustomerBusinessOrDisplayName(customer)}
+                                {getCustomerCardTitle(customer)}
                               </h4>
                               <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">
                                 {customer.city || "Toàn quốc"}
@@ -1420,7 +1420,7 @@ function CustomerMapPage() {
                         <div className="space-y-1 text-[10px] text-slate-500 font-bold">
                           <p className="flex items-center gap-1">
                             <User className="w-3.5 h-3.5 text-slate-400" />{" "}
-                            {getCustomerDisplayName(customer)}
+                            {getCustomerPersonDisplayName(customer)}
                           </p>
                           {customer.phone && (
                             <p className="flex items-center gap-1">
@@ -1593,7 +1593,7 @@ function CustomerMapPage() {
                     <div className="p-1 space-y-2">
                       <div className="border-b border-slate-100 pb-1.5">
                         <h4 className="font-black text-xs text-slate-900 leading-tight">
-                          {getCustomerBusinessOrDisplayName(customer)}
+                          {getCustomerCardTitle(customer)}
                         </h4>
                         <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">
                           {customer.city || "Toàn quốc"}
@@ -1601,7 +1601,7 @@ function CustomerMapPage() {
                       </div>
 
                       <div className="space-y-1 text-[9px] text-slate-500 font-bold">
-                        <p>👤 {getCustomerDisplayName(customer)}</p>
+                        <p>👤 {getCustomerPersonDisplayName(customer)}</p>
                         <p>
                           Sale phụ trách:{" "}
                           <span className="text-slate-900">

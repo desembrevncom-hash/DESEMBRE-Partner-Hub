@@ -123,7 +123,7 @@ import { CommunicationLaunchers } from "./CommunicationLaunchers";
 import { FocusInteractionPanel } from "./FocusInteractionPanel";
 import { useCopilotContext } from "../chat/ProductCopilotContext";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
-import { getCustomerDisplayName } from "@/lib/customers/customerDisplayName";
+import { getCustomerPersonDisplayName } from "@/lib/customers/customerDisplayName";
 
 const drawerCache: Record<string, { data: any; timestamp: number }> = {};
 
@@ -710,7 +710,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   };
 
   const handleCopyMessage = () => {
-    const text = `Kính gửi anh/chị ${getCustomerDisplayName(customer)}, Desembre xin phép gửi thông tin hỗ trợ...`;
+    const text = `Kính gửi anh/chị ${getCustomerPersonDisplayName(customer)}, Desembre xin phép gửi thông tin hỗ trợ...`;
     navigator.clipboard.writeText(text);
     toast.success("Đã copy tin nhắn mẫu!");
   };
@@ -1219,9 +1219,9 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
               <h2 className="text-xl font-black tracking-tight leading-snug flex items-center gap-2">
                 <span
                   className="truncate"
-                  title={getCustomerDisplayName(customer)}
+                  title={getCustomerPersonDisplayName(customer)}
                 >
-                  {getCustomerDisplayName(customer)}
+                  {getCustomerPersonDisplayName(customer)}
                 </span>
                 {suggestedAction && (
                   <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30 uppercase tracking-widest whitespace-nowrap shrink-0">
@@ -1354,7 +1354,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 <div className="space-y-1">
                   <span className="text-[10px] font-bold text-slate-500 uppercase">Khách hàng</span>
                   <div className="text-[11px] font-bold text-slate-900 break-words">
-                    {getCustomerDisplayName(customer)}
+                    {getCustomerPersonDisplayName(customer)}
                   </div>
                 </div>
                 <div className="space-y-1">
