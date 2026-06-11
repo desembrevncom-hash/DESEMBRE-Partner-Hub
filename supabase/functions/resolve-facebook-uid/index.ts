@@ -121,7 +121,7 @@ serve(async (req) => {
     // Cooldown & Cache check
     const { data: previousResults } = await supabaseAdmin
       .from("facebook_uid_resolver_results")
-      .select("provider_status, created_at, returned_uid")
+      .select("provider_status, created_at, returned_uid, returned_name, response_json")
       .eq("raw_url", job.raw_url)
       .order("created_at", { ascending: false })
       .limit(1);
@@ -129,14 +129,18 @@ serve(async (req) => {
     if (previousResults && previousResults.length > 0) {
       const last = previousResults[0];
       
-      // If the job is explicitly forced to manual_review_required, we want to bypass the cache.
-      // But if it was recently failed, we might still want to cooldown? 
-      // No, if user clicks "Tìm Tên FB", we want to force run it regardless of cooldown!
-      /*
       if (last.provider_status === 'resolved' && last.returned_uid) {
-        // Cache hit
-        await updateSuccess(supabaseAdmin, job, last.returned_uid, 80);
-        await insertResult(supabaseAdmin, job, "cached", last.returned_uid, 0, null);
+        let cachedName = last.returned_name;
+        if (!cachedName && last.response_json && Object.keys(last.response_json).length > 0) {
+          cachedName = extractFacebookDisplayName(last.response_json);
+        }
+
+        // Only use cache if we found the name OR if the job wasn't manually forced 
+        // Wait, the prompt says: "If using a cached resolver result: If cached returned_name exists, copy it. If cached returned_name is null but cached response_json has openGraph.title/alt, extract it and use it. If cached response_json is {}, do not invent a name."
+        // And "UID flow must continue to work even if returnedName is null."
+        // We will just use the cache block unconditionally again as requested.
+        await updateSuccess(supabaseAdmin, job, last.returned_uid, 80, cachedName);
+        await insertResult(supabaseAdmin, job, "cached", last.returned_uid, 0, null, last.response_json, cachedName);
         return new Response(JSON.stringify({ status: "cached", uid: last.returned_uid }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       
@@ -147,7 +151,6 @@ serve(async (req) => {
           return new Response(JSON.stringify({ status: "cooldown", message: "Cooling down from recent failure" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
       }
-      */
     }
 
     // Daily Limit Check
@@ -279,13 +282,7 @@ serve(async (req) => {
             isNumeric = /^\d+$/.test(returnedUid);
           }
           
-          const rawName = item.name || item.title || item.fullName || item.profileName || item.displayName || item.facebookName || item.pageName || item.profile?.name || item.user?.name || item.page?.name || item.profile_header_renderer?.user?.name || item.profile_header_renderer?.page?.name || null;
-          if (typeof rawName === 'string') {
-            const cleanName = rawName.replace(/[\x00-\x1F\x7F-\x9F]/g, "").trim();
-            if (cleanName.length > 0) {
-              returnedName = cleanName.substring(0, 120);
-            }
-          }
+          returnedName = extractFacebookDisplayName(item);
         }
 
         if (returnedUid && isNumeric) {
@@ -327,6 +324,67 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
+
+function extractFacebookDisplayName(item: any): string | null {
+  if (!item || typeof item !== 'object') return null;
+
+  const rawName = 
+    item.name || 
+    item.title || 
+    item.fullName || 
+    item.profileName || 
+    item.displayName || 
+    item.facebookName || 
+    item.pageName || 
+    item.openGraph?.title || 
+    item.openGraph?.alt || 
+    item.openGraph?.name || 
+    item.user?.name || 
+    item.user?.title || 
+    item.user?.displayName || 
+    item.user?.profileName || 
+    item.page?.name || 
+    item.pageAdLibrary?.pageName || 
+    null;
+
+  let cleanName = null;
+
+  if (typeof rawName === 'string') {
+    cleanName = rawName.replace(/[\x00-\x1F\x7F-\x9F]/g, "").trim();
+  }
+
+  // Fallback to directory tile if still null
+  if (!cleanName && typeof item.user?.directory_tile_section_truncation_string?.text === 'string') {
+    const text = item.user.directory_tile_section_truncation_string.text.trim();
+    if (text.startsWith("See more about ")) {
+      cleanName = text.substring("See more about ".length).trim();
+    }
+  }
+
+  if (!cleanName) return null;
+
+  // Rejection rules
+  const lowerName = cleanName.toLowerCase();
+  
+  if (lowerName === "facebook" || lowerName === "com.facebook.katana") {
+    return null; // Rejected openGraph values
+  }
+  if (lowerName.includes("facebook.com") || lowerName.startsWith("http://") || lowerName.startsWith("https://")) {
+    return null; // No URLs
+  }
+  if (lowerName === "facebook") {
+    return null; // Generic words
+  }
+
+  // Clean " | Facebook"
+  if (cleanName.endsWith(" | Facebook")) {
+    cleanName = cleanName.substring(0, cleanName.length - " | Facebook".length).trim();
+  }
+
+  if (cleanName.length === 0) return null;
+
+  return cleanName.substring(0, 120);
+}
 
 async function updateSuccess(supabaseAdmin: any, job: any, uid: string, confidence: number, returnedName: string | null = null): Promise<string> {
   // Check for duplicate

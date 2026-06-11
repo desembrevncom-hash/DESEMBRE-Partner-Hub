@@ -392,7 +392,7 @@ export function CustomerContactChannels({ customerId, customer }: CustomerContac
                         fetchMissingNameMutation.mutate({ customerId, rawUrl: c.channel_value }, {
                           onSuccess: () => {
                             toast.success("Đã đưa vào hàng đợi", {
-                              description: "Hệ thống đang quét lại Facebook để lấy tên, vui lòng chờ trong giây lát...",
+                              description: "Hệ thống đang thử tìm UID và tên Facebook trong nền. Tên sẽ hiển thị nếu provider trả về.",
                             });
                           },
                           onError: (err: any) => {
