@@ -152,8 +152,17 @@ export function FacebookIdentityBadge({
     );
   }
 
-  // C. Failed
-  if (autoResolveStatus === "failed" || autoResolveStatus === "timeout" || autoResolveStatus === "not_found") {
+  // C. Failed / Error States
+  if (
+    autoResolveStatus === "failed" || 
+    autoResolveStatus === "timeout" || 
+    autoResolveStatus === "not_found" ||
+    autoResolveStatus === "disabled" ||
+    autoResolveStatus === "rate_limited" ||
+    autoResolveStatus === "skipped_invalid_type" ||
+    jobStatus === "failed" ||
+    jobStatus === "ignored"
+  ) {
     return (
       <div className="flex items-center gap-1">
         <TooltipProvider>
