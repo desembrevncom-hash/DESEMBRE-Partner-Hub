@@ -33,6 +33,7 @@ import {
   Lock,
   Globe,
   Phone,
+  Facebook,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { createContactChannel } from "@/lib/contactChannels";
@@ -336,7 +337,11 @@ export function CustomerContactChannels({ customerId, customer }: CustomerContac
           {/* Left info */}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-xl leading-none">{icon}</span>
+              {c.channel_type === "facebook" ? (
+                <Facebook className="w-[1.125rem] h-[1.125rem] text-[#1877F2] shrink-0 fill-current" />
+              ) : (
+                <span className="text-xl leading-none">{icon}</span>
+              )}
               <div className="text-lg font-black text-slate-800 truncate" title={c.channel_value}>
                 {c.normalized_value || c.channel_value}
               </div>
