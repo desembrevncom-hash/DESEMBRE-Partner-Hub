@@ -78,9 +78,9 @@ serve(async (req) => {
       }
     }
 
-    // Validate Status
-    if (job.status !== "manual_review_required") {
-      return new Response(JSON.stringify({ error: "Job is not in manual_review_required state" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // Validate Status - Allow retrying from failed or ignored or duplicate states as well
+    if (job.status !== "manual_review_required" && job.status !== "failed" && job.status !== "ignored" && job.status !== "duplicate_candidate") {
+      return new Response(JSON.stringify({ error: "Job is not in a retryable state" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Validate and Normalize URL
