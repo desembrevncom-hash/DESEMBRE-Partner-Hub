@@ -67,7 +67,7 @@ export function FacebookIdentityBadge({
           </TooltipProvider>
         )}
 
-        {facebookDisplayName && (
+        {facebookDisplayName ? (
           <div className="flex items-center gap-1">
             <TooltipProvider>
               <Tooltip>
