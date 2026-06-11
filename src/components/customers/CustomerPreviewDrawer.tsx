@@ -1785,6 +1785,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
               </summary>
               <div className="p-4 bg-white space-y-6 border-t border-slate-200">
                 <CustomerAutomationStatus customerId={customer.id} />
+                <CustomerContactChannels customerId={customer.id} customer={customer} />
 
                 <section className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -2016,7 +2017,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                   <Target className="w-4 h-4 text-primary" /> Kênh liên hệ & Remarketing
                 </div>
               </div>
-              <CustomerContactChannels customerId={customer.id} />
+              <CustomerContactChannels customerId={customer.id} customer={customer} />
             </section>
 
             {/* AI SUGGESTIONS SECTION */}

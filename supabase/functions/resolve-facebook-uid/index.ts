@@ -265,23 +265,32 @@ serve(async (req) => {
 
         let returnedUid = null;
         let isNumeric = false;
+        let returnedName = null;
         if (item) {
           returnedUid = item.facebookId || item.facebook_id || item.id || item.uid || item.userId || null;
           if (returnedUid) {
             returnedUid = String(returnedUid);
             isNumeric = /^\d+$/.test(returnedUid);
           }
+          
+          const rawName = item.name || item.title || item.fullName || item.profileName || item.displayName || item.facebookName || item.pageName || item.profile?.name || item.user?.name || item.page?.name || null;
+          if (typeof rawName === 'string') {
+            const cleanName = rawName.replace(/[\x00-\x1F\x7F-\x9F]/g, "").trim();
+            if (cleanName.length > 0) {
+              returnedName = cleanName.substring(0, 120);
+            }
+          }
         }
 
         if (returnedUid && isNumeric) {
-          const resolveStatus = await updateSuccess(supabaseAdmin, job, returnedUid, 80);
+          const resolveStatus = await updateSuccess(supabaseAdmin, job, returnedUid, 80, returnedName);
           finalStatus = resolveStatus; // either 'resolved' or 'duplicate_detected'
           finalError = "";
-          await insertResult(supabaseAdmin, job, resolveStatus, returnedUid, latencyMs, null, itemToLog);
+          await insertResult(supabaseAdmin, job, resolveStatus, returnedUid, latencyMs, null, itemToLog, returnedName);
         } else {
           finalStatus = "not_found";
           finalError = "No numeric UID returned";
-          await insertResult(supabaseAdmin, job, "not_found", null, latencyMs, finalError, itemToLog);
+          await insertResult(supabaseAdmin, job, "not_found", null, latencyMs, finalError, itemToLog, null);
         }
 
       } catch (err: any) {
@@ -313,7 +322,7 @@ serve(async (req) => {
   }
 });
 
-async function updateSuccess(supabaseAdmin: any, job: any, uid: string, confidence: number): Promise<string> {
+async function updateSuccess(supabaseAdmin: any, job: any, uid: string, confidence: number, returnedName: string | null = null): Promise<string> {
   // Check for duplicate
   const { data: existingProfiles, error: dupErr } = await supabaseAdmin
     .from("customer_social_profiles")
@@ -336,12 +345,21 @@ async function updateSuccess(supabaseAdmin: any, job: any, uid: string, confiden
 
   // First update social profile if we have customer ID
   if (job.customer_id) {
-    await supabaseAdmin.from("customer_social_profiles").update({
+    const updateData: any = {
       facebook_uid: uid,
       resolver_status: "resolved",
       resolver_method: "external_apify",
       confidence_score: confidence,
-    }).eq("customer_id", job.customer_id).eq("platform", "facebook").is("facebook_uid", null);
+    };
+    
+    if (returnedName) {
+      updateData.facebook_display_name = returnedName;
+      updateData.display_name_source = "external_apify";
+      updateData.display_name_confidence_score = 70;
+      updateData.display_name_updated_at = new Date().toISOString();
+    }
+
+    await supabaseAdmin.from("customer_social_profiles").update(updateData).eq("customer_id", job.customer_id).eq("platform", "facebook").is("facebook_uid", null);
   }
 
   // Update job
@@ -363,7 +381,7 @@ async function updateFailure(supabaseAdmin: any, job_id: string, status: string,
   }).eq("id", job_id);
 }
 
-async function insertResult(supabaseAdmin: any, job: any, status: string, uid: string | null, latency: number, errorMsg: string | null, responseJson: any = {}) {
+async function insertResult(supabaseAdmin: any, job: any, status: string, uid: string | null, latency: number, errorMsg: string | null, responseJson: any = {}, returnedName: string | null = null) {
   // sanitize responseJson
   if (responseJson && Array.isArray(responseJson)) {
       responseJson = responseJson[0] || {};
@@ -373,6 +391,7 @@ async function insertResult(supabaseAdmin: any, job: any, status: string, uid: s
     customer_id: job.customer_id,
     raw_url: job.raw_url,
     returned_uid: uid,
+    returned_name: returnedName,
     provider_status: status,
     latency_ms: latency,
     error_message: errorMsg,

@@ -36,11 +36,12 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { createContactChannel } from "@/lib/contactChannels";
-import { useCustomerFacebookIdentityQuery } from "@/lib/customers/facebookIdentityApi";
+import { useCustomerFacebookIdentityQuery, useApplyFacebookNameMutation } from "@/lib/customers/facebookIdentityApi";
 import { FacebookIdentityBadge } from "./FacebookIdentityBadge";
 
 interface CustomerContactChannelsProps {
   customerId: string;
+  customer?: any;
 }
 
 const CHANNEL_TYPE_ICONS: Record<string, string> = {
@@ -63,7 +64,7 @@ const PURPOSE_CONFIG: Record<string, { label: string; color: string; Icon: React
   other: { label: "Khác", color: "bg-slate-100 text-slate-500", Icon: HelpCircle },
 };
 
-export function CustomerContactChannels({ customerId }: CustomerContactChannelsProps) {
+export function CustomerContactChannels({ customerId, customer }: CustomerContactChannelsProps) {
   const { user, isAdmin, isSubAdmin } = useAuth();
   const [channels, setChannels] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,6 +76,9 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
   const { data: identityData, refetch: refetchIdentity } = useCustomerFacebookIdentityQuery(customerId);
   const profilesData = identityData?.profiles || [];
   const jobsData = identityData?.jobs || [];
+  const applyNameMutation = useApplyFacebookNameMutation();
+
+  const canApplyName = isAdmin || isSubAdmin || (customer && (customer.owner_sale_id === user?.id || customer.owner_tele_id === user?.id));
 
   useEffect(() => {
     const hasResolving = jobsData.some((j: any) => j.auto_resolve_status === "resolving");
@@ -377,6 +381,23 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
                     autoResolveStatus={job?.auto_resolve_status}
                     lastAutoResolveError={job?.last_auto_resolve_error}
                     jobStatus={job?.status}
+                    facebookDisplayName={profile?.facebook_display_name}
+                    displayNameSource={profile?.display_name_source}
+                    displayNameConfidenceScore={profile?.display_name_confidence_score}
+                    canApplyName={!!canApplyName}
+                    isApplyPending={applyNameMutation.isPending}
+                    onApplyName={(name) => {
+                      if (!customer) return;
+                      const isUrl = customer.contact_name?.includes("http") || customer.contact_name?.includes("facebook.com");
+                      if (customer.contact_name && !isUrl) {
+                        if (!confirm(`Khách hàng đang có tên liên hệ là "${customer.contact_name}". Bạn có chắc chắn muốn ghi đè bằng "${name}" không?`)) {
+                          return;
+                        }
+                      }
+                      applyNameMutation.mutate({ customerId, name }, {
+                        onSuccess: () => toast.success(`Đã cập nhật tên liên hệ thành: ${name}`)
+                      });
+                    }}
                     duplicateProfile={job?.duplicate_profile}
                   />
                 );

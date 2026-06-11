@@ -107,6 +107,7 @@ export interface ResolveManualJobPayload {
   numericUid?: string | null;
   status: 'resolved' | 'failed' | 'ignored' | 'duplicate_candidate';
   note?: string | null;
+  facebookName?: string | null;
 }
 
 export function useResolveManualReviewJobMutation() {
@@ -119,6 +120,7 @@ export function useResolveManualReviewJobMutation() {
         p_numeric_uid: payload.numericUid || null,
         p_status: payload.status,
         p_note: payload.note || null,
+        p_facebook_display_name: payload.facebookName || null,
       });
 
       if (error) {
@@ -155,6 +157,32 @@ export function useTriggerAutoResolveMutation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["facebook-identity-manual-review-jobs"] });
+    },
+  });
+}
+
+export function useApplyFacebookNameMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ customerId, name }: { customerId: string; name: string }) => {
+      const { data, error } = await supabase
+        .from("customers")
+        .update({ contact_name: name })
+        .eq("id", customerId)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      return data;
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      queryClient.invalidateQueries({ queryKey: ["customer", variables.customerId] });
+      queryClient.invalidateQueries({ queryKey: ["contact-channels", variables.customerId] });
     },
   });
 }

@@ -111,6 +111,7 @@ class SafeJobRow extends React.Component<{ job: ManualReviewJob }, { hasError: b
 
 function JobRow({ job }: { job: ManualReviewJob }) {
   const [uidInput, setUidInput] = useState("");
+  const [nameInput, setNameInput] = useState("");
   const [note, setNote] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const resolveMutation = useResolveManualReviewJobMutation();
@@ -198,7 +199,7 @@ function JobRow({ job }: { job: ManualReviewJob }) {
     }
 
     resolveMutation.mutate(
-      { jobId: job.id, status: "resolved", numericUid: trimmedUid, note: note.trim() },
+      { jobId: job.id, status: "resolved", numericUid: trimmedUid, note: note.trim(), facebookName: nameInput.trim() || null },
       {
         onSuccess: () => {
           toast.success("Đã cập nhật UID thành công");
@@ -291,18 +292,26 @@ function JobRow({ job }: { job: ManualReviewJob }) {
       <td className="px-4 py-3 align-top">
         <div className="flex flex-col gap-2">
           <div className="flex gap-2">
-            <div className="flex-1">
+            <div className="flex-1 flex flex-col gap-2">
               <input
                 type="text"
-              placeholder="Nhập UID số..."
-              value={uidInput}
-              onChange={(e) => setUidInput(e.target.value)}
-              className={`w-full text-sm px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
-                errorMsg ? "border-red-300 focus:ring-red-200" : "border-slate-300 focus:ring-indigo-100 focus:border-indigo-400"
-              }`}
-              disabled={resolveMutation.isPending}
-            />
-            {errorMsg && <div className="text-red-500 text-xs mt-1">{errorMsg}</div>}
+                placeholder="Nhập UID số..."
+                value={uidInput}
+                onChange={(e) => setUidInput(e.target.value)}
+                className={`w-full text-sm px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                  errorMsg ? "border-red-300 focus:ring-red-200" : "border-slate-300 focus:ring-indigo-100 focus:border-indigo-400"
+                }`}
+                disabled={resolveMutation.isPending}
+              />
+              <input
+                type="text"
+                placeholder="Tên Facebook (Tùy chọn)"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                className="w-full text-sm px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400"
+                disabled={resolveMutation.isPending}
+              />
+              {errorMsg && <div className="text-red-500 text-xs mt-1">{errorMsg}</div>}
             </div>
             <button
               onClick={handleTriggerAuto}

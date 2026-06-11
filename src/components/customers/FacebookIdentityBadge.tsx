@@ -11,6 +11,12 @@ interface FacebookIdentityBadgeProps {
   autoResolveStatus?: string | null;
   lastAutoResolveError?: string | null;
   jobStatus?: string | null;
+  facebookDisplayName?: string | null;
+  displayNameSource?: string | null;
+  displayNameConfidenceScore?: number | null;
+  onApplyName?: (name: string) => void;
+  isApplyPending?: boolean;
+  canApplyName?: boolean;
   duplicateProfile?: {
     customers?: {
       id?: string;
@@ -27,26 +33,71 @@ export function FacebookIdentityBadge({
   autoResolveStatus,
   lastAutoResolveError,
   jobStatus,
+  facebookDisplayName,
+  displayNameSource,
+  displayNameConfidenceScore,
+  onApplyName,
+  isApplyPending,
+  canApplyName,
   duplicateProfile,
 }: FacebookIdentityBadgeProps) {
-  // A. UID exists
-  if (facebookUid) {
+  // A. UID & Display Name exists
+  if (facebookUid || facebookDisplayName) {
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-[10px] px-2 py-0.5 cursor-help">
-              <CheckCircle2 className="w-2.5 h-2.5 mr-1" /> UID: {facebookUid}
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent className="flex flex-col gap-1">
-            <span>Nguồn: {resolverMethod || "Không rõ"}</span>
-            {confidenceScore !== undefined && confidenceScore !== null && (
-              <span>Độ tin cậy: {confidenceScore}%</span>
+      <div className="flex flex-wrap items-center gap-2">
+        {facebookUid && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-[10px] px-2 py-0.5 cursor-help">
+                  <CheckCircle2 className="w-2.5 h-2.5 mr-1" /> UID: {facebookUid}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent className="flex flex-col gap-1">
+                <span>Nguồn UID: {resolverMethod || "Không rõ"}</span>
+                {confidenceScore !== undefined && confidenceScore !== null && (
+                  <span>Độ tin cậy UID: {confidenceScore}%</span>
+                )}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
+        {facebookDisplayName && (
+          <div className="flex items-center gap-1">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 text-[10px] px-2 py-0.5 cursor-help">
+                    Tên Facebook: {facebookDisplayName}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent className="flex flex-col gap-1">
+                  <span>Nguồn tên: {displayNameSource || "Không rõ"}</span>
+                  {displayNameConfidenceScore !== undefined && displayNameConfidenceScore !== null && (
+                    <span>Độ tin cậy tên: {displayNameConfidenceScore}%</span>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {canApplyName && onApplyName && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-[10px] px-2 bg-white text-slate-600 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onApplyName(facebookDisplayName);
+                }}
+                disabled={isApplyPending}
+              >
+                {isApplyPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Áp dụng làm tên KH"}
+              </Button>
             )}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+          </div>
+        )}
+      </div>
     );
   }
 

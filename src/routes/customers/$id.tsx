@@ -971,7 +971,7 @@ function CustomerDetailPage() {
                   <h3 className="text-xs font-black uppercase text-slate-800 tracking-wider mb-5 flex items-center gap-2">
                     <Target className="w-4 h-4 text-indigo-500" /> Kênh liên hệ & Remarketing
                   </h3>
-                  <CustomerContactChannels customerId={customer.id} />
+                  <CustomerContactChannels customerId={customer.id} customer={customer} />
                 </Card>
 
                 {/* Purchase KPIs card */}
