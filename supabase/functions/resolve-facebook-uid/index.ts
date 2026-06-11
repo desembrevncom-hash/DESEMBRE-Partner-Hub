@@ -175,7 +175,7 @@ serve(async (req) => {
     }).eq("id", job_id);
 
     // Background Processing
-    (async () => {
+    const backgroundTask = (async () => {
       const startedAt = Date.now();
       let latencyMs = 0;
       let finalStatus = "failed";
@@ -266,10 +266,17 @@ serve(async (req) => {
         console.log(JSON.stringify({ actorId, normalizedUrl, payloadShape: successfulPayloadShape, httpStatus: res.status, providerErrorType: "none", message: "success", latencyMs }));
 
         const { data: currentJob } = await supabaseAdmin.from("facebook_identity_resolution_jobs").select("status").eq("id", job_id).single();
-        if (currentJob?.status !== "manual_review_required") {
+        if (currentJob?.status !== "manual_review_required" && currentJob?.status !== "failed" && currentJob?.status !== "ignored" && currentJob?.status !== "duplicate_candidate") {
           console.log("Job already resolved manually while Apify was running.");
           finalStatus = "skipped_invalid_type";
           finalError = "Job no longer requires manual review";
+          
+          // Must reset auto_resolve_status even if skipped, otherwise it's frozen at 'resolving'
+          await supabaseAdmin.from("facebook_identity_resolution_jobs").update({
+            auto_resolve_status: "skipped_invalid_type",
+            last_auto_resolve_error: finalError
+          }).eq("id", job_id);
+
           return;
         }
 
@@ -316,6 +323,10 @@ serve(async (req) => {
         }
       }
     })();
+
+    if (typeof EdgeRuntime !== 'undefined' && typeof EdgeRuntime.waitUntil === 'function') {
+      EdgeRuntime.waitUntil(backgroundTask);
+    }
 
     return new Response(JSON.stringify({ status: "processing", message: "Job sent to background for resolution" }), {
       status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" }
