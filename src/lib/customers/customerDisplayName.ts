@@ -32,3 +32,12 @@ export function getCustomerDisplayName(customer: any): string {
 
   return "Khách hàng mới";
 }
+
+export function getCustomerBusinessOrDisplayName(customer: any): string {
+  if (!customer) return "Khách hàng mới";
+
+  if (customer.business_name) return customer.business_name;
+  if (customer.facility_name) return customer.facility_name;
+
+  return getCustomerDisplayName(customer);
+}

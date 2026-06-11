@@ -14,6 +14,7 @@ import { Loader2, Users, PhoneCall, Briefcase, Sparkles } from "lucide-react";
 import { CARE_MODEL_OPTIONS } from "@/lib/customerOwnership";
 import { createNotification } from "@/lib/notifications";
 import { useAuth } from "@/hooks/useAuth";
+import { getCustomerBusinessOrDisplayName } from "@/lib/customers/customerDisplayName";
 
 interface AssignStaffDialogProps {
   isOpen: boolean;
@@ -138,7 +139,7 @@ export function AssignStaffDialog({
         const notifRes = await createNotification({
           recipient_user_id: saleId,
           title: "Bạn được giao Khách hàng mới",
-          message: `Khách hàng ${customer.business_name || customer.name} vừa được chia cho bạn phụ trách (Direct Sale).`,
+          message: `Khách hàng ${getCustomerBusinessOrDisplayName(customer)} vừa được chia cho bạn phụ trách (Direct Sale).`,
           type: "lead_assigned",
           priority: "high",
           action_url: `/customers/${customer.id}`,
@@ -152,7 +153,7 @@ export function AssignStaffDialog({
         const notifRes = await createNotification({
           recipient_user_id: teleId,
           title: "Bạn được giao Khách hàng mới",
-          message: `Khách hàng ${customer.business_name || customer.name} vừa được chia cho bạn hỗ trợ (Telesale).`,
+          message: `Khách hàng ${getCustomerBusinessOrDisplayName(customer)} vừa được chia cho bạn hỗ trợ (Telesale).`,
           type: "lead_assigned",
           priority: "high",
           action_url: `/customers/${customer.id}`,
