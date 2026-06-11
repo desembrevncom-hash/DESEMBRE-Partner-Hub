@@ -37,7 +37,12 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { createContactChannel } from "@/lib/contactChannels";
-import { useCustomerFacebookIdentityQuery, useApplyFacebookNameMutation, useFetchMissingFacebookNameMutation } from "@/lib/customers/facebookIdentityApi";
+import {
+  useCustomerFacebookIdentityQuery,
+  useApplyFacebookNameMutation,
+  useFetchMissingFacebookNameMutation,
+  useTriggerAutoResolveMutation
+} from "@/lib/customers/facebookIdentityApi";
 import { FacebookIdentityBadge } from "./FacebookIdentityBadge";
 
 interface CustomerContactChannelsProps {
@@ -80,6 +85,7 @@ export function CustomerContactChannels({ customerId, customer }: CustomerContac
   const resultsData = (identityData as any)?.results || [];
   const applyNameMutation = useApplyFacebookNameMutation();
   const fetchMissingNameMutation = useFetchMissingFacebookNameMutation();
+  const retryResolve = useTriggerAutoResolveMutation();
 
   const canApplyName = isAdmin || isSubAdmin || (customer && (customer.owner_sale_id === user?.id || customer.owner_tele_id === user?.id));
 
@@ -393,6 +399,15 @@ export function CustomerContactChannels({ customerId, customer }: CustomerContac
                     displayNameConfidenceScore={profile?.display_name_confidence_score}
                     canApplyName={!!canApplyName}
                     isApplyPending={applyNameMutation.isPending}
+                    onForceRetry={job?.id ? () => retryResolve.mutate(job.id, {
+                      onSuccess: () => {
+                        toast.success("Đã đưa vào hàng đợi phân giải lại");
+                      },
+                      onError: (err: any) => {
+                        toast.error("Lỗi", { description: err.message });
+                      }
+                    }) : undefined}
+                    isRetryPending={retryResolve.isPending && retryResolve.variables === job?.id}
                     onFetchMissingName={() => {
                         fetchMissingNameMutation.mutate({ customerId, rawUrl: c.channel_value }, {
                           onSuccess: () => {

@@ -2,7 +2,7 @@ import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 
 interface FacebookIdentityBadgeProps {
   facebookUid?: string | null;
@@ -19,6 +19,8 @@ interface FacebookIdentityBadgeProps {
   canApplyName?: boolean;
   onFetchMissingName?: () => void;
   isFetchPending?: boolean;
+  onForceRetry?: () => void;
+  isRetryPending?: boolean;
   duplicateProfile?: {
     customers?: {
       id?: string;
@@ -43,6 +45,8 @@ export function FacebookIdentityBadge({
   canApplyName,
   onFetchMissingName,
   isFetchPending,
+  onForceRetry,
+  isRetryPending,
   duplicateProfile,
 }: FacebookIdentityBadgeProps) {
   // A. UID & Display Name exists
@@ -151,16 +155,31 @@ export function FacebookIdentityBadge({
   // C. Failed
   if (autoResolveStatus === "failed" || autoResolveStatus === "timeout" || autoResolveStatus === "not_found") {
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Badge className="bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-[10px] px-2 py-0.5 cursor-help">
-              <AlertCircle className="w-2.5 h-2.5 mr-1" /> Chưa tìm được UID
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent>{lastAutoResolveError || "Lỗi không xác định"}</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <div className="flex items-center gap-1">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge className="bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-[10px] px-2 py-0.5 cursor-help">
+                <AlertCircle className="w-2.5 h-2.5 mr-1" /> Chưa tìm được UID
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>{lastAutoResolveError || "Lỗi không xác định"}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        {canApplyName && onForceRetry && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onForceRetry}
+            disabled={isRetryPending}
+            title="Thử tìm lại UID"
+            className="h-[22px] px-2 text-[10px] font-bold text-amber-700 border-amber-200 bg-amber-50 hover:bg-amber-100 uppercase"
+          >
+            {isRetryPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RefreshCw className="w-3 h-3 mr-1" />}
+            TÌM LẠI
+          </Button>
+        )}
+      </div>
     );
   }
   
