@@ -514,6 +514,7 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
 
       // 4. Handle Facebook Profile First (so we can get social_profile_id)
       let currentSocialProfileId: string | null = null;
+      let isResolvingBackground = false;
       if (form.primary_channel_type === "facebook" && form.primary_channel_value.trim()) {
         const rawUrl = form.primary_channel_value.trim();
         const uid = fbParsedData?.uid;
@@ -560,7 +561,6 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
           let auto_resolve_status = 'not_attempted';
           let jobStatus = 'manual_review_required';
           let errorLog = null;
-          let isResolvingBackground = false;
           
           if (isUnsupported) {
             auto_resolve_status = 'skipped_invalid_type';
