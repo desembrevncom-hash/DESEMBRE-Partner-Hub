@@ -58,7 +58,7 @@ BEGIN
     END IF;
 
     -- Get Role
-    SELECT role INTO v_role FROM public.users_roles WHERE user_id = v_user_id;
+    SELECT role INTO v_role FROM public.user_roles WHERE user_id = v_user_id;
     IF v_role IN ('admin', 'sub_admin', 'manager') THEN
         v_is_admin := true;
     END IF;
