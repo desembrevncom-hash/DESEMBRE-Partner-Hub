@@ -451,8 +451,9 @@ export function CustomerContactChannels({ customerId, customer }: CustomerContac
                         }
                       }
 
-                      applyNameMutation.mutate({ customerId, name, forceOverwrite }, {
-                        onSuccess: () => toast.success(`Đã áp dụng tên Facebook vào tên khách hàng.`)
+                      applyNameMutation.mutate({ customerId, socialProfileId: profile.id, forceOverwrite }, {
+                        onSuccess: () => toast.success(`Đã áp dụng tên Facebook vào tên khách hàng.`),
+                        onError: (err: any) => toast.error("Lỗi", { description: err.message })
                       });
                     }}
                     duplicateProfile={job?.duplicate_profile}
