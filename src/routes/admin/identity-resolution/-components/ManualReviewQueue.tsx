@@ -329,7 +329,7 @@ function JobRow({ job }: { job: ManualReviewJob }) {
             {!isDuplicate && !job.auto_resolve_status?.match(/^(resolved|disabled|rate_limited|skipped_invalid_type)$/) && (
               <button
                 onClick={handleTriggerAuto}
-                disabled={autoResolveMutation.isPending || resolveMutation.isPending || job.auto_resolve_status === "resolving" || job.auto_resolve_status === "queued" || isFinalState}
+                disabled={autoResolveMutation.isPending || resolveMutation.isPending || job.auto_resolve_status === "queued" || isFinalState}
                 className="flex items-center justify-center gap-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 text-xs font-bold px-3 rounded shadow-sm disabled:opacity-50 transition-colors whitespace-nowrap"
                 title={isFailed ? "Thử lại tự động" : "Tìm UID tự động (nền)"}
               >
