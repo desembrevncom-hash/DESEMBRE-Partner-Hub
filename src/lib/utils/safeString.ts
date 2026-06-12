@@ -24,3 +24,22 @@ export function safeIncludes(value: unknown, query: unknown): boolean {
 export function safeDigits(value: unknown): string {
   return toSafeString(value).replace(/[^\d]/g, "");
 }
+
+export function safeSearchIncludes(value: unknown, query: unknown): boolean {
+  const text = safeLower(value);
+  const q = safeTrim(safeLower(query));
+  if (!q) return true;
+  return text.includes(q);
+}
+
+export function safeStripAccents(value: unknown): string {
+  const safeStr = toSafeString(value);
+  if (!safeStr) return "";
+  return safeStr
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "d")
+    .toLowerCase()
+    .trim();
+}

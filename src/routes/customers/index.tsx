@@ -65,12 +65,12 @@ import { getCustomerCardTitle, getCustomerPersonDisplayName } from "@/lib/custom
 import { formatPhoneForDisplay, formatPhoneForCallHref, formatPhoneForZalo, getCustomerPrimaryPhone } from "@/lib/customers/phoneUtils";
 import { normalizeCustomerRow } from "@/lib/customers/normalizeCustomer";
 import { normalizeStaffProfile } from "@/lib/users/normalizeStaffProfile";
-import { toSafeString, safeLower, safeIncludes, safeTrim } from "@/lib/utils/safeString";
+import { toSafeString, safeLower, safeIncludes, safeTrim, safeSearchIncludes } from "@/lib/utils/safeString";
 import { getEmailLocalPart } from "@/lib/utils/safeEmail";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
 import { Loader2 } from "lucide-react";
-import { stripAccents } from "@/lib/vietnamProvinces";
+import { safeStripAccents } from "@/lib/utils/safeString";
 
 class CustomerRowErrorBoundary extends React.Component<{
   children: React.ReactNode;
@@ -603,15 +603,15 @@ function CustomersPage() {
     let result = customers;
 
     if (searchQuery) {
-      const q = stripAccents(safeLower(searchQuery));
+      const q = safeStripAccents(searchQuery);
       result = result.filter((c) => {
         const nameMatch =
-          safeIncludes(stripAccents(safeLower(c.contact_name)), q) ||
-          safeIncludes(stripAccents(safeLower(c.business_name)), q) ||
-          safeIncludes(stripAccents(safeLower(c.facility_name)), q) ||
-          safeIncludes(stripAccents(safeLower(c.name)), q);
-        const phoneMatch = safeIncludes(c.phone, q);
-        const emailMatch = safeIncludes(safeLower(c.email), q);
+          safeSearchIncludes(safeStripAccents(c.contact_name), q) ||
+          safeSearchIncludes(safeStripAccents(c.business_name), q) ||
+          safeSearchIncludes(safeStripAccents(c.facility_name), q) ||
+          safeSearchIncludes(safeStripAccents(c.name), q);
+        const phoneMatch = safeSearchIncludes(c.phone, q);
+        const emailMatch = safeSearchIncludes(c.email, q);
         return nameMatch || phoneMatch || emailMatch;
       });
     }
@@ -1093,24 +1093,24 @@ function CustomersPage() {
                     </span>
                   </button>
                   {VIETNAM_PROVINCES.filter((p) =>
-                    stripAccents(p.name.toLowerCase()).includes(stripAccents(citySearch.toLowerCase())),
+                    safeSearchIncludes(safeStripAccents(p), safeStripAccents(citySearch)),
                   ).map((p) => (
                     <button
-                      key={p.name}
+                      key={p}
                       type="button"
                       onClick={() => {
-                        setCityFilter(p.name);
+                        setCityFilter(p);
                         setCityOpen(false);
                       }}
                       className="w-full text-left flex items-center gap-2 px-2 py-1.5 text-[11px] hover:bg-slate-50"
                     >
                       <Check
-                        className={`w-3 h-3 shrink-0 ${cityFilter === p.name ? "text-slate-900" : "opacity-0"}`}
+                        className={`w-3 h-3 shrink-0 ${cityFilter === p ? "text-slate-900" : "opacity-0"}`}
                       />
                       <span
-                        className={`font-medium ${cityFilter === p.name ? "text-slate-900" : "text-slate-500"}`}
+                        className={`font-medium ${cityFilter === p ? "text-slate-900" : "text-slate-500"}`}
                       >
-                        {p.name}
+                        {p}
                       </span>
                     </button>
                   ))}

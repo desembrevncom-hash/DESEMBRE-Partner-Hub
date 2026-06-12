@@ -38,9 +38,11 @@ export const VIETNAM_PROVINCES = [
 /**
  * Strips Vietnamese diacritics (accents) from a string, converts to lowercase, and trims.
  */
-export function stripAccents(str: string): string {
-  if (!str) return "";
-  return str
+export function stripAccents(str: unknown): string {
+  if (str === null || str === undefined) return "";
+  const safeStr = typeof str === "string" ? str : String(str);
+  if (!safeStr) return "";
+  return safeStr
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/đ/g, "d")
