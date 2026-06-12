@@ -140,6 +140,28 @@ serve(async (req) => {
       );
     }
 
+    // Stale Resolving Check
+    if (job.auto_resolve_status === "resolving" || job.auto_resolve_status === "queued") {
+      if (job.last_auto_resolve_at) {
+        const lastTime = new Date(job.last_auto_resolve_at).getTime();
+        const now = Date.now();
+        // If it's been less than 10 minutes, reject it
+        if (now - lastTime < 10 * 60 * 1000) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              code: "already_resolving",
+              message: "Job đang được xử lý, vui lòng thử lại sau.",
+            }),
+            {
+              status: 200,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
+      }
+    }
+
     // Validate and Normalize URL
     let raw = (job.raw_url || "").trim();
     if (raw.startsWith("facebook.com/") || raw.startsWith("www.facebook.com/")) {
@@ -264,13 +286,15 @@ serve(async (req) => {
       );
     }
 
-    // Acknowledge and process in background
+    // Acknowledge and process
     await supabaseAdmin
       .from("facebook_identity_resolution_jobs")
       .update({
         auto_resolve_status: "resolving",
+        auto_resolve_provider: "apify",
         auto_resolve_attempts: (job.auto_resolve_attempts || 0) + 1,
         last_auto_resolve_at: new Date().toISOString(),
+        last_auto_resolve_error: null, // Clear stale errors
       })
       .eq("id", job_id);
 
@@ -295,7 +319,7 @@ serve(async (req) => {
           { startUrls: [{ url: `${normalizedUrl}/` }] },
         ];
 
-        const timeoutMs = parseInt(Deno.env.get("FACEBOOK_UID_PROVIDER_TIMEOUT_MS") || "45000", 10);
+        const timeoutMs = parseInt(Deno.env.get("FACEBOOK_UID_PROVIDER_TIMEOUT_MS") || "8000", 10);
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -460,26 +484,14 @@ serve(async (req) => {
         }
       } catch (err: any) {
         latencyMs = Date.now() - startedAt;
-        if (err.name === "AbortError") {
+        if (err.name === "AbortError" || err.message?.includes("timeout")) {
           finalStatus = "timeout";
-          const tMs = parseInt(Deno.env.get("FACEBOOK_UID_PROVIDER_TIMEOUT_MS") || "45000", 10);
-          finalError = `Provider timeout after ${tMs}ms`;
+          finalError = "provider_timeout";
         } else {
           finalStatus = "failed";
-          finalError = err.message;
+          finalError = err.message || "Unknown error";
         }
-        console.error("Auto-resolve background error:", err);
-        console.log(
-          JSON.stringify({
-            actorId: ACTOR,
-            normalizedUrl,
-            payloadShape: "unknown",
-            httpStatus: 0,
-            providerErrorType: "exception",
-            message: err.message,
-            latencyMs,
-          }),
-        );
+        console.error("Auto-resolve error:", err);
         await insertResult(supabaseAdmin, job, finalStatus, null, latencyMs, finalError, itemToLog);
       } finally {
         if (
@@ -490,17 +502,25 @@ serve(async (req) => {
           await updateFailure(supabaseAdmin, job_id, finalStatus, finalError);
         }
       }
+
+      // Return structured JSON based on outcome
+      if (finalStatus === "resolved") {
+        return { success: true, code: "resolved", message: "Đã tìm thấy UID Facebook." };
+      } else if (finalStatus === "duplicate_detected") {
+        return { success: true, code: "duplicate_detected", message: "Phát hiện UID đã thuộc khách hàng khác." };
+      } else if (finalStatus === "timeout") {
+        return { success: false, code: "provider_timeout", message: "Nhà cung cấp UID phản hồi quá lâu, vui lòng thử lại sau." };
+      } else if (finalStatus === "not_found") {
+        return { success: false, code: "not_found", message: "Không tìm thấy UID từ link này." };
+      } else {
+        return { success: false, code: "provider_error", message: "Nhà cung cấp UID đang lỗi, vui lòng thử lại sau." };
+      }
     };
 
-    if (typeof EdgeRuntime !== 'undefined' && typeof EdgeRuntime.waitUntil === 'function') {
-      EdgeRuntime.waitUntil(backgroundTask());
-    } else {
-      // Fallback for environments without EdgeRuntime
-      backgroundTask().catch(console.error);
-    }
+    const result = await backgroundTask();
 
     return new Response(
-      JSON.stringify({ status: "processed", message: "Job processed successfully" }),
+      JSON.stringify(result),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

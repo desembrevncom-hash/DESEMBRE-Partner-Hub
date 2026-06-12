@@ -177,7 +177,7 @@ function JobRow({ job }: { job: ManualReviewJob }) {
           <Icon className={`w-3 h-3 ${status === "resolving" || status === "queued" ? "animate-spin" : ""}`} />
           <span className="font-medium">{label}</span>
         </div>
-        {job.last_auto_resolve_error && (
+        {job.last_auto_resolve_error && status !== "resolving" && status !== "queued" && (
           <div className="text-red-500 mt-1 italic break-words max-w-xs">
             Lỗi: {job.last_auto_resolve_error}
           </div>

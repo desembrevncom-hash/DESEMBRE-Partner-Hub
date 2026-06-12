@@ -194,11 +194,11 @@ export function useTriggerAutoResolveMutation() {
       }
 
       if (data && data.error) {
-        throw new Error(data.error + (data.stack ? "\\n" + data.stack : ""));
+        throw new Error(data.error + (data.stack ? "\n" + data.stack : ""));
       }
 
       if (data && data.success === false) {
-        throw new Error(data.message || "Lỗi không xác định từ máy chủ");
+        throw new Error(data.message || "Lỗi không xác định từ nhà cung cấp UID.");
       }
 
       return data;
