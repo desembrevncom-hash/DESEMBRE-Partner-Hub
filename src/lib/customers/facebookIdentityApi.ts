@@ -124,7 +124,7 @@ export function useManualReviewJobsQuery() {
           )
         `,
         )
-        .in("status", ["manual_review_required", "failed", "duplicate_candidate"])
+        .in("status", ["manual_review_required", "duplicate_candidate"])
         .order("created_at", { ascending: false });
 
       if (error) {
