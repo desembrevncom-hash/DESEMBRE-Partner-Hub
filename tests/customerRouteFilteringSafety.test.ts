@@ -18,6 +18,25 @@ describe("Route-Level Filtering Safety", () => {
     expect(result[0]).toBe("Ninh Bình");
   });
 
+  it("province filter does not rely on undefined stripAccents", () => {
+    const provinces = ["Hà Nội", "Ninh Bình"];
+    const result = provinces.filter((province) =>
+      safeSearchIncludes(
+        safeStripAccents(province),
+        safeStripAccents("ninh")
+      )
+    );
+  
+    expect(result).toEqual(["Ninh Bình"]);
+  });
+
+  it("safeStripAccents works standalone without external dependencies", () => {
+    expect(safeStripAccents("Ninh Bình")).toBe("Ninh Binh");
+    expect(safeStripAccents(undefined)).toBe("");
+    expect(safeStripAccents(12345)).toBe("12345");
+    expect(safeStripAccents(null)).toBe("");
+  });
+
   it("B. Undefined field in filter item - should not crash", () => {
     const items = [
       { label: undefined },

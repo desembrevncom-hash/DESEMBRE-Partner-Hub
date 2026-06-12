@@ -35,7 +35,8 @@ import {
   ChevronsUpDown,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { VIETNAM_PROVINCES, stripAccents, findProvinceByName } from "@/lib/vietnamProvinces";
+import { VIETNAM_PROVINCES, findProvinceByName } from "@/lib/vietnamProvinces";
+import { safeLower, safeStripAccents } from "@/lib/utils/safeString";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -988,12 +989,12 @@ function CustomerMapPage() {
                       </span>
                     </button>
                     {(() => {
-                      const q = stripAccents(citySearch);
+                      const q = safeStripAccents(safeLower(citySearch));
                       const matched = VIETNAM_PROVINCES.filter((p) => {
                         if (!q) return true;
-                        const alias = findProvinceByName(citySearch);
-                        if (alias === p) return true;
-                        return stripAccents(p).includes(q);
+                        const pAlias = safeStripAccents(safeLower(findProvinceByName(p) || ""));
+                        const pName = safeStripAccents(safeLower(p));
+                        return pName.includes(q) || pAlias.includes(q);
                       });
                       if (matched.length === 0) {
                         return (
