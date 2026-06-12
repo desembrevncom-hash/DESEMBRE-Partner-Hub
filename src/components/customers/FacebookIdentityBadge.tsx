@@ -14,9 +14,11 @@ interface FacebookIdentityBadgeProps {
   facebookDisplayName?: string | null;
   displayNameSource?: string | null;
   displayNameConfidenceScore?: number | null;
-  onApplyName?: (name: string) => void;
+  onApplyName?: (name: string, forceOverwrite?: boolean) => void;
   isApplyPending?: boolean;
   canApplyName?: boolean;
+  currentCustomerName?: string | null;
+  currentCustomerContactName?: string | null;
   onFetchMissingName?: () => void;
   isFetchPending?: boolean;
   onForceRetry?: () => void;
@@ -43,6 +45,8 @@ export function FacebookIdentityBadge({
   onApplyName,
   isApplyPending,
   canApplyName,
+  currentCustomerName,
+  currentCustomerContactName,
   onFetchMissingName,
   isFetchPending,
   onForceRetry,
@@ -96,12 +100,52 @@ export function FacebookIdentityBadge({
                 className="h-6 text-[10px] px-2 bg-white text-slate-600 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onApplyName(facebookDisplayName);
+                  
+                  // Helper function to check if name is replaceable
+                  const isReplaceable = (val: string | null | undefined) => {
+                    if (!val || !val.trim()) return true;
+                    if (val.toLowerCase().includes('http') || val.toLowerCase().includes('facebook.com') || val.toLowerCase().includes('fb.com')) return true;
+                    if (/^\d+$/.test(val)) return true;
+                    return false;
+                  };
+
+                  const nameReplaceable = isReplaceable(currentCustomerName);
+                  const contactReplaceable = isReplaceable(currentCustomerContactName);
+
+                  if (nameReplaceable || contactReplaceable) {
+                    onApplyName(facebookDisplayName);
+                  } else {
+                    const confirmOverwrite = window.confirm(`Tên hiện tại là "${currentCustomerName || currentCustomerContactName}". Bạn có chắc muốn đổi thành "${facebookDisplayName}" không?`);
+                    if (confirmOverwrite) {
+                      onApplyName(facebookDisplayName, true);
+                    }
+                  }
                 }}
                 disabled={isApplyPending}
               >
                 {isApplyPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Áp dụng làm tên KH"}
               </Button>
+            )}
+            {!canApplyName && onApplyName && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-block cursor-not-allowed">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 text-[10px] px-2 bg-white text-slate-400 border-slate-200 pointer-events-none"
+                        disabled
+                      >
+                        Áp dụng làm tên KH
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Bạn không có quyền sửa tên khách hàng này.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
           </div>
         ) : (

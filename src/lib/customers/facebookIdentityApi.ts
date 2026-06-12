@@ -180,52 +180,29 @@ export function useApplyFacebookNameMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ customerId, name }: { customerId: string; name: string }) => {
-      const cleanName = name.trim();
-
-      // Get current customer name state
-      const { data: current, error: fetchError } = await supabase
-        .from("customers")
-        .select("name, contact_name")
-        .eq("id", customerId)
-        .single();
-
-      if (fetchError) {
-        throw new Error(fetchError.message);
-      }
-
-      const updates: any = {
-        contact_name: cleanName,
-      };
-
-      const currentName = current.name || "";
-      const isNameEmptyOrUrl =
-        !currentName.trim() ||
-        currentName.includes("facebook.com") ||
-        currentName.includes("http") ||
-        currentName.includes("profile.php");
-
-      if (isNameEmptyOrUrl) {
-        updates.name = cleanName;
-      }
-
-      const { data, error } = await supabase
-        .from("customers")
-        .update(updates)
-        .eq("id", customerId)
-        .select()
-        .single();
+    mutationFn: async ({ customerId, socialProfileId, forceOverwrite = false }: { customerId: string; socialProfileId: string; forceOverwrite?: boolean }) => {
+      const { data, error } = await supabase.rpc('apply_facebook_name_to_customer', {
+        p_customer_id: customerId,
+        p_social_profile_id: socialProfileId,
+        p_force_overwrite: forceOverwrite
+      });
 
       if (error) {
         throw new Error(error.message);
       }
 
-      return data;
+      const res = data as any;
+      if (res && res.success === false) {
+        throw new Error(res.message || "Có lỗi xảy ra khi áp dụng tên Facebook.");
+      }
+
+      return res;
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
       queryClient.invalidateQueries({ queryKey: ["customer", variables.customerId] });
       queryClient.invalidateQueries({ queryKey: ["contact-channels", variables.customerId] });
+      queryClient.invalidateQueries({ queryKey: ["facebook-identity", variables.customerId] });
       window.dispatchEvent(new Event("customer_timeline_refresh"));
       window.dispatchEvent(new CustomEvent("customer_updated", { detail: { id: variables.customerId } }));
     },

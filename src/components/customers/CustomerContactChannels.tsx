@@ -87,7 +87,7 @@ export function CustomerContactChannels({ customerId, customer }: CustomerContac
   const fetchMissingNameMutation = useFetchMissingFacebookNameMutation();
   const retryResolve = useTriggerAutoResolveMutation();
 
-  const canApplyName = isAdmin || isSubAdmin || (customer && (customer.owner_sale_id === user?.id || customer.owner_tele_id === user?.id));
+  const canApplyName = isAdmin || isSubAdmin || (customer && (customer.owner_sale_id === user?.id || (!customer.owner_sale_id && customer.created_by === user?.id)));
 
   useEffect(() => {
     const hasResolving = jobsData.some((j: any) => j.auto_resolve_status === "resolving");
@@ -398,7 +398,19 @@ export function CustomerContactChannels({ customerId, customer }: CustomerContac
                     displayNameSource={profile?.display_name_source}
                     displayNameConfidenceScore={profile?.display_name_confidence_score}
                     canApplyName={!!canApplyName}
+                    currentCustomerName={customer?.name}
+                    currentCustomerContactName={customer?.contact_name}
                     isApplyPending={applyNameMutation.isPending}
+                    onApplyName={(name, forceOverwrite) => {
+                      applyNameMutation.mutate({ customerId, socialProfileId: profile.id, forceOverwrite }, {
+                        onSuccess: () => {
+                          toast.success("Đã áp dụng tên Facebook vào tên khách hàng.");
+                        },
+                        onError: (err: any) => {
+                          toast.error("Lỗi", { description: err.message });
+                        }
+                      });
+                    }}
                     onForceRetry={job?.id ? () => retryResolve.mutate(job.id, {
                       onSuccess: () => {
                         toast.success("Đã đưa vào hàng đợi phân giải lại");
@@ -423,7 +435,7 @@ export function CustomerContactChannels({ customerId, customer }: CustomerContac
                         });
                       }}
                       isFetchPending={(fetchMissingNameMutation.isPending && fetchMissingNameMutation.variables?.rawUrl === c.channel_value) || job?.status === "manual_review_required"}
-                    onApplyName={(name) => {
+                    onApplyName={(name, forceOverwrite) => {
                       if (!customer) return;
                       
                       const currentName = customer.name || "";
@@ -439,7 +451,7 @@ export function CustomerContactChannels({ customerId, customer }: CustomerContac
                         }
                       }
 
-                      applyNameMutation.mutate({ customerId, name }, {
+                      applyNameMutation.mutate({ customerId, name, forceOverwrite }, {
                         onSuccess: () => toast.success(`Đã áp dụng tên Facebook vào tên khách hàng.`)
                       });
                     }}
