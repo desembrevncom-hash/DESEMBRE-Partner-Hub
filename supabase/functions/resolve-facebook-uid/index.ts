@@ -275,7 +275,7 @@ serve(async (req) => {
       .eq("id", job_id);
 
     // Background Processing
-    await (async () => {
+    const backgroundTask = async () => {
       const startedAt = Date.now();
       let latencyMs = 0;
       let finalStatus = "failed";
@@ -490,7 +490,14 @@ serve(async (req) => {
           await updateFailure(supabaseAdmin, job_id, finalStatus, finalError);
         }
       }
-    })();
+    };
+
+    if (typeof EdgeRuntime !== 'undefined' && typeof EdgeRuntime.waitUntil === 'function') {
+      EdgeRuntime.waitUntil(backgroundTask());
+    } else {
+      // Fallback for environments without EdgeRuntime
+      backgroundTask().catch(console.error);
+    }
 
     return new Response(
       JSON.stringify({ status: "processed", message: "Job processed successfully" }),

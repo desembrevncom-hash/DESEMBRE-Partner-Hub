@@ -124,7 +124,7 @@ export function useManualReviewJobsQuery() {
           )
         `,
         )
-        .in("status", ["manual_review_required", "duplicate_candidate"])
+        .in("status", ["manual_review_required", "failed", "duplicate_candidate"])
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -133,6 +133,7 @@ export function useManualReviewJobsQuery() {
 
       return (data || []) as unknown as ManualReviewJob[];
     },
+    refetchInterval: 3000,
   });
 }
 
