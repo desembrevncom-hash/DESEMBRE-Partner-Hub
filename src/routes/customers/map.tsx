@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { buildStaffMap, getStaffDisplayName, StaffMap } from "@/lib/staffDisplay";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
 import { getCustomerCardTitle, getCustomerPersonDisplayName } from "@/lib/customers/customerDisplayName";
-import { safeLower, safeIncludes } from "@/lib/utils/safeString";
+import { safeLower, safeIncludes, safeStripAccents } from "@/lib/utils/safeString";
 import { RoutingReviewDialog } from "@/components/customers/RoutingReviewDialog";
 import { CRMCard } from "@/components/crm/CRMCard";
 import { CRMStatusBadge } from "@/components/crm/CRMStatusBadge";
@@ -36,7 +36,6 @@ import {
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { VIETNAM_PROVINCES, findProvinceByName } from "@/lib/vietnamProvinces";
-import { safeLower, safeStripAccents } from "@/lib/utils/safeString";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
