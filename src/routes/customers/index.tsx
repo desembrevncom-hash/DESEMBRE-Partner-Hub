@@ -63,7 +63,9 @@ import { QuickCallResultDialog } from "@/components/customers/QuickCallResultDia
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { getCustomerCardTitle, getCustomerPersonDisplayName } from "@/lib/customers/customerDisplayName";
 import { formatPhoneForDisplay, formatPhoneForCallHref, formatPhoneForZalo, getCustomerPrimaryPhone } from "@/lib/customers/phoneUtils";
-import { toSafeString, safeLower, safeIncludes } from "@/lib/utils/safeString";
+import { normalizeCustomerRow } from "@/lib/customers/normalizeCustomer";
+import { toSafeString, safeLower, safeIncludes, safeTrim } from "@/lib/utils/safeString";
+import { getEmailLocalPart } from "@/lib/utils/safeEmail";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
 import { Loader2 } from "lucide-react";
@@ -486,10 +488,13 @@ function CustomersPage() {
       }
 
       // Apply hierarchical lifecycle classification to ensure data integrity
-      const processed = (data || []).map((c: any) => ({
-        ...c,
-        lifecycle_stage: classifyCustomerLifecycle(c, c.orders || []),
-      }));
+      const processed = (data || []).map((c: any) => {
+        const normalized = normalizeCustomerRow(c);
+        return {
+          ...normalized,
+          lifecycle_stage: classifyCustomerLifecycle(normalized, normalized.orders || []),
+        };
+      });
 
       // --- ADD INTELLIGENCE FETCH HERE ---
       const cIds = processed.map((c: any) => c.id);
@@ -1609,7 +1614,7 @@ function CustomersPage() {
               disabled={
                 isDispatching ||
                 selectedCustomers.length === 0 ||
-                (dispatchAction === "revoke" && !dispatchReason.trim()) ||
+                (dispatchAction === "revoke" && !safeTrim(dispatchReason)) ||
                 (dispatchAction !== "revoke" && dispatchStaffId === "none")
               }
               onClick={handleBulkDispatch}
@@ -1852,7 +1857,7 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
           {primaryPhone
             ? formatPhoneForDisplay(primaryPhone)
             : customer.email
-            ? toSafeString(customer.email).split("@")[0] + "@..."
+            ? getEmailLocalPart(customer.email) + "@..."
             : "Chưa có SĐT/Email"}
         </span>
         <div className="flex gap-1 ml-auto">
@@ -2130,7 +2135,7 @@ const ManagerCustomerCard = React.memo(function ManagerCustomerCard({
               {saleInitials}
             </div>
             <span className="text-[9px] font-semibold text-slate-600 truncate max-w-[60px]">
-              {saleName.split(" ")[0]}
+              {saleInitials}
             </span>
           </div>
         ) : (
@@ -2148,7 +2153,7 @@ const ManagerCustomerCard = React.memo(function ManagerCustomerCard({
               {teleInitials}
             </div>
             <span className="text-[9px] font-semibold text-slate-600 truncate max-w-[60px]">
-              {teleName.split(" ")[0]}
+              {teleInitials}
             </span>
           </div>
         ) : (
@@ -2258,7 +2263,7 @@ function CustomerIntelligenceRow({
             {primaryPhone
               ? formatPhoneForDisplay(primaryPhone)
               : customer.email
-              ? toSafeString(customer.email).split("@")[0] + "@..."
+              ? getEmailLocalPart(customer.email) + "@..."
               : "Chưa có SĐT"}
           </p>
           <div className="flex items-center gap-2 mt-2">

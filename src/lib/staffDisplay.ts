@@ -1,3 +1,6 @@
+import { getEmailLocalPart, getInitials, getSafeDisplayName } from "./utils/safeEmail";
+import { safeTrim, toSafeString } from "./utils/safeString";
+
 export interface StaffProfile {
   id: string;
   display_name?: string | null;
@@ -36,33 +39,31 @@ export function getStaffDisplayName(userId?: string | null, staffMap?: StaffMap)
 
   if (staffMap && staffMap[userId]) {
     const profile = staffMap[userId];
-    if (profile.display_name && profile.display_name.trim() !== "") {
-      return profile.display_name;
+    const dName = safeTrim(profile.display_name);
+    if (dName) {
+      return dName;
     }
-    if (profile.email && profile.email.trim() !== "") {
-      return profile.email;
+    const eName = safeTrim(profile.email);
+    if (eName) {
+      return getEmailLocalPart(eName);
     }
   }
 
   // Fallback to first 6 chars of ID if no profile found
-  return `Staff-${userId.slice(0, 6)}`;
+  return `Staff-${toSafeString(userId).slice(0, 6)}`;
 }
 
 /**
  * Get initials of the staff member for small avatars.
  */
 export function getStaffInitials(userId?: string | null, staffMap?: StaffMap): string {
-  if (!userId) return "S"; // Fallback to "S"
+  if (!userId) return "S";
 
   if (staffMap && staffMap[userId]) {
     const profile = staffMap[userId];
-    const name = profile.display_name || profile.email;
-    if (name && name.trim() !== "") {
-      const parts = name.trim().split(/\s+/);
-      if (parts.length > 0) {
-        const lastPart = parts[parts.length - 1];
-        return lastPart.charAt(0).toUpperCase();
-      }
+    const name = safeTrim(profile.display_name) || safeTrim(profile.email);
+    if (name) {
+      return getInitials(name);
     }
   }
 
