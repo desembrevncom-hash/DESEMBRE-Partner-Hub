@@ -180,12 +180,14 @@ export function useTriggerAutoResolveMutation() {
 
       if (error) {
         if (error.context && typeof error.context.json === "function") {
+          let customMessage = null;
           try {
             const errJson = await error.context.json();
             if (errJson && errJson.message) {
-              throw new Error(errJson.message);
+              customMessage = errJson.message;
             }
           } catch (e) {}
+          if (customMessage) throw new Error(customMessage);
         }
         throw new Error(error.message);
       }
@@ -294,12 +296,14 @@ export function useFetchMissingFacebookNameMutation() {
 
       if (error) {
         if (error.context && typeof error.context.json === "function") {
+          let customMessage = null;
           try {
             const errJson = await error.context.json();
             if (errJson && errJson.message) {
-              throw new Error(errJson.message);
+              customMessage = errJson.message;
             }
           } catch (e) {}
+          if (customMessage) throw new Error(customMessage);
         }
         throw new Error(error.message);
       }
