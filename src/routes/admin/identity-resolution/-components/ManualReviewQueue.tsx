@@ -149,10 +149,14 @@ function JobRow({ job }: { job: ManualReviewJob }) {
         label = "Đang tìm UID Facebook...";
         break;
       case "failed":
-      case "not_found":
         color = "bg-amber-50 text-amber-600 border-amber-200";
         Icon = AlertTriangle;
         label = "Tự động tìm thất bại";
+        break;
+      case "not_found":
+        color = "bg-slate-50 text-slate-500 border-slate-200";
+        Icon = Search;
+        label = "Không tìm thấy UID tự động, cần nhập thủ công";
         break;
       case "timeout":
         color = "bg-orange-50 text-orange-600 border-orange-200";

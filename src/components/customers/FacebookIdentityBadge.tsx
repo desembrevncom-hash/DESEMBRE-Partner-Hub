@@ -252,11 +252,19 @@ export function FacebookIdentityBadge({
     );
   }
 
-  // C. Failed / Error States
+  // C. Not Found State
+  if (autoResolveStatus === "not_found") {
+    return (
+      <Badge className="bg-slate-50 text-slate-500 border border-slate-200 text-[10px] px-2 py-0.5">
+        <AlertCircle className="w-2.5 h-2.5 mr-1" /> Cần xử lý thủ công
+      </Badge>
+    );
+  }
+
+  // D. Failed / Error States
   if (
     autoResolveStatus === "failed" ||
     autoResolveStatus === "timeout" ||
-    autoResolveStatus === "not_found" ||
     autoResolveStatus === "disabled" ||
     autoResolveStatus === "rate_limited" ||
     autoResolveStatus === "skipped_invalid_type" ||

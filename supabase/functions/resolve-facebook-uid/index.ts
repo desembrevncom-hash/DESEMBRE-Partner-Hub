@@ -442,7 +442,22 @@ serve(async (req) => {
         let isNumeric = false;
         if (item) {
           returnedUid =
-            item.facebookId || item.facebook_id || item.id || item.uid || item.userId || null;
+            item.facebookId || 
+            item.facebook_id || 
+            item.id || 
+            item.uid || 
+            item.userId || 
+            item.user_id || 
+            item.profile_id || 
+            item.profileId || 
+            item.page_id || 
+            item.pageId || 
+            item.numeric_id || 
+            item.fbid || 
+            item.result?.id || 
+            item.data?.id || 
+            item.output?.id || 
+            null;
           if (returnedUid) {
             returnedUid = String(returnedUid);
             isNumeric = /^\d+$/.test(returnedUid);
@@ -554,8 +569,9 @@ serve(async (req) => {
         return { 
           success: false, 
           code: "not_found", 
-          message: "Không tìm thấy UID Facebook.",
-          job_id
+          message: "Không tìm thấy UID Facebook. Vui lòng nhập UID thủ công nếu cần.",
+          job_id,
+          provider_status: "not_found"
         };
       } else {
         return { 
