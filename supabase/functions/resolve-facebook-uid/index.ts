@@ -175,7 +175,7 @@ serve(async (req) => {
     }).eq("id", job_id);
 
     // Background Processing
-    const backgroundTask = (async () => {
+    await (async () => {
       const startedAt = Date.now();
       let latencyMs = 0;
       let finalStatus = "failed";
@@ -324,12 +324,8 @@ serve(async (req) => {
       }
     })();
 
-    if (typeof EdgeRuntime !== 'undefined' && typeof EdgeRuntime.waitUntil === 'function') {
-      EdgeRuntime.waitUntil(backgroundTask);
-    }
-
-    return new Response(JSON.stringify({ status: "processing", message: "Job sent to background for resolution" }), {
-      status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" }
+    return new Response(JSON.stringify({ status: "processed", message: "Job processed successfully" }), {
+      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
 
   } catch (err: any) {
