@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { buildStaffMap, getStaffDisplayName, StaffMap } from "@/lib/staffDisplay";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
 import { getCustomerCardTitle, getCustomerPersonDisplayName } from "@/lib/customers/customerDisplayName";
+import { safeLower, safeIncludes } from "@/lib/utils/safeString";
 import { RoutingReviewDialog } from "@/components/customers/RoutingReviewDialog";
 import { CRMCard } from "@/components/crm/CRMCard";
 import { CRMStatusBadge } from "@/components/crm/CRMStatusBadge";
@@ -670,12 +671,12 @@ function CustomerMapPage() {
   const baseFilteredCustomers = useMemo(() => {
     return customers.filter((c) => {
       // 1. Search Query
-      const searchLower = searchQuery.toLowerCase();
+      const searchLower = safeLower(searchQuery);
       const matchSearch =
-        String(c.facility_name || "").toLowerCase().includes(searchLower) ||
-        String(c.name || "").toLowerCase().includes(searchLower) ||
-        String(c.phone || "").toLowerCase().includes(searchLower) ||
-        String(c.address || "").toLowerCase().includes(searchLower);
+        safeIncludes(safeLower(c.facility_name), searchLower) ||
+        safeIncludes(safeLower(c.name), searchLower) ||
+        safeIncludes(safeLower(c.phone), searchLower) ||
+        safeIncludes(safeLower(c.address), searchLower);
 
       if (!matchSearch) return false;
       if (cityFilter !== "all" && c.city !== cityFilter) return false;

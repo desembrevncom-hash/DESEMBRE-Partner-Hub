@@ -283,7 +283,7 @@ function ProfilePage() {
                       {user?.user_metadata?.phone ? (
                         <div className="mt-2 inline-block bg-white p-2 border border-border rounded shadow-sm">
                           <img
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://zalo.me/${user.user_metadata.phone.replace(/\D/g, "")}`}
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://zalo.me/${String(user.user_metadata.phone || "").replace(/\D/g, "")}`}
                             alt="Zalo QR"
                             className="w-24 h-24"
                           />

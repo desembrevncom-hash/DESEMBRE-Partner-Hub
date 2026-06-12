@@ -76,7 +76,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getCustomerPersonDisplayName } from "@/lib/customers/customerDisplayName";
+import { getCustomerPersonDisplayName, getCustomerCardTitle } from "@/lib/customers/customerDisplayName";
+import { formatPhoneForCallHref, formatPhoneForDisplay } from "@/lib/customers/phoneUtils";
 
 const DEFAULT_CROSS_SELL_RULES = [
   {
@@ -724,12 +725,9 @@ function CustomerDetailPage() {
                   {getCustomerPersonDisplayName(customer)}
                 </span>
                 {customer.phone && (
-                  <>
-                    <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                    <span className="flex items-center gap-1.5">
-                      <Phone className="w-4 h-4 text-slate-400" /> {customer.phone}
-                    </span>
-                  </>
+                  <div className="flex items-center text-slate-600 font-medium bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
+                    <Phone className="w-4 h-4 text-slate-400 mr-2" /> {formatPhoneForDisplay(customer.phone)}
+                  </div>
                 )}
                 {customer.city && (
                   <>
@@ -745,9 +743,9 @@ function CustomerDetailPage() {
 
           <div className="flex flex-wrap items-center gap-2 lg:justify-end">
             <NotificationBell />
-            {customer.phone && (
+            {customer.phone && formatPhoneForCallHref(customer.phone) && (
               <a
-                href={`tel:${customer.phone}`}
+                href={formatPhoneForCallHref(customer.phone) || "#"}
                 className="inline-flex items-center justify-center rounded-xl bg-emerald-500 hover:bg-emerald-600 font-bold text-xs h-10 px-4 text-white shadow-sm transition-all"
               >
                 <PhoneCall className="mr-2 h-4 w-4" /> Gọi điện

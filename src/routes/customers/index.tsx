@@ -62,6 +62,8 @@ import { buildStaffMap, getStaffDisplayName, getStaffInitials, StaffMap } from "
 import { QuickCallResultDialog } from "@/components/customers/QuickCallResultDialog";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { getCustomerCardTitle, getCustomerPersonDisplayName } from "@/lib/customers/customerDisplayName";
+import { formatPhoneForDisplay, formatPhoneForCallHref, formatPhoneForZalo, getCustomerPrimaryPhone } from "@/lib/customers/phoneUtils";
+import { toSafeString, safeLower, safeIncludes } from "@/lib/utils/safeString";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
 import { Loader2 } from "lucide-react";
@@ -347,22 +349,22 @@ function CustomersPage() {
         headers.join(","),
         ...data.map((c: any) =>
           [
-            c.id,
-            `"${String(c.facility_name || "").replace(/"/g, '""')}"`,
-            `"${String(c.name || "").replace(/"/g, '""')}"`,
-            `"${c.phone || ""}"`,
-            `"${c.normalized_phone || ""}"`,
-            `"${String(c.address || "").replace(/"/g, '""')}"`,
-            c.customer_channel || "",
-            c.care_model || "",
-            c.status || "",
-            c.lifecycle_stage || "",
-            c.owner_sale_id || "",
-            c.owner_tele_id || "",
-            c.created_at,
-            `"${String(c.delete_reason || "").replace(/"/g, '""')}"`,
-            c.deleted_by || "",
-            c.deleted_at || "",
+            toSafeString(c.id),
+            `"${toSafeString(c.facility_name).replace(/"/g, '""')}"`,
+            `"${toSafeString(c.name).replace(/"/g, '""')}"`,
+            `"${toSafeString(c.phone)}"`,
+            `"${toSafeString(c.normalized_phone)}"`,
+            `"${toSafeString(c.address).replace(/"/g, '""')}"`,
+            toSafeString(c.customer_channel),
+            toSafeString(c.care_model),
+            toSafeString(c.status),
+            toSafeString(c.lifecycle_stage),
+            toSafeString(c.owner_sale_id),
+            toSafeString(c.owner_tele_id),
+            toSafeString(c.created_at),
+            `"${toSafeString(c.delete_reason).replace(/"/g, '""')}"`,
+            toSafeString(c.deleted_by),
+            toSafeString(c.deleted_at),
           ].join(","),
         ),
       ];
@@ -570,15 +572,15 @@ function CustomersPage() {
     let result = customers;
 
     if (searchQuery) {
-      const q = stripAccents(searchQuery.toLowerCase());
+      const q = stripAccents(safeLower(searchQuery));
       result = result.filter((c) => {
         const nameMatch =
-          stripAccents(String(c.contact_name || "").toLowerCase()).includes(q) ||
-          stripAccents(String(c.business_name || "").toLowerCase()).includes(q) ||
-          stripAccents(String(c.facility_name || "").toLowerCase()).includes(q) ||
-          stripAccents(String(c.name || "").toLowerCase()).includes(q);
-        const phoneMatch = String(c.phone || "").includes(q);
-        const emailMatch = String(c.email || "").toLowerCase().includes(q);
+          safeIncludes(stripAccents(safeLower(c.contact_name)), q) ||
+          safeIncludes(stripAccents(safeLower(c.business_name)), q) ||
+          safeIncludes(stripAccents(safeLower(c.facility_name)), q) ||
+          safeIncludes(stripAccents(safeLower(c.name)), q);
+        const phoneMatch = safeIncludes(c.phone, q);
+        const emailMatch = safeIncludes(safeLower(c.email), q);
         return nameMatch || phoneMatch || emailMatch;
       });
     }
@@ -1770,7 +1772,7 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
   const convState = getCustomerConversationState(customer);
 
   const hasZalo = !!customer.channel_summary?.has_zalo;
-  const primaryPhone = String(customer.phone || "");
+  const primaryPhone = getCustomerPrimaryPhone(customer);
 
   const normalizedBadges = getCustomerCardBadges(customer);
   const topBadges = normalizedBadges.slice(0, 2);
@@ -1848,10 +1850,10 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
       <div className="flex items-center gap-2">
         <span className="text-[11px] font-bold text-slate-600">
           {primaryPhone
-            ? primaryPhone.slice(-4).padStart(primaryPhone.length, "*")
+            ? formatPhoneForDisplay(primaryPhone)
             : customer.email
-              ? customer.email.split("@")[0] + "@..."
-              : "Chưa có SĐT/Email"}
+            ? customer.email.split("@")[0] + "@..."
+            : "Chưa có SĐT/Email"}
         </span>
         <div className="flex gap-1 ml-auto">
           {hasZalo && (
@@ -1889,7 +1891,7 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
                   className="inline-flex items-center justify-center rounded-lg h-8 w-8 bg-indigo-600 hover:bg-indigo-700 text-white shrink-0 shadow-sm transition-colors p-0"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <a href={`tel:${primaryPhone.replace(/[^\d+]/g, "")}`}>
+                  <a href={formatPhoneForCallHref(primaryPhone) || "#"}>
                     <Phone className="w-4 h-4" />
                   </a>
                 </Button>
@@ -1918,7 +1920,8 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
                   className={`h-8 w-8 rounded-lg transition-colors ${hasZalo ? "text-blue-500 hover:text-blue-600 hover:bg-blue-50" : "text-slate-300 hover:text-blue-500 hover:bg-slate-50"}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    window.open(`https://zalo.me/${primaryPhone}`, "_blank");
+                    const href = formatPhoneForZalo(primaryPhone);
+                    if (href) window.open(href, "_blank");
                   }}
                 >
                   <MessageSquare className="w-4 h-4" />
@@ -2199,7 +2202,7 @@ function CustomerIntelligenceRow({
   const teleInitials = getStaffInitials(customer.owner_tele_id, staffMap);
 
   const hasZalo = !!customer.channel_summary?.has_zalo;
-  const primaryPhone = String(customer.phone || "");
+  const primaryPhone = getCustomerPrimaryPhone(customer);
 
   return (
     <div
@@ -2253,10 +2256,10 @@ function CustomerIntelligenceRow({
             {customer.city || "Toàn quốc"} • {customer.customer_channel || customer.source || "N/A"}{" "}
             •{" "}
             {primaryPhone
-              ? primaryPhone.slice(-4).padStart(primaryPhone.length, "*")
+              ? formatPhoneForDisplay(primaryPhone)
               : customer.email
-                ? customer.email.split("@")[0] + "@..."
-                : "Chưa có SĐT"}
+              ? customer.email.split("@")[0] + "@..."
+              : "Chưa có SĐT"}
           </p>
           <div className="flex items-center gap-2 mt-2">
             <Badge
@@ -2321,7 +2324,8 @@ function CustomerIntelligenceRow({
             className="rounded-xl bg-blue-500 hover:bg-blue-600 text-white shadow-sm"
             onClick={(e) => {
               e.stopPropagation();
-              window.open(`https://zalo.me/${primaryPhone}`, "_blank");
+              const href = formatPhoneForZalo(primaryPhone);
+              if (href) window.open(href, "_blank");
             }}
             title="Mở Zalo"
           >
@@ -2333,7 +2337,8 @@ function CustomerIntelligenceRow({
           className={`rounded-xl shadow-sm ${!hasZalo ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-slate-100 hover:bg-slate-200 text-slate-700"}`}
           onClick={(e) => {
             e.stopPropagation();
-            window.location.href = `tel:${primaryPhone}`;
+            const href = formatPhoneForCallHref(primaryPhone);
+            if (href) window.location.href = href;
           }}
           title="Gọi điện"
         >

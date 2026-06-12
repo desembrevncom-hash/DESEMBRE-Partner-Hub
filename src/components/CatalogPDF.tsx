@@ -268,7 +268,7 @@ export const CatalogPDF = ({
           )}
           {quoterPhone && (
             <Image
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://zalo.me/${quoterPhone.replace(/\D/g, "")}`}
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://zalo.me/${String(quoterPhone).replace(/\D/g, "")}`}
               style={{ width: 40, height: 40, alignSelf: "center", marginTop: 10 }}
             />
           )}

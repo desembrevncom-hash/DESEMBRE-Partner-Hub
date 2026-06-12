@@ -11,24 +11,29 @@ export type CustomerShape = Partial<{
   [key: string]: any;
 }>;
 
-export function isUrlLike(value: string | null | undefined): boolean {
-  if (!value) return false;
-  const s = String(value).trim().toLowerCase();
+import { toSafeString, safeTrim, safeLower, safeIncludes } from "../utils/safeString";
+
+export function isUrlLike(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  const s = safeTrim(value);
+  if (!s) return false;
+  const lower = safeLower(s);
   return (
-    s.startsWith("http://") ||
-    s.startsWith("https://") ||
-    s.includes("www.facebook.com") ||
-    s.includes("facebook.com/") ||
-    s === "facebook.com" ||
-    s.includes("m.facebook.com") ||
-    s.includes("fb.com") ||
-    s.includes("profile.php?id=")
+    lower.startsWith("http://") ||
+    lower.startsWith("https://") ||
+    safeIncludes(lower, "www.facebook.com") ||
+    safeIncludes(lower, "facebook.com/") ||
+    lower === "facebook.com" ||
+    safeIncludes(lower, "m.facebook.com") ||
+    safeIncludes(lower, "fb.com") ||
+    safeIncludes(lower, "profile.php?id=")
   );
 }
 
-export function isUidLike(value: string | null | undefined): boolean {
-  if (!value) return false;
-  const s = String(value).trim();
+export function isUidLike(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  const s = safeTrim(value);
+  if (!s) return false;
   // False for Vietnamese phone numbers (start with 0, 10-11 digits)
   if (/^0\d{9,10}$/.test(s)) return false;
   
@@ -73,8 +78,11 @@ export function getFacebookDisplayNameFromCustomer(customer: CustomerShape | nul
 export function getCustomerBusinessDisplayName(customer: CustomerShape | null | undefined): string | null {
   if (!customer) return null;
 
-  if (customer.business_name && !isUrlLike(customer.business_name)) return customer.business_name;
-  if (customer.facility_name && !isUrlLike(customer.facility_name)) return customer.facility_name;
+  const businessName = toSafeString(customer.business_name);
+  if (businessName && !isUrlLike(businessName)) return businessName;
+
+  const facilityName = toSafeString(customer.facility_name);
+  if (facilityName && !isUrlLike(facilityName)) return facilityName;
 
   return null;
 }
@@ -83,23 +91,26 @@ export function getCustomerPersonDisplayName(customer: CustomerShape | null | un
   if (!customer) return "Khách chưa có tên";
 
   // 1. contact_name if not URL/UID
-  if (customer.contact_name && !isUrlLike(customer.contact_name) && !isUidLike(customer.contact_name)) {
-    return customer.contact_name;
+  const contactName = toSafeString(customer.contact_name);
+  if (contactName && !isUrlLike(contactName) && !isUidLike(contactName)) {
+    return contactName;
   }
 
   // 2. facebook_display_name
-  const fbName = getFacebookDisplayNameFromCustomer(customer);
+  const fbName = toSafeString(getFacebookDisplayNameFromCustomer(customer));
   if (fbName && !isUrlLike(fbName) && !isUidLike(fbName)) {
     return fbName;
   }
 
   // 3. name if not URL/UID
-  if (customer.name && !isUrlLike(customer.name) && !isUidLike(customer.name)) {
-    return customer.name;
+  const name = toSafeString(customer.name);
+  if (name && !isUrlLike(name) && !isUidLike(name)) {
+    return name;
   }
 
   // 4. phone
-  if (customer.phone) return customer.phone;
+  const phone = toSafeString(customer.phone);
+  if (phone) return phone;
 
   // 5. fallback
   return "Khách chưa có tên";
@@ -114,10 +125,11 @@ export function getCustomerCardTitle(customer: CustomerShape | null | undefined)
 
   // 2. person display name
   const personName = getCustomerPersonDisplayName(customer);
-  if (personName !== "Khách chưa có tên" && personName !== customer.phone) return personName;
+  const phoneStr = toSafeString(customer.phone);
+  if (personName !== "Khách chưa có tên" && personName !== phoneStr) return personName;
 
   // 3. phone
-  if (customer.phone) return customer.phone;
+  if (phoneStr) return phoneStr;
 
   // 4. fallback
   return "Khách chưa có tên";

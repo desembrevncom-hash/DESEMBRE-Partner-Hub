@@ -4,11 +4,11 @@
  * - Chuyển đầu số +84 hoặc 84 về 0
  * - Chỉ giữ lại các chữ số
  */
-export const normalizePhone = (phone?: string | null): string => {
+export function normalizePhone(phone: unknown): string {
   if (!phone) return "";
 
   // 1. Loại bỏ khoảng trắng và các ký tự phân cách phổ biến
-  let cleaned = phone.replace(/[\s\.\-\(\)]/g, "");
+  let cleaned = String(phone).replace(/[\s\.\-\(\)]/g, "");
 
   // 2. Xử lý mã quốc gia Việt Nam (+84 hoặc 84) chuyển về đầu 0
   if (cleaned.startsWith("+84")) {
