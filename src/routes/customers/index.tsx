@@ -1658,14 +1658,14 @@ function CustomerCardActivityInfo({ customer, isManager }: { customer: any; isMa
       ManagerIcon = AlertCircle;
     } else if (suggestedAction) {
       managerAction = "Quản lý & Theo dõi";
-      managerActionColor = "text-slate-600 bg-slate-100/80 border-slate-200/50";
+managerActionColor = "text-slate-600 bg-slate-100/80 border-slate-200/50";
       ManagerIcon = CheckSquare;
     }
   }
 
-  const getMemoryIcon = (summary: string) => {
+  const getMemoryIcon = (summary: unknown) => {
     if (!summary) return "⚡";
-    const lower = summary.toLowerCase();
+    const lower = safeLower(summary);
     if (lower.includes("zalo") || lower.includes("nhắn") || lower.includes("sms")) return "💬";
     if (lower.includes("gọi") || lower.includes("phone") || lower.includes("không nghe máy"))
       return "📞";
@@ -1852,7 +1852,7 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
           {primaryPhone
             ? formatPhoneForDisplay(primaryPhone)
             : customer.email
-            ? customer.email.split("@")[0] + "@..."
+            ? toSafeString(customer.email).split("@")[0] + "@..."
             : "Chưa có SĐT/Email"}
         </span>
         <div className="flex gap-1 ml-auto">
@@ -2258,7 +2258,7 @@ function CustomerIntelligenceRow({
             {primaryPhone
               ? formatPhoneForDisplay(primaryPhone)
               : customer.email
-              ? customer.email.split("@")[0] + "@..."
+              ? toSafeString(customer.email).split("@")[0] + "@..."
               : "Chưa có SĐT"}
           </p>
           <div className="flex items-center gap-2 mt-2">

@@ -1,4 +1,6 @@
 import React from "react";
+import { formatCurrency, formatDiscount } from "@/lib/utils/format";
+import { safeDigits } from "@/lib/utils/safeString";
 import { Document, Page, Text, View, StyleSheet, Font, Image } from "@react-pdf/renderer";
 
 // Register Vietnamese font
@@ -268,7 +270,7 @@ export const CatalogPDF = ({
           )}
           {quoterPhone && (
             <Image
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://zalo.me/${String(quoterPhone).replace(/\D/g, "")}`}
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://zalo.me/${safeDigits(quoterPhone)}`}
               style={{ width: 40, height: 40, alignSelf: "center", marginTop: 10 }}
             />
           )}
