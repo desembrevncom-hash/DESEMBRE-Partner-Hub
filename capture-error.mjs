@@ -17,7 +17,7 @@ import puppeteer from 'puppeteer';
   });
 
   console.log("Navigating to preview...");
-  await page.goto('https://desembre-partner-fx4bx6jbl-desembres-projects.vercel.app/customers', { waitUntil: 'networkidle0' });
+  await page.goto('https://desembre-partner-9cihccfty-desembres-projects.vercel.app/customers', { waitUntil: 'networkidle0' });
 
   // Wait a bit to ensure React finishes mounting
   await new Promise(r => setTimeout(r, 2000));

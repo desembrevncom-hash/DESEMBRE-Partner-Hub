@@ -64,11 +64,37 @@ import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { getCustomerCardTitle, getCustomerPersonDisplayName } from "@/lib/customers/customerDisplayName";
 import { formatPhoneForDisplay, formatPhoneForCallHref, formatPhoneForZalo, getCustomerPrimaryPhone } from "@/lib/customers/phoneUtils";
 import { normalizeCustomerRow } from "@/lib/customers/normalizeCustomer";
+import { normalizeStaffProfile } from "@/lib/users/normalizeStaffProfile";
 import { toSafeString, safeLower, safeIncludes, safeTrim } from "@/lib/utils/safeString";
 import { getEmailLocalPart } from "@/lib/utils/safeEmail";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
 import { Loader2 } from "lucide-react";
+import { stripAccents } from "@/lib/utils";
+
+class CustomerRowErrorBoundary extends React.Component<{
+  children: React.ReactNode;
+  fallback: (error: Error) => React.ReactNode;
+  customerId: string;
+}, { hasError: boolean, error: Error | null }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error(`Customer Row Render Error (ID: ${this.props.customerId}):`, error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError && this.state.error) {
+      return this.props.fallback(this.state.error);
+    }
+    return this.props.children;
+  }
+}
+
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -84,7 +110,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { VIETNAM_PROVINCES, stripAccents, findProvinceByName } from "@/lib/vietnamProvinces";
+import { VIETNAM_PROVINCES, findProvinceByName } from "@/lib/vietnamProvinces";
 import { Check, ChevronsUpDown, Map as MapIcon } from "lucide-react";
 import { trackKanbanDrag, trackSearch, trackFilterUsage, trackDrawerOpen } from "@/lib/uxTracking";
 import { useCRMShortcuts } from "@/lib/keyboardShortcuts";
@@ -182,6 +208,7 @@ function CustomersPage() {
   const [logTarget, setLogTarget] = useState<any | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [previewCustomer, _setPreviewCustomer] = useState<any | null>(null);
+  const [previewCustomerId, setPreviewCustomerId] = useState<string | null>(null);
 
   const setPreviewCustomer = (customer: any | null) => {
     _setPreviewCustomer(customer);
@@ -391,7 +418,7 @@ function CustomersPage() {
   };
 
   const handleBulkDispatch = async () => {
-    if (dispatchAction === "revoke" && !dispatchReason.trim()) {
+    if (dispatchAction === "revoke" && !safeTrim(dispatchReason)) {
       toast.error("Vui lòng nhập lý do thu hồi.");
       return;
     }
@@ -541,7 +568,6 @@ function CustomersPage() {
       setCustomers(processed);
 
       // Fetch user profiles to build staffMap
-      // Fetch user profiles to build staffMap
       const userIds = new Set<string>();
       processed.forEach((c: any) => {
         if (c.owner_sale_id) userIds.add(c.owner_sale_id);
@@ -553,7 +579,7 @@ function CustomersPage() {
           .select("id, display_name, email")
           .in("id", Array.from(userIds));
         if (!profError && profiles) {
-          setStaffMap(buildStaffMap(profiles));
+          setStaffMap(buildStaffMap(profiles.map(normalizeStaffProfile)));
         }
       }
 
@@ -563,7 +589,7 @@ function CustomersPage() {
           supabase.from("profiles").select("id, display_name, email"),
           supabase.from("user_roles").select("*"),
         ]);
-        if (allStaffData) setStaffList(allStaffData);
+        if (allStaffData) setStaffList(allStaffData.map(normalizeStaffProfile));
         if (rolesData) setRolesList(rolesData);
       }
     } catch (e) {
@@ -1066,7 +1092,28 @@ function CustomersPage() {
                       Tất cả tỉnh/thành
                     </span>
                   </button>
-                  {/* Simplified Province List mapping... */}
+                  {VIETNAM_PROVINCES.filter((p) =>
+                    stripAccents(p.name.toLowerCase()).includes(stripAccents(citySearch.toLowerCase())),
+                  ).map((p) => (
+                    <button
+                      key={p.name}
+                      type="button"
+                      onClick={() => {
+                        setCityFilter(p.name);
+                        setCityOpen(false);
+                      }}
+                      className="w-full text-left flex items-center gap-2 px-2 py-1.5 text-[11px] hover:bg-slate-50"
+                    >
+                      <Check
+                        className={`w-3 h-3 shrink-0 ${cityFilter === p.name ? "text-slate-900" : "opacity-0"}`}
+                      />
+                      <span
+                        className={`font-medium ${cityFilter === p.name ? "text-slate-900" : "text-slate-500"}`}
+                      >
+                        {p.name}
+                      </span>
+                    </button>
+                  ))}
                 </div>
               </PopoverContent>
             </Popover>
@@ -1328,10 +1375,18 @@ function CustomersPage() {
 
                       {/* Column Content */}
                       <div className="flex flex-col gap-y-3 p-2 min-h-[500px]">
-                        {stageCustomers.map((customer) =>
-                          isManager ? (
+                        {stageCustomers.map((customer) => (
+                          <CustomerRowErrorBoundary
+                            key={customer.id}
+                            customerId={customer.id}
+                            fallback={() => (
+                              <div className="p-4 border rounded-xl bg-red-50 text-red-600 text-sm mb-2">
+                                Không thể hiển thị dòng này (ID: {customer.id})
+                              </div>
+                            )}
+                          >
+                          {isManager ? (
                             <ManagerCustomerCard
-                              key={customer.id}
                               customer={customer}
                               stage={stage.value}
                               onPreview={() => setPreviewCustomer(customer)}
@@ -1355,7 +1410,6 @@ function CustomersPage() {
                             />
                           ) : (
                             <SalesCustomerCard
-                              key={customer.id}
                               customer={customer}
                               stage={stage.value}
                               onQuickLog={() => setLogTarget(customer)}
@@ -1364,8 +1418,9 @@ function CustomersPage() {
                               onDragStart={(e: React.DragEvent) => handleDragStart(e, customer.id)}
                               isSaving={logTarget?.id === customer.id}
                             />
-                          ),
-                        )}
+                          )}
+                          </CustomerRowErrorBoundary>
+                        ))}
                         {stageCustomers.length === 0 && (
                           <CRMEmptyState
                             className="h-32 p-4 m-1 bg-white/50 rounded-[20px]"
@@ -1393,25 +1448,34 @@ function CustomersPage() {
               />
             ) : (
               filteredCustomers.map((customer) => (
-                <CustomerIntelligenceRow
+                <CustomerRowErrorBoundary
                   key={customer.id}
-                  customer={customer}
-                  staffMap={staffMap}
-                  onPreview={() => setPreviewCustomer(customer)}
-                  onQuickLog={() => setLogTarget(customer)}
-                  isManager={isManager}
-                  isSelected={selectedCustomers.includes(customer.id)}
-                  onToggleSelect={(checked: boolean) => {
-                    setSelectedCustomers((prev) =>
-                      checked ? [...prev, customer.id] : prev.filter((id) => id !== customer.id),
-                    );
-                  }}
-                  onQuickDispatch={(action: string) => {
-                    setSelectedCustomers([customer.id]);
-                    setDispatchAction(action as any);
-                    setIsDispatchDialogOpen(true);
-                  }}
-                />
+                  customerId={customer.id}
+                  fallback={() => (
+                    <div className="p-4 border rounded-xl bg-red-50 text-red-600 text-sm mb-2">
+                      Không thể hiển thị dòng này (ID: {customer.id})
+                    </div>
+                  )}
+                >
+                  <CustomerIntelligenceRow
+                    customer={customer}
+                    staffMap={staffMap}
+                    onPreview={() => setPreviewCustomer(customer)}
+                    onQuickLog={() => setLogTarget(customer)}
+                    isManager={isManager}
+                    isSelected={selectedCustomers.includes(customer.id)}
+                    onToggleSelect={(checked: boolean) => {
+                      setSelectedCustomers((prev) =>
+                        checked ? [...prev, customer.id] : prev.filter((id) => id !== customer.id),
+                      );
+                    }}
+                    onQuickDispatch={(action: string) => {
+                      setSelectedCustomers([customer.id]);
+                      setDispatchAction(action as any);
+                      setIsDispatchDialogOpen(true);
+                    }}
+                  />
+                </CustomerRowErrorBoundary>
               ))
             )}
           </div>
