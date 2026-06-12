@@ -94,6 +94,17 @@ function CustomersNormalizationDebug() {
         </tbody>
       </table>
 
+      <div className="mb-4 inline-flex items-center gap-4 bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-mono shadow-sm">
+        <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-green-400"></span> Preview Ready</span>
+        <span className="text-slate-400">|</span>
+        <span>Commit: 22b61c3</span>
+        <span className="text-slate-400">|</span>
+        <span>Built: {new Date("2026-06-12T22:57:52+07:00").toLocaleString("vi-VN")}</span>
+        <span className="text-slate-400">|</span>
+        <span className="text-yellow-400 font-semibold">Awaiting QA</span>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       <h2 className="text-xl mt-8 mb-4">Customers Normalization (Types)</h2>
       <table className="w-full border text-left text-xs">
         <thead>
