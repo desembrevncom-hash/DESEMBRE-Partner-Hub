@@ -319,7 +319,8 @@ serve(async (req) => {
           { startUrls: [{ url: `${normalizedUrl}/` }] },
         ];
 
-        const timeoutMs = parseInt(Deno.env.get("FACEBOOK_UID_PROVIDER_TIMEOUT_MS") || "8000", 10);
+        const envTimeoutMs = parseInt(Deno.env.get("FACEBOOK_UID_PROVIDER_TIMEOUT_MS") || "8000", 10);
+        const timeoutMs = Math.min(envTimeoutMs, 8000); // Strictly cap at 8s to prevent Supabase 10s hard-kill
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 

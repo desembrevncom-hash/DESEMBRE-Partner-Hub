@@ -223,6 +223,10 @@ function JobRow({ job }: { job: ManualReviewJob }) {
 
   const isDuplicate = job.status === 'duplicate_candidate' || job.auto_resolve_status === 'duplicate_detected';
   const isFailed = job.auto_resolve_status === 'failed' || job.auto_resolve_status === 'timeout' || job.auto_resolve_status === 'not_found';
+  const isActivelyResolving = 
+    (job.auto_resolve_status === "resolving" || job.auto_resolve_status === "queued") && 
+    job.last_auto_resolve_at && 
+    (Date.now() - new Date(job.last_auto_resolve_at).getTime() < 10 * 60 * 1000);
 
   const handleFail = () => {
     if (!confirm("Bạn có chắc chắn link này không thể phân giải hoặc bị lỗi?")) return;
@@ -329,11 +333,11 @@ function JobRow({ job }: { job: ManualReviewJob }) {
             {!isDuplicate && !job.auto_resolve_status?.match(/^(resolved|disabled|rate_limited|skipped_invalid_type)$/) && (
               <button
                 onClick={handleTriggerAuto}
-                disabled={autoResolveMutation.isPending || resolveMutation.isPending || job.auto_resolve_status === "queued" || isFinalState}
+                disabled={autoResolveMutation.isPending || resolveMutation.isPending || isActivelyResolving || isFinalState}
                 className="flex items-center justify-center gap-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 text-xs font-bold px-3 rounded shadow-sm disabled:opacity-50 transition-colors whitespace-nowrap"
                 title={isFailed ? "Thử lại tự động" : "Tìm UID tự động (nền)"}
               >
-                <Search className={`w-3 h-3 ${(autoResolveMutation.isPending || job.auto_resolve_status === "resolving") ? "animate-spin" : ""}`} /> {isFailed ? "Thử lại" : "Tìm tự động"}
+                <Search className={`w-3 h-3 ${isActivelyResolving ? "animate-spin" : ""}`} /> {isFailed ? "Thử lại" : "Tìm tự động"}
               </button>
             )}
           </div>
