@@ -5,7 +5,13 @@ export interface ManualReviewJob {
   id: string;
   customer_id: string;
   raw_url: string;
-  status: 'pending' | 'resolved' | 'failed' | 'manual_review_required' | 'duplicate_candidate' | 'ignored';
+  status:
+    | "pending"
+    | "resolved"
+    | "failed"
+    | "manual_review_required"
+    | "duplicate_candidate"
+    | "ignored";
   created_at: string;
   customers?: {
     id: string;
@@ -13,7 +19,18 @@ export interface ManualReviewJob {
     phone: string | null;
     owner_sale_id: string | null;
   };
-  auto_resolve_status?: 'not_attempted' | 'queued' | 'resolving' | 'resolved' | 'failed' | 'timeout' | 'rate_limited' | 'disabled' | 'cached' | 'skipped_invalid_type' | 'duplicate_detected';
+  auto_resolve_status?:
+    | "not_attempted"
+    | "queued"
+    | "resolving"
+    | "resolved"
+    | "failed"
+    | "timeout"
+    | "rate_limited"
+    | "disabled"
+    | "cached"
+    | "skipped_invalid_type"
+    | "duplicate_detected";
   duplicate_social_profile_id?: string | null;
   duplicate_profile?: {
     customer_id: string;
@@ -38,17 +55,19 @@ export function useCustomerFacebookIdentityQuery(customerId: string) {
         .select("*")
         .eq("customer_id", customerId)
         .eq("platform", "facebook");
-        
+
       // Fetch jobs
       const { data: jobs } = await supabase
         .from("facebook_identity_resolution_jobs")
-        .select(`
+        .select(
+          `
           *,
           duplicate_profile:customer_social_profiles!duplicate_social_profile_id (
             customer_id,
             customers!customer_id (id, name, phone)
           )
-        `)
+        `,
+        )
         .eq("customer_id", customerId)
         .order("created_at", { ascending: false });
 
@@ -63,7 +82,9 @@ export function useCustomerFacebookIdentityQuery(customerId: string) {
     },
     enabled: !!customerId,
     refetchInterval: (query) => {
-      const hasPending = query.state.data?.jobs?.some((j: any) => j.status === "manual_review_required");
+      const hasPending = query.state.data?.jobs?.some(
+        (j: any) => j.status === "manual_review_required",
+      );
       return hasPending ? 3000 : false;
     },
   });
@@ -75,7 +96,8 @@ export function useManualReviewJobsQuery() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("facebook_identity_resolution_jobs")
-        .select(`
+        .select(
+          `
           id,
           customer_id,
           raw_url,
@@ -100,7 +122,8 @@ export function useManualReviewJobsQuery() {
             phone,
             owner_sale_id
           )
-        `)
+        `,
+        )
         .in("status", ["manual_review_required", "duplicate_candidate"])
         .order("created_at", { ascending: false });
 
@@ -116,7 +139,7 @@ export function useManualReviewJobsQuery() {
 export interface ResolveManualJobPayload {
   jobId: string;
   numericUid?: string | null;
-  status: 'resolved' | 'failed' | 'ignored' | 'duplicate_candidate';
+  status: "resolved" | "failed" | "ignored" | "duplicate_candidate";
   note?: string | null;
   facebookName?: string | null;
 }
@@ -156,6 +179,14 @@ export function useTriggerAutoResolveMutation() {
       });
 
       if (error) {
+        if (error.context && typeof error.context.json === "function") {
+          try {
+            const errJson = await error.context.json();
+            if (errJson && errJson.message) {
+              throw new Error(errJson.message);
+            }
+          } catch (e) {}
+        }
         throw new Error(error.message);
       }
 
@@ -163,9 +194,8 @@ export function useTriggerAutoResolveMutation() {
         throw new Error(data.error + (data.stack ? "\\n" + data.stack : ""));
       }
 
-      // Check if Edge Function returned an error in the payload
-      if (data && data.error) {
-        throw new Error(data.error);
+      if (data && data.success === false) {
+        throw new Error(data.message || "Lỗi không xác định từ máy chủ");
       }
 
       return data;
@@ -180,11 +210,19 @@ export function useApplyFacebookNameMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ customerId, socialProfileId, forceOverwrite = false }: { customerId: string; socialProfileId: string; forceOverwrite?: boolean }) => {
-      const { data, error } = await supabase.rpc('apply_facebook_name_to_customer', {
+    mutationFn: async ({
+      customerId,
+      socialProfileId,
+      forceOverwrite = false,
+    }: {
+      customerId: string;
+      socialProfileId: string;
+      forceOverwrite?: boolean;
+    }) => {
+      const { data, error } = await supabase.rpc("apply_facebook_name_to_customer", {
         p_customer_id: customerId,
         p_social_profile_id: socialProfileId,
-        p_force_overwrite: forceOverwrite
+        p_force_overwrite: forceOverwrite,
       });
 
       if (error) {
@@ -204,7 +242,9 @@ export function useApplyFacebookNameMutation() {
       queryClient.invalidateQueries({ queryKey: ["contact-channels", variables.customerId] });
       queryClient.invalidateQueries({ queryKey: ["facebook-identity", variables.customerId] });
       window.dispatchEvent(new Event("customer_timeline_refresh"));
-      window.dispatchEvent(new CustomEvent("customer_updated", { detail: { id: variables.customerId } }));
+      window.dispatchEvent(
+        new CustomEvent("customer_updated", { detail: { id: variables.customerId } }),
+      );
     },
   });
 }
@@ -236,7 +276,7 @@ export function useFetchMissingFacebookNameMutation() {
           })
           .select("id")
           .single();
-          
+
         if (insertError) throw new Error("Could not create resolution job: " + insertError.message);
         jobId = newJob.id;
       } else {
@@ -253,11 +293,23 @@ export function useFetchMissingFacebookNameMutation() {
       });
 
       if (error) {
+        if (error.context && typeof error.context.json === "function") {
+          try {
+            const errJson = await error.context.json();
+            if (errJson && errJson.message) {
+              throw new Error(errJson.message);
+            }
+          } catch (e) {}
+        }
         throw new Error(error.message);
       }
 
       if (data && data.error) {
         throw new Error(data.error);
+      }
+
+      if (data && data.success === false) {
+        throw new Error(data.message || "Lỗi không xác định từ máy chủ");
       }
 
       return data;

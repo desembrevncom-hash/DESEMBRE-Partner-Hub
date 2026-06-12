@@ -25,10 +25,17 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing authorization" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          code: "unauthenticated",
+          message: "Bạn cần đăng nhập để tìm UID Facebook.",
+        }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -50,10 +57,17 @@ serve(async (req) => {
       error: userErr,
     } = await supabaseUserClient.auth.getUser();
     if (userErr || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          code: "unauthenticated",
+          message: "Bạn cần đăng nhập để tìm UID Facebook.",
+        }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // Get user roles
@@ -63,14 +77,18 @@ serve(async (req) => {
       .eq("user_id", user.id)
       .single();
     const role = userData?.role || "sale";
-    const isAdmin = role === "admin" || role === "sub_admin";
+    const isAdmin =
+      role === "admin" || role === "sub_admin" || role === "administrator" || role === "manager";
 
     const { job_id } = (await req.json()) as ResolveFacebookUidPayload;
     if (!job_id) {
-      return new Response(JSON.stringify({ error: "Missing job_id" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ success: false, code: "invalid_request", message: "Thiếu job_id." }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // Fetch Job securely
@@ -81,14 +99,17 @@ serve(async (req) => {
       .single();
 
     if (jobErr || !job) {
-      return new Response(JSON.stringify({ error: "Job not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ success: false, code: "job_not_found", message: "Không tìm thấy job." }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // Authorize
-    if (!isAdmin && role !== "manager") {
+    if (!isAdmin) {
       return new Response(
         JSON.stringify({
           success: false,
@@ -106,10 +127,17 @@ serve(async (req) => {
       job.status !== "ignored" &&
       job.status !== "duplicate_candidate"
     ) {
-      return new Response(JSON.stringify({ error: "Job is not in a retryable state" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          code: "invalid_job_state",
+          message: "Job is not in a retryable state",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // Validate and Normalize URL
@@ -127,10 +155,17 @@ serve(async (req) => {
         throw new Error("Not a facebook domain");
       }
     } catch {
-      return new Response(JSON.stringify({ error: "Not a valid Facebook URL" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          code: "invalid_facebook_url",
+          message: "Link Facebook không hợp lệ.",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     console.log("Sanitized normalizedUrl:", normalizedUrl);
@@ -174,10 +209,6 @@ serve(async (req) => {
           cachedName = extractFacebookDisplayName(last.response_json);
         }
 
-        // Only use cache if we found the name OR if the job wasn't manually forced
-        // Wait, the prompt says: "If using a cached resolver result: If cached returned_name exists, copy it. If cached returned_name is null but cached response_json has openGraph.title/alt, extract it and use it. If cached response_json is {}, do not invent a name."
-        // And "UID flow must continue to work even if returnedName is null."
-        // We will just use the cache block unconditionally again as requested.
         await updateSuccess(supabaseAdmin, job, last.returned_uid, 80, cachedName);
         await insertResult(
           supabaseAdmin,
@@ -368,7 +399,6 @@ serve(async (req) => {
           finalStatus = "skipped_invalid_type";
           finalError = "Job no longer requires manual review";
 
-          // Must reset auto_resolve_status even if skipped, otherwise it's frozen at 'resolving'
           await supabaseAdmin
             .from("facebook_identity_resolution_jobs")
             .update({
@@ -471,10 +501,18 @@ serve(async (req) => {
     );
   } catch (err: any) {
     console.error("Critical Edge Function Error:", err);
-    return new Response(JSON.stringify({ error: err.message, stack: err.stack }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        code: "provider_error",
+        message: "Nhà cung cấp UID đang lỗi, vui lòng thử lại sau.",
+        error: err.message,
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 });
 
