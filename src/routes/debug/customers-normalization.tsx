@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/components/auth/AuthProvider";
+import { useAuth } from "@/hooks/useAuth";
 import { normalizeCustomerRow } from "@/lib/customers/normalizeCustomer";
 import { normalizeStaffProfile } from "@/lib/users/normalizeStaffProfile";
 
