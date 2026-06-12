@@ -24,7 +24,7 @@ BEGIN
     -- Fetch the job details
     SELECT customer_id, raw_url INTO v_customer_id, v_raw_url
     FROM public.facebook_identity_resolution_jobs
-    WHERE id = p_job_id AND status IN ('manual_review_required', 'duplicate_candidate');
+    WHERE id = p_job_id AND status IN ('manual_review_required', 'duplicate_candidate', 'failed');
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Job not found or not in a reviewable status.';
