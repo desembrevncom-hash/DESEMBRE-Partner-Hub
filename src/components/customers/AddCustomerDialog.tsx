@@ -49,7 +49,10 @@ import { VIETNAM_PROVINCES, stripAccents, findProvinceByName } from "@/lib/vietn
 import { createLeadAssignedAutomation } from "@/lib/automation";
 import { Badge } from "@/components/ui/badge";
 import { createContactChannel } from "@/lib/contactChannels";
-import { classifyFacebookUrl, FacebookUrlClassification } from "@/lib/customers/facebookUrlClassifier";
+import {
+  classifyFacebookUrl,
+  FacebookUrlClassification,
+} from "@/lib/customers/facebookUrlClassifier";
 import { checkCustomerDuplicate } from "@/lib/customers/customerDuplicateChecker";
 interface AddCustomerDialogProps {
   open: boolean;
@@ -58,7 +61,12 @@ interface AddCustomerDialogProps {
   initialPhone?: string;
 }
 
-export function AddCustomerDialog({ open, onOpenChange, onSuccess, initialPhone }: AddCustomerDialogProps) {
+export function AddCustomerDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+  initialPhone,
+}: AddCustomerDialogProps) {
   const { user, isSale, isTeleLead, isAdmin, isSubAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
@@ -87,7 +95,9 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess, initialPhone 
   const [previewDuplicateInfo, setPreviewDuplicateInfo] = useState<any>(null);
 
   // --- FACEBOOK URL STATES ---
-  const [fbPreviewStatus, setFbPreviewStatus] = useState<"idle" | "loading" | "uid" | "username" | "invalid_type" | "invalid_fb" | "invalid">("idle");
+  const [fbPreviewStatus, setFbPreviewStatus] = useState<
+    "idle" | "loading" | "uid" | "username" | "invalid_type" | "invalid_fb" | "invalid"
+  >("idle");
   const [fbParsedData, setFbParsedData] = useState<FacebookUrlClassification | null>(null);
   const [fbDuplicateInfo, setFbDuplicateInfo] = useState<any>(null);
 
@@ -109,7 +119,7 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess, initialPhone 
       setPasteText("");
       setParsedPreview(null);
       setPreviewDuplicateInfo(null);
-      
+
       setFbPreviewStatus("idle");
       setFbParsedData(null);
       setFbDuplicateInfo(null);
@@ -121,7 +131,11 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess, initialPhone 
     let ownerName = "Chưa phân bổ";
     const ownerId = c.owner_sale_id || c.owner_tele_id;
     if (ownerId) {
-      const { data: p } = await supabase.from("profiles").select("display_name, email").eq("id", ownerId).single();
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("display_name, email")
+        .eq("id", ownerId)
+        .single();
       if (p) ownerName = p.display_name || p.email || ownerName;
     }
     return ownerName;
@@ -135,7 +149,7 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess, initialPhone 
       setFbDuplicateInfo(null);
       return;
     }
-    
+
     const val = form.primary_channel_value.trim();
     if (!val) {
       setFbPreviewStatus("idle");
@@ -151,15 +165,18 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess, initialPhone 
       const parsed = classifyFacebookUrl(val);
       setFbParsedData(parsed);
 
-      if (parsed.type === 'INVALID') {
-         setFbPreviewStatus("invalid");
-      } else if (['GROUP', 'POST', 'REEL', 'STORY', 'MESSENGER'].includes(parsed.type)) {
-         setFbPreviewStatus("invalid_type");
+      if (parsed.type === "INVALID") {
+        setFbPreviewStatus("invalid");
+      } else if (["GROUP", "POST", "REEL", "STORY", "MESSENGER"].includes(parsed.type)) {
+        setFbPreviewStatus("invalid_type");
       } else if (parsed.uid) {
         setFbPreviewStatus("uid");
       } else if (parsed.username) {
         setFbPreviewStatus("username");
-      } else if (val.toLowerCase().includes("facebook.com") || val.toLowerCase().includes("fb.com")) {
+      } else if (
+        val.toLowerCase().includes("facebook.com") ||
+        val.toLowerCase().includes("fb.com")
+      ) {
         setFbPreviewStatus("invalid_fb");
       } else {
         setFbPreviewStatus("invalid");
@@ -529,10 +546,12 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess, initialPhone 
         const uid = fbParsedData?.uid;
         const username = fbParsedData?.username;
         const normalized = fbParsedData?.normalizedUrl;
-        const fbType = fbParsedData?.type || 'UNKNOWN';
-        
-        const isUnsupported = ['GROUP', 'POST', 'REEL', 'STORY', 'MESSENGER', 'INVALID'].includes(fbType);
-        
+        const fbType = fbParsedData?.type || "UNKNOWN";
+
+        const isUnsupported = ["GROUP", "POST", "REEL", "STORY", "MESSENGER", "INVALID"].includes(
+          fbType,
+        );
+
         let resolver_status = "unresolved";
         let confidence_score = null;
         if (uid) {
@@ -544,19 +563,23 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess, initialPhone 
         }
 
         // Insert social profile if we parsed something or if it's a valid link
-        if (fbType !== 'INVALID') {
-          const { data: spData, error: spErr } = await supabase.from("customer_social_profiles").insert({
-            customer_id: newCustomer.id,
-            platform: "facebook",
-            raw_url: rawUrl,
-            normalized_url: normalized,
-            facebook_uid: uid,
-            facebook_username: username,
-            resolver_status,
-            resolver_method: "local_parser",
-            confidence_score
-          }).select('id').single();
-          
+        if (fbType !== "INVALID") {
+          const { data: spData, error: spErr } = await supabase
+            .from("customer_social_profiles")
+            .insert({
+              customer_id: newCustomer.id,
+              platform: "facebook",
+              raw_url: rawUrl,
+              normalized_url: normalized,
+              facebook_uid: uid,
+              facebook_username: username,
+              resolver_status,
+              resolver_method: "local_parser",
+              confidence_score,
+            })
+            .select("id")
+            .single();
+
           if (spErr) {
             console.warn("Failed to insert customer_social_profiles:", spErr);
             toast.warning("Lỗi lưu hồ sơ Facebook: " + spErr.message);
@@ -566,44 +589,55 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess, initialPhone 
         }
 
         // Determine if we need a job and what status it should have
-        if (fbType !== 'INVALID' && !uid) {
-          let auto_resolve_status = 'not_attempted';
-          let jobStatus = 'manual_review_required';
+        if (fbType !== "INVALID" && !uid) {
+          let auto_resolve_status = "not_attempted";
+          const jobStatus = "manual_review_required";
           let errorLog = null;
-          
+
           if (isUnsupported) {
-            auto_resolve_status = 'skipped_invalid_type';
+            auto_resolve_status = "skipped_invalid_type";
             errorLog = `Unsupported Facebook URL type: ${fbType}`;
           }
-          
-          const { data: jobData, error: jobErr } = await supabase.from("facebook_identity_resolution_jobs").insert({
-            customer_id: newCustomer.id,
-            raw_url: rawUrl,
-            status: jobStatus,
-            resolver_method: "local_parser",
-            confidence_score: confidence_score || 0,
-            created_by: user?.id,
-            auto_resolve_status: auto_resolve_status,
-            last_auto_resolve_error: errorLog
-          }).select('id').single();
-          
+
+          const { data: jobData, error: jobErr } = await supabase
+            .from("facebook_identity_resolution_jobs")
+            .insert({
+              customer_id: newCustomer.id,
+              raw_url: rawUrl,
+              status: jobStatus,
+              resolver_method: "local_parser",
+              confidence_score: confidence_score || 0,
+              created_by: user?.id,
+              auto_resolve_status: auto_resolve_status,
+              last_auto_resolve_error: errorLog,
+            })
+            .select("id")
+            .single();
+
           if (jobErr) {
             console.warn("Failed to insert facebook_identity_resolution_jobs:", jobErr);
           } else if (jobData) {
             if (isUnsupported) {
-               // Log audit skipped
-               await supabase.from("facebook_identity_resolution_audit").insert({
+              // Log audit skipped
+              await supabase
+                .from("facebook_identity_resolution_audit")
+                .insert({
                   job_id: jobData.id,
-                  provider_status: 'skipped_invalid_type',
-                  raw_response: { error: errorLog }
-               }).catch(e => console.warn(e));
-               toast.info("Link Facebook thuộc loại nhóm/bài viết, sẽ bỏ qua phân giải tự động.");
+                  provider_status: "skipped_invalid_type",
+                  raw_response: { error: errorLog },
+                })
+                .catch((e) => console.warn(e));
+              toast.info("Link Facebook thuộc loại nhóm/bài viết, sẽ bỏ qua phân giải tự động.");
+            } else if (isAdmin || isSubAdmin) {
+              // Trigger background auto-resolver silently
+              supabase.functions
+                .invoke("resolve-facebook-uid", {
+                  body: { job_id: jobData.id },
+                })
+                .catch((e) => console.warn("Auto-resolver invoke failed:", e));
+              isResolvingBackground = true;
             } else {
-               // Trigger background auto-resolver silently
-               supabase.functions.invoke("resolve-facebook-uid", {
-                 body: { job_id: jobData.id }
-               }).catch(e => console.warn("Auto-resolver invoke failed:", e));
-               isResolvingBackground = true;
+              // For Sale/Tele: just mark it pending and don't trigger the resolver
             }
           }
         }
@@ -640,18 +674,32 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess, initialPhone 
             is_primary: true,
             channel_purpose: "sales",
             user,
-            social_profile_id: currentSocialProfileId || undefined
+            social_profile_id: currentSocialProfileId || undefined,
           });
           if (resErr) throw resErr;
           toast.success("Đã tạo khách", {
-            description: isResolvingBackground ? "Hệ thống đang thử tìm UID và tên Facebook trong nền. Tên sẽ hiển thị nếu provider trả về." : "Đã tạo khách hàng mới."
+            description: isResolvingBackground
+              ? "Hệ thống đang thử tìm UID và tên Facebook trong nền. Tên sẽ hiển thị nếu provider trả về."
+              : form.primary_channel_type === "facebook" &&
+                  !isAdmin &&
+                  !isSubAdmin &&
+                  !fbParsedData?.uid
+                ? "Đã lưu link Facebook. UID sẽ được Admin xử lý sau."
+                : "Đã tạo khách hàng mới.",
           });
         } catch (err: any) {
           toast.warning("Khách đã tạo, nhưng kênh liên hệ chính chưa lưu được: " + err.message);
         }
       } else {
         toast.success("Đã tạo khách", {
-          description: isResolvingBackground ? "Hệ thống đang thử tìm UID và tên Facebook trong nền. Tên sẽ hiển thị nếu provider trả về." : "Đã tạo khách hàng mới."
+          description: isResolvingBackground
+            ? "Hệ thống đang thử tìm UID và tên Facebook trong nền. Tên sẽ hiển thị nếu provider trả về."
+            : form.primary_channel_type === "facebook" &&
+                !isAdmin &&
+                !isSubAdmin &&
+                !fbParsedData?.uid
+              ? "Đã lưu link Facebook. UID sẽ được Admin xử lý sau."
+              : "Đã tạo khách hàng mới.",
         });
       }
       // --- End Facebook Identity Save ---
@@ -904,7 +952,9 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess, initialPhone 
               <div className="space-y-2 col-span-2">
                 <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
                   <Phone className="w-3.5 h-3.5 text-indigo-500" /> Số điện thoại{" "}
-                  {!form.primary_channel_value.trim() && <span className="text-rose-500 text-sm">*</span>}
+                  {!form.primary_channel_value.trim() && (
+                    <span className="text-rose-500 text-sm">*</span>
+                  )}
                   {isCheckingPhone && (
                     <Loader2 className="w-3 h-3 text-indigo-400 animate-spin ml-1" />
                   )}
@@ -1096,105 +1146,129 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess, initialPhone 
                 </div>
 
                 {/* Facebook URL Preview & Duplicate Check */}
-                {form.primary_channel_type === "facebook" && form.primary_channel_value && fbPreviewStatus !== "idle" && (
-                  <div className="mt-4 border-t border-indigo-50 pt-3">
-                    {fbPreviewStatus === "loading" && (
-                      <div className="text-xs text-slate-500 flex items-center gap-2 px-2">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
-                        <span>Đang kiểm tra Facebook...</span>
-                      </div>
-                    )}
-                    {fbPreviewStatus === "uid" && (
-                      <div className="text-xs text-emerald-700 bg-emerald-50/80 px-3 py-2.5 rounded-xl flex items-start gap-2 border border-emerald-100">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-px shrink-0" />
-                        <div>
-                          <span className="font-bold">Nhận diện được UID: </span>
-                          <span className="font-mono bg-white px-1 py-0.5 rounded text-emerald-600 border border-emerald-100">
-                            {fbParsedData?.uid}
+                {form.primary_channel_type === "facebook" &&
+                  form.primary_channel_value &&
+                  fbPreviewStatus !== "idle" && (
+                    <div className="mt-4 border-t border-indigo-50 pt-3">
+                      {fbPreviewStatus === "loading" && (
+                        <div className="text-xs text-slate-500 flex items-center gap-2 px-2">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                          <span>Đang kiểm tra Facebook...</span>
+                        </div>
+                      )}
+                      {fbPreviewStatus === "uid" && (
+                        <div className="text-xs text-emerald-700 bg-emerald-50/80 px-3 py-2.5 rounded-xl flex items-start gap-2 border border-emerald-100">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-px shrink-0" />
+                          <div>
+                            <span className="font-bold">Nhận diện được UID: </span>
+                            <span className="font-mono bg-white px-1 py-0.5 rounded text-emerald-600 border border-emerald-100">
+                              {fbParsedData?.uid}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {fbPreviewStatus === "username" && (
+                        <div className="text-xs text-amber-700 bg-amber-50/80 px-3 py-2.5 rounded-xl flex items-start gap-2 border border-amber-100">
+                          <AlertCircle className="w-4 h-4 text-amber-500 mt-px shrink-0" />
+                          <div>
+                            <span className="font-bold">Đã nhận diện username: </span>
+                            <span className="font-mono bg-white px-1 py-0.5 rounded text-amber-600 border border-amber-100">
+                              {fbParsedData?.username}
+                            </span>
+                            <div className="opacity-80 text-[10px] mt-0.5">
+                              Chưa có UID ổn định. Bạn vẫn có thể tiếp tục tạo khách hàng.
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {fbPreviewStatus === "invalid_type" && (
+                        <div className="text-xs text-amber-700 bg-amber-50/80 px-3 py-2.5 rounded-xl flex items-start gap-2 border border-amber-100">
+                          <AlertCircle className="w-4 h-4 text-amber-500 mt-px shrink-0" />
+                          <div>
+                            <span className="font-bold">
+                              Hệ thống không tự động phân giải loại link này (Group, Bài viết,
+                              Reel...).
+                            </span>
+                            <div className="opacity-80 text-[10px] mt-0.5">
+                              Sẽ đưa vào hàng đợi kiểm tra thủ công.
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {fbPreviewStatus === "invalid_fb" && (
+                        <div className="text-xs text-amber-700 bg-amber-50/80 px-3 py-2.5 rounded-xl flex items-start gap-2 border border-amber-100">
+                          <AlertCircle className="w-4 h-4 text-amber-500 mt-px shrink-0" />
+                          <div>
+                            <span className="font-bold">Không nhận diện được Facebook URL.</span>
+                            <div className="opacity-80 text-[10px] mt-0.5">
+                              Hệ thống sẽ ghi nhận tạm để xử lý thủ công. Vẫn có thể tạo khách.
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {fbPreviewStatus === "invalid" && (
+                        <div className="text-xs text-slate-600 bg-slate-50 px-3 py-2 rounded-xl flex items-center gap-2 border border-slate-200">
+                          <Info className="w-4 h-4 text-slate-400" />
+                          <span>
+                            Định dạng không phải là Facebook URL. Sẽ lưu dưới dạng văn bản thường.
                           </span>
                         </div>
-                      </div>
-                    )}
-                    {fbPreviewStatus === "username" && (
-                      <div className="text-xs text-amber-700 bg-amber-50/80 px-3 py-2.5 rounded-xl flex items-start gap-2 border border-amber-100">
-                        <AlertCircle className="w-4 h-4 text-amber-500 mt-px shrink-0" />
-                        <div>
-                          <span className="font-bold">Đã nhận diện username: </span>
-                          <span className="font-mono bg-white px-1 py-0.5 rounded text-amber-600 border border-amber-100">
-                            {fbParsedData?.username}
-                          </span>
-                          <div className="opacity-80 text-[10px] mt-0.5">Chưa có UID ổn định. Bạn vẫn có thể tiếp tục tạo khách hàng.</div>
-                        </div>
-                      </div>
-                    )}
-                    {fbPreviewStatus === "invalid_type" && (
-                      <div className="text-xs text-amber-700 bg-amber-50/80 px-3 py-2.5 rounded-xl flex items-start gap-2 border border-amber-100">
-                        <AlertCircle className="w-4 h-4 text-amber-500 mt-px shrink-0" />
-                        <div>
-                          <span className="font-bold">Hệ thống không tự động phân giải loại link này (Group, Bài viết, Reel...).</span>
-                          <div className="opacity-80 text-[10px] mt-0.5">Sẽ đưa vào hàng đợi kiểm tra thủ công.</div>
-                        </div>
-                      </div>
-                    )}
-                    {fbPreviewStatus === "invalid_fb" && (
-                      <div className="text-xs text-amber-700 bg-amber-50/80 px-3 py-2.5 rounded-xl flex items-start gap-2 border border-amber-100">
-                        <AlertCircle className="w-4 h-4 text-amber-500 mt-px shrink-0" />
-                        <div>
-                          <span className="font-bold">Không nhận diện được Facebook URL.</span>
-                          <div className="opacity-80 text-[10px] mt-0.5">Hệ thống sẽ ghi nhận tạm để xử lý thủ công. Vẫn có thể tạo khách.</div>
-                        </div>
-                      </div>
-                    )}
-                    {fbPreviewStatus === "invalid" && (
-                      <div className="text-xs text-slate-600 bg-slate-50 px-3 py-2 rounded-xl flex items-center gap-2 border border-slate-200">
-                        <Info className="w-4 h-4 text-slate-400" />
-                        <span>Định dạng không phải là Facebook URL. Sẽ lưu dưới dạng văn bản thường.</span>
-                      </div>
-                    )}
+                      )}
 
-                    {fbDuplicateInfo && (
-                      <div className="mt-3 bg-rose-50/80 border border-rose-200 rounded-xl p-3 shadow-sm animate-in fade-in zoom-in-95 flex items-start gap-3">
-                        <BadgeAlert className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <h4 className="text-sm font-bold text-rose-800 leading-none">Phát hiện dữ liệu trùng lặp!</h4>
-                          <p className="text-[11px] text-rose-600 mt-1.5 leading-snug">
-                            Hệ thống cảnh báo đã có khách hàng mang thông tin Facebook này. Tuy nhiên, <b>bạn vẫn có thể tạo khách hàng mới</b> nếu muốn.
-                          </p>
-                          <div className="mt-2.5 bg-white p-2.5 rounded-lg border border-rose-100 space-y-1.5">
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="text-slate-500 uppercase text-[10px] font-bold">Khách:</span>
-                              <span className="font-bold text-slate-800">{fbDuplicateInfo.facility_name || fbDuplicateInfo.name}</span>
+                      {fbDuplicateInfo && (
+                        <div className="mt-3 bg-rose-50/80 border border-rose-200 rounded-xl p-3 shadow-sm animate-in fade-in zoom-in-95 flex items-start gap-3">
+                          <BadgeAlert className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <h4 className="text-sm font-bold text-rose-800 leading-none">
+                              Phát hiện dữ liệu trùng lặp!
+                            </h4>
+                            <p className="text-[11px] text-rose-600 mt-1.5 leading-snug">
+                              Hệ thống cảnh báo đã có khách hàng mang thông tin Facebook này. Tuy
+                              nhiên, <b>bạn vẫn có thể tạo khách hàng mới</b> nếu muốn.
+                            </p>
+                            <div className="mt-2.5 bg-white p-2.5 rounded-lg border border-rose-100 space-y-1.5">
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-slate-500 uppercase text-[10px] font-bold">
+                                  Khách:
+                                </span>
+                                <span className="font-bold text-slate-800">
+                                  {fbDuplicateInfo.facility_name || fbDuplicateInfo.name}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-slate-500 uppercase text-[10px] font-bold">
+                                  Quản lý:
+                                </span>
+                                <span className="font-medium text-slate-700">
+                                  {fbDuplicateInfo.ownerName}
+                                </span>
+                              </div>
                             </div>
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="text-slate-500 uppercase text-[10px] font-bold">Quản lý:</span>
-                              <span className="font-medium text-slate-700">{fbDuplicateInfo.ownerName}</span>
+                            <div className="mt-3 flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                type="button"
+                                onClick={() => handleOpenCustomer(fbDuplicateInfo.id)}
+                                className="h-8 text-[11px] font-bold border-rose-200 text-rose-700 hover:bg-rose-100 px-3 rounded-lg flex-1"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5 mr-1.5" /> MỞ KHÁCH CŨ
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                type="button"
+                                onClick={() => setFbDuplicateInfo(null)}
+                                className="h-8 text-[11px] font-bold text-slate-500 hover:text-slate-700 px-3 rounded-lg"
+                              >
+                                BỎ QUA CẢNH BÁO
+                              </Button>
                             </div>
-                          </div>
-                          <div className="mt-3 flex items-center gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              type="button"
-                              onClick={() => handleOpenCustomer(fbDuplicateInfo.id)} 
-                              className="h-8 text-[11px] font-bold border-rose-200 text-rose-700 hover:bg-rose-100 px-3 rounded-lg flex-1"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5 mr-1.5" /> MỞ KHÁCH CŨ
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              type="button"
-                              onClick={() => setFbDuplicateInfo(null)}
-                              className="h-8 text-[11px] font-bold text-slate-500 hover:text-slate-700 px-3 rounded-lg"
-                            >
-                              BỎ QUA CẢNH BÁO
-                            </Button>
                           </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                      )}
+                    </div>
+                  )}
               </div>
 
               {/* Ghi chú */}

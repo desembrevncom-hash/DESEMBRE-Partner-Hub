@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface FacebookIdentityBadgeProps {
   facebookUid?: string | null;
@@ -53,6 +54,9 @@ export function FacebookIdentityBadge({
   isRetryPending,
   duplicateProfile,
 }: FacebookIdentityBadgeProps) {
+  const { isAdmin, roles } = useAuth();
+  const canTriggerResolver = isAdmin || roles.includes("sub_admin");
+
   // A. UID & Display Name exists
   if (facebookUid || facebookDisplayName) {
     return (
@@ -86,9 +90,10 @@ export function FacebookIdentityBadge({
                 </TooltipTrigger>
                 <TooltipContent className="flex flex-col gap-1">
                   <span>Nguồn tên: {displayNameSource || "Không rõ"}</span>
-                  {displayNameConfidenceScore !== undefined && displayNameConfidenceScore !== null && (
-                    <span>Độ tin cậy tên: {displayNameConfidenceScore}%</span>
-                  )}
+                  {displayNameConfidenceScore !== undefined &&
+                    displayNameConfidenceScore !== null && (
+                      <span>Độ tin cậy tên: {displayNameConfidenceScore}%</span>
+                    )}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -100,11 +105,16 @@ export function FacebookIdentityBadge({
                 className="h-6 text-[10px] px-2 bg-white text-slate-600 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600"
                 onClick={(e) => {
                   e.stopPropagation();
-                  
+
                   // Helper function to check if name is replaceable
                   const isReplaceable = (val: string | null | undefined) => {
                     if (!val || !val.trim()) return true;
-                    if (val.toLowerCase().includes('http') || val.toLowerCase().includes('facebook.com') || val.toLowerCase().includes('fb.com')) return true;
+                    if (
+                      val.toLowerCase().includes("http") ||
+                      val.toLowerCase().includes("facebook.com") ||
+                      val.toLowerCase().includes("fb.com")
+                    )
+                      return true;
                     if (/^\d+$/.test(val)) return true;
                     return false;
                   };
@@ -115,7 +125,9 @@ export function FacebookIdentityBadge({
                   if (nameReplaceable || contactReplaceable) {
                     onApplyName(facebookDisplayName);
                   } else {
-                    const confirmOverwrite = window.confirm(`Tên hiện tại là "${currentCustomerName || currentCustomerContactName}". Bạn có chắc muốn đổi thành "${facebookDisplayName}" không?`);
+                    const confirmOverwrite = window.confirm(
+                      `Tên hiện tại là "${currentCustomerName || currentCustomerContactName}". Bạn có chắc muốn đổi thành "${facebookDisplayName}" không?`,
+                    );
                     if (confirmOverwrite) {
                       onApplyName(facebookDisplayName, true);
                     }
@@ -123,7 +135,11 @@ export function FacebookIdentityBadge({
                 }}
                 disabled={isApplyPending}
               >
-                {isApplyPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Áp dụng làm tên KH"}
+                {isApplyPending ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  "Áp dụng làm tên KH"
+                )}
               </Button>
             )}
             {!canApplyName && onApplyName && (
@@ -148,8 +164,12 @@ export function FacebookIdentityBadge({
               </TooltipProvider>
             )}
           </div>
-        ) : (
-            canApplyName && onFetchMissingName && jobStatus !== 'duplicate_candidate' && autoResolveStatus !== 'duplicate_detected' && autoResolveStatus !== 'failed' ? (
+        ) : canApplyName &&
+          onFetchMissingName &&
+          jobStatus !== "duplicate_candidate" &&
+          autoResolveStatus !== "duplicate_detected" &&
+          autoResolveStatus !== "failed" ? (
+          canTriggerResolver ? (
             <Button
               variant="outline"
               size="sm"
@@ -163,10 +183,30 @@ export function FacebookIdentityBadge({
               {isFetchPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Tìm Tên FB"}
             </Button>
           ) : (
-            <Badge className="bg-slate-50 text-slate-500 border border-slate-200 text-[10px] px-2 py-0.5">
-              Tên Facebook chưa có
-            </Badge>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-block cursor-not-allowed">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-6 text-[10px] px-2 bg-white text-slate-400 border-slate-200 pointer-events-none"
+                      disabled
+                    >
+                      Tìm Tên FB
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Chỉ Admin/Sub-admin/Manager có quyền tìm UID Facebook.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )
+        ) : (
+          <Badge className="bg-slate-50 text-slate-500 border border-slate-200 text-[10px] px-2 py-0.5">
+            Tên Facebook chưa có
+          </Badge>
         )}
       </div>
     );
@@ -174,6 +214,13 @@ export function FacebookIdentityBadge({
 
   // B. Resolving
   if (autoResolveStatus === "resolving" || autoResolveStatus === "queued") {
+    if (!canTriggerResolver) {
+      return (
+        <Badge className="bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200 text-[10px] px-2 py-0.5">
+          <Loader2 className="w-2.5 h-2.5 mr-1 animate-spin" /> Chờ Admin xử lý UID
+        </Badge>
+      );
+    }
     return (
       <Badge className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] px-2 py-0.5">
         <Loader2 className="w-2.5 h-2.5 mr-1 animate-spin" /> Đang tìm UID tự động...
@@ -183,12 +230,21 @@ export function FacebookIdentityBadge({
 
   // D. Duplicate
   if (jobStatus === "duplicate_candidate" || autoResolveStatus === "duplicate_detected") {
-    const link = duplicateProfile?.customers?.id ? `/customers?id=${duplicateProfile.customers.id}` : null;
+    const link = duplicateProfile?.customers?.id
+      ? `/customers?id=${duplicateProfile.customers.id}`
+      : null;
     return (
       <Badge className="bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-[10px] px-2 py-0.5 flex items-center gap-1">
         <AlertCircle className="w-2.5 h-2.5" /> UID trùng khách khác
         {link && (
-          <Button variant="link" className="h-auto p-0 text-[10px] text-rose-700 underline flex items-center" onClick={(e) => { e.stopPropagation(); window.open(link, "_blank"); }}>
+          <Button
+            variant="link"
+            className="h-auto p-0 text-[10px] text-rose-700 underline flex items-center"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.open(link, "_blank");
+            }}
+          >
             (Mở khách cũ)
           </Button>
         )}
@@ -198,8 +254,8 @@ export function FacebookIdentityBadge({
 
   // C. Failed / Error States
   if (
-    autoResolveStatus === "failed" || 
-    autoResolveStatus === "timeout" || 
+    autoResolveStatus === "failed" ||
+    autoResolveStatus === "timeout" ||
     autoResolveStatus === "not_found" ||
     autoResolveStatus === "disabled" ||
     autoResolveStatus === "rate_limited" ||
@@ -219,7 +275,7 @@ export function FacebookIdentityBadge({
             <TooltipContent>{lastAutoResolveError || "Lỗi không xác định"}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
-        {canApplyName && onForceRetry && (
+        {canApplyName && onForceRetry && canTriggerResolver && (
           <Button
             variant="outline"
             size="sm"
@@ -228,21 +284,53 @@ export function FacebookIdentityBadge({
             title="Thử tìm lại UID"
             className="h-[22px] px-2 text-[10px] font-bold text-amber-700 border-amber-200 bg-amber-50 hover:bg-amber-100 uppercase"
           >
-            {isRetryPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RefreshCw className="w-3 h-3 mr-1" />}
+            {isRetryPending ? (
+              <Loader2 className="w-3 h-3 animate-spin mr-1" />
+            ) : (
+              <RefreshCw className="w-3 h-3 mr-1" />
+            )}
             TÌM LẠI
           </Button>
+        )}
+        {canApplyName && onForceRetry && !canTriggerResolver && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-block cursor-not-allowed">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled
+                    className="h-[22px] px-2 text-[10px] font-bold text-slate-400 border-slate-200 bg-slate-50 uppercase pointer-events-none"
+                  >
+                    TÌM LẠI
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Chỉ Admin/Sub-admin/Manager có quyền tìm UID Facebook.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
       </div>
     );
   }
-  
+
   // E. No resolver result yet (but not resolving/failed)
   if (autoResolveStatus === "not_attempted" || jobStatus === "manual_review_required") {
-     return (
+    if (!canTriggerResolver) {
+      return (
+        <Badge className="bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200 text-[10px] px-2 py-0.5">
+          <AlertCircle className="w-2.5 h-2.5 mr-1" /> Chờ Admin xử lý UID
+        </Badge>
+      );
+    }
+    return (
       <Badge className="bg-yellow-50 text-yellow-700 hover:bg-yellow-100 border border-yellow-200 text-[10px] px-2 py-0.5">
         <AlertCircle className="w-2.5 h-2.5 mr-1" /> Đã nhận diện username, đang chờ phân giải UID
       </Badge>
-     );
+    );
   }
 
   return null;
