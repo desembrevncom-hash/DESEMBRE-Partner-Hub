@@ -348,11 +348,11 @@ function CustomersPage() {
         ...data.map((c: any) =>
           [
             c.id,
-            `"${(c.facility_name || "").replace(/"/g, '""')}"`,
-            `"${(c.name || "").replace(/"/g, '""')}"`,
+            `"${String(c.facility_name || "").replace(/"/g, '""')}"`,
+            `"${String(c.name || "").replace(/"/g, '""')}"`,
             `"${c.phone || ""}"`,
             `"${c.normalized_phone || ""}"`,
-            `"${(c.address || "").replace(/"/g, '""')}"`,
+            `"${String(c.address || "").replace(/"/g, '""')}"`,
             c.customer_channel || "",
             c.care_model || "",
             c.status || "",
@@ -360,7 +360,7 @@ function CustomersPage() {
             c.owner_sale_id || "",
             c.owner_tele_id || "",
             c.created_at,
-            `"${(c.delete_reason || "").replace(/"/g, '""')}"`,
+            `"${String(c.delete_reason || "").replace(/"/g, '""')}"`,
             c.deleted_by || "",
             c.deleted_at || "",
           ].join(","),
@@ -1770,7 +1770,7 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
   const convState = getCustomerConversationState(customer);
 
   const hasZalo = !!customer.channel_summary?.has_zalo;
-  const primaryPhone = customer.phone || "";
+  const primaryPhone = String(customer.phone || "");
 
   const normalizedBadges = getCustomerCardBadges(customer);
   const topBadges = normalizedBadges.slice(0, 2);
@@ -2199,7 +2199,7 @@ function CustomerIntelligenceRow({
   const teleInitials = getStaffInitials(customer.owner_tele_id, staffMap);
 
   const hasZalo = !!customer.channel_summary?.has_zalo;
-  const primaryPhone = customer.phone || "";
+  const primaryPhone = String(customer.phone || "");
 
   return (
     <div
