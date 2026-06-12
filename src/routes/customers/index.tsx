@@ -70,7 +70,7 @@ import { getEmailLocalPart } from "@/lib/utils/safeEmail";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
 import { Loader2 } from "lucide-react";
-import { stripAccents } from "@/lib/utils";
+import { stripAccents } from "@/lib/vietnamProvinces";
 
 class CustomerRowErrorBoundary extends React.Component<{
   children: React.ReactNode;
