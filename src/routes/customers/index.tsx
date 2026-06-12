@@ -573,12 +573,12 @@ function CustomersPage() {
       const q = stripAccents(searchQuery.toLowerCase());
       result = result.filter((c) => {
         const nameMatch =
-          stripAccents(c.contact_name?.toLowerCase() || "").includes(q) ||
-          stripAccents(c.business_name?.toLowerCase() || "").includes(q) ||
-          stripAccents(c.facility_name?.toLowerCase() || "").includes(q) ||
-          stripAccents(c.name?.toLowerCase() || "").includes(q);
-        const phoneMatch = c.phone?.includes(q);
-        const emailMatch = c.email?.toLowerCase().includes(q);
+          stripAccents(String(c.contact_name || "").toLowerCase()).includes(q) ||
+          stripAccents(String(c.business_name || "").toLowerCase()).includes(q) ||
+          stripAccents(String(c.facility_name || "").toLowerCase()).includes(q) ||
+          stripAccents(String(c.name || "").toLowerCase()).includes(q);
+        const phoneMatch = String(c.phone || "").includes(q);
+        const emailMatch = String(c.email || "").toLowerCase().includes(q);
         return nameMatch || phoneMatch || emailMatch;
       });
     }

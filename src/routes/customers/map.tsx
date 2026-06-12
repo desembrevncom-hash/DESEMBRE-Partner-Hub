@@ -672,10 +672,10 @@ function CustomerMapPage() {
       // 1. Search Query
       const searchLower = searchQuery.toLowerCase();
       const matchSearch =
-        (c.facility_name || "").toLowerCase().includes(searchLower) ||
-        (c.name || "").toLowerCase().includes(searchLower) ||
-        (c.phone || "").toLowerCase().includes(searchLower) ||
-        (c.address || "").toLowerCase().includes(searchLower);
+        String(c.facility_name || "").toLowerCase().includes(searchLower) ||
+        String(c.name || "").toLowerCase().includes(searchLower) ||
+        String(c.phone || "").toLowerCase().includes(searchLower) ||
+        String(c.address || "").toLowerCase().includes(searchLower);
 
       if (!matchSearch) return false;
       if (cityFilter !== "all" && c.city !== cityFilter) return false;
