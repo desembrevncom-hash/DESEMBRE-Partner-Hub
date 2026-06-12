@@ -72,7 +72,7 @@ serve(async (req) => {
 
     // Get user roles
     const { data: userData } = await supabaseAdmin
-      .from("users_roles")
+      .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
       .single();
