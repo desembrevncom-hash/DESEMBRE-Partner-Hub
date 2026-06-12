@@ -401,16 +401,7 @@ export function CustomerContactChannels({ customerId, customer }: CustomerContac
                     currentCustomerName={customer?.name}
                     currentCustomerContactName={customer?.contact_name}
                     isApplyPending={applyNameMutation.isPending}
-                    onApplyName={(name, forceOverwrite) => {
-                      applyNameMutation.mutate({ customerId, socialProfileId: profile.id, forceOverwrite }, {
-                        onSuccess: () => {
-                          toast.success("Đã áp dụng tên Facebook vào tên khách hàng.");
-                        },
-                        onError: (err: any) => {
-                          toast.error("Lỗi", { description: err.message });
-                        }
-                      });
-                    }}
+
                     onForceRetry={job?.id ? () => retryResolve.mutate(job.id, {
                       onSuccess: () => {
                         toast.success("Đã đưa vào hàng đợi phân giải lại");

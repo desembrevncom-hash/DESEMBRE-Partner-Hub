@@ -10,6 +10,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { addHours, addDays, nextMonday, startOfDay, setHours } from "date-fns";
+import { getCustomerCardTitle } from "@/lib/customers/customerDisplayName";
 
 interface InlineFollowUpSchedulerProps {
   customer: any;
@@ -60,7 +61,7 @@ export function InlineFollowUpScheduler({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Hẹn gọi lại: {customer?.name}</DialogTitle>
+          <DialogTitle>Hẹn gọi lại: {getCustomerCardTitle(customer || {})}</DialogTitle>
         </DialogHeader>
         <div className="py-4 grid grid-cols-2 gap-2">
           {presets.map((p, idx) => (

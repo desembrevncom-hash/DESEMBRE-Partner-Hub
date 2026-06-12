@@ -45,8 +45,8 @@ import {
   Facebook,
 } from "lucide-react";
 import { normalizePhone } from "@/lib/phone";
-import { VIETNAM_PROVINCES, stripAccents, findProvinceByName } from "@/lib/vietnamProvinces";
 import { createLeadAssignedAutomation } from "@/lib/automation";
+import { getCustomerCardTitle } from "@/lib/customers/customerDisplayName";
 import { Badge } from "@/components/ui/badge";
 import { createContactChannel } from "@/lib/contactChannels";
 import {
@@ -464,12 +464,21 @@ export function AddCustomerDialog({
       if (isSale) defaultOwnerSaleId = user?.id;
       if (isTeleLead) defaultOwnerTeleId = user?.id;
 
+      const facName = form.facility_name.trim();
+      const conName = form.name.trim();
+      const ph = form.phone.trim();
+
+      let bestName = "Khách chưa có tên";
+      if (facName) bestName = facName;
+      else if (conName) bestName = conName;
+      else if (ph) bestName = ph;
+
       const payload: any = {
-        facility_name: form.facility_name.trim(),
-        name: form.name.trim(),
-        contact_name: form.name.trim(),
-        business_name: form.facility_name.trim(),
-        phone: form.phone.trim(),
+        facility_name: facName || null,
+        name: bestName,
+        contact_name: conName || null,
+        business_name: facName || null,
+        phone: ph || null,
         normalized_phone: normPhone,
         city: form.city,
         source: form.source,
@@ -523,7 +532,7 @@ export function AddCustomerDialog({
       if (newCustomer.owner_sale_id) {
         await createLeadAssignedAutomation(
           newCustomer.id,
-          newCustomer.facility_name || newCustomer.name,
+          getCustomerCardTitle(newCustomer),
           newCustomer.owner_sale_id,
           user?.email || "Hệ thống",
           user?.id || "",
@@ -531,7 +540,7 @@ export function AddCustomerDialog({
       } else if (newCustomer.owner_tele_id) {
         await createLeadAssignedAutomation(
           newCustomer.id,
-          newCustomer.facility_name || newCustomer.name,
+          getCustomerCardTitle(newCustomer),
           newCustomer.owner_tele_id,
           user?.email || "Hệ thống",
           user?.id || "",
@@ -684,7 +693,7 @@ export function AddCustomerDialog({
                   !isAdmin &&
                   !isSubAdmin &&
                   !fbParsedData?.uid
-                ? "Đã lưu link Facebook. UID sẽ được Admin xử lý sau."
+                ? "Chờ Admin xử lý UID."
                 : "Đã tạo khách hàng mới.",
           });
         } catch (err: any) {
@@ -698,7 +707,7 @@ export function AddCustomerDialog({
                 !isAdmin &&
                 !isSubAdmin &&
                 !fbParsedData?.uid
-              ? "Đã lưu link Facebook. UID sẽ được Admin xử lý sau."
+              ? "Chờ Admin xử lý UID."
               : "Đã tạo khách hàng mới.",
         });
       }

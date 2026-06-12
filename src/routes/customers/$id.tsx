@@ -704,7 +704,7 @@ function CustomerDetailPage() {
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none">
-                  {getCustomerPersonDisplayName(customer)}
+                  {getCustomerCardTitle(customer)}
                 </h1>
                 {renderStatusBadge(customer.lifecycle_stage)}
                 <Badge
@@ -721,7 +721,7 @@ function CustomerDetailPage() {
               <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-500">
                 <span className="flex items-center gap-1.5">
                   <UserCircle className="w-4 h-4 text-slate-400" />{" "}
-                  {customer.contact_name || customer.name || "N/A"}
+                  {getCustomerPersonDisplayName(customer)}
                 </span>
                 {customer.phone && (
                   <>
@@ -898,7 +898,7 @@ function CustomerDetailPage() {
                     <div className="space-y-1.5">
                       <p className="text-[10px] font-bold text-slate-400 uppercase">Tên liên hệ</p>
                       <p className="text-sm font-black text-slate-800">
-                        {customer.contact_name || customer.name || "N/A"}
+                        {getCustomerPersonDisplayName(customer)}
                       </p>
                     </div>
                     {customer.email && (

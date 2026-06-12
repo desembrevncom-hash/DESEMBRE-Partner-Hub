@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { WorkspaceShell } from "./WorkspaceShell";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
+import { getCustomerCardTitle, getCustomerPersonDisplayName, getCustomerBusinessDisplayName } from "@/lib/customers/customerDisplayName";
 
 import {
   Phone,
@@ -449,7 +450,7 @@ export const TelesaleWorkspace: React.FC = () => {
                       {t.customer && (
                         <span className="flex items-center gap-1">
                           <User className="w-3.5 h-3.5 text-slate-400" />
-                          🏢 {t.customer.business_name || t.customer.facility_name || t.customer.contact_name || t.customer.name || t.customer.facebook_display_name || "Spa tự do"} - 📞{" "}
+                          🏢 {getCustomerCardTitle(t.customer)} - 📞{" "}
                           {t.customer.phone || "Chưa cập nhật"}
                         </span>
                       )}
@@ -574,8 +575,8 @@ export const TelesaleWorkspace: React.FC = () => {
                           {item.title}
                         </div>
                         {item.customer && (
-                          <div className="text-[10px] text-slate-450 font-bold mt-1">
-                            🏢 {item.customer.business_name || item.customer.facility_name || item.customer.contact_name || item.customer.name || item.customer.facebook_display_name || "Spa tự do"}
+                          <div className="text-[10px] text-slate-450 font-bold mt-1 truncate">
+                            🏢 {getCustomerCardTitle(item.customer)}
                           </div>
                         )}
                       </div>
@@ -602,11 +603,11 @@ export const TelesaleWorkspace: React.FC = () => {
                       className="p-3.5 rounded-xl border border-slate-100 bg-slate-50 flex items-center justify-between gap-3"
                     >
                       <div>
-                        <div className="text-xs font-bold text-slate-950 leading-snug">
-                          {item.name || item.contact_name}
+                        <div className="text-xs font-bold text-slate-950 leading-snug truncate">
+                          {getCustomerCardTitle(item)}
                         </div>
-                        <div className="text-[10px] text-slate-455 font-bold mt-1">
-                          🏢 {item.facility_name || item.business_name || "Spa tự do"}
+                        <div className="text-[10px] text-slate-455 font-bold mt-1 truncate">
+                          👤 {getCustomerPersonDisplayName(item)}
                         </div>
                       </div>
                       <Button

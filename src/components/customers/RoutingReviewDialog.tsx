@@ -30,6 +30,7 @@ import {
   getCustomerDistanceLabel,
   getCareModelLabel,
 } from "@/lib/customerOwnership";
+import { getCustomerCardTitle } from "@/lib/customers/customerDisplayName";
 
 interface RoutingReviewDialogProps {
   open: boolean;
@@ -149,7 +150,7 @@ export function RoutingReviewDialog({ open, onOpenChange, user }: RoutingReviewD
   const handleApplySingle = async (item: any) => {
     if (
       !window.confirm(
-        `Áp dụng gợi ý phân tuyến cho khách hàng ${item.customer.facility_name || item.customer.name}?`,
+        `Áp dụng gợi ý phân tuyến cho khách hàng ${getCustomerCardTitle(item.customer || {})}?`,
       )
     )
       return;
@@ -320,7 +321,7 @@ export function RoutingReviewDialog({ open, onOpenChange, user }: RoutingReviewD
                           >
                             <td className="px-3 py-2">
                               <div className="font-bold text-slate-900 line-clamp-1">
-                                {item.customer.facility_name || item.customer.name}
+                                {getCustomerCardTitle(item.customer || {})}
                               </div>
                               <div className="text-[10px] text-slate-500 mt-0.5 flex gap-2">
                                 <span>{item.customer.contact_name}</span>

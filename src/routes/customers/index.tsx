@@ -1940,7 +1940,7 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
                   onClick={(e) => {
                     e.stopPropagation();
                     window.open(
-                      `https://facebook.com/search/top/?q=${encodeURIComponent(customer.phone || customer.name)}`,
+                      `https://facebook.com/search/top/?q=${encodeURIComponent(customer.phone || getCustomerCardTitle(customer))}`,
                       "_blank",
                     );
                   }}
@@ -1964,7 +1964,7 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
                   onClick={(e) => {
                     e.stopPropagation();
                     window.open(
-                      `https://maps.google.com/?q=${encodeURIComponent(customer.city || customer.name)}`,
+                      `https://maps.google.com/?q=${encodeURIComponent(customer.city || getCustomerCardTitle(customer))}`,
                       "_blank",
                     );
                   }}

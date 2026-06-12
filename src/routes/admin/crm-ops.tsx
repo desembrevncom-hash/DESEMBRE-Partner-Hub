@@ -9,6 +9,7 @@ import { getStaffDisplayName, buildStaffMap } from "@/lib/staffDisplay";
 import { useBatchMode } from "@/hooks/useBatchMode";
 import { useAuth } from "@/hooks/useAuth";
 import { getRecommendedAssignee, distributeEvenly } from "@/lib/dispatchRecommendation";
+import { getCustomerCardTitle } from "@/lib/customers/customerDisplayName";
 import { BatchActionBar, BatchAction } from "@/components/crm/BatchActionBar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
@@ -182,7 +183,7 @@ function CRMOpsWorkspace() {
       Object.entries(assignments).forEach(([customerId, staffId]) => {
         const staffName = getStaffDisplayName(staffId, staffMap);
         const customer = customers.find((c) => c.id === customerId);
-        const customerName = customer?.facility_name || customer?.name || customerId;
+        const customerName = getCustomerCardTitle(customer || {});
 
         // Activity: keep existing handoff log
         supabase
@@ -504,8 +505,8 @@ function CRMOpsWorkspace() {
                             />
                           </td>
                           <td className="px-4 py-3">
-                            <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                              {customer.business_name || customer.facility_name || customer.contact_name || customer.facebook_display_name || customer.name || "Không rõ tên"}
+                            <div className="font-bold text-slate-900 flex items-center gap-1.5 truncate">
+                              {getCustomerCardTitle(customer)}
                               {missingContact && (
                                 <span className="inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                                   <PhoneOff className="w-2.5 h-2.5" /> Thiếu liên hệ
@@ -817,7 +818,7 @@ function CRMOpsWorkspace() {
                           />
                         </td>
                         <td className="px-4 py-3">
-                          <div className="font-bold text-slate-900">{customer.business_name || customer.facility_name || customer.contact_name || customer.facebook_display_name || customer.name}</div>
+                          <div className="font-bold text-slate-900 truncate">{getCustomerCardTitle(customer)}</div>
                           <div className="text-[10px] text-slate-500 uppercase mt-0.5">
                             {customer.owner_sale_id
                               ? getStaffDisplayName(customer.owner_sale_id, staffMap)
@@ -908,7 +909,7 @@ function CRMOpsWorkspace() {
                           />
                         </td>
                         <td className="px-4 py-3">
-                          <div className="font-bold text-slate-900">{customer.business_name || customer.facility_name || customer.contact_name || customer.facebook_display_name || customer.name}</div>
+                          <div className="font-bold text-slate-900 truncate">{getCustomerCardTitle(customer)}</div>
                           <div className="text-[10px] text-slate-500 uppercase mt-0.5 truncate max-w-[150px]">
                             {customer.phone || customer.email || "Không rõ kênh"}
                           </div>
