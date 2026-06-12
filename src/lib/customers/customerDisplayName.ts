@@ -13,7 +13,7 @@ export type CustomerShape = Partial<{
 
 export function isUrlLike(value: string | null | undefined): boolean {
   if (!value) return false;
-  const s = value.trim().toLowerCase();
+  const s = String(value).trim().toLowerCase();
   return (
     s.startsWith("http://") ||
     s.startsWith("https://") ||
@@ -28,7 +28,7 @@ export function isUrlLike(value: string | null | undefined): boolean {
 
 export function isUidLike(value: string | null | undefined): boolean {
   if (!value) return false;
-  const s = value.trim();
+  const s = String(value).trim();
   // False for Vietnamese phone numbers (start with 0, 10-11 digits)
   if (/^0\d{9,10}$/.test(s)) return false;
   
