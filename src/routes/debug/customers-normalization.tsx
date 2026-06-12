@@ -147,6 +147,7 @@ function CustomersNormalizationDebug() {
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
