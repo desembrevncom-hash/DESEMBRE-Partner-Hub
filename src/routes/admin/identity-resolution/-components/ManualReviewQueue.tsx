@@ -124,8 +124,8 @@ function JobRow({ job }: { job: ManualReviewJob }) {
 
   const handleTriggerAuto = () => {
     autoResolveMutation.mutate(job.id, {
-      onSuccess: () => {
-        toast.success("Đã gửi yêu cầu tự động phân giải ở chế độ nền.");
+      onSuccess: (data: any) => {
+        toast.success(data?.message || "Đã phân giải xong.");
       },
       onError: (err) => {
         toast.error("Không thể kích hoạt tự động phân giải: " + err.message);
@@ -146,7 +146,7 @@ function JobRow({ job }: { job: ManualReviewJob }) {
       case "resolving":
         color = "bg-blue-50 text-blue-600 border-blue-200";
         Icon = RefreshCw;
-        label = "Đang tìm tự động...";
+        label = "Đang tìm UID Facebook...";
         break;
       case "failed":
       case "not_found":
@@ -335,7 +335,7 @@ function JobRow({ job }: { job: ManualReviewJob }) {
                 onClick={handleTriggerAuto}
                 disabled={autoResolveMutation.isPending || resolveMutation.isPending || isActivelyResolving || isFinalState}
                 className="flex items-center justify-center gap-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 text-xs font-bold px-3 rounded shadow-sm disabled:opacity-50 transition-colors whitespace-nowrap"
-                title={isFailed ? "Thử lại tự động" : "Tìm UID tự động (nền)"}
+                title={isFailed ? "Thử lại tự động" : "Tìm UID tự động"}
               >
                 <Search className={`w-3 h-3 ${isActivelyResolving ? "animate-spin" : ""}`} /> {isFailed ? "Thử lại" : "Tìm tự động"}
               </button>

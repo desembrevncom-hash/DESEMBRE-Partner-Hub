@@ -205,6 +205,8 @@ export function useTriggerAutoResolveMutation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["facebook-identity-manual-review-jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["customer-social-profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
     },
   });
 }

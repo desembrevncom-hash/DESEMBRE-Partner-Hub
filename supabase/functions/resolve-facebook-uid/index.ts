@@ -305,6 +305,10 @@ serve(async (req) => {
       let finalStatus = "failed";
       let finalError = "Unknown error";
       let itemToLog = null;
+      let returnedUid: string | null = null;
+      let returnedName: string | null = null;
+      let duplicateProfileId: string | null = null;
+      let dbUpdateSuccess = false;
 
       try {
         const actorId = ACTOR.includes("~") ? ACTOR : ACTOR.replace("/", "~");
@@ -435,9 +439,7 @@ serve(async (req) => {
           return;
         }
 
-        let returnedUid = null;
         let isNumeric = false;
-        let returnedName = null;
         if (item) {
           returnedUid =
             item.facebookId || item.facebook_id || item.id || item.uid || item.userId || null;
@@ -502,19 +504,66 @@ serve(async (req) => {
         ) {
           await updateFailure(supabaseAdmin, job_id, finalStatus, finalError);
         }
+        dbUpdateSuccess = true;
       }
 
-      // Return structured JSON based on outcome
+      // 1. Log Trace
+      const traceLog = {
+        request_id: req.headers.get("x-request-id") || crypto.randomUUID(),
+        job_id,
+        user_id: user.id,
+        role,
+        raw_url: normalizedUrl,
+        current_auto_resolve_status: job.auto_resolve_status,
+        provider_timeout_ms: Math.min(parseInt(Deno.env.get("FACEBOOK_UID_PROVIDER_TIMEOUT_MS") || "8000", 10), 8000),
+        apify_call_started: true,
+        apify_call_finished: finalStatus !== "timeout" && finalStatus !== "failed" && finalStatus !== "provider_error",
+        returned_uid: returnedUid,
+        returned_name: returnedName,
+        final_status_written: finalStatus,
+        db_update_success: dbUpdateSuccess
+      };
+      console.log("RESOLVER_TRACE:", JSON.stringify(traceLog));
+
+      // 2. Return structured JSON based on outcome
       if (finalStatus === "resolved") {
-        return { success: true, code: "resolved", message: "Đã tìm thấy UID Facebook." };
+        return { 
+          success: true, 
+          code: "resolved", 
+          message: "Đã tìm thấy UID Facebook.",
+          job_id,
+          facebook_uid: returnedUid,
+          facebook_display_name: returnedName
+        };
       } else if (finalStatus === "duplicate_detected") {
-        return { success: true, code: "duplicate_detected", message: "Phát hiện UID đã thuộc khách hàng khác." };
+        return { 
+          success: true, 
+          code: "duplicate_detected", 
+          message: "Phát hiện UID đã thuộc khách hàng khác.",
+          job_id,
+          duplicate_social_profile_id: duplicateProfileId
+        };
       } else if (finalStatus === "timeout") {
-        return { success: false, code: "provider_timeout", message: "Nhà cung cấp UID phản hồi quá lâu, vui lòng thử lại sau." };
+        return { 
+          success: false, 
+          code: "provider_timeout", 
+          message: "Nhà cung cấp UID phản hồi quá lâu, vui lòng thử lại sau.",
+          job_id
+        };
       } else if (finalStatus === "not_found") {
-        return { success: false, code: "not_found", message: "Không tìm thấy UID từ link này." };
+        return { 
+          success: false, 
+          code: "not_found", 
+          message: "Không tìm thấy UID Facebook.",
+          job_id
+        };
       } else {
-        return { success: false, code: "provider_error", message: "Nhà cung cấp UID đang lỗi, vui lòng thử lại sau." };
+        return { 
+          success: false, 
+          code: "provider_error", 
+          message: "Nhà cung cấp UID đang lỗi, vui lòng thử lại sau.",
+          job_id
+        };
       }
     };
 
