@@ -14,6 +14,7 @@ function createSupabaseClient() {
       eq: mockFn,
       order: mockFn,
       single: mockFn,
+      maybeSingle: mockFn,
       select: mockFn,
       upsert: () => Promise.resolve({ data: null, error: null }),
       insert: () => Promise.resolve({ data: null, error: null }),
