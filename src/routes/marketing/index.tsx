@@ -324,6 +324,15 @@ function MarketingDashboardPage() {
               asChild
               className="rounded-xl border-slate-200 font-bold text-xs h-10 px-5"
             >
+              <Link to="/marketing/audiences">
+                <Users className="w-4 h-4 mr-2" /> Audience Builder
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              asChild
+              className="rounded-xl border-slate-200 font-bold text-xs h-10 px-5"
+            >
               <Link to="/marketing/campaigns">Quản lý Dispatcher</Link>
             </Button>
             <Button
@@ -647,15 +656,6 @@ function MarketingDashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="hover:border-primary/50 transition-colors cursor-pointer" onClick={() => navigate({ to: "/marketing/audiences" })}>
-            <CardContent className="p-6">
-              <div className="bg-primary/10 w-12 h-12 rounded-lg flex items-center justify-center mb-4 text-primary">
-                <Users className="w-6 h-6" />
-              </div>
-              <h3 className="font-semibold mb-1">Audience Builder</h3>
-              <p className="text-sm text-muted-foreground">Build and save segments for future campaigns.</p>
-            </CardContent>
-          </Card>
         </div>
       </main>
     </div>
