@@ -354,62 +354,8 @@ function CustomersPage() {
         return;
       }
 
-      // Convert to CSV
-      const headers = [
-        "ID",
-        "Tên cơ sở",
-        "Tên liên hệ",
-        "Số điện thoại",
-        "Số ĐT chuẩn hóa",
-        "Địa chỉ",
-        "Kênh tiếp cận",
-        "Mô hình chăm sóc",
-        "Báo giá/Tiềm năng",
-        "Hạng mức",
-        "Sale phụ trách ID",
-        "Tele phụ trách ID",
-        "Ngày tạo",
-        "Lý do xóa",
-        "Người xóa ID",
-        "Ngày xóa",
-      ];
-
-      const csvRows = [
-        headers.join(","),
-        ...data.map((c: any) =>
-          [
-            toSafeString(c.id),
-            `"${toSafeString(c.facility_name).replace(/"/g, '""')}"`,
-            `"${toSafeString(c.name).replace(/"/g, '""')}"`,
-            `"${toSafeString(c.phone)}"`,
-            `"${toSafeString(c.normalized_phone)}"`,
-            `"${toSafeString(c.address).replace(/"/g, '""')}"`,
-            toSafeString(c.customer_channel),
-            toSafeString(c.care_model),
-            toSafeString(c.status),
-            toSafeString(c.lifecycle_stage),
-            toSafeString(c.owner_sale_id),
-            toSafeString(c.owner_tele_id),
-            toSafeString(c.created_at),
-            `"${toSafeString(c.delete_reason).replace(/"/g, '""')}"`,
-            toSafeString(c.deleted_by),
-            toSafeString(c.deleted_at),
-          ].join(","),
-        ),
-      ];
-
-      const csvContent = "\uFEFF" + csvRows.join("\n");
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute(
-        "download",
-        `DESEMBRE_Customers_${exportType}_${new Date().toISOString().slice(0, 10)}.csv`,
-      );
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const { downloadCustomerExport } = await import("../../lib/customers/customerExportBuilder");
+      await downloadCustomerExport(data, exportType);
 
       toast.success(`Đã xuất thành công ${data.length} dòng dữ liệu (${exportType})!`);
     } catch (e: any) {
@@ -1636,7 +1582,6 @@ function CustomersPage() {
                   )}
                 </select>
                 {dispatchStaffId === "none" &&
-                  dispatchAction !== "revoke" &&
                   dispatchAction !== "change_stage" && (
                     <p className="text-xs font-bold text-rose-500 mt-1">
                       Vui lòng chọn nhân viên phụ trách.

@@ -124,6 +124,7 @@ import { FocusInteractionPanel } from "./FocusInteractionPanel";
 import { useCopilotContext } from "../chat/ProductCopilotContext";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { getCustomerPersonDisplayName, getCustomerCardTitle } from "@/lib/customers/customerDisplayName";
+import { getCustomerContactSummary } from "../../lib/customers/contactChannelClassifier";
 
 const drawerCache: Record<string, { data: any; timestamp: number }> = {};
 
@@ -1166,6 +1167,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     (!customer.customer_channel || !customer.customer_distance_type || !customer.care_model);
 
   const suggestedAction = getSuggestedNextAction(customer);
+  const contactSummary = useMemo(() => getCustomerContactSummary(customer), [customer]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -1206,11 +1208,27 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 )}
               </div>
 
-              {customer.phone && (
+              {contactSummary.callablePhone && (
                 <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-1 rounded-lg">
                   <Phone className="w-3.5 h-3.5 shrink-0" />
-                  {customer.phone}
+                  {contactSummary.callablePhone}
                 </div>
+              )}
+              {contactSummary.warnings.includes("FB UID KHÔNG PHẢI SĐT") && (
+                <CRMStatusBadge
+                  variant="danger"
+                  className="border-none rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase bg-rose-500 text-white"
+                >
+                  FB UID KHÔNG PHẢI SĐT
+                </CRMStatusBadge>
+              )}
+              {contactSummary.warnings.includes("CÓ THỂ THIẾU SỐ 0") && (
+                <CRMStatusBadge
+                  variant="warning"
+                  className="border-none rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase"
+                >
+                  CÓ THỂ THIẾU SỐ 0
+                </CRMStatusBadge>
               )}
             </div>
 
@@ -1368,10 +1386,10 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 <div className="space-y-1">
                   <span className="text-[10px] font-bold text-slate-500 uppercase">Điện thoại</span>
                   <div className="text-[11px] font-bold text-slate-900 flex items-center gap-1">
-                    {customer.phone ? (
+                    {contactSummary.callablePhone ? (
                       <>
                         <Phone className="w-3 h-3 text-emerald-500" />
-                        {customer.phone}
+                        {contactSummary.callablePhone}
                       </>
                     ) : (
                       "Chưa có"

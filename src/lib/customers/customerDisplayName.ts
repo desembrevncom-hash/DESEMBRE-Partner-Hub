@@ -110,9 +110,10 @@ export function getCustomerPersonDisplayName(customer: CustomerShape | null | un
 
   // 4. phone
   const phone = toSafeString(customer.phone);
-  if (phone) return phone;
+  if (phone && !isUidLike(phone) && !isUrlLike(phone)) return phone;
 
   // 5. fallback
+  if (isUidLike(phone)) return "Khách Facebook chưa có tên";
   return "Khách chưa có tên";
 }
 
@@ -129,9 +130,10 @@ export function getCustomerCardTitle(customer: CustomerShape | null | undefined)
   if (personName !== "Khách chưa có tên" && personName !== phoneStr) return personName;
 
   // 3. phone
-  if (phoneStr) return phoneStr;
+  if (phoneStr && !isUidLike(phoneStr) && !isUrlLike(phoneStr)) return phoneStr;
 
   // 4. fallback
+  if (isUidLike(phoneStr)) return "Khách Facebook chưa có tên";
   return "Khách chưa có tên";
 }
 
