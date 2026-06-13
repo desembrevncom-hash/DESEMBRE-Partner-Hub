@@ -599,7 +599,7 @@ function MarketingDashboardPage() {
                       <th className="px-8 py-4 text-left">Chiến dịch</th>
                       <th className="px-8 py-4 text-center">Loại hình</th>
                       <th className="px-8 py-4 text-center">Số Lead</th>
-                      <th className="px-8 py-4 text-center">Ngân sách</th>
+                      <th className="px-8 py-4 text-center">Ngân sách <Badge variant="outline" className="ml-1 text-[10px] text-red-500 border-red-200">Demo / Mock Data</Badge></th>
                       <th className="px-8 py-4 text-center">Trạng thái</th>
                       <th className="px-8 py-4 text-right">Hành động</th>
                     </tr>
