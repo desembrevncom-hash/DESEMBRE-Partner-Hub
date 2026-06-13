@@ -157,10 +157,10 @@ export async function buildCustomerExportWorkbook(customers: any[]): Promise<any
   return wb;
 }
 
-export async function downloadCustomerExport(customers: any[], type: "active" | "deleted") {
+export async function downloadCustomerExport(customers: any[], type: "active" | "deleted" | "segment", customFileName?: string) {
   const XLSX = await import("xlsx");
   const wb = await buildCustomerExportWorkbook(customers);
   const dateStr = new Date().toISOString().slice(0, 10);
-  const fileName = `DESEMBRE_Customers_${type}_v2_${dateStr}.xlsx`;
+  const fileName = customFileName || `DESEMBRE_Customers_${type}_v2_${dateStr}.xlsx`;
   XLSX.writeFile(wb, fileName);
 }

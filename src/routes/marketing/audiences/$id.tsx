@@ -80,7 +80,7 @@ function AudienceEditPage() {
     try {
       // In a real app, we would dynamic import customerExportBuilder here and run the 4-sheet export
       // For this MVP, we simulate the export action matching the architectural plan
-      const { generateCustomerExport } = await import("@/lib/customers/customerExportBuilder");
+      const { downloadCustomerExport } = await import("@/lib/customers/customerExportBuilder");
       
       // We need to re-evaluate the full list to get the matching customer records, not just stats
       const { evaluateAudience } = await import("@/lib/marketing/segmentRules");
@@ -91,7 +91,7 @@ function AudienceEditPage() {
         return;
       }
       
-      await generateCustomerExport(matchedCustomers, `Segment_${segment!.name.replace(/\\s+/g, '_')}`);
+      await downloadCustomerExport(matchedCustomers, "segment", `Segment_${segment!.name.replace(/\\s+/g, '_')}.xlsx`);
       toast.success("Export completed successfully");
     } catch (e: any) {
       toast.error("Export failed: " + e.message);
