@@ -1,4 +1,4 @@
-export type MarketingVisibility = "private" | "team" | "public_to_org";
+export type MarketingVisibility = "private" | "public_to_org";
 
 export type SegmentOperator =
   | "equals"

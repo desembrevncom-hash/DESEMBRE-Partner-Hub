@@ -311,7 +311,6 @@ function AudienceBuilderNewPage() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="private">Private (Only me)</SelectItem>
-                    <SelectItem value="team">Team (My department)</SelectItem>
                     {(isAdmin || isSubAdmin) && <SelectItem value="public_to_org">Public (Organization-wide)</SelectItem>}
                   </SelectContent>
                 </Select>
