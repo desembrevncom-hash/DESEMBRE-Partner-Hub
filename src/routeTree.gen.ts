@@ -35,7 +35,6 @@ import { Route as MarketingTemplatesRouteImport } from './routes/marketing/templ
 import { Route as MarketingReportsRouteImport } from './routes/marketing/reports'
 import { Route as MarketingReadinessRouteImport } from './routes/marketing/readiness'
 import { Route as MarketingLogsRouteImport } from './routes/marketing/logs'
-import { Route as MarketingCampaignsRouteImport } from './routes/marketing/campaigns'
 import { Route as DebugCustomersNormalizationRouteImport } from './routes/debug/customers-normalization'
 import { Route as CustomersMapRouteImport } from './routes/customers/map'
 import { Route as CustomersIdRouteImport } from './routes/customers/$id'
@@ -206,11 +205,6 @@ const MarketingLogsRoute = MarketingLogsRouteImport.update({
   path: '/marketing/logs',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MarketingCampaignsRoute = MarketingCampaignsRouteImport.update({
-  id: '/marketing/campaigns',
-  path: '/marketing/campaigns',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const DebugCustomersNormalizationRoute =
   DebugCustomersNormalizationRouteImport.update({
     id: '/debug/customers-normalization',
@@ -369,9 +363,9 @@ const AdminAiDebugRoute = AdminAiDebugRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const MarketingCampaignsIndexRoute = MarketingCampaignsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => MarketingCampaignsRoute,
+  id: '/marketing/campaigns/',
+  path: '/marketing/campaigns/',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const MarketingAudiencesIndexRoute = MarketingAudiencesIndexRouteImport.update({
   id: '/marketing/audiences/',
@@ -385,14 +379,14 @@ const AdminIdentityResolutionIndexRoute =
     getParentRoute: () => rootRouteImport,
   } as any)
 const MarketingCampaignsNewRoute = MarketingCampaignsNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => MarketingCampaignsRoute,
+  id: '/marketing/campaigns/new',
+  path: '/marketing/campaigns/new',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const MarketingCampaignsIdRoute = MarketingCampaignsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => MarketingCampaignsRoute,
+  id: '/marketing/campaigns/$id',
+  path: '/marketing/campaigns/$id',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const MarketingAudiencesNewRoute = MarketingAudiencesNewRouteImport.update({
   id: '/marketing/audiences/new',
@@ -446,7 +440,6 @@ export interface FileRoutesByFullPath {
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
   '/debug/customers-normalization': typeof DebugCustomersNormalizationRoute
-  '/marketing/campaigns': typeof MarketingCampaignsRouteWithChildren
   '/marketing/logs': typeof MarketingLogsRoute
   '/marketing/readiness': typeof MarketingReadinessRoute
   '/marketing/reports': typeof MarketingReportsRoute
@@ -579,7 +572,6 @@ export interface FileRoutesById {
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
   '/debug/customers-normalization': typeof DebugCustomersNormalizationRoute
-  '/marketing/campaigns': typeof MarketingCampaignsRouteWithChildren
   '/marketing/logs': typeof MarketingLogsRoute
   '/marketing/readiness': typeof MarketingReadinessRoute
   '/marketing/reports': typeof MarketingReportsRoute
@@ -648,7 +640,6 @@ export interface FileRouteTypes {
     | '/customers/$id'
     | '/customers/map'
     | '/debug/customers-normalization'
-    | '/marketing/campaigns'
     | '/marketing/logs'
     | '/marketing/readiness'
     | '/marketing/reports'
@@ -780,7 +771,6 @@ export interface FileRouteTypes {
     | '/customers/$id'
     | '/customers/map'
     | '/debug/customers-normalization'
-    | '/marketing/campaigns'
     | '/marketing/logs'
     | '/marketing/readiness'
     | '/marketing/reports'
@@ -846,7 +836,6 @@ export interface RootRouteChildren {
   AdminUsersRoute: typeof AdminUsersRoute
   AdminWebhooksRoute: typeof AdminWebhooksRoute
   DebugCustomersNormalizationRoute: typeof DebugCustomersNormalizationRoute
-  MarketingCampaignsRoute: typeof MarketingCampaignsRouteWithChildren
   MarketingLogsRoute: typeof MarketingLogsRoute
   MarketingReadinessRoute: typeof MarketingReadinessRoute
   MarketingReportsRoute: typeof MarketingReportsRoute
@@ -865,8 +854,11 @@ export interface RootRouteChildren {
   ReportsIndexRoute: typeof ReportsIndexRoute
   MarketingAudiencesIdRoute: typeof MarketingAudiencesIdRoute
   MarketingAudiencesNewRoute: typeof MarketingAudiencesNewRoute
+  MarketingCampaignsIdRoute: typeof MarketingCampaignsIdRoute
+  MarketingCampaignsNewRoute: typeof MarketingCampaignsNewRoute
   AdminIdentityResolutionIndexRoute: typeof AdminIdentityResolutionIndexRoute
   MarketingAudiencesIndexRoute: typeof MarketingAudiencesIndexRoute
+  MarketingCampaignsIndexRoute: typeof MarketingCampaignsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1051,13 +1043,6 @@ declare module '@tanstack/react-router' {
       path: '/marketing/logs'
       fullPath: '/marketing/logs'
       preLoaderRoute: typeof MarketingLogsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/marketing/campaigns': {
-      id: '/marketing/campaigns'
-      path: '/marketing/campaigns'
-      fullPath: '/marketing/campaigns'
-      preLoaderRoute: typeof MarketingCampaignsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/debug/customers-normalization': {
@@ -1279,10 +1264,10 @@ declare module '@tanstack/react-router' {
     }
     '/marketing/campaigns/': {
       id: '/marketing/campaigns/'
-      path: '/'
+      path: '/marketing/campaigns'
       fullPath: '/marketing/campaigns/'
       preLoaderRoute: typeof MarketingCampaignsIndexRouteImport
-      parentRoute: typeof MarketingCampaignsRoute
+      parentRoute: typeof rootRouteImport
     }
     '/marketing/audiences/': {
       id: '/marketing/audiences/'
@@ -1300,17 +1285,17 @@ declare module '@tanstack/react-router' {
     }
     '/marketing/campaigns/new': {
       id: '/marketing/campaigns/new'
-      path: '/new'
+      path: '/marketing/campaigns/new'
       fullPath: '/marketing/campaigns/new'
       preLoaderRoute: typeof MarketingCampaignsNewRouteImport
-      parentRoute: typeof MarketingCampaignsRoute
+      parentRoute: typeof rootRouteImport
     }
     '/marketing/campaigns/$id': {
       id: '/marketing/campaigns/$id'
-      path: '/$id'
+      path: '/marketing/campaigns/$id'
       fullPath: '/marketing/campaigns/$id'
       preLoaderRoute: typeof MarketingCampaignsIdRouteImport
-      parentRoute: typeof MarketingCampaignsRoute
+      parentRoute: typeof rootRouteImport
     }
     '/marketing/audiences/new': {
       id: '/marketing/audiences/new'
@@ -1344,21 +1329,6 @@ const CustomersRouteChildren: CustomersRouteChildren = {
 const CustomersRouteWithChildren = CustomersRoute._addFileChildren(
   CustomersRouteChildren,
 )
-
-interface MarketingCampaignsRouteChildren {
-  MarketingCampaignsIdRoute: typeof MarketingCampaignsIdRoute
-  MarketingCampaignsNewRoute: typeof MarketingCampaignsNewRoute
-  MarketingCampaignsIndexRoute: typeof MarketingCampaignsIndexRoute
-}
-
-const MarketingCampaignsRouteChildren: MarketingCampaignsRouteChildren = {
-  MarketingCampaignsIdRoute: MarketingCampaignsIdRoute,
-  MarketingCampaignsNewRoute: MarketingCampaignsNewRoute,
-  MarketingCampaignsIndexRoute: MarketingCampaignsIndexRoute,
-}
-
-const MarketingCampaignsRouteWithChildren =
-  MarketingCampaignsRoute._addFileChildren(MarketingCampaignsRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -1399,7 +1369,6 @@ const rootRouteChildren: RootRouteChildren = {
   AdminUsersRoute: AdminUsersRoute,
   AdminWebhooksRoute: AdminWebhooksRoute,
   DebugCustomersNormalizationRoute: DebugCustomersNormalizationRoute,
-  MarketingCampaignsRoute: MarketingCampaignsRouteWithChildren,
   MarketingLogsRoute: MarketingLogsRoute,
   MarketingReadinessRoute: MarketingReadinessRoute,
   MarketingReportsRoute: MarketingReportsRoute,
@@ -1418,8 +1387,11 @@ const rootRouteChildren: RootRouteChildren = {
   ReportsIndexRoute: ReportsIndexRoute,
   MarketingAudiencesIdRoute: MarketingAudiencesIdRoute,
   MarketingAudiencesNewRoute: MarketingAudiencesNewRoute,
+  MarketingCampaignsIdRoute: MarketingCampaignsIdRoute,
+  MarketingCampaignsNewRoute: MarketingCampaignsNewRoute,
   AdminIdentityResolutionIndexRoute: AdminIdentityResolutionIndexRoute,
   MarketingAudiencesIndexRoute: MarketingAudiencesIndexRoute,
+  MarketingCampaignsIndexRoute: MarketingCampaignsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
