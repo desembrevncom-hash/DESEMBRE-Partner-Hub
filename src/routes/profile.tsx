@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
-import { ArrowLeft, User, Save, Loader2, Edit2, X } from "lucide-react";
+import { Building2, Camera, Link as LinkIcon, Loader2, LogOut, Mail, MapPin, Phone, Shield, User, X } from "lucide-react";
+import { safeDigits, toSafeString } from "@/lib/utils/safeString";
 import { Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
@@ -283,7 +284,7 @@ function ProfilePage() {
                       {user?.user_metadata?.phone ? (
                         <div className="mt-2 inline-block bg-white p-2 border border-border rounded shadow-sm">
                           <img
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://zalo.me/${user.user_metadata.phone.replace(/\D/g, "")}`}
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://zalo.me/${safeDigits(user.user_metadata.phone)}`}
                             alt="Zalo QR"
                             className="w-24 h-24"
                           />

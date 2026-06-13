@@ -23,7 +23,9 @@ import {
   AlertCircle,
   RefreshCw,
   CalendarCheck,
+  Search,
 } from "lucide-react";
+import { getCustomerCardTitle } from "@/lib/customers/customerDisplayName";
 import { calculateDistanceMeters, formatDistance, buildGoogleMapsRouteUrl } from "@/lib/geo";
 
 interface RouteScheduleDialogProps {
@@ -267,7 +269,7 @@ export function RouteScheduleDialog({
         hasCoords,
         isIgnored,
         isDuplicate: duplicateEventCustomerIds.includes(customer.id),
-        title: `Viếng thăm ${customer.facility_name || customer.name || "Khách hàng"}`,
+        title: `Viếng thăm ${getCustomerCardTitle(customer)}`,
       });
     });
 
@@ -407,7 +409,7 @@ export function RouteScheduleDialog({
         stepSuccess = false;
         failedCount++;
         failedList.push({
-          name: customer.facility_name || customer.name || "Khách hàng",
+          name: getCustomerCardTitle(customer),
           error: err.message || "Lỗi lưu trữ bản ghi sự kiện chính.",
         });
       }
@@ -868,7 +870,7 @@ export function RouteScheduleDialog({
                             {/* Khách hàng */}
                             <td className="p-2 min-w-[140px]">
                               <div className="font-bold text-slate-900 leading-tight">
-                                {cust.name || "Khách hàng ẩn danh"}
+                                {getCustomerCardTitle(cust)}
                               </div>
                               <div className="text-[10px] text-slate-450 font-semibold truncate max-w-[160px] mt-0.5">
                                 🏢 {cust.facility_name || "Chưa cập nhật Spa"}

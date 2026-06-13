@@ -56,6 +56,7 @@ import {
   getCustomerReclaimReason,
 } from "@/lib/customerReclaimRules";
 import { createCustomerAtRiskAutomation } from "@/lib/automation";
+import { getCustomerCardTitle } from "@/lib/customers/customerDisplayName";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 
@@ -246,7 +247,7 @@ function AdminReclamationPage() {
                 type: "customer_reclaimable",
                 priority: "high",
                 title: "Khách hàng đủ điều kiện thu hồi 🚨",
-                message: `Khách hàng "${customer.name || customer.contact_name}" đã đủ điều kiện thu hồi về kho tự do do quá hạn chăm sóc.`,
+                message: `Khách hàng "${getCustomerCardTitle(customer)}" đã đủ điều kiện thu hồi về kho tự do do quá hạn chăm sóc.`,
                 action_url: `/admin/reclamation`,
               });
             }
@@ -307,7 +308,7 @@ function AdminReclamationPage() {
         type: "reclaim_reminder",
         priority: "high",
         title: "⚠️ CẢNH BÁO CHĂM SÓC KHÁCH HÀNG",
-        message: `Admin nhắc bạn chăm sóc khách hàng "${customer.name || customer.contact_name}" ngay để tránh bị thu hồi về Kho Tự Do.`,
+        message: `Admin nhắc bạn chăm sóc khách hàng "${getCustomerCardTitle(customer)}" ngay để tránh bị thu hồi về Kho Tự Do.`,
         action_url: `/customers/${customer.id}`,
       });
 
@@ -361,7 +362,7 @@ function AdminReclamationPage() {
       );
 
       toast.success(
-        `Đã gia hạn 3 ngày chăm sóc thành công cho khách hàng "${customer.name || customer.contact_name}".`,
+        `Đã gia hạn 3 ngày chăm sóc thành công cho khách hàng "${getCustomerCardTitle(customer)}".`,
       );
       loadData();
     } catch (err: any) {
@@ -401,7 +402,7 @@ function AdminReclamationPage() {
       if (activityError) console.error("Lỗi tạo activity log:", activityError);
 
       toast.success(
-        `Đã thu hồi khách hàng "${customer.name || customer.contact_name}" về kho tự do.`,
+        `Đã thu hồi khách hàng "${getCustomerCardTitle(customer)}" về kho tự do.`,
       );
       setReclaimCustomer(null);
       loadData();
@@ -525,8 +526,7 @@ function AdminReclamationPage() {
   const filteredCustomers = useMemo(() => {
     return customers.filter((c) => {
       const matchSearch = (
-        (c.name || "") +
-        (c.contact_name || "") +
+        (getCustomerCardTitle(c) || "") +
         (c.business_name || "") +
         (c.facility_name || "") +
         (c.phone || "")
@@ -855,7 +855,7 @@ function AdminReclamationPage() {
             <DialogDescription className="text-xs pt-2 leading-relaxed font-semibold text-slate-500">
               Bạn đang thực hiện thu hồi khách hàng{" "}
               <strong className="text-slate-950">
-                {reclaimCustomer?.name || reclaimCustomer?.contact_name}
+                {getCustomerCardTitle(reclaimCustomer || {})}
               </strong>{" "}
               về Kho khách tự do. Hành động này sẽ hủy gán tất cả người phụ trách hiện tại.
             </DialogDescription>
@@ -904,10 +904,9 @@ function AdminReclamationPage() {
             <DialogDescription className="text-xs pt-2 leading-relaxed font-semibold text-slate-500">
               Chia lại khách hàng{" "}
               <strong className="text-slate-950">
-                {reassignCustomer?.name || reassignCustomer?.contact_name}
+                {getCustomerCardTitle(reassignCustomer || {})}
               </strong>{" "}
-              cho {reassignType === "sale" ? "nhân viên Sale" : "nhân viên Telesale"} phù hợp để
-              chăm sóc.
+              cho {reassignType === "sale" ? "nhân viên Sale" : "nhân viên Telesale"} phù hợp để chăm sóc.
             </DialogDescription>
           </DialogHeader>
 
@@ -1066,7 +1065,7 @@ function CustomersTable({
                 <td className="px-8 py-5">
                   <div>
                     <p className="text-xs font-black text-slate-900 leading-snug">
-                      {c.name || c.contact_name || "Chủ Spa"}
+                      {getCustomerCardTitle(c)}
                     </p>
                     <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-wider">
                       🏢 {c.facility_name || c.business_name || "Cơ sở tự do"}

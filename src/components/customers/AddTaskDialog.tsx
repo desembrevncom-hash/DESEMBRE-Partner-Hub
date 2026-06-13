@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getCustomerCardTitle } from "@/lib/customers/customerDisplayName";
 import { toast } from "sonner";
 import { Loader2, Calendar, ClipboardList, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -155,7 +156,7 @@ export function AddTaskDialog({ isOpen, onClose, customer, onSuccess }: AddTaskD
           </DialogTitle>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] pt-2">
             Khách hàng:{" "}
-            <span className="text-slate-900">{customer?.facility_name || customer?.name}</span>
+            <span className="text-slate-900">{getCustomerCardTitle(customer || {})}</span>
           </p>
         </DialogHeader>
 

@@ -39,6 +39,7 @@ import {
 } from "@/lib/customerOwnership";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+import { getCustomerCardTitle } from "@/lib/customers/customerDisplayName";
 
 export const Route = createFileRoute("/reports/routing")({
   component: RoutingReportPage,
@@ -286,7 +287,7 @@ function RoutingReportPage() {
       const { error: notiErr } = await supabase.from("notifications").insert({
         recipient_user_id: selectedStaffId,
         title: "Bạn được giao khách hàng mới",
-        message: `Khách hàng ${customer.facility_name || customer.name} vừa được chia cho bạn từ báo cáo phân tuyến.`,
+        message: `Khách hàng ${getCustomerCardTitle(customer)} vừa được chia cho bạn từ báo cáo phân tuyến.`,
         type: "customer_assigned",
         priority: "high",
         entity_type: "customer",
@@ -326,7 +327,7 @@ function RoutingReportPage() {
 
   const handleApplySuggest = async (item: any) => {
     const c = item.customer;
-    if (!window.confirm(`Áp dụng gợi ý phân tuyến cho khách hàng ${c.facility_name || c.name}?`))
+    if (!window.confirm(`Áp dụng gợi ý phân tuyến cho khách hàng ${getCustomerCardTitle(c)}?`))
       return;
 
     const actionKey = `${c.id}-suggest`;
@@ -537,7 +538,7 @@ function RoutingReportPage() {
                           <tr key={c.id || idx} className="hover:bg-slate-50/50 transition-colors">
                             <td className="px-6 py-4">
                               <div className="font-bold text-slate-900 line-clamp-1">
-                                {c.facility_name || c.name}
+                                {getCustomerCardTitle(c)}
                               </div>
                             </td>
                             <td className="px-6 py-4 text-center">
@@ -752,7 +753,7 @@ function RoutingReportPage() {
               {assignType === "sale" ? "Gán Sale Phụ Trách" : "Gán Trưởng Tele"}
             </DialogTitle>
             <DialogDescription className="text-xs font-bold text-slate-500 uppercase mt-1 tracking-widest">
-              {assignTarget?.customer?.facility_name || assignTarget?.customer?.name}
+              {getCustomerCardTitle(assignTarget?.customer || {})}
             </DialogDescription>
           </DialogHeader>
 

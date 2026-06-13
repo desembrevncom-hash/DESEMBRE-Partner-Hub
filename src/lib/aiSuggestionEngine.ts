@@ -3,6 +3,7 @@
 
 export type AISuggestionType = "upsell" | "retention" | "follow_up" | "risk";
 export type AISuggestionPriority = "low" | "medium" | "high";
+import { safeLower, safeIncludes } from "./utils/safeString";
 
 export interface RawSuggestion {
   id: string; // unique ID for tracking
@@ -123,7 +124,7 @@ function evaluatePendingQuote(tasks: any[]): RawSuggestion | null {
   // Look for tasks that indicate a quote was sent but not followed up
   const quoteTask = tasks.find(
     (t) =>
-      (t.title?.toLowerCase().includes("báo giá") || t.title?.toLowerCase().includes("quote")) &&
+      (safeIncludes(safeLower(t.title), "báo giá") || safeIncludes(safeLower(t.title), "quote")) &&
       t.status === "completed",
   );
 

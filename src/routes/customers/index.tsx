@@ -62,9 +62,39 @@ import { buildStaffMap, getStaffDisplayName, getStaffInitials, StaffMap } from "
 import { QuickCallResultDialog } from "@/components/customers/QuickCallResultDialog";
 import { AddCustomerDialog } from "@/components/customers/AddCustomerDialog";
 import { getCustomerCardTitle, getCustomerPersonDisplayName } from "@/lib/customers/customerDisplayName";
+import { formatPhoneForDisplay, formatPhoneForCallHref, formatPhoneForZalo, getCustomerPrimaryPhone } from "@/lib/customers/phoneUtils";
+import { normalizeCustomerRow } from "@/lib/customers/normalizeCustomer";
+import { normalizeStaffProfile } from "@/lib/users/normalizeStaffProfile";
+import { toSafeString, safeLower, safeIncludes, safeTrim, safeSearchIncludes } from "@/lib/utils/safeString";
+import { getEmailLocalPart } from "@/lib/utils/safeEmail";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
 import { Loader2 } from "lucide-react";
+import { safeStripAccents } from "@/lib/utils/safeString";
+
+class CustomerRowErrorBoundary extends React.Component<{
+  children: React.ReactNode;
+  fallback: (error: Error) => React.ReactNode;
+  customerId: string;
+}, { hasError: boolean, error: Error | null }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error(`Customer Row Render Error (ID: ${this.props.customerId}):`, error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError && this.state.error) {
+      return this.props.fallback(this.state.error);
+    }
+    return this.props.children;
+  }
+}
+
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -80,7 +110,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { VIETNAM_PROVINCES, stripAccents, findProvinceByName } from "@/lib/vietnamProvinces";
+import { VIETNAM_PROVINCES, findProvinceByName } from "@/lib/vietnamProvinces";
 import { Check, ChevronsUpDown, Map as MapIcon } from "lucide-react";
 import { trackKanbanDrag, trackSearch, trackFilterUsage, trackDrawerOpen } from "@/lib/uxTracking";
 import { useCRMShortcuts } from "@/lib/keyboardShortcuts";
@@ -178,6 +208,7 @@ function CustomersPage() {
   const [logTarget, setLogTarget] = useState<any | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [previewCustomer, _setPreviewCustomer] = useState<any | null>(null);
+  const [previewCustomerId, setPreviewCustomerId] = useState<string | null>(null);
 
   const setPreviewCustomer = (customer: any | null) => {
     _setPreviewCustomer(customer);
@@ -347,22 +378,22 @@ function CustomersPage() {
         headers.join(","),
         ...data.map((c: any) =>
           [
-            c.id,
-            `"${(c.facility_name || "").replace(/"/g, '""')}"`,
-            `"${(c.name || "").replace(/"/g, '""')}"`,
-            `"${c.phone || ""}"`,
-            `"${c.normalized_phone || ""}"`,
-            `"${(c.address || "").replace(/"/g, '""')}"`,
-            c.customer_channel || "",
-            c.care_model || "",
-            c.status || "",
-            c.lifecycle_stage || "",
-            c.owner_sale_id || "",
-            c.owner_tele_id || "",
-            c.created_at,
-            `"${(c.delete_reason || "").replace(/"/g, '""')}"`,
-            c.deleted_by || "",
-            c.deleted_at || "",
+            toSafeString(c.id),
+            `"${toSafeString(c.facility_name).replace(/"/g, '""')}"`,
+            `"${toSafeString(c.name).replace(/"/g, '""')}"`,
+            `"${toSafeString(c.phone)}"`,
+            `"${toSafeString(c.normalized_phone)}"`,
+            `"${toSafeString(c.address).replace(/"/g, '""')}"`,
+            toSafeString(c.customer_channel),
+            toSafeString(c.care_model),
+            toSafeString(c.status),
+            toSafeString(c.lifecycle_stage),
+            toSafeString(c.owner_sale_id),
+            toSafeString(c.owner_tele_id),
+            toSafeString(c.created_at),
+            `"${toSafeString(c.delete_reason).replace(/"/g, '""')}"`,
+            toSafeString(c.deleted_by),
+            toSafeString(c.deleted_at),
           ].join(","),
         ),
       ];
@@ -387,7 +418,7 @@ function CustomersPage() {
   };
 
   const handleBulkDispatch = async () => {
-    if (dispatchAction === "revoke" && !dispatchReason.trim()) {
+    if (dispatchAction === "revoke" && !safeTrim(dispatchReason)) {
       toast.error("Vui lòng nhập lý do thu hồi.");
       return;
     }
@@ -484,10 +515,13 @@ function CustomersPage() {
       }
 
       // Apply hierarchical lifecycle classification to ensure data integrity
-      const processed = (data || []).map((c: any) => ({
-        ...c,
-        lifecycle_stage: classifyCustomerLifecycle(c, c.orders || []),
-      }));
+      const processed = (data || []).map((c: any) => {
+        const normalized = normalizeCustomerRow(c);
+        return {
+          ...normalized,
+          lifecycle_stage: classifyCustomerLifecycle(normalized, normalized.orders || []),
+        };
+      });
 
       // --- ADD INTELLIGENCE FETCH HERE ---
       const cIds = processed.map((c: any) => c.id);
@@ -534,7 +568,6 @@ function CustomersPage() {
       setCustomers(processed);
 
       // Fetch user profiles to build staffMap
-      // Fetch user profiles to build staffMap
       const userIds = new Set<string>();
       processed.forEach((c: any) => {
         if (c.owner_sale_id) userIds.add(c.owner_sale_id);
@@ -546,7 +579,7 @@ function CustomersPage() {
           .select("id, display_name, email")
           .in("id", Array.from(userIds));
         if (!profError && profiles) {
-          setStaffMap(buildStaffMap(profiles));
+          setStaffMap(buildStaffMap(profiles.map(normalizeStaffProfile)));
         }
       }
 
@@ -556,7 +589,7 @@ function CustomersPage() {
           supabase.from("profiles").select("id, display_name, email"),
           supabase.from("user_roles").select("*"),
         ]);
-        if (allStaffData) setStaffList(allStaffData);
+        if (allStaffData) setStaffList(allStaffData.map(normalizeStaffProfile));
         if (rolesData) setRolesList(rolesData);
       }
     } catch (e) {
@@ -570,15 +603,15 @@ function CustomersPage() {
     let result = customers;
 
     if (searchQuery) {
-      const q = stripAccents(searchQuery.toLowerCase());
+      const q = safeStripAccents(searchQuery);
       result = result.filter((c) => {
         const nameMatch =
-          stripAccents(c.contact_name?.toLowerCase() || "").includes(q) ||
-          stripAccents(c.business_name?.toLowerCase() || "").includes(q) ||
-          stripAccents(c.facility_name?.toLowerCase() || "").includes(q) ||
-          stripAccents(c.name?.toLowerCase() || "").includes(q);
-        const phoneMatch = c.phone?.includes(q);
-        const emailMatch = c.email?.toLowerCase().includes(q);
+          safeSearchIncludes(safeStripAccents(c.contact_name), q) ||
+          safeSearchIncludes(safeStripAccents(c.business_name), q) ||
+          safeSearchIncludes(safeStripAccents(c.facility_name), q) ||
+          safeSearchIncludes(safeStripAccents(c.name), q);
+        const phoneMatch = safeSearchIncludes(c.phone, q);
+        const emailMatch = safeSearchIncludes(c.email, q);
         return nameMatch || phoneMatch || emailMatch;
       });
     }
@@ -1059,7 +1092,28 @@ function CustomersPage() {
                       Tất cả tỉnh/thành
                     </span>
                   </button>
-                  {/* Simplified Province List mapping... */}
+                  {VIETNAM_PROVINCES.filter((p) =>
+                    safeSearchIncludes(safeStripAccents(p), safeStripAccents(citySearch)),
+                  ).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => {
+                        setCityFilter(p);
+                        setCityOpen(false);
+                      }}
+                      className="w-full text-left flex items-center gap-2 px-2 py-1.5 text-[11px] hover:bg-slate-50"
+                    >
+                      <Check
+                        className={`w-3 h-3 shrink-0 ${cityFilter === p ? "text-slate-900" : "opacity-0"}`}
+                      />
+                      <span
+                        className={`font-medium ${cityFilter === p ? "text-slate-900" : "text-slate-500"}`}
+                      >
+                        {p}
+                      </span>
+                    </button>
+                  ))}
                 </div>
               </PopoverContent>
             </Popover>
@@ -1321,10 +1375,18 @@ function CustomersPage() {
 
                       {/* Column Content */}
                       <div className="flex flex-col gap-y-3 p-2 min-h-[500px]">
-                        {stageCustomers.map((customer) =>
-                          isManager ? (
+                        {stageCustomers.map((customer) => (
+                          <CustomerRowErrorBoundary
+                            key={customer.id}
+                            customerId={customer.id}
+                            fallback={() => (
+                              <div className="p-4 border rounded-xl bg-red-50 text-red-600 text-sm mb-2">
+                                Không thể hiển thị dòng này (ID: {customer.id})
+                              </div>
+                            )}
+                          >
+                          {isManager ? (
                             <ManagerCustomerCard
-                              key={customer.id}
                               customer={customer}
                               stage={stage.value}
                               onPreview={() => setPreviewCustomer(customer)}
@@ -1348,7 +1410,6 @@ function CustomersPage() {
                             />
                           ) : (
                             <SalesCustomerCard
-                              key={customer.id}
                               customer={customer}
                               stage={stage.value}
                               onQuickLog={() => setLogTarget(customer)}
@@ -1357,8 +1418,9 @@ function CustomersPage() {
                               onDragStart={(e: React.DragEvent) => handleDragStart(e, customer.id)}
                               isSaving={logTarget?.id === customer.id}
                             />
-                          ),
-                        )}
+                          )}
+                          </CustomerRowErrorBoundary>
+                        ))}
                         {stageCustomers.length === 0 && (
                           <CRMEmptyState
                             className="h-32 p-4 m-1 bg-white/50 rounded-[20px]"
@@ -1386,25 +1448,34 @@ function CustomersPage() {
               />
             ) : (
               filteredCustomers.map((customer) => (
-                <CustomerIntelligenceRow
+                <CustomerRowErrorBoundary
                   key={customer.id}
-                  customer={customer}
-                  staffMap={staffMap}
-                  onPreview={() => setPreviewCustomer(customer)}
-                  onQuickLog={() => setLogTarget(customer)}
-                  isManager={isManager}
-                  isSelected={selectedCustomers.includes(customer.id)}
-                  onToggleSelect={(checked: boolean) => {
-                    setSelectedCustomers((prev) =>
-                      checked ? [...prev, customer.id] : prev.filter((id) => id !== customer.id),
-                    );
-                  }}
-                  onQuickDispatch={(action: string) => {
-                    setSelectedCustomers([customer.id]);
-                    setDispatchAction(action as any);
-                    setIsDispatchDialogOpen(true);
-                  }}
-                />
+                  customerId={customer.id}
+                  fallback={() => (
+                    <div className="p-4 border rounded-xl bg-red-50 text-red-600 text-sm mb-2">
+                      Không thể hiển thị dòng này (ID: {customer.id})
+                    </div>
+                  )}
+                >
+                  <CustomerIntelligenceRow
+                    customer={customer}
+                    staffMap={staffMap}
+                    onPreview={() => setPreviewCustomer(customer)}
+                    onQuickLog={() => setLogTarget(customer)}
+                    isManager={isManager}
+                    isSelected={selectedCustomers.includes(customer.id)}
+                    onToggleSelect={(checked: boolean) => {
+                      setSelectedCustomers((prev) =>
+                        checked ? [...prev, customer.id] : prev.filter((id) => id !== customer.id),
+                      );
+                    }}
+                    onQuickDispatch={(action: string) => {
+                      setSelectedCustomers([customer.id]);
+                      setDispatchAction(action as any);
+                      setIsDispatchDialogOpen(true);
+                    }}
+                  />
+                </CustomerRowErrorBoundary>
               ))
             )}
           </div>
@@ -1607,7 +1678,7 @@ function CustomersPage() {
               disabled={
                 isDispatching ||
                 selectedCustomers.length === 0 ||
-                (dispatchAction === "revoke" && !dispatchReason.trim()) ||
+                (dispatchAction === "revoke" && !safeTrim(dispatchReason)) ||
                 (dispatchAction !== "revoke" && dispatchStaffId === "none")
               }
               onClick={handleBulkDispatch}
@@ -1656,14 +1727,14 @@ function CustomerCardActivityInfo({ customer, isManager }: { customer: any; isMa
       ManagerIcon = AlertCircle;
     } else if (suggestedAction) {
       managerAction = "Quản lý & Theo dõi";
-      managerActionColor = "text-slate-600 bg-slate-100/80 border-slate-200/50";
+managerActionColor = "text-slate-600 bg-slate-100/80 border-slate-200/50";
       ManagerIcon = CheckSquare;
     }
   }
 
-  const getMemoryIcon = (summary: string) => {
+  const getMemoryIcon = (summary: unknown) => {
     if (!summary) return "⚡";
-    const lower = summary.toLowerCase();
+    const lower = safeLower(summary);
     if (lower.includes("zalo") || lower.includes("nhắn") || lower.includes("sms")) return "💬";
     if (lower.includes("gọi") || lower.includes("phone") || lower.includes("không nghe máy"))
       return "📞";
@@ -1770,7 +1841,7 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
   const convState = getCustomerConversationState(customer);
 
   const hasZalo = !!customer.channel_summary?.has_zalo;
-  const primaryPhone = customer.phone || "";
+  const primaryPhone = getCustomerPrimaryPhone(customer);
 
   const normalizedBadges = getCustomerCardBadges(customer);
   const topBadges = normalizedBadges.slice(0, 2);
@@ -1848,10 +1919,10 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
       <div className="flex items-center gap-2">
         <span className="text-[11px] font-bold text-slate-600">
           {primaryPhone
-            ? primaryPhone.slice(-4).padStart(primaryPhone.length, "*")
+            ? formatPhoneForDisplay(primaryPhone)
             : customer.email
-              ? customer.email.split("@")[0] + "@..."
-              : "Chưa có SĐT/Email"}
+            ? getEmailLocalPart(customer.email) + "@..."
+            : "Chưa có SĐT/Email"}
         </span>
         <div className="flex gap-1 ml-auto">
           {hasZalo && (
@@ -1889,7 +1960,7 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
                   className="inline-flex items-center justify-center rounded-lg h-8 w-8 bg-indigo-600 hover:bg-indigo-700 text-white shrink-0 shadow-sm transition-colors p-0"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <a href={`tel:${primaryPhone.replace(/[^\d+]/g, "")}`}>
+                  <a href={formatPhoneForCallHref(primaryPhone) || "#"}>
                     <Phone className="w-4 h-4" />
                   </a>
                 </Button>
@@ -1918,7 +1989,8 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
                   className={`h-8 w-8 rounded-lg transition-colors ${hasZalo ? "text-blue-500 hover:text-blue-600 hover:bg-blue-50" : "text-slate-300 hover:text-blue-500 hover:bg-slate-50"}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    window.open(`https://zalo.me/${primaryPhone}`, "_blank");
+                    const href = formatPhoneForZalo(primaryPhone);
+                    if (href) window.open(href, "_blank");
                   }}
                 >
                   <MessageSquare className="w-4 h-4" />
@@ -1940,7 +2012,7 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
                   onClick={(e) => {
                     e.stopPropagation();
                     window.open(
-                      `https://facebook.com/search/top/?q=${encodeURIComponent(customer.phone || customer.name)}`,
+                      `https://facebook.com/search/top/?q=${encodeURIComponent(customer.phone || getCustomerCardTitle(customer))}`,
                       "_blank",
                     );
                   }}
@@ -1964,7 +2036,7 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
                   onClick={(e) => {
                     e.stopPropagation();
                     window.open(
-                      `https://maps.google.com/?q=${encodeURIComponent(customer.city || customer.name)}`,
+                      `https://maps.google.com/?q=${encodeURIComponent(customer.city || getCustomerCardTitle(customer))}`,
                       "_blank",
                     );
                   }}
@@ -2127,7 +2199,7 @@ const ManagerCustomerCard = React.memo(function ManagerCustomerCard({
               {saleInitials}
             </div>
             <span className="text-[9px] font-semibold text-slate-600 truncate max-w-[60px]">
-              {saleName.split(" ")[0]}
+              {saleInitials}
             </span>
           </div>
         ) : (
@@ -2145,7 +2217,7 @@ const ManagerCustomerCard = React.memo(function ManagerCustomerCard({
               {teleInitials}
             </div>
             <span className="text-[9px] font-semibold text-slate-600 truncate max-w-[60px]">
-              {teleName.split(" ")[0]}
+              {teleInitials}
             </span>
           </div>
         ) : (
@@ -2199,7 +2271,7 @@ function CustomerIntelligenceRow({
   const teleInitials = getStaffInitials(customer.owner_tele_id, staffMap);
 
   const hasZalo = !!customer.channel_summary?.has_zalo;
-  const primaryPhone = customer.phone || "";
+  const primaryPhone = getCustomerPrimaryPhone(customer);
 
   return (
     <div
@@ -2253,10 +2325,10 @@ function CustomerIntelligenceRow({
             {customer.city || "Toàn quốc"} • {customer.customer_channel || customer.source || "N/A"}{" "}
             •{" "}
             {primaryPhone
-              ? primaryPhone.slice(-4).padStart(primaryPhone.length, "*")
+              ? formatPhoneForDisplay(primaryPhone)
               : customer.email
-                ? customer.email.split("@")[0] + "@..."
-                : "Chưa có SĐT"}
+              ? getEmailLocalPart(customer.email) + "@..."
+              : "Chưa có SĐT"}
           </p>
           <div className="flex items-center gap-2 mt-2">
             <Badge
@@ -2321,7 +2393,8 @@ function CustomerIntelligenceRow({
             className="rounded-xl bg-blue-500 hover:bg-blue-600 text-white shadow-sm"
             onClick={(e) => {
               e.stopPropagation();
-              window.open(`https://zalo.me/${primaryPhone}`, "_blank");
+              const href = formatPhoneForZalo(primaryPhone);
+              if (href) window.open(href, "_blank");
             }}
             title="Mở Zalo"
           >
@@ -2333,7 +2406,8 @@ function CustomerIntelligenceRow({
           className={`rounded-xl shadow-sm ${!hasZalo ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-slate-100 hover:bg-slate-200 text-slate-700"}`}
           onClick={(e) => {
             e.stopPropagation();
-            window.location.href = `tel:${primaryPhone}`;
+            const href = formatPhoneForCallHref(primaryPhone);
+            if (href) window.location.href = href;
           }}
           title="Gọi điện"
         >

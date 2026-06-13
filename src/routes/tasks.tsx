@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { toSafeString, safeLower, safeIncludes } from "@/lib/utils/safeString";
 import {
   Dialog,
   DialogContent,
@@ -303,9 +304,9 @@ export function TasksPage() {
     return tasks.filter((t) => {
       // Lọc từ khóa
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchTitle = t.title.toLowerCase().includes(q);
-        const matchCust = t.customer_name?.toLowerCase().includes(q);
+        const q = safeLower(searchQuery);
+        const matchTitle = safeIncludes(safeLower(t.title), q);
+        const matchCust = safeIncludes(safeLower(t.customer_name), q);
         if (!matchTitle && !matchCust) return false;
       }
 

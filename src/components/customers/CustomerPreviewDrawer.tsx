@@ -123,7 +123,7 @@ import { CommunicationLaunchers } from "./CommunicationLaunchers";
 import { FocusInteractionPanel } from "./FocusInteractionPanel";
 import { useCopilotContext } from "../chat/ProductCopilotContext";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
-import { getCustomerPersonDisplayName } from "@/lib/customers/customerDisplayName";
+import { getCustomerPersonDisplayName, getCustomerCardTitle } from "@/lib/customers/customerDisplayName";
 
 const drawerCache: Record<string, { data: any; timestamp: number }> = {};
 
@@ -291,7 +291,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       setCustomerContext({
         currentCustomerId: customerProp.id,
         customerName:
-          customerProp.contact_name || customerProp.name || customerProp.full_name || "Khách hàng",
+          getCustomerCardTitle(customerProp),
         city: customerProp.city || customerProp.province,
         stage: customerProp.lifecycle_stage || customerProp.status,
       });
@@ -2055,7 +2055,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
 
               <CommunicationLaunchers
                 customerId={customer.id}
-                customerName={customer.name || customer.full_name}
+                customerName={getCustomerCardTitle(customer)}
                 customerPhone={customer.phone}
                 customerEmail={customer.email}
                 customerCity={customer.city || customer.province}
@@ -2125,7 +2125,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
             {/* AI CUSTOMER SUMMARY */}
             {isFeatureEnabledForUser("ai_summary", user?.id) && (
               <section className="space-y-4 pt-4 border-t border-slate-100">
-                <CustomerAISummary customerId={customer.id} customerName={customer.name} />
+                <CustomerAISummary customerId={customer.id} customerName={getCustomerCardTitle(customer)} />
               </section>
             )}
 

@@ -36,6 +36,7 @@ import { Route as MarketingReportsRouteImport } from './routes/marketing/reports
 import { Route as MarketingReadinessRouteImport } from './routes/marketing/readiness'
 import { Route as MarketingLogsRouteImport } from './routes/marketing/logs'
 import { Route as MarketingCampaignsRouteImport } from './routes/marketing/campaigns'
+import { Route as DebugCustomersNormalizationRouteImport } from './routes/debug/customers-normalization'
 import { Route as CustomersMapRouteImport } from './routes/customers/map'
 import { Route as CustomersIdRouteImport } from './routes/customers/$id'
 import { Route as AdminWebhooksRouteImport } from './routes/admin/webhooks'
@@ -204,6 +205,12 @@ const MarketingCampaignsRoute = MarketingCampaignsRouteImport.update({
   path: '/marketing/campaigns',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DebugCustomersNormalizationRoute =
+  DebugCustomersNormalizationRouteImport.update({
+    id: '/debug/customers-normalization',
+    path: '/debug/customers-normalization',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const CustomersMapRoute = CustomersMapRouteImport.update({
   id: '/map',
   path: '/map',
@@ -402,6 +409,7 @@ export interface FileRoutesByFullPath {
   '/admin/webhooks': typeof AdminWebhooksRoute
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
+  '/debug/customers-normalization': typeof DebugCustomersNormalizationRoute
   '/marketing/campaigns': typeof MarketingCampaignsRoute
   '/marketing/logs': typeof MarketingLogsRoute
   '/marketing/readiness': typeof MarketingReadinessRoute
@@ -461,6 +469,7 @@ export interface FileRoutesByTo {
   '/admin/webhooks': typeof AdminWebhooksRoute
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
+  '/debug/customers-normalization': typeof DebugCustomersNormalizationRoute
   '/marketing/campaigns': typeof MarketingCampaignsRoute
   '/marketing/logs': typeof MarketingLogsRoute
   '/marketing/readiness': typeof MarketingReadinessRoute
@@ -522,6 +531,7 @@ export interface FileRoutesById {
   '/admin/webhooks': typeof AdminWebhooksRoute
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
+  '/debug/customers-normalization': typeof DebugCustomersNormalizationRoute
   '/marketing/campaigns': typeof MarketingCampaignsRoute
   '/marketing/logs': typeof MarketingLogsRoute
   '/marketing/readiness': typeof MarketingReadinessRoute
@@ -584,6 +594,7 @@ export interface FileRouteTypes {
     | '/admin/webhooks'
     | '/customers/$id'
     | '/customers/map'
+    | '/debug/customers-normalization'
     | '/marketing/campaigns'
     | '/marketing/logs'
     | '/marketing/readiness'
@@ -643,6 +654,7 @@ export interface FileRouteTypes {
     | '/admin/webhooks'
     | '/customers/$id'
     | '/customers/map'
+    | '/debug/customers-normalization'
     | '/marketing/campaigns'
     | '/marketing/logs'
     | '/marketing/readiness'
@@ -703,6 +715,7 @@ export interface FileRouteTypes {
     | '/admin/webhooks'
     | '/customers/$id'
     | '/customers/map'
+    | '/debug/customers-normalization'
     | '/marketing/campaigns'
     | '/marketing/logs'
     | '/marketing/readiness'
@@ -762,6 +775,7 @@ export interface RootRouteChildren {
   AdminUatRoute: typeof AdminUatRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminWebhooksRoute: typeof AdminWebhooksRoute
+  DebugCustomersNormalizationRoute: typeof DebugCustomersNormalizationRoute
   MarketingCampaignsRoute: typeof MarketingCampaignsRoute
   MarketingLogsRoute: typeof MarketingLogsRoute
   MarketingReadinessRoute: typeof MarketingReadinessRoute
@@ -971,6 +985,13 @@ declare module '@tanstack/react-router' {
       path: '/marketing/campaigns'
       fullPath: '/marketing/campaigns'
       preLoaderRoute: typeof MarketingCampaignsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/debug/customers-normalization': {
+      id: '/debug/customers-normalization'
+      path: '/debug/customers-normalization'
+      fullPath: '/debug/customers-normalization'
+      preLoaderRoute: typeof DebugCustomersNormalizationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/customers/map': {
@@ -1247,6 +1268,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminUatRoute: AdminUatRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminWebhooksRoute: AdminWebhooksRoute,
+  DebugCustomersNormalizationRoute: DebugCustomersNormalizationRoute,
   MarketingCampaignsRoute: MarketingCampaignsRoute,
   MarketingLogsRoute: MarketingLogsRoute,
   MarketingReadinessRoute: MarketingReadinessRoute,

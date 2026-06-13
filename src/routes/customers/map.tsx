@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { buildStaffMap, getStaffDisplayName, StaffMap } from "@/lib/staffDisplay";
 import { CustomerPreviewDrawer } from "@/components/customers/CustomerPreviewDrawer";
 import { getCustomerCardTitle, getCustomerPersonDisplayName } from "@/lib/customers/customerDisplayName";
+import { safeLower, safeIncludes, safeStripAccents } from "@/lib/utils/safeString";
 import { RoutingReviewDialog } from "@/components/customers/RoutingReviewDialog";
 import { CRMCard } from "@/components/crm/CRMCard";
 import { CRMStatusBadge } from "@/components/crm/CRMStatusBadge";
@@ -34,7 +35,7 @@ import {
   ChevronsUpDown,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { VIETNAM_PROVINCES, stripAccents, findProvinceByName } from "@/lib/vietnamProvinces";
+import { VIETNAM_PROVINCES, findProvinceByName } from "@/lib/vietnamProvinces";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -670,12 +671,12 @@ function CustomerMapPage() {
   const baseFilteredCustomers = useMemo(() => {
     return customers.filter((c) => {
       // 1. Search Query
-      const searchLower = searchQuery.toLowerCase();
+      const searchLower = safeLower(searchQuery);
       const matchSearch =
-        (c.facility_name || "").toLowerCase().includes(searchLower) ||
-        (c.name || "").toLowerCase().includes(searchLower) ||
-        (c.phone || "").toLowerCase().includes(searchLower) ||
-        (c.address || "").toLowerCase().includes(searchLower);
+        safeIncludes(safeLower(c.facility_name), searchLower) ||
+        safeIncludes(safeLower(c.name), searchLower) ||
+        safeIncludes(safeLower(c.phone), searchLower) ||
+        safeIncludes(safeLower(c.address), searchLower);
 
       if (!matchSearch) return false;
       if (cityFilter !== "all" && c.city !== cityFilter) return false;
@@ -987,12 +988,12 @@ function CustomerMapPage() {
                       </span>
                     </button>
                     {(() => {
-                      const q = stripAccents(citySearch);
+                      const q = safeStripAccents(safeLower(citySearch));
                       const matched = VIETNAM_PROVINCES.filter((p) => {
                         if (!q) return true;
-                        const alias = findProvinceByName(citySearch);
-                        if (alias === p) return true;
-                        return stripAccents(p).includes(q);
+                        const pAlias = safeStripAccents(safeLower(findProvinceByName(p) || ""));
+                        const pName = safeStripAccents(safeLower(p));
+                        return pName.includes(q) || pAlias.includes(q);
                       });
                       if (matched.length === 0) {
                         return (

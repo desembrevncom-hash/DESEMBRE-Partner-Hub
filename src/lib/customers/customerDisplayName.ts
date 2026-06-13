@@ -1,72 +1,140 @@
-export function isUrlLike(value: string | null | undefined): boolean {
-  if (!value) return false;
-  const s = value.trim().toLowerCase();
+export type CustomerShape = Partial<{
+  id: string;
+  name: string | null;
+  contact_name: string | null;
+  business_name: string | null;
+  facility_name: string | null;
+  phone: string | null;
+  facebook_display_name: string | null;
+  customer_social_profiles: any;
+  social_profiles: any;
+  [key: string]: any;
+}>;
+
+import { toSafeString, safeTrim, safeLower, safeIncludes } from "../utils/safeString";
+
+export function isUrlLike(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  const s = safeTrim(value);
+  if (!s) return false;
+  const lower = safeLower(s);
   return (
-    s.includes("http://") ||
-    s.includes("https://") ||
-    s.includes("facebook.com") ||
-    s.includes("fb.com") ||
-    s.includes("profile.php")
+    lower.startsWith("http://") ||
+    lower.startsWith("https://") ||
+    safeIncludes(lower, "www.facebook.com") ||
+    safeIncludes(lower, "facebook.com/") ||
+    lower === "facebook.com" ||
+    safeIncludes(lower, "m.facebook.com") ||
+    safeIncludes(lower, "fb.com") ||
+    safeIncludes(lower, "profile.php?id=")
   );
 }
 
-export function getCustomerPersonDisplayName(customer: any): string {
-  if (!customer) return "Khách chưa có tên";
-
-  // 1. contact_name if non-empty and not URL
-  if (customer.contact_name && !isUrlLike(customer.contact_name)) return customer.contact_name;
+export function isUidLike(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  const s = safeTrim(value);
+  if (!s) return false;
+  // False for Vietnamese phone numbers (start with 0, 10-11 digits)
+  if (/^0\d{9,10}$/.test(s)) return false;
   
-  // 2. person_name / contact_person_name if exists and not URL
-  if (customer.person_name && !isUrlLike(customer.person_name)) return customer.person_name;
-  if (customer.contact_person_name && !isUrlLike(customer.contact_person_name)) return customer.contact_person_name;
-
-  // 3. display_name if exists and not URL
-  if (customer.display_name && !isUrlLike(customer.display_name)) return customer.display_name;
-
-  // 4. facebook_display_name from joined social profile if available
-  if (customer.facebook_display_name && !isUrlLike(customer.facebook_display_name)) return customer.facebook_display_name;
-
-  // 5. name if non-empty and not URL
-  if (customer.name && !isUrlLike(customer.name)) return customer.name;
-
-  // 6. phone if available
-  if (customer.phone) return customer.phone;
-
-  // 7. fallback
-  return "Khách chưa có tên";
+  // True for long numeric UID-like strings (12+ digits)
+  return /^\d{12,}$/.test(s);
 }
 
-export function getCustomerBusinessDisplayName(customer: any): string | null {
+export function getFacebookDisplayNameFromCustomer(customer: CustomerShape | null | undefined): string | null {
   if (!customer) return null;
 
-  if (customer.business_name && !isUrlLike(customer.business_name)) return customer.business_name;
-  if (customer.spa_name && !isUrlLike(customer.spa_name)) return customer.spa_name;
-  if (customer.company_name && !isUrlLike(customer.company_name)) return customer.company_name;
-  if (customer.clinic_name && !isUrlLike(customer.clinic_name)) return customer.clinic_name;
-  if (customer.facility_name && !isUrlLike(customer.facility_name)) return customer.facility_name;
+  // 1. customer.facebook_display_name
+  if (customer.facebook_display_name) return customer.facebook_display_name;
+
+  // 2. customer.customer_social_profiles[0].facebook_display_name
+  if (Array.isArray(customer.customer_social_profiles) && customer.customer_social_profiles.length > 0) {
+    for (const profile of customer.customer_social_profiles) {
+      if (profile?.facebook_display_name) return profile.facebook_display_name;
+    }
+  }
+
+  // 3. customer.customer_social_profiles.facebook_display_name
+  if (
+    customer.customer_social_profiles &&
+    !Array.isArray(customer.customer_social_profiles) &&
+    typeof customer.customer_social_profiles === "object"
+  ) {
+    if (customer.customer_social_profiles.facebook_display_name) {
+      return customer.customer_social_profiles.facebook_display_name;
+    }
+  }
+
+  // 4. customer.social_profiles[0].facebook_display_name if alias exists
+  if (Array.isArray(customer.social_profiles) && customer.social_profiles.length > 0) {
+    for (const profile of customer.social_profiles) {
+      if (profile?.facebook_display_name) return profile.facebook_display_name;
+    }
+  }
 
   return null;
 }
 
-export function getCustomerCardTitle(customer: any): string {
+export function getCustomerBusinessDisplayName(customer: CustomerShape | null | undefined): string | null {
+  if (!customer) return null;
+
+  const businessName = toSafeString(customer.business_name);
+  if (businessName && !isUrlLike(businessName)) return businessName;
+
+  const facilityName = toSafeString(customer.facility_name);
+  if (facilityName && !isUrlLike(facilityName)) return facilityName;
+
+  return null;
+}
+
+export function getCustomerPersonDisplayName(customer: CustomerShape | null | undefined): string {
   if (!customer) return "Khách chưa có tên";
 
-  // 1. business display name if exists and is real
-  const businessName = getCustomerBusinessDisplayName(customer);
-  if (businessName) return businessName;
+  // 1. contact_name if not URL/UID
+  const contactName = toSafeString(customer.contact_name);
+  if (contactName && !isUrlLike(contactName) && !isUidLike(contactName)) {
+    return contactName;
+  }
 
-  // 2. person display name (will return phone or fallback if no real name)
-  const personName = getCustomerPersonDisplayName(customer);
-  if (personName !== "Khách chưa có tên") return personName;
+  // 2. facebook_display_name
+  const fbName = toSafeString(getFacebookDisplayNameFromCustomer(customer));
+  if (fbName && !isUrlLike(fbName) && !isUidLike(fbName)) {
+    return fbName;
+  }
 
-  // 3. fallback to URL only as absolute last resort if absolutely nothing else exists,
-  // but spec says: "Do NOT return Facebook URL from getCustomerCardTitle unless absolutely no other data exists."
-  if (customer.contact_name) return customer.contact_name;
-  if (customer.name) return customer.name;
+  // 3. name if not URL/UID
+  const name = toSafeString(customer.name);
+  if (name && !isUrlLike(name) && !isUidLike(name)) {
+    return name;
+  }
 
+  // 4. phone
+  const phone = toSafeString(customer.phone);
+  if (phone) return phone;
+
+  // 5. fallback
   return "Khách chưa có tên";
 }
 
-// Aliases for compatibility with existing imports, we will migrate them over
+export function getCustomerCardTitle(customer: CustomerShape | null | undefined): string {
+  if (!customer) return "Khách chưa có tên";
+
+  // 1. business/facility display name
+  const businessName = getCustomerBusinessDisplayName(customer);
+  if (businessName) return businessName;
+
+  // 2. person display name
+  const personName = getCustomerPersonDisplayName(customer);
+  const phoneStr = toSafeString(customer.phone);
+  if (personName !== "Khách chưa có tên" && personName !== phoneStr) return personName;
+
+  // 3. phone
+  if (phoneStr) return phoneStr;
+
+  // 4. fallback
+  return "Khách chưa có tên";
+}
+
+// Aliases for compatibility with existing imports, we will migrate them over if needed
 export const getCustomerDisplayName = getCustomerPersonDisplayName;
 export const getCustomerBusinessOrDisplayName = getCustomerCardTitle;

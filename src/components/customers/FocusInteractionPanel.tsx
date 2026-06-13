@@ -2,6 +2,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Phone, Calendar, CheckCircle2 } from "lucide-react";
 import { getCustomerConversationState } from "@/lib/customerConversationState";
+import { getCustomerCardTitle } from "@/lib/customers/customerDisplayName";
 
 interface FocusInteractionPanelProps {
   customer: any;
@@ -30,7 +31,7 @@ export function FocusInteractionPanel({
             Focus Action
           </p>
           <p className="text-sm font-black truncate max-w-[200px] leading-tight mt-0.5">
-            {customer.contact_name || customer.name || "Khách hàng"}
+            {getCustomerCardTitle(customer || {})}
           </p>
         </div>
       </div>

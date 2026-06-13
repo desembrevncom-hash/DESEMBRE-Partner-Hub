@@ -45,8 +45,8 @@ import {
   Facebook,
 } from "lucide-react";
 import { normalizePhone } from "@/lib/phone";
-import { VIETNAM_PROVINCES, stripAccents, findProvinceByName } from "@/lib/vietnamProvinces";
 import { createLeadAssignedAutomation } from "@/lib/automation";
+import { getCustomerCardTitle } from "@/lib/customers/customerDisplayName";
 import { Badge } from "@/components/ui/badge";
 import { createContactChannel } from "@/lib/contactChannels";
 import {
@@ -54,6 +54,9 @@ import {
   FacebookUrlClassification,
 } from "@/lib/customers/facebookUrlClassifier";
 import { checkCustomerDuplicate } from "@/lib/customers/customerDuplicateChecker";
+import { VIETNAM_PROVINCES, findProvinceByName } from "@/lib/vietnamProvinces";
+import { safeLower, safeStripAccents } from "@/lib/utils/safeString";
+
 interface AddCustomerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -338,19 +341,19 @@ export function AddCustomerDialog({
     }
 
     // city
-    const tLow = stripAccents(t.toLowerCase());
-    for (const p of VIETNAM_PROVINCES) {
-      const pLow = stripAccents(p.toLowerCase());
-      const alias = stripAccents((findProvinceByName(pLow) || "").toLowerCase());
-      if (tLow.includes(pLow)) {
-        city = p;
-        t = t.replace(new RegExp(pLow, "i"), "").replace(new RegExp(p, "i"), "").trim();
-        break;
-      }
-      if (alias && tLow.includes(alias)) {
-        city = p;
-        t = t.replace(new RegExp(alias, "i"), "").trim();
-        break;
+    if (t) {
+      const tLow = safeStripAccents(safeLower(t));
+      for (const p of VIETNAM_PROVINCES) {
+        const pLow = safeStripAccents(safeLower(p));
+        const alias = safeStripAccents(safeLower(findProvinceByName(pLow) || ""));
+        if (tLow.includes(pLow)) {
+          city = p;
+          break;
+        }
+        if (alias && tLow.includes(alias)) {
+          city = p;
+          break;
+        }
       }
     }
 
@@ -464,12 +467,21 @@ export function AddCustomerDialog({
       if (isSale) defaultOwnerSaleId = user?.id;
       if (isTeleLead) defaultOwnerTeleId = user?.id;
 
+      const facName = form.facility_name.trim();
+      const conName = form.name.trim();
+      const ph = form.phone.trim();
+
+      let bestName = "Khách chưa có tên";
+      if (facName) bestName = facName;
+      else if (conName) bestName = conName;
+      else if (ph) bestName = ph;
+
       const payload: any = {
-        facility_name: form.facility_name.trim(),
-        name: form.name.trim(),
-        contact_name: form.name.trim(),
-        business_name: form.facility_name.trim(),
-        phone: form.phone.trim(),
+        facility_name: facName || null,
+        name: bestName,
+        contact_name: conName || null,
+        business_name: facName || null,
+        phone: ph || null,
         normalized_phone: normPhone,
         city: form.city,
         source: form.source,
@@ -523,7 +535,7 @@ export function AddCustomerDialog({
       if (newCustomer.owner_sale_id) {
         await createLeadAssignedAutomation(
           newCustomer.id,
-          newCustomer.facility_name || newCustomer.name,
+          getCustomerCardTitle(newCustomer),
           newCustomer.owner_sale_id,
           user?.email || "Hệ thống",
           user?.id || "",
@@ -531,7 +543,7 @@ export function AddCustomerDialog({
       } else if (newCustomer.owner_tele_id) {
         await createLeadAssignedAutomation(
           newCustomer.id,
-          newCustomer.facility_name || newCustomer.name,
+          getCustomerCardTitle(newCustomer),
           newCustomer.owner_tele_id,
           user?.email || "Hệ thống",
           user?.id || "",
@@ -684,7 +696,7 @@ export function AddCustomerDialog({
                   !isAdmin &&
                   !isSubAdmin &&
                   !fbParsedData?.uid
-                ? "Đã lưu link Facebook. UID sẽ được Admin xử lý sau."
+                ? "Chờ Admin xử lý UID."
                 : "Đã tạo khách hàng mới.",
           });
         } catch (err: any) {
@@ -698,7 +710,7 @@ export function AddCustomerDialog({
                 !isAdmin &&
                 !isSubAdmin &&
                 !fbParsedData?.uid
-              ? "Đã lưu link Facebook. UID sẽ được Admin xử lý sau."
+              ? "Chờ Admin xử lý UID."
               : "Đã tạo khách hàng mới.",
         });
       }
@@ -1038,12 +1050,12 @@ export function AddCustomerDialog({
                     </div>
                     <div className="max-h-52 overflow-y-auto">
                       {(() => {
-                        const q = stripAccents(citySearch);
+                        const q = safeStripAccents(safeLower(citySearch));
                         const matched = VIETNAM_PROVINCES.filter((p) => {
                           if (!q) return true;
-                          const alias = findProvinceByName(citySearch);
-                          if (alias === p) return true;
-                          return stripAccents(p).includes(q);
+                          const pAlias = safeStripAccents(safeLower(findProvinceByName(p) || ""));
+                          const pName = safeStripAccents(safeLower(p));
+                          return pName.includes(q) || pAlias.includes(q);
                         });
                         if (matched.length === 0)
                           return (
