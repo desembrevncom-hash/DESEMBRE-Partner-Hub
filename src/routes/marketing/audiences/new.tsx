@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { getAudienceStats } from "@/lib/marketing/segmentRules";
 import { FilterRulesJson, SegmentRule, AudienceStats, MarketingVisibility } from "@/lib/marketing/types";
-import { Loader2, Save, Users, AlertTriangle, PhoneOff, MailX, AlertCircle } from "lucide-react";
+import { Loader2, Save, Users, AlertTriangle, PhoneOff, MailX, AlertCircle, Plus } from "lucide-react";
 
 export const Route = createFileRoute("/marketing/audiences/new")({
   component: AudienceBuilderNewPage,
