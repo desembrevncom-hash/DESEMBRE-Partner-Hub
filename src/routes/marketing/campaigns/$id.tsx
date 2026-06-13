@@ -45,9 +45,7 @@ function CampaignDetailPage() {
       const { data, error } = await supabase
         .from("marketing_campaigns")
         .select(`
-          *,
-          created_by_user:created_by (email),
-          archived_by_user:archived_by (email)
+          *
         `)
         .eq("id", id)
         .single();
