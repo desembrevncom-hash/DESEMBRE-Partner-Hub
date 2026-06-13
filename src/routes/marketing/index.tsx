@@ -333,7 +333,7 @@ function MarketingDashboardPage() {
               asChild
               className="rounded-xl border-slate-200 font-bold text-xs h-10 px-5"
             >
-              <Link to="/marketing/campaigns">Quản lý Dispatcher</Link>
+              <Link to="/marketing/campaigns">Quản lý chiến dịch</Link>
             </Button>
             <Button
               variant="outline"
@@ -581,10 +581,10 @@ function MarketingDashboardPage() {
             <CardHeader className="p-8 pb-4 flex flex-row items-center justify-between border-b border-slate-50">
               <div>
                 <CardTitle className="text-base font-black text-slate-900 uppercase tracking-widest">
-                  Chiến dịch đang chạy
+                  Danh sách chiến dịch nháp
                 </CardTitle>
                 <p className="text-xs text-slate-400 font-medium mt-1">
-                  Đo lường hiệu quả thời gian thực
+                  Kế hoạch chiến dịch đang chuẩn bị
                 </p>
               </div>
               <Button variant="ghost" size="sm" className="text-xs font-bold text-indigo-500">
