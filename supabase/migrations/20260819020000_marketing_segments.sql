@@ -38,8 +38,10 @@ CREATE INDEX IF NOT EXISTS idx_marketing_segments_created_at ON public.marketing
 -- RLS
 ALTER TABLE public.marketing_segments ENABLE ROW LEVEL SECURITY;
 
--- Revoke DELETE to absolutely prevent hard deletes
+-- Explicit Table Privileges
+GRANT SELECT, INSERT, UPDATE ON public.marketing_segments TO authenticated;
 REVOKE DELETE ON public.marketing_segments FROM authenticated, anon;
+REVOKE ALL ON public.marketing_segments FROM anon;
 
 -- Drop all existing policies to ensure idempotency
 DROP POLICY IF EXISTS "Admins can view all segments" ON public.marketing_segments;
