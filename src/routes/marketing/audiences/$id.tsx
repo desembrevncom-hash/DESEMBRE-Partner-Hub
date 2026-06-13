@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { getAudienceStats } from "@/lib/marketing/segmentRules";
 import { MarketingSegment, AudienceStats } from "@/lib/marketing/types";
-import { Loader2, Download, AlertTriangle, Users, Archive, ArrowLeft } from "lucide-react";
+import { Loader2, Download, AlertTriangle, Users, Archive, ArrowLeft, AlertCircle } from "lucide-react";
 
 export const Route = createFileRoute("/marketing/audiences/$id")({
   component: AudienceEditPage,
@@ -118,7 +118,7 @@ function AudienceEditPage() {
   if (!segment) return <div>Segment not found.</div>;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto px-4 pb-20">
       <div className="flex items-center gap-4 mb-2">
         <Button variant="ghost" size="icon" onClick={() => navigate({ to: "/marketing/audiences" })}>
           <ArrowLeft className="h-5 w-5" />
@@ -138,8 +138,8 @@ function AudienceEditPage() {
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Dry-Run Preview ({stats?.sample.length || 0} samples)</CardTitle>
-              <CardDescription>This is a live preview of customers matching the saved rules.</CardDescription>
+              <CardTitle>Xem trước kết quả ({stats?.sample.length || 0} khách mẫu)</CardTitle>
+              <CardDescription>Đây là kết quả mô phỏng khách hàng thỏa mãn các điều kiện đã lưu.</CardDescription>
             </CardHeader>
             <CardContent>
               {evaluating ? (
@@ -149,9 +149,9 @@ function AudienceEditPage() {
                   <table className="w-full text-sm text-left">
                     <thead className="bg-muted text-muted-foreground text-xs uppercase">
                       <tr>
-                        <th className="px-4 py-3">Name</th>
-                        <th className="px-4 py-3">Phone</th>
-                        <th className="px-4 py-3">Data Warnings</th>
+                        <th className="px-4 py-3">Tên khách hàng</th>
+                        <th className="px-4 py-3">Số điện thoại</th>
+                        <th className="px-4 py-3">Cảnh báo dữ liệu</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
@@ -170,17 +170,17 @@ function AudienceEditPage() {
                   </table>
                 </div>
               ) : (
-                <p className="text-muted-foreground py-4 text-center">No customers match these rules.</p>
+                <p className="text-muted-foreground py-4 text-center">Không có khách hàng nào thỏa mãn điều kiện này.</p>
               )}
             </CardContent>
           </Card>
         </div>
 
         {/* Right Column: Actions & Stats */}
-        <div className="space-y-6">
+        <div className="space-y-6 lg:sticky lg:top-24 h-max">
           <Card className="border-primary/50 bg-primary/5">
             <CardHeader>
-              <CardTitle>Audience Stats</CardTitle>
+              <CardTitle>Thống kê nhóm</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {evaluating ? (
@@ -188,18 +188,18 @@ function AudienceEditPage() {
               ) : (
                 <>
                   <div className="bg-background rounded-lg p-4 border text-center">
-                    <p className="text-sm text-muted-foreground">Matched Customers</p>
+                    <p className="text-sm text-muted-foreground">Khách phù hợp</p>
                     <p className="text-4xl font-bold text-primary">{stats?.matched_customers || 0}</p>
-                    <p className="text-xs text-muted-foreground mt-1">out of {stats?.total_customers || 0} total</p>
+                    <p className="text-xs text-muted-foreground mt-1">trong tổng số {stats?.total_customers || 0} khách</p>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="flex flex-col bg-background p-2 rounded border">
-                      <span className="text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3"/> Callable</span>
+                      <span className="text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3"/> Có thể gọi</span>
                       <span className="font-semibold">{stats?.callable_count || 0}</span>
                     </div>
                     <div className="flex flex-col bg-background p-2 rounded border">
-                      <span className="text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3"/> Zalo</span>
+                      <span className="text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3"/> Có thể Zalo</span>
                       <span className="font-semibold">{stats?.zalo_count || 0}</span>
                     </div>
                   </div>
@@ -208,7 +208,7 @@ function AudienceEditPage() {
                     <div className="bg-destructive/10 text-destructive p-3 rounded-lg border border-destructive/20 text-sm mt-4">
                       <div className="flex items-center gap-2 font-medium mb-1">
                         <AlertTriangle className="h-4 w-4" />
-                        <span>Data Quality Issues ({stats.data_quality_issue_count})</span>
+                        <span>Cảnh báo dữ liệu ({stats.data_quality_issue_count})</span>
                       </div>
                       <ul className="list-disc pl-5 text-xs opacity-90 space-y-1 mt-2">
                         {Object.entries(stats.skipped_reasons).map(([reason, count]) => (
@@ -224,19 +224,23 @@ function AudienceEditPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Actions</CardTitle>
+              <CardTitle>Thao tác</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
+              <div className="text-[11px] font-medium text-amber-600 bg-amber-50 p-2 rounded border border-amber-100 mb-2 leading-relaxed">
+                <AlertCircle className="w-3 h-3 inline mr-1 mb-[2px]" />
+                Module này chỉ tạo nhóm và xuất file, không gửi chiến dịch.
+              </div>
               <Button className="w-full" onClick={handleExport} disabled={exporting || evaluating || !stats?.matched_customers}>
                 {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                Export Matched Audience
+                Xuất tệp khách hàng
               </Button>
               <Button variant="outline" className="w-full" disabled>
-                Edit Rules (Coming in v2)
+                Chỉnh sửa điều kiện (Sắp ra mắt)
               </Button>
               {!segment.archived_at && (
                 <Button variant="destructive" className="w-full" onClick={handleArchive}>
-                  <Archive className="mr-2 h-4 w-4" /> Archive Segment
+                  <Archive className="mr-2 h-4 w-4" /> Lưu trữ nhóm
                 </Button>
               )}
             </CardContent>

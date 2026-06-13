@@ -36,7 +36,7 @@ function AudiencesListPage() {
       if (error) throw error;
       setSegments(data || []);
     } catch (error: any) {
-      toast.error("Error fetching segments: " + error.message);
+      toast.error("Lỗi tải danh sách: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -55,41 +55,41 @@ function AudiencesListPage() {
       const { error } = await supabase.from("marketing_segments").update(payload).eq("id", id);
       if (error) throw error;
       
-      toast.success(currentlyArchived ? "Segment restored" : "Segment archived");
+      toast.success(currentlyArchived ? "Đã khôi phục nhóm" : "Đã lưu trữ nhóm");
       fetchSegments();
     } catch (error: any) {
-      toast.error("Error updating segment: " + error.message);
+      toast.error("Lỗi cập nhật: " + error.message);
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto px-4 pb-20">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Audience Builder & Saved Segments</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Nhóm khách hàng (Audience)</h1>
           <p className="text-muted-foreground mt-2">
-            Build and save customer segments for future marketing campaigns. No messaging will be sent.
+            Quản lý và tạo tệp khách hàng. Hệ thống chưa hỗ trợ gửi tin nhắn tự động.
           </p>
         </div>
         <div className="flex items-center gap-4">
           {(isAdmin || isSubAdmin) && (
             <div className="flex items-center space-x-2 mr-4">
               <Switch id="show-archived" checked={showArchived} onCheckedChange={setShowArchived} />
-              <Label htmlFor="show-archived">Show Archived</Label>
+              <Label htmlFor="show-archived">Hiện nhóm đã lưu trữ</Label>
             </div>
           )}
           <Button onClick={() => navigate({ to: "/marketing/audiences/new" })}>
-            <Plus className="mr-2 h-4 w-4" /> Create Audience
+            <Plus className="mr-2 h-4 w-4" /> Tạo nhóm mới
           </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading ? (
-          <p>Loading segments...</p>
+          <p>Đang tải danh sách...</p>
         ) : segments.length === 0 ? (
           <div className="col-span-full py-12 text-center text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
-            No segments found. Create your first audience!
+            Chưa có nhóm khách hàng nào. Hãy tạo nhóm đầu tiên!
           </div>
         ) : (
           segments.map((seg) => (
@@ -100,7 +100,7 @@ function AudiencesListPage() {
                     <CardTitle className="text-lg line-clamp-1" title={seg.name}>{seg.name}</CardTitle>
                     <div className="flex gap-2 mt-2">
                       <Badge variant="outline">{seg.visibility}</Badge>
-                      {seg.archived_at && <Badge variant="destructive">Archived</Badge>}
+                      {seg.archived_at && <Badge variant="destructive">Đã lưu trữ</Badge>}
                     </div>
                   </div>
                   <div className="bg-primary/10 text-primary p-2 rounded-full flex-shrink-0">
@@ -110,16 +110,16 @@ function AudiencesListPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground line-clamp-2 min-h-[40px] mb-4">
-                  {seg.description || "No description provided."}
+                  {seg.description || "Không có mô tả."}
                 </p>
                 <div className="flex items-center justify-between text-sm mb-4">
-                  <span className="text-muted-foreground">Preview Size:</span>
-                  <span className="font-medium">{seg.last_preview_count || 0} customers</span>
+                  <span className="text-muted-foreground">Quy mô dự kiến:</span>
+                  <span className="font-medium">{seg.last_preview_count || 0} khách</span>
                 </div>
                 
                 <div className="flex justify-end gap-2 pt-4 border-t">
                   <Button variant="ghost" size="sm" onClick={() => navigate({ to: `/marketing/audiences/${seg.id}` })}>
-                    Open
+                    Mở
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => handleArchive(seg.id, !!seg.archived_at)}>
                     <Archive className="h-4 w-4" />

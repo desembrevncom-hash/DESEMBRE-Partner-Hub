@@ -126,12 +126,15 @@ function AudienceBuilderNewPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto px-4 pb-20">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Create Audience Segment</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Tạo nhóm khách hàng</h1>
           <p className="text-muted-foreground mt-2">
-            Build dynamic rules to filter your customers for marketing campaigns.
+            Tạo điều kiện lọc khách hàng để xuất tệp marketing.
+          </p>
+          <p className="text-sm font-medium text-amber-600 mt-1">
+            Dùng bộ lọc này để tạo tệp khách hàng trước khi export. Hệ thống chưa gửi tin nhắn tự động.
           </p>
         </div>
       </div>
@@ -141,50 +144,50 @@ function AudienceBuilderNewPage() {
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Audience Rules</CardTitle>
-              <CardDescription>Match customers where ALL of the following rules are true.</CardDescription>
+              <CardTitle>Điều kiện lọc khách hàng</CardTitle>
+              <CardDescription>Khách hàng phải thỏa mãn tất cả điều kiện bên dưới.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {rules.group.rules.map((rule: any, i: number) => (
                 <div key={i} className="flex flex-col sm:flex-row gap-3 items-end bg-muted/30 p-3 rounded-lg border">
                   <div className="flex-1 space-y-1">
-                    <Label>Field</Label>
+                    <Label>Trường dữ liệu</Label>
                     <Select value={rule.field} onValueChange={(val) => handleUpdateRule(i, { field: val as any })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="stage">Stage</SelectItem>
-                        <SelectItem value="source">Source</SelectItem>
-                        <SelectItem value="province">Province/City</SelectItem>
-                        <SelectItem value="has_valid_phone">Has Valid Phone</SelectItem>
-                        <SelectItem value="has_zalo_capable_phone">Has Zalo Phone</SelectItem>
-                        <SelectItem value="has_email">Has Email</SelectItem>
-                        <SelectItem value="phone_is_facebook_uid">Phone is Facebook UID</SelectItem>
-                        <SelectItem value="phone_possibly_missing_leading_zero">Phone Missing Zero</SelectItem>
-                        <SelectItem value="UNASSIGNED">Unassigned</SelectItem>
+                        <SelectItem value="stage">Giai đoạn</SelectItem>
+                        <SelectItem value="source">Nguồn</SelectItem>
+                        <SelectItem value="province">Tỉnh/Thành phố</SelectItem>
+                        <SelectItem value="has_valid_phone">Có số điện thoại hợp lệ</SelectItem>
+                        <SelectItem value="has_zalo_capable_phone">Có thể liên hệ Zalo</SelectItem>
+                        <SelectItem value="has_email">Có email</SelectItem>
+                        <SelectItem value="phone_is_facebook_uid">Dữ liệu là Facebook UID, không phải SĐT</SelectItem>
+                        <SelectItem value="phone_possibly_missing_leading_zero">SĐT có thể thiếu số 0 đầu</SelectItem>
+                        <SelectItem value="UNASSIGNED">Chưa có người phụ trách</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="flex-1 space-y-1">
-                    <Label>Operator</Label>
+                    <Label>Điều kiện</Label>
                     <Select value={rule.operator} onValueChange={(val) => handleUpdateRule(i, { operator: val as any })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="equals">Equals</SelectItem>
-                        <SelectItem value="not_equals">Not Equals</SelectItem>
-                        <SelectItem value="contains">Contains</SelectItem>
-                        <SelectItem value="exists">Exists</SelectItem>
-                        <SelectItem value="not_exists">Not Exists</SelectItem>
+                        <SelectItem value="equals">Bằng</SelectItem>
+                        <SelectItem value="not_equals">Khác</SelectItem>
+                        <SelectItem value="contains">Chứa</SelectItem>
+                        <SelectItem value="exists">Có dữ liệu</SelectItem>
+                        <SelectItem value="not_exists">Không có dữ liệu</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="flex-1 space-y-1">
-                    <Label>Value</Label>
+                    <Label>Giá trị</Label>
                     {rule.operator === "equals" && typeof rule.value === "boolean" ? (
                       <Select value={String(rule.value)} onValueChange={(val) => handleUpdateRule(i, { value: val === "true" })}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="true">True</SelectItem>
-                          <SelectItem value="false">False</SelectItem>
+                          <SelectItem value="true">Có</SelectItem>
+                          <SelectItem value="false">Không</SelectItem>
                         </SelectContent>
                       </Select>
                     ) : (
@@ -201,15 +204,15 @@ function AudienceBuilderNewPage() {
                 </div>
               ))}
               
-              <Button variant="outline" onClick={handleAddRule} className="w-full border-dashed">
-                <Plus className="mr-2 h-4 w-4" /> Add Rule
+              <Button variant="outline" onClick={handleAddRule} className="w-full border-dashed border-primary/50 text-primary hover:bg-primary/5">
+                <Plus className="mr-2 h-4 w-4" /> Thêm điều kiện
               </Button>
             </CardContent>
           </Card>
           
           <Card>
             <CardHeader>
-              <CardTitle>Dry-Run Preview ({stats?.sample.length || 0} samples)</CardTitle>
+              <CardTitle>Xem trước kết quả ({stats?.sample.length || 0} khách mẫu)</CardTitle>
             </CardHeader>
             <CardContent>
               {evaluating ? (
@@ -219,9 +222,9 @@ function AudienceBuilderNewPage() {
                   <table className="w-full text-sm text-left">
                     <thead className="bg-muted text-muted-foreground text-xs uppercase">
                       <tr>
-                        <th className="px-4 py-3">Name</th>
-                        <th className="px-4 py-3">Phone</th>
-                        <th className="px-4 py-3">Data Warnings</th>
+                        <th className="px-4 py-3">Tên khách hàng</th>
+                        <th className="px-4 py-3">Số điện thoại</th>
+                        <th className="px-4 py-3">Cảnh báo dữ liệu</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
@@ -240,17 +243,17 @@ function AudienceBuilderNewPage() {
                   </table>
                 </div>
               ) : (
-                <p className="text-muted-foreground py-4 text-center">No customers match these rules.</p>
+                <p className="text-muted-foreground py-4 text-center">Không có khách hàng nào thỏa mãn điều kiện này.</p>
               )}
             </CardContent>
           </Card>
         </div>
 
         {/* Right Column: Stats & Save */}
-        <div className="space-y-6">
+        <div className="space-y-6 lg:sticky lg:top-24 h-max">
           <Card className="border-primary/50 bg-primary/5">
             <CardHeader>
-              <CardTitle>Audience Stats</CardTitle>
+              <CardTitle>Thống kê nhóm</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {evaluating ? (
@@ -258,18 +261,18 @@ function AudienceBuilderNewPage() {
               ) : (
                 <>
                   <div className="bg-background rounded-lg p-4 border text-center">
-                    <p className="text-sm text-muted-foreground">Matched Customers</p>
+                    <p className="text-sm text-muted-foreground">Khách phù hợp</p>
                     <p className="text-4xl font-bold text-primary">{stats?.matched_customers || 0}</p>
-                    <p className="text-xs text-muted-foreground mt-1">out of {stats?.total_customers || 0} total</p>
+                    <p className="text-xs text-muted-foreground mt-1">trong tổng số {stats?.total_customers || 0} khách</p>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="flex flex-col bg-background p-2 rounded border">
-                      <span className="text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3"/> Callable</span>
+                      <span className="text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3"/> Có thể gọi</span>
                       <span className="font-semibold">{stats?.callable_count || 0}</span>
                     </div>
                     <div className="flex flex-col bg-background p-2 rounded border">
-                      <span className="text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3"/> Zalo</span>
+                      <span className="text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3"/> Có thể Zalo</span>
                       <span className="font-semibold">{stats?.zalo_count || 0}</span>
                     </div>
                   </div>
@@ -278,7 +281,7 @@ function AudienceBuilderNewPage() {
                     <div className="bg-destructive/10 text-destructive p-3 rounded-lg border border-destructive/20 text-sm mt-4">
                       <div className="flex items-center gap-2 font-medium mb-1">
                         <AlertTriangle className="h-4 w-4" />
-                        <span>Data Quality Issues ({stats.data_quality_issue_count})</span>
+                        <span>Cảnh báo dữ liệu ({stats.data_quality_issue_count})</span>
                       </div>
                       <ul className="list-disc pl-5 text-xs opacity-90 space-y-1 mt-2">
                         {Object.entries(stats.skipped_reasons).map(([reason, count]) => (
@@ -294,30 +297,34 @@ function AudienceBuilderNewPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Save Segment</CardTitle>
+              <CardTitle>Lưu nhóm khách hàng</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Segment Name</Label>
-                <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Hanoi VIPs" />
+              <div className="text-[11px] font-medium text-amber-600 bg-amber-50 p-2 rounded border border-amber-100 mb-2 leading-relaxed">
+                <AlertCircle className="w-3 h-3 inline mr-1 mb-[2px]" />
+                Module này chỉ tạo nhóm và xuất file, không gửi chiến dịch.
               </div>
               <div className="space-y-2">
-                <Label>Description</Label>
-                <Input value={description} onChange={e => setDescription(e.target.value)} placeholder="Optional details..." />
+                <Label>Tên nhóm khách hàng</Label>
+                <Input value={name} onChange={e => setName(e.target.value)} placeholder="VD: Khách hàng VIP Hà Nội" />
               </div>
               <div className="space-y-2">
-                <Label>Visibility</Label>
+                <Label>Mô tả</Label>
+                <Input value={description} onChange={e => setDescription(e.target.value)} placeholder="Mô tả thêm (không bắt buộc)..." />
+              </div>
+              <div className="space-y-2">
+                <Label>Quyền hiển thị</Label>
                 <Select value={visibility} onValueChange={(val) => setVisibility(val as any)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="private">Private (Only me)</SelectItem>
-                    {(isAdmin || isSubAdmin) && <SelectItem value="public_to_org">Public (Organization-wide)</SelectItem>}
+                    <SelectItem value="private">Riêng tư, chỉ mình tôi</SelectItem>
+                    {(isAdmin || isSubAdmin) && <SelectItem value="public_to_org">Công khai trong hệ thống</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
               <Button className="w-full" onClick={handleSave} disabled={saving || !name}>
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Save Segment
+                Lưu nhóm khách hàng
               </Button>
             </CardContent>
           </Card>
