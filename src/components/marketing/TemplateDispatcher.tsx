@@ -103,12 +103,7 @@ export function TemplateDispatcher({ customer, isOpen, onClose }: TemplateDispat
   };
 
   const handleSendZalo = () => {
-    const phone = customer?.phone?.replace(/[^0-9]/g, "");
-    if (!phone) return toast.error("Khách hàng không có số điện thoại");
-
-    // Zalo deep link pattern
-    window.open(`https://zalo.me/${phone}`, "_blank");
-    handleCopy();
+    toast.error("Tính năng Gửi ZNS qua API bị khóa trong bản M4.");
   };
 
   return (
