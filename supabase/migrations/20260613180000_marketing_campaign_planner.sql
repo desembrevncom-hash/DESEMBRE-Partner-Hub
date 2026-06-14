@@ -21,19 +21,19 @@ ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS updated_at times
 
 -- Constraints
 ALTER TABLE public.marketing_campaigns DROP CONSTRAINT IF EXISTS marketing_campaigns_name_check;
-ALTER TABLE public.marketing_campaigns ADD CONSTRAINT marketing_campaigns_name_check CHECK (char_length(name) > 0);
+ALTER TABLE public.marketing_campaigns ADD CONSTRAINT marketing_campaigns_name_check CHECK (char_length(name) > 0) NOT VALID;
 
 ALTER TABLE public.marketing_campaigns DROP CONSTRAINT IF EXISTS marketing_campaigns_status_check;
-ALTER TABLE public.marketing_campaigns ADD CONSTRAINT marketing_campaigns_status_check CHECK (status IN ('draft', 'ready_for_export', 'archived'));
+ALTER TABLE public.marketing_campaigns ADD CONSTRAINT marketing_campaigns_status_check CHECK (status IN ('draft', 'ready_for_export', 'archived')) NOT VALID;
 
 ALTER TABLE public.marketing_campaigns DROP CONSTRAINT IF EXISTS marketing_campaigns_channel_check;
-ALTER TABLE public.marketing_campaigns ADD CONSTRAINT marketing_campaigns_channel_check CHECK (intended_channel IN ('call', 'zalo_manual', 'email_manual', 'facebook_manual', 'export_only'));
+ALTER TABLE public.marketing_campaigns ADD CONSTRAINT marketing_campaigns_channel_check CHECK (intended_channel IN ('call', 'zalo_manual', 'email_manual', 'facebook_manual', 'export_only')) NOT VALID;
 
 ALTER TABLE public.marketing_campaigns DROP CONSTRAINT IF EXISTS marketing_campaigns_rules_check;
-ALTER TABLE public.marketing_campaigns ADD CONSTRAINT marketing_campaigns_rules_check CHECK (jsonb_typeof(segment_rules_snapshot_json) = 'object');
+ALTER TABLE public.marketing_campaigns ADD CONSTRAINT marketing_campaigns_rules_check CHECK (jsonb_typeof(segment_rules_snapshot_json) = 'object') NOT VALID;
 
 ALTER TABLE public.marketing_campaigns DROP CONSTRAINT IF EXISTS marketing_campaigns_count_check;
-ALTER TABLE public.marketing_campaigns ADD CONSTRAINT marketing_campaigns_count_check CHECK (audience_snapshot_count >= 0);
+ALTER TABLE public.marketing_campaigns ADD CONSTRAINT marketing_campaigns_count_check CHECK (audience_snapshot_count >= 0) NOT VALID;
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_marketing_campaigns_created_by ON public.marketing_campaigns(created_by);
