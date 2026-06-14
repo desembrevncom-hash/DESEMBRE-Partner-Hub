@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ChevronLeft, Save, Server, Activity, Clock, ShieldAlert } from "lucide-react";
 import { SenderSafetyNotice } from "@/components/marketing/senders/SenderSafetyNotice";
 import { SenderReadinessBadge } from "@/components/marketing/senders/SenderReadinessBadge";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
 
