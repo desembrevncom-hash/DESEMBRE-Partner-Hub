@@ -281,7 +281,7 @@ BEGIN
       c.name,
       c.phone,
       c.email,
-      c.facebook_uid,
+      NULL, -- facebook_uid_snapshot
       v_campaign.segment_rules_snapshot_json,
       v_new_version,
       auth.uid()
