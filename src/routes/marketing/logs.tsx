@@ -227,7 +227,7 @@ function MarketingLogsPage() {
   return (
     <CRMPageContainer>
       <CRMPageHeader
-        title="Delivery Logs & Suppression"
+        title="Delivery Logs & Suppression (Demo / Mock Data)"
         badgeText="Infrastructure"
         backTo="/marketing/campaigns"
       />

@@ -43,6 +43,7 @@ import {
   XCircle,
   X,
   LayoutTemplate,
+  Server,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -333,7 +334,7 @@ function MarketingDashboardPage() {
               asChild
               className="rounded-xl border-slate-200 font-bold text-xs h-10 px-5"
             >
-              <Link to="/marketing/campaigns">Quản lý Dispatcher</Link>
+              <Link to="/marketing/campaigns">Quản lý chiến dịch</Link>
             </Button>
             <Button
               variant="outline"
@@ -353,6 +354,15 @@ function MarketingDashboardPage() {
                 >
                   <Link to="/admin/sender-accounts">
                     <Shield className="w-4 h-4" /> Sender Accounts
+                  </Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  asChild
+                  className="rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50 font-bold text-xs h-10 px-4 gap-2"
+                >
+                  <Link to="/marketing/senders">
+                    <Server className="w-4 h-4" /> Sender Readiness
                   </Link>
                 </Button>
                 <Button
@@ -581,10 +591,10 @@ function MarketingDashboardPage() {
             <CardHeader className="p-8 pb-4 flex flex-row items-center justify-between border-b border-slate-50">
               <div>
                 <CardTitle className="text-base font-black text-slate-900 uppercase tracking-widest">
-                  Chiến dịch đang chạy
+                  Danh sách chiến dịch nháp
                 </CardTitle>
                 <p className="text-xs text-slate-400 font-medium mt-1">
-                  Đo lường hiệu quả thời gian thực
+                  Kế hoạch chiến dịch đang chuẩn bị
                 </p>
               </div>
               <Button variant="ghost" size="sm" className="text-xs font-bold text-indigo-500">
@@ -599,7 +609,7 @@ function MarketingDashboardPage() {
                       <th className="px-8 py-4 text-left">Chiến dịch</th>
                       <th className="px-8 py-4 text-center">Loại hình</th>
                       <th className="px-8 py-4 text-center">Số Lead</th>
-                      <th className="px-8 py-4 text-center">Ngân sách</th>
+                      <th className="px-8 py-4 text-center">Ngân sách <Badge variant="outline" className="ml-1 text-[10px] text-red-500 border-red-200">Demo / Mock Data</Badge></th>
                       <th className="px-8 py-4 text-center">Trạng thái</th>
                       <th className="px-8 py-4 text-right">Hành động</th>
                     </tr>
