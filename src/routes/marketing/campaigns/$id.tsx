@@ -15,12 +15,16 @@ import {
   Archive,
   Calendar,
   Users,
-  Target
+  Target,
+  FileBox,
+  FileCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { CampaignApprovalPanel } from "@/components/marketing/CampaignApprovalPanel";
+import { ApprovalStatusBadge } from "@/components/marketing/ApprovalStatusBadge";
 
 export const Route = createFileRoute("/marketing/campaigns/$id")({
   beforeLoad: ({ context }) => {
@@ -67,24 +71,53 @@ function CampaignDetailPage() {
   }
 
   const handleExport = async () => {
-    if (!campaign?.segment_rules_snapshot_json) return;
+    if (!campaign) return;
     try {
       setIsExporting(true);
       toast.info("Đang xử lý dữ liệu xuất Excel...");
       
-      const { data: customers, error } = await supabase.from("customers").select("*");
-      if (error) throw error;
+      let finalExportData: any[] = [];
       
-      const matched = evaluateAudience(customers || [], campaign.segment_rules_snapshot_json as any);
+      if (campaign.approval_status === "approved") {
+        // Read from Snapshot Table
+        const { data: snapshots, error } = await supabase
+          .from("marketing_campaign_recipients_snapshot")
+          .select("*")
+          .eq("campaign_id", campaign.id)
+          .eq("snapshot_version", campaign.approved_snapshot_version);
+          
+        if (error) throw error;
+        
+        if (!snapshots || snapshots.length === 0) {
+          toast.warning("Không tìm thấy dữ liệu Snapshot đã chốt.");
+          return;
+        }
+        
+        // Map snapshot fields back to standard customer shape for customerExportBuilder
+        finalExportData = snapshots.map(s => ({
+          id: s.customer_id,
+          name: s.customer_name_snapshot,
+          phone: s.phone_snapshot,
+          email: s.email_snapshot,
+          facebook_uid: s.facebook_uid_snapshot,
+          // other fields can be empty/undefined as they were just for legacy fallback
+        }));
+      } else {
+        // Live evaluation if not approved
+        if (!campaign.segment_rules_snapshot_json) return;
+        const { data: customers, error } = await supabase.from("customers").select("*");
+        if (error) throw error;
+        finalExportData = evaluateAudience(customers || [], campaign.segment_rules_snapshot_json as any);
+      }
       
-      if (matched.length === 0) {
-        toast.warning("Không có khách hàng nào khớp với điều kiện lọc (Snapshot).");
+      if (finalExportData.length === 0) {
+        toast.warning("Không có khách hàng nào khớp dữ liệu.");
         return;
       }
       
       const customFileName = `Campaign_${campaign.name}_${new Date().toISOString().slice(0, 10)}.xlsx`.replace(/\s+/g, '_');
-      await downloadCustomerExport(matched, "segment", customFileName);
-      toast.success(`Đã xuất thành công ${matched.length} khách hàng.`);
+      await downloadCustomerExport(finalExportData, "segment", customFileName);
+      toast.success(`Đã xuất thành công ${finalExportData.length} khách hàng.`);
     } catch (e: any) {
       console.error(e);
       toast.error("Lỗi khi xuất tệp: " + e.message);
@@ -161,7 +194,7 @@ function CampaignDetailPage() {
                 className="rounded-xl border-slate-200 font-bold text-xs hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200"
               >
                 {isArchiving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Archive className="w-4 h-4 mr-2" />}
-                Lưu trữ chiến dịch
+                Lưu trữ
               </Button>
             )}
             <Button
@@ -169,8 +202,10 @@ function CampaignDetailPage() {
               disabled={isExporting}
               className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-lg shadow-emerald-200 transition-all hover:scale-105"
             >
-              {isExporting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <FileSpreadsheet className="w-4 h-4 mr-2" />}
-              Xuất tệp Excel
+              {isExporting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : (
+                campaign.approval_status === "approved" ? <FileCheck className="w-4 h-4 mr-2" /> : <FileBox className="w-4 h-4 mr-2" />
+              )}
+              {campaign.approval_status === "approved" ? "Xuất danh sách đã duyệt" : "Xuất bản xem trước (Live)"}
             </Button>
           </div>
         </div>
@@ -180,9 +215,9 @@ function CampaignDetailPage() {
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
           <div>
-            <h4 className="text-sm font-black text-amber-800">Module này chỉ lập kế hoạch và xuất tệp</h4>
+            <h4 className="text-sm font-black text-amber-800">Cảnh báo hệ thống</h4>
             <p className="text-xs font-medium text-amber-700 mt-1">
-              Chưa gửi chiến dịch tự động. Tệp khách hàng xuất ra sẽ dựa trên điều kiện của nhóm khách hàng <strong>{campaign.segment_name_snapshot}</strong> đã được chụp lại lúc tạo chiến dịch.
+              Module này chỉ duyệt và khóa danh sách người nhận. Hệ thống chưa gửi chiến dịch tự động.
             </p>
           </div>
         </div>
@@ -226,24 +261,29 @@ function CampaignDetailPage() {
               <CardHeader className="p-6 pb-2">
                 <CardTitle className="text-base font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
                   <Megaphone className="w-5 h-5 text-pink-500" />
+                  Quy trình duyệt
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 pt-2 space-y-6">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Trạng thái Duyệt</h4>
+                  <ApprovalStatusBadge status={campaign.approval_status} />
+                </div>
+                
+                <div className="pt-2 border-t border-slate-50">
+                  <CampaignApprovalPanel campaign={campaign} refetch={refetch} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-[24px] border-none shadow-sm">
+              <CardHeader className="p-6 pb-2">
+                <CardTitle className="text-base font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                  <Megaphone className="w-5 h-5 text-indigo-500" />
                   Thông tin chung
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 pt-2 space-y-4">
-                <div>
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Trạng thái</h4>
-                  <Badge 
-                    variant="outline" 
-                    className={`rounded-lg font-bold text-[11px] uppercase ${
-                      campaign.status === 'archived' ? 'bg-slate-100 text-slate-500 border-slate-200' :
-                      campaign.status === 'ready_for_export' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
-                      'bg-amber-50 text-amber-600 border-amber-200'
-                    }`}
-                  >
-                    {campaign.status}
-                  </Badge>
-                </div>
-                
                 <div className="pt-2 border-t border-slate-50">
                   <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Kênh dự kiến</h4>
                   <Badge variant="outline" className="rounded-lg bg-indigo-50 text-indigo-600 border-indigo-100 font-bold text-[11px] uppercase">
@@ -274,17 +314,30 @@ function CampaignDetailPage() {
             <Card className="rounded-[24px] border-none shadow-sm bg-gradient-to-br from-indigo-50 to-white border border-indigo-50">
               <CardContent className="p-6">
                 <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-                  <Users className="w-3 h-3" /> Tệp khách hàng
+                  <Users className="w-3 h-3" /> Tệp khách hàng (Quy tắc)
                 </h4>
                 <p className="text-sm font-bold text-indigo-900 mb-4">
                   {campaign.segment_name_snapshot}
                 </p>
-                <div className="bg-white rounded-xl p-4 border border-indigo-100 shadow-sm text-center">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Số lượng Snapshot</p>
-                  <p className="text-3xl font-black text-indigo-600 tracking-tighter">
-                    {campaign.audience_snapshot_count.toLocaleString("vi-VN")}
-                  </p>
-                </div>
+                
+                {campaign.approval_status === "approved" ? (
+                  <div className="bg-white rounded-xl p-4 border border-emerald-200 shadow-sm text-center">
+                    <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1 flex items-center justify-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Số người nhận đã chốt
+                    </p>
+                    <p className="text-3xl font-black text-emerald-600 tracking-tighter">
+                      {campaign.approved_recipients_count?.toLocaleString("vi-VN") || 0}
+                    </p>
+                    <p className="text-[10px] text-emerald-500 mt-1">Version: {campaign.approved_snapshot_version}</p>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-xl p-4 border border-indigo-100 shadow-sm text-center">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Số lượng tạm tính</p>
+                    <p className="text-3xl font-black text-indigo-600 tracking-tighter">
+                      {campaign.audience_snapshot_count?.toLocaleString("vi-VN") || 0}
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
