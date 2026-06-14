@@ -19,10 +19,17 @@ ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS template_name_sn
 ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS template_body_snapshot text;
 ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS template_channel_snapshot text;
 
+-- Temporarily drop the NOT VALID constraint to allow backfill updates on legacy rows
+ALTER TABLE public.marketing_campaigns DROP CONSTRAINT IF EXISTS marketing_campaigns_status_check;
+
 -- Backfill
 UPDATE public.marketing_campaigns SET approval_status = 'draft' WHERE approval_status IS NULL;
 UPDATE public.marketing_campaigns SET approved_snapshot_version = 0 WHERE approved_snapshot_version IS NULL;
 UPDATE public.marketing_campaigns SET approved_recipients_count = 0 WHERE approved_recipients_count IS NULL;
+
+-- Restore the NOT VALID status constraint exactly as it was
+ALTER TABLE public.marketing_campaigns ADD CONSTRAINT marketing_campaigns_status_check 
+  CHECK (status IN ('draft', 'ready_for_export', 'archived')) NOT VALID;
 
 -- Set NOT NULL & DEFAULT
 ALTER TABLE public.marketing_campaigns ALTER COLUMN approval_status SET DEFAULT 'draft';
