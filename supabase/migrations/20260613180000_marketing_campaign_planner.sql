@@ -2,17 +2,17 @@ CREATE TABLE IF NOT EXISTS public.marketing_campaigns (
     id uuid primary key default gen_random_uuid()
 );
 
-ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS name text not null;
+ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS name text default 'Untitled Campaign';
 ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS objective text;
-ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS segment_id uuid not null references public.marketing_segments(id);
-ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS segment_name_snapshot text not null;
-ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS segment_rules_snapshot_json jsonb not null;
-ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS intended_channel text not null;
+ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS segment_id uuid references public.marketing_segments(id);
+ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS segment_name_snapshot text default 'Unknown Segment';
+ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS segment_rules_snapshot_json jsonb default '{}'::jsonb;
+ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS intended_channel text default 'export_only';
 ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS message_content text;
 ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS notes text;
 ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS status text not null default 'draft';
 ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS audience_snapshot_count integer not null default 0;
-ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS created_by uuid not null references auth.users(id);
+ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS created_by uuid references auth.users(id);
 ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS updated_by uuid references auth.users(id);
 ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS archived_at timestamptz;
 ALTER TABLE public.marketing_campaigns ADD COLUMN IF NOT EXISTS archived_by uuid references auth.users(id);
