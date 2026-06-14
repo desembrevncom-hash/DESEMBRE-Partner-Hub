@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ChevronLeft, Save, Server, Activity, Clock, ShieldAlert } from "lucide-react";
 import { SenderSafetyNotice } from "@/components/marketing/senders/SenderSafetyNotice";
 import { SenderReadinessBadge } from "@/components/marketing/senders/SenderReadinessBadge";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useState, useEffect } from "react";
 
 export const Route = createFileRoute("/marketing/senders/$id")({
@@ -20,7 +20,6 @@ export const Route = createFileRoute("/marketing/senders/$id")({
 function SenderReadinessDetail() {
   const { id } = Route.useParams();
   const router = useRouter();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const [status, setStatus] = useState<string>("needs_review");
@@ -55,14 +54,12 @@ function SenderReadinessDetail() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: "Cập nhật metadata thành công" });
+      toast.success("Cập nhật metadata thành công");
       queryClient.invalidateQueries({ queryKey: ["v_sender_accounts_readiness_safe"] });
     },
     onError: (err: any) => {
-      toast({
-        title: "Lỗi cập nhật",
+      toast.error("Lỗi cập nhật", {
         description: err.message,
-        variant: "destructive",
       });
     },
   });
