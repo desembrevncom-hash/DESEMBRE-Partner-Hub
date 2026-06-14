@@ -43,6 +43,7 @@ import {
   XCircle,
   X,
   LayoutTemplate,
+  Server,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -353,6 +354,15 @@ function MarketingDashboardPage() {
                 >
                   <Link to="/admin/sender-accounts">
                     <Shield className="w-4 h-4" /> Sender Accounts
+                  </Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  asChild
+                  className="rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50 font-bold text-xs h-10 px-4 gap-2"
+                >
+                  <Link to="/marketing/senders">
+                    <Server className="w-4 h-4" /> Sender Readiness
                   </Link>
                 </Button>
                 <Button
