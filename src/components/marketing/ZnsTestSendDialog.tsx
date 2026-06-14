@@ -83,43 +83,10 @@ export function ZnsTestSendDialog({ open, onOpenChange, template }: ZnsTestSendD
 
     setLoading(true);
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-zns-message`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session?.access_token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            customer_id: selectedCustomerId,
-            zns_template_id: template.id,
-            template_data: parsedPayload,
-            mode: "validate_only",
-          }),
-        },
-      );
-
-      const json = await res.json();
-
-      if (json.allowed) {
-        setValidationResult({ isValid: true, preview_phone: json.preview_phone });
-        toast.success("Validation Backend Thành Công");
-      } else {
-        setValidationResult({
-          isValid: false,
-          error: json.reason,
-          is_provider_disabled: json.reason_code === "provider_disabled",
-        });
-        toast.error("Validation lỗi: " + json.reason);
-      }
+      toast.error("Tính năng Validation tạm thời bị khóa trong M4 (Không gọi Edge Function).");
+      setValidationResult({ isValid: false, error: "Bị khóa trong M4" });
     } catch (e: any) {
       setValidationResult({ isValid: false, error: e.message });
-      toast.error("Lỗi gọi hàm validation: " + e.message);
     } finally {
       setLoading(false);
     }
@@ -144,35 +111,7 @@ export function ZnsTestSendDialog({ open, onOpenChange, template }: ZnsTestSendD
 
     setLoading(true);
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-zns-message`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session?.access_token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            customer_id: selectedCustomerId,
-            zns_template_id: template.id,
-            template_data: parsedPayload,
-            mode: "provider_send",
-          }),
-        },
-      );
-
-      const json = await res.json();
-
-      if (json.allowed) {
-        toast.success("Đã gửi ZNS thành công", { description: `Message ID: ${json.message_id}` });
-        onOpenChange(false);
-      } else {
-        toast.error("Gửi thất bại", { description: json.reason });
-      }
+      toast.error("Tính năng Test Send qua Zalo API tạm thời bị khóa trong M4 (Zero Sending Guarantee).");
     } catch (e: any) {
       toast.error("Lỗi gửi tin: " + e.message);
     } finally {
