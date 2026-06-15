@@ -49,12 +49,21 @@ export function CampaignExecutionTracker({ campaign }: { campaign: any }) {
   const { data: staffList } = useQuery({
     queryKey: ["staff-list-m5"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("user_id, role, users:user_id(email)")
-        .in("role", ["sale", "tele_lead", "telesale", "admin", "sub_admin"]);
-      if (error) throw error;
-      return data;
+      const [resRoles, resProfiles] = await Promise.all([
+        supabase.from("user_roles").select("user_id, role").in("role", ["sale", "tele_lead", "telesale", "admin", "sub_admin"]),
+        supabase.from("profiles").select("id, email, display_name")
+      ]);
+      if (resRoles.error) throw resRoles.error;
+      const roles = resRoles.data || [];
+      const profiles = resProfiles.data || [];
+      return roles.map(r => {
+        const p = profiles.find((prof: any) => prof.id === r.user_id);
+        return {
+          user_id: r.user_id,
+          role: r.role,
+          email: p?.email || p?.display_name || r.user_id
+        };
+      });
     },
     enabled: isManager
   });
@@ -327,7 +336,7 @@ export function CampaignExecutionTracker({ campaign }: { campaign: any }) {
                     <SelectContent>
                       {staffList?.map((staff: any) => (
                         <SelectItem key={staff.user_id} value={staff.user_id}>
-                          {staff.users?.email || staff.user_id} ({staff.role})
+                          {staff.email} ({staff.role})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -416,7 +425,7 @@ export function CampaignExecutionTracker({ campaign }: { campaign: any }) {
                         <TableCell className="py-3">
                           <p className="text-sm font-medium text-slate-600 truncate max-w-[150px]" title={row.assigned_to}>
                             {row.assigned_to ? (
-                              staffList?.find((s: any) => s.user_id === row.assigned_to)?.users?.email || row.assigned_to.substring(0,8)
+                              staffList?.find((s: any) => s.user_id === row.assigned_to)?.email || row.assigned_to.substring(0,8)
                             ) : (
                               <span className="text-slate-400 italic">Chưa phân công</span>
                             )}
