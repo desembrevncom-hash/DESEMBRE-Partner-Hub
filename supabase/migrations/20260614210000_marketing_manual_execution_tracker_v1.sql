@@ -237,8 +237,8 @@ BEGIN
   IF v_campaign.approval_status != 'approved' THEN RAISE EXCEPTION 'Campaign must be approved.'; END IF;
   IF coalesce(v_campaign.approved_snapshot_version, 0) < 1 THEN RAISE EXCEPTION 'Campaign approved_snapshot_version must be >= 1.'; END IF;
   
-  IF v_campaign.manual_execution_status = 'completed' THEN
-    RAISE EXCEPTION 'Manual execution already completed.';
+  IF v_campaign.manual_execution_status IN ('in_progress', 'completed') THEN
+    RAISE EXCEPTION 'Manual execution already initialized or completed.';
   END IF;
 
   SELECT count(*) INTO v_snapshot_count FROM public.marketing_campaign_recipients_snapshot 
