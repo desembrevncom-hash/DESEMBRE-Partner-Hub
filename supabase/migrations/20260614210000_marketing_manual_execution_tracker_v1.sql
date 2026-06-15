@@ -283,7 +283,8 @@ $$;
 -- ============================================================================
 -- G. RPC: ASSIGN ROWS
 -- ============================================================================
-CREATE OR REPLACE FUNCTION public.assign_manual_execution_rows(p_execution_ids uuid[], p_assigned_to uuid)
+DROP FUNCTION IF EXISTS public.assign_manual_execution_rows(uuid[], uuid);
+CREATE OR REPLACE FUNCTION public.assign_manual_execution_rows(p_execution_ids text[], p_assigned_to uuid)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -302,7 +303,7 @@ BEGIN
 
   IF p_execution_ids IS NULL OR array_length(p_execution_ids, 1) IS NULL THEN RAISE EXCEPTION 'No execution IDs provided.'; END IF;
 
-  SELECT array_agg(DISTINCT id) INTO v_unique_ids FROM unnest(p_execution_ids) as id;
+  SELECT array_agg(DISTINCT id) INTO v_unique_ids FROM unnest(p_execution_ids::uuid[]) as id;
 
   -- Use CTE for locking and aggregation
   WITH locked_rows AS (
@@ -390,7 +391,8 @@ $$;
 -- ============================================================================
 -- I. RPC: BULK UPDATE
 -- ============================================================================
-CREATE OR REPLACE FUNCTION public.bulk_update_manual_execution_status(p_execution_ids uuid[], p_status text, p_note text)
+DROP FUNCTION IF EXISTS public.bulk_update_manual_execution_status(uuid[], text, text);
+CREATE OR REPLACE FUNCTION public.bulk_update_manual_execution_status(p_execution_ids text[], p_status text, p_note text)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -416,7 +418,7 @@ BEGIN
 
   IF NOT v_is_admin AND NOT v_is_staff THEN RAISE EXCEPTION 'Access denied. Valid role required.'; END IF;
 
-  SELECT array_agg(DISTINCT id) INTO v_unique_ids FROM unnest(p_execution_ids) as id;
+  SELECT array_agg(DISTINCT id) INTO v_unique_ids FROM unnest(p_execution_ids::uuid[]) as id;
 
   WITH locked_rows AS (
     SELECT * FROM public.marketing_campaign_recipient_executions 
@@ -490,17 +492,17 @@ $$;
 -- Revoke execution
 REVOKE EXECUTE ON FUNCTION public.get_manual_execution_rows(uuid) FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.initialize_manual_campaign_execution(uuid) FROM PUBLIC, anon;
-REVOKE EXECUTE ON FUNCTION public.assign_manual_execution_rows(uuid[], uuid) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.assign_manual_execution_rows(text[], uuid) FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.update_manual_execution_status(uuid, text, text) FROM PUBLIC, anon;
-REVOKE EXECUTE ON FUNCTION public.bulk_update_manual_execution_status(uuid[], text, text) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.bulk_update_manual_execution_status(text[], text, text) FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.complete_manual_campaign_execution(uuid) FROM PUBLIC, anon;
 
 -- Grant explicitly only to authenticated users
 GRANT EXECUTE ON FUNCTION public.get_manual_execution_rows(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.initialize_manual_campaign_execution(uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.assign_manual_execution_rows(uuid[], uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.assign_manual_execution_rows(text[], uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.update_manual_execution_status(uuid, text, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.bulk_update_manual_execution_status(uuid[], text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.bulk_update_manual_execution_status(text[], text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.complete_manual_campaign_execution(uuid) TO authenticated;
 
 -- Notify
