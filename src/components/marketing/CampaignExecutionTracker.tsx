@@ -395,7 +395,7 @@ export function CampaignExecutionTracker({ campaign }: { campaign: any }) {
                   <TableHead className="font-black text-slate-500 uppercase text-[11px] tracking-widest py-4">Liên hệ</TableHead>
                   {isManager && <TableHead className="font-black text-slate-500 uppercase text-[11px] tracking-widest py-4">Phân công</TableHead>}
                   <TableHead className="font-black text-slate-500 uppercase text-[11px] tracking-widest py-4">Trạng thái</TableHead>
-                  <TableHead className="font-black text-slate-500 uppercase text-[11px] tracking-widest py-4 whitespace-nowrap text-right pr-6">Lần cập nhật cuối</TableHead>
+                  <TableHead className="font-black text-slate-500 uppercase text-[11px] tracking-widest py-4 whitespace-nowrap text-right pr-6">Cập nhật</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -440,7 +440,7 @@ export function CampaignExecutionTracker({ campaign }: { campaign: any }) {
                             value={row.execution_status} 
                             onValueChange={(val) => updateSingleMutation.mutate({ id: row.execution_id, status: val })}
                           >
-                            <SelectTrigger className="w-[160px] h-8 text-xs font-bold border-slate-200">
+                            <SelectTrigger className="w-[130px] h-8 text-xs font-bold border-slate-200">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
