@@ -309,7 +309,7 @@ BEGIN
     SELECT * FROM public.marketing_campaign_recipient_executions 
     WHERE id = ANY(v_unique_ids) FOR UPDATE
   )
-  SELECT count(*), count(DISTINCT campaign_id), min(campaign_id) 
+  SELECT count(*), count(DISTINCT campaign_id), (array_agg(campaign_id))[1] 
   INTO v_selected_count, v_campaign_count, v_campaign_id 
   FROM locked_rows;
 
@@ -422,7 +422,7 @@ BEGIN
     SELECT * FROM public.marketing_campaign_recipient_executions 
     WHERE id = ANY(v_unique_ids) FOR UPDATE
   )
-  SELECT count(*), count(DISTINCT campaign_id), min(campaign_id),
+  SELECT count(*), count(DISTINCT campaign_id), (array_agg(campaign_id))[1],
          count(*) FILTER (WHERE assigned_to IS DISTINCT FROM auth.uid())
   INTO v_selected_count, v_campaign_count, v_campaign_id, v_unassigned_count
   FROM locked_rows;
