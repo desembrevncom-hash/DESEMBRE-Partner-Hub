@@ -395,7 +395,7 @@ export function CampaignExecutionTracker({ campaign }: { campaign: any }) {
                   <TableHead className="font-black text-slate-500 uppercase text-[11px] tracking-widest py-4">Liên hệ</TableHead>
                   {isManager && <TableHead className="font-black text-slate-500 uppercase text-[11px] tracking-widest py-4">Phân công</TableHead>}
                   <TableHead className="font-black text-slate-500 uppercase text-[11px] tracking-widest py-4">Trạng thái</TableHead>
-                  <TableHead className="font-black text-slate-500 uppercase text-[11px] tracking-widest py-4">Lần cập nhật cuối</TableHead>
+                  <TableHead className="font-black text-slate-500 uppercase text-[11px] tracking-widest py-4 whitespace-nowrap text-right pr-6">Lần cập nhật cuối</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -455,8 +455,8 @@ export function CampaignExecutionTracker({ campaign }: { campaign: any }) {
                           </Select>
                         )}
                       </TableCell>
-                      <TableCell className="py-3 text-sm text-slate-500 font-medium">
-                        {new Date(row.updated_at).toLocaleString("vi-VN")}
+                      <TableCell className="py-3 text-sm text-slate-500 font-medium whitespace-nowrap text-right pr-6">
+                        {new Date(row.updated_at).toLocaleString("vi-VN", { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
                       </TableCell>
                     </TableRow>
                   ))
