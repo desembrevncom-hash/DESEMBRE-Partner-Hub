@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { CampaignExecutionTracker } from "@/components/marketing/CampaignExecutionTracker";
 import { CampaignApprovalPanel } from "@/components/marketing/CampaignApprovalPanel";
 import { ApprovalStatusBadge } from "@/components/marketing/ApprovalStatusBadge";
 
@@ -50,7 +51,15 @@ function CampaignDetailPage() {
       const { data, error } = await supabase
         .from("marketing_campaigns")
         .select(`
-          *
+          *,
+          approval_status,
+          approved_snapshot_version,
+          approved_recipients_count,
+          manual_execution_status,
+          manual_execution_started_at,
+          manual_execution_started_by,
+          manual_execution_completed_at,
+          manual_execution_completed_by
         `)
         .eq("id", id)
         .single();
@@ -343,6 +352,12 @@ function CampaignDetailPage() {
             </Card>
           </div>
         </div>
+
+        {/* Campaign Execution Tracker */}
+        {campaign.approval_status === "approved" && (
+          <CampaignExecutionTracker campaign={campaign} />
+        )}
+
       </main>
     </div>
   );
