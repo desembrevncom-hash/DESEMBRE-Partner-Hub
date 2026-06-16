@@ -370,7 +370,7 @@ function MarketingDashboardPage() {
                   asChild
                   className="rounded-xl border-amber-200 text-amber-700 hover:bg-amber-50 font-bold text-xs h-10 px-4 gap-2"
                 >
-                  <Link to="/marketing/readiness">
+                  <Link to="/marketing/providers/readiness">
                     <AlertTriangle className="w-4 h-4" /> Marketing Readiness
                   </Link>
                 </Button>
