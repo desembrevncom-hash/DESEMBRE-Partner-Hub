@@ -371,6 +371,11 @@ function MarketingDashboardPage() {
                       <Server className="w-3.5 h-3.5" /> Provider Readiness (M6)
                     </Link>
                   </Button>
+                  <Button variant="outline" asChild className="rounded-xl border-red-200 text-red-700 hover:bg-red-50 font-bold text-xs h-9 px-4 gap-2">
+                    <Link to="/marketing/send-control">
+                      <Rocket className="w-3.5 h-3.5" /> Send Control Simulation (M7)
+                    </Link>
+                  </Button>
                 </div>
                 
                 <div className="w-px h-6 bg-slate-200 hidden md:block"></div>
