@@ -319,80 +319,70 @@ function MarketingDashboardPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              asChild
-              className="rounded-xl border-slate-200 font-bold text-xs h-10 px-5"
-            >
-              <Link to="/marketing/audiences">
-                <Users className="w-4 h-4 mr-2" /> Audience Builder
-              </Link>
-            </Button>
-            <Button
-              variant="outline"
-              asChild
-              className="rounded-xl border-slate-200 font-bold text-xs h-10 px-5"
-            >
-              <Link to="/marketing/campaigns">Quản lý chiến dịch</Link>
-            </Button>
-            <Button
-              variant="outline"
-              asChild
-              className="rounded-xl border-indigo-200 text-indigo-600 hover:bg-indigo-50 font-bold text-xs h-10 px-4 gap-2"
-            >
-              <Link to="/marketing/templates">
-                <LayoutTemplate className="w-4 h-4" /> Template Library
-              </Link>
-            </Button>
-            {(isAdmin || isSubAdmin) && (
-              <>
-                <Button
-                  variant="outline"
-                  asChild
-                  className="rounded-xl border-violet-200 text-violet-600 hover:bg-violet-50 font-bold text-xs h-10 px-4 gap-2"
-                >
-                  <Link to="/admin/sender-accounts">
-                    <Shield className="w-4 h-4" /> Sender Accounts
-                  </Link>
-                </Button>
-                <Button
-                  variant="outline"
-                  asChild
-                  className="rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50 font-bold text-xs h-10 px-4 gap-2"
-                >
-                  <Link to="/marketing/senders">
-                    <Server className="w-4 h-4" /> Sender Readiness
-                  </Link>
-                </Button>
-                <Button
-                  variant="outline"
-                  asChild
-                  className="rounded-xl border-amber-200 text-amber-700 hover:bg-amber-50 font-bold text-xs h-10 px-4 gap-2"
-                >
-                  <Link to="/marketing/readiness">
-                    <AlertTriangle className="w-4 h-4" /> Marketing Readiness
-                  </Link>
-                </Button>
-                <Button
-                  variant="outline"
-                  asChild
-                  className="rounded-xl border-cyan-200 text-cyan-700 hover:bg-cyan-50 font-bold text-xs h-10 px-4 gap-2"
-                >
-                  <Link to="/marketing/providers/readiness">
-                    <Server className="w-4 h-4" /> Provider Readiness (M6)
-                  </Link>
-                </Button>
-              </>
-            )}
+          <div className="flex items-center">
             <Button
               asChild
-              className="rounded-xl bg-pink-600 hover:bg-pink-700 font-black text-xs h-10 px-6 shadow-lg shadow-pink-200 transition-all hover:scale-105"
+              className="rounded-xl bg-pink-600 hover:bg-pink-700 font-black text-xs h-10 px-6 shadow-lg shadow-pink-200 transition-all hover:scale-105 whitespace-nowrap flex-shrink-0"
             >
               <Link to="/marketing/campaigns" search={{ new: "true" }}>
                 <Plus className="w-4 h-4 mr-2" /> Tạo chiến dịch mới
               </Link>
             </Button>
+          </div>
+        </div>
+        
+        {/* SUB-NAVIGATION BAR */}
+        <div className="container mx-auto px-4 pb-4 max-w-7xl">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 overflow-x-auto pb-1 scrollbar-hide">
+            {/* Group 1: Core */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button variant="outline" asChild className="rounded-xl border-slate-200 font-bold text-xs h-9 px-4">
+                <Link to="/marketing/audiences">
+                  <Users className="w-3.5 h-3.5 mr-2" /> Audience Builder
+                </Link>
+              </Button>
+              <Button variant="outline" asChild className="rounded-xl border-slate-200 font-bold text-xs h-9 px-4">
+                <Link to="/marketing/campaigns">Quản lý chiến dịch</Link>
+              </Button>
+              <Button variant="outline" asChild className="rounded-xl border-indigo-200 text-indigo-600 hover:bg-indigo-50 font-bold text-xs h-9 px-4 gap-2">
+                <Link to="/marketing/templates">
+                  <LayoutTemplate className="w-3.5 h-3.5" /> Template Library
+                </Link>
+              </Button>
+            </div>
+
+            {/* Group 2 & 3: Readiness & Accounts (Admin Only) */}
+            {(isAdmin || isSubAdmin) && (
+              <>
+                <div className="w-px h-6 bg-slate-200 hidden md:block"></div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button variant="outline" asChild className="rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50 font-bold text-xs h-9 px-4 gap-2">
+                    <Link to="/marketing/senders">
+                      <Server className="w-3.5 h-3.5" /> Sender Readiness
+                    </Link>
+                  </Button>
+                  <Button variant="outline" asChild className="rounded-xl border-amber-200 text-amber-700 hover:bg-amber-50 font-bold text-xs h-9 px-4 gap-2">
+                    <Link to="/marketing/readiness">
+                      <AlertTriangle className="w-3.5 h-3.5" /> Marketing Readiness
+                    </Link>
+                  </Button>
+                  <Button variant="outline" asChild className="rounded-xl border-cyan-200 text-cyan-700 hover:bg-cyan-50 font-bold text-xs h-9 px-4 gap-2">
+                    <Link to="/marketing/providers/readiness">
+                      <Server className="w-3.5 h-3.5" /> Provider Readiness (M6)
+                    </Link>
+                  </Button>
+                </div>
+                
+                <div className="w-px h-6 bg-slate-200 hidden md:block"></div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button variant="outline" asChild className="rounded-xl border-violet-200 text-violet-600 hover:bg-violet-50 font-bold text-xs h-9 px-4 gap-2">
+                    <Link to="/admin/sender-accounts">
+                      <Shield className="w-3.5 h-3.5" /> Sender Accounts
+                    </Link>
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </header>
