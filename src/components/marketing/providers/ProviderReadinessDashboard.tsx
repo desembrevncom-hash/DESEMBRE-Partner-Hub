@@ -13,11 +13,10 @@ export function ProviderReadinessDashboard() {
     if (!name) return;
     
     try {
-      const { error } = await supabase.from('marketing_provider_accounts').insert({
-        account_name: name,
-        provider_type: 'zalo_zns',
-        readiness_status: 'not_configured',
-        secret_status: 'not_required_yet'
+      const { error } = await supabase.rpc('m6_create_provider_account', {
+        p_provider_type: 'zalo_zns',
+        p_account_name: name,
+        p_external_provider_id: ''
       });
       
       if (error) throw error;
