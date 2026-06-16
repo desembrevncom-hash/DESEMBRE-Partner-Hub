@@ -1,9 +1,33 @@
 import { useProviderReadiness } from "@/hooks/useProviderReadiness";
 import { Loader2, Plus, Settings } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 export function ProviderReadinessDashboard() {
   const { accounts, loadingAccounts } = useProviderReadiness();
+  const queryClient = useQueryClient();
+
+  const handleAddProvider = async () => {
+    const name = window.prompt("Nhập tên Provider (Ví dụ: M6 PROD UI QA - Zalo)");
+    if (!name) return;
+    
+    try {
+      const { error } = await supabase.from('marketing_provider_accounts').insert({
+        account_name: name,
+        provider_type: 'zalo_zns',
+        readiness_status: 'not_configured',
+        secret_status: 'not_required_yet'
+      });
+      
+      if (error) throw error;
+      toast.success("Đã thêm Provider mới!");
+      queryClient.invalidateQueries({ queryKey: ["m6-provider-accounts"] });
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Lỗi khi thêm Provider: " + err.message);
+    }
+  };
 
   if (loadingAccounts) return <div className="p-8 flex justify-center"><Loader2 className="animate-spin w-8 h-8 text-blue-600" /></div>;
 
@@ -14,7 +38,7 @@ export function ProviderReadinessDashboard() {
           <h1 className="text-2xl font-bold text-slate-900">Provider Readiness (M6)</h1>
           <p className="text-slate-500 text-sm mt-1">Quản lý cấu hình metadata & trạng thái sẵn sàng của các nhà cung cấp gửi tin.</p>
         </div>
-        <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors">
+        <button onClick={handleAddProvider} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors">
           <Plus className="w-4 h-4" /> Thêm Provider
         </button>
       </div>
