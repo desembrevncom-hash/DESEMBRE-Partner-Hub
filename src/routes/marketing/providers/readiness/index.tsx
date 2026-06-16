@@ -8,13 +8,11 @@ export const Route = createFileRoute('/marketing/providers/readiness/')({
 })
 
 function ProviderReadinessRoute() {
-  const { userRoles, loading } = useAuth();
+  const { isAdminOrSubAdmin, loading } = useAuth();
   
   if (loading) return <div className="p-8"><Loader2 className="animate-spin" /></div>;
   
-  const isAdmin = userRoles?.includes('admin') || userRoles?.includes('sub_admin');
-  
-  if (!isAdmin) {
+  if (!isAdminOrSubAdmin) {
     return <div className="p-8 text-red-600 font-bold">403 - Không có quyền truy cập. Module M6 chỉ dành cho Admin/Sub Admin.</div>;
   }
 
