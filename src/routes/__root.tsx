@@ -231,6 +231,17 @@ function RootLayout() {
                             </span>
                           </Link>
                         </DropdownMenuItem>
+                        <DropdownMenuItem
+                          asChild
+                          className="rounded-xl focus:bg-slate-50 p-3 cursor-pointer"
+                        >
+                          <Link to="/marketing/consent" className="flex items-center gap-3">
+                            <ShieldCheck className="w-4 h-4 text-slate-400" />
+                            <span className="text-xs font-bold text-slate-700">
+                              Consent Registry
+                            </span>
+                          </Link>
+                        </DropdownMenuItem>
                       </>
                     )}
                     <DropdownMenuItem
@@ -345,6 +356,15 @@ function RootLayout() {
                       <Link to="/admin/ai-settings" className="flex items-center gap-3">
                         <Sparkles className="w-4 h-4 text-slate-400" />
                         <span className="text-xs font-bold text-slate-700">Cấu hình AI / RAG</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      asChild
+                      className="rounded-xl focus:bg-slate-50 p-3 cursor-pointer"
+                    >
+                      <Link to="/marketing/consent" className="flex items-center gap-3">
+                        <ShieldCheck className="w-4 h-4 text-slate-400" />
+                        <span className="text-xs font-bold text-slate-700">Consent Registry</span>
                       </Link>
                     </DropdownMenuItem>
                   </>
