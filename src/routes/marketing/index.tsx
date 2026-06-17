@@ -28,6 +28,7 @@ import {
   Calendar,
   Search,
   Filter,
+  ShieldCheck,
   Plus,
   BarChart3,
   Globe,
@@ -374,6 +375,11 @@ function MarketingDashboardPage() {
                   <Button variant="outline" asChild className="rounded-xl border-red-200 text-red-700 hover:bg-red-50 font-bold text-xs h-9 px-4 gap-2">
                     <Link to="/marketing/send-control">
                       <Rocket className="w-3.5 h-3.5" /> Send Control Simulation (M7)
+                    </Link>
+                  </Button>
+                  <Button variant="outline" asChild className="rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50 font-bold text-xs h-9 px-4 gap-2">
+                    <Link to="/marketing/consent">
+                      <ShieldCheck className="w-3.5 h-3.5" /> Consent Registry (M8)
                     </Link>
                   </Button>
                 </div>
