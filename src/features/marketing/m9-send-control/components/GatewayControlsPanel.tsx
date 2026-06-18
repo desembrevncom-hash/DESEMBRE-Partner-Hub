@@ -20,7 +20,7 @@ export function GatewayControlsPanel() {
       const data = await m9SendControlApi.getGatewayControls();
       setControls(data || []);
     } catch (e: any) {
-      toast.error(`Error fetching gateway controls: ${e.message}`);
+      toast.error(`Lỗi tải cấu hình gateway: ${e.message}`);
     } finally {
       setLoading(false);
     }
@@ -28,17 +28,17 @@ export function GatewayControlsPanel() {
 
   const handleToggle = async (scope: string, enabled: boolean) => {
     if (isProduction && enabled) {
-      toast.error("Safety Blocked: Production Environment strictly forbids gateway_enabled=true.");
+      toast.error("Safety Blocked: Môi trường Production nghiêm cấm bật gateway_enabled=true (Chặn gửi tin nhắn thật).");
       return;
     }
     
     try {
-      const reason = "Manual UI Toggle";
+      const reason = "Thao tác tay trên UI";
       await m9SendControlApi.toggleGatewayControl(scope, enabled, reason);
-      toast.success(`Gateway updated: Gateway for ${scope} is now ${enabled ? "enabled" : "disabled"}`);
+      toast.success(`Cập nhật Gateway: Gateway cho phạm vi '${scope}' hiện đang ${enabled ? "BẬT" : "TẮT"}`);
       await fetchControls();
     } catch (e: any) {
-      toast.error(`Error updating gateway: ${e.message}`);
+      toast.error(`Lỗi cập nhật gateway: ${e.message}`);
     }
   };
 
@@ -46,7 +46,7 @@ export function GatewayControlsPanel() {
     <Card className="border-red-200">
       <CardHeader className="bg-red-50 border-b border-red-100 pb-4">
         <CardTitle className="text-lg font-bold text-red-800 flex items-center gap-2">
-          <ShieldAlert className="w-5 h-5" /> Gateway Controls
+          <ShieldAlert className="w-5 h-5" /> Bảng Điều khiển Gateway (Cổng gửi tin)
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-6">
@@ -56,27 +56,29 @@ export function GatewayControlsPanel() {
           </div>
         ) : controls.length > 0 ? (
           <div className="space-y-6">
-            {controls.map((c) => (
-              <div key={c.scope} className="flex items-center justify-between">
+            {controls.map((control) => (
+              <div key={control.scope} className="flex items-center justify-between p-4 rounded-xl border border-red-100 bg-white">
                 <div>
-                  <h4 className="font-bold text-slate-900 uppercase">{c.scope}</h4>
-                  <p className="text-xs text-slate-500 mt-0.5">Rate Limit: {c.rate_limit_per_minute}/min</p>
+                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">{control.scope}</h3>
+                  <p className="text-xs text-slate-500 mt-1 font-medium max-w-sm">
+                    Bật công tắc này sẽ cho phép hệ thống gọi API kết nối ra bên ngoài (Provider).
+                  </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className={`text-xs font-bold ${c.gateway_enabled ? "text-emerald-600" : "text-slate-400"}`}>
-                    {c.gateway_enabled ? "ENABLED" : "DISABLED"}
-                  </span>
+                <div className="flex flex-col items-end gap-2">
                   <Switch
-                    checked={c.gateway_enabled}
-                    disabled={isProduction && !c.gateway_enabled}
-                    onCheckedChange={(val) => handleToggle(c.scope, val)}
+                    checked={control.gateway_enabled}
+                    onCheckedChange={(checked) => handleToggle(control.scope, checked)}
+                    className="data-[state=checked]:bg-red-600"
                   />
+                  <span className={`text-xs font-bold px-2 py-1 rounded-md ${control.gateway_enabled ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}>
+                    {control.gateway_enabled ? 'ĐANG BẬT (NGUY HIỂM)' : 'ĐÃ TẮT (AN TOÀN)'}
+                  </span>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-sm text-slate-500">No gateway controls found.</p>
+          <p className="text-sm text-slate-500">Chưa có cấu hình gateway nào.</p>
         )}
       </CardContent>
     </Card>

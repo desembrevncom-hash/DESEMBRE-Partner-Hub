@@ -29,8 +29,7 @@ function SendControlRoute() {
 
   useEffect(() => {
     if (user && !isAdmin && !isSubAdmin) {
-      // Block sale/telesale/tele_lead
-      navigate({ to: "/" }); // or to permission denied page
+      navigate({ to: "/" });
     }
   }, [user, isAdmin, isSubAdmin, navigate]);
 
@@ -38,8 +37,8 @@ function SendControlRoute() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-slate-800">Permission Denied</h2>
-          <p className="text-slate-500 mt-2">You do not have access to this page.</p>
+          <h2 className="text-2xl font-bold text-slate-800">Từ chối truy cập</h2>
+          <p className="text-slate-500 mt-2">Bạn không có quyền truy cập trang này.</p>
         </div>
       </div>
     );
@@ -51,9 +50,9 @@ function SendControlRoute() {
     try {
       const data = await m9SendControlApi.previewDispatchPlan(batchId);
       setPreviewData(data);
-      toast.success("Preview Generated: Successfully generated dispatch preview.");
+      toast.success("Đã tạo dữ liệu xem trước thành công.");
     } catch (e: any) {
-      toast.error(`Error generating preview: ${e.message}`);
+      toast.error(`Lỗi tạo xem trước: ${e.message}`);
     } finally {
       setLoadingPreview(false);
     }
@@ -64,10 +63,10 @@ function SendControlRoute() {
     setIsProcessing(true);
     try {
       await m9SendControlApi.createDispatchPlan(batchId);
-      toast.success("Dispatch Plan Created: Successfully created dispatch plan.");
+      toast.success("Duyệt Kịch Bản: Đã duyệt kịch bản gửi thành công.");
       handleRefreshStatus();
     } catch (e: any) {
-      toast.error(`Error creating plan: ${e.message}`);
+      toast.error(`Lỗi duyệt kịch bản: ${e.message}`);
     } finally {
       setIsProcessing(false);
     }
@@ -80,7 +79,7 @@ function SendControlRoute() {
       const data = await m9SendControlApi.getDispatchStatus(batchId);
       setStatusData(data);
     } catch (e: any) {
-      toast.error(`Error fetching status: ${e.message}`);
+      toast.error(`Lỗi tải trạng thái: ${e.message}`);
     } finally {
       setLoadingStatus(false);
     }
@@ -91,11 +90,11 @@ function SendControlRoute() {
     setIsProcessing(true);
     try {
       await m9SendControlApi.cancelDispatchPlan(batchId);
-      toast.success("Dispatch Plan Cancelled: Successfully cancelled dispatch plan.");
+      toast.success("Hủy Kịch Bản: Đã hủy kịch bản gửi thành công.");
       handleRefreshStatus();
       setCancelModalOpen(false);
     } catch (e: any) {
-      toast.error(`Error cancelling plan: ${e.message}`);
+      toast.error(`Lỗi hủy kịch bản: ${e.message}`);
     } finally {
       setIsProcessing(false);
     }
@@ -107,8 +106,8 @@ function SendControlRoute() {
         <M9SafetyBanner />
 
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">M9A-2 Send Control</h1>
-          <p className="text-slate-500 mt-2 font-medium">Internal UI to prepare dispatch plans securely.</p>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">M9A-2 Bảng Điều Khiển</h1>
+          <p className="text-slate-500 mt-2 font-medium">Giao diện nội bộ chuẩn bị kịch bản gửi tin an toàn.</p>
         </div>
 
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
@@ -119,7 +118,7 @@ function SendControlRoute() {
               setStatusData(null);
             }}
           />
-          {batchId && <p className="text-sm font-medium text-emerald-600 mt-2">Active Batch: {batchId}</p>}
+          {batchId && <p className="text-sm font-medium text-emerald-600 mt-2">Batch đang chọn: {batchId}</p>}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -136,6 +135,7 @@ function SendControlRoute() {
               onPreview={handlePreview}
               onCreate={handleCreate}
               onRefreshStatus={handleRefreshStatus}
+              onCancel={() => setCancelModalOpen(true)}
             />
           </div>
         </div>

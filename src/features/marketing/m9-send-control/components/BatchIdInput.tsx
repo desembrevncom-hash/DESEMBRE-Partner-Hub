@@ -15,24 +15,24 @@ export function BatchIdInput({ onBatchIdSelect }: BatchIdInputProps) {
   const handleSearch = () => {
     if (!inputValue) return;
     if (!validateUuid(inputValue)) {
-      toast.error("Invalid Batch ID: Please enter a valid UUID format.");
+      toast.error("Batch ID không hợp lệ: Vui lòng nhập đúng định dạng UUID.");
       return;
     }
     onBatchIdSelect(inputValue);
   };
 
   return (
-    <div className="flex flex-col gap-2">
-      <label className="text-sm font-semibold text-slate-700">Enter Send Batch ID</label>
-      <div className="flex items-center gap-2">
+    <div className="flex flex-col space-y-2">
+      <label className="text-sm font-bold text-slate-700">Nhập mã Send Batch ID</label>
+      <div className="flex gap-3">
         <Input
-          placeholder="e.g. b8c9d0e1-f2a3-4b5c-6d7e-8f9a0b1c2d3e"
+          placeholder="VD: b8c9d0e1-f2a3-4b5c-6d7e-8f9a0b1c2d3e (hoặc nhập '1' để test)"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          className="font-mono text-sm max-w-md"
+          className="max-w-md font-mono text-sm rounded-xl"
         />
-        <Button onClick={handleSearch} className="flex items-center gap-2">
-          <Search className="w-4 h-4" /> Load Batch
+        <Button onClick={handleSearch} className="rounded-xl bg-blue-600 hover:bg-blue-700 gap-2">
+          <Search className="w-4 h-4" /> Tải Batch
         </Button>
       </div>
     </div>
