@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { m9SendControlApi } from "../api/m9SendControlApi";
 import { ShieldAlert, Loader2 } from "lucide-react";
 
 export function GatewayControlsPanel() {
   const [controls, setControls] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
   const isProduction = import.meta.env.VITE_APP_ENV === "production";
 
   useEffect(() => {
@@ -21,11 +20,7 @@ export function GatewayControlsPanel() {
       const data = await m9SendControlApi.getGatewayControls();
       setControls(data || []);
     } catch (e: any) {
-      toast({
-        title: "Error fetching gateway controls",
-        description: e.message,
-        variant: "destructive",
-      });
+      toast.error(`Error fetching gateway controls: ${e.message}`);
     } finally {
       setLoading(false);
     }
@@ -33,28 +28,17 @@ export function GatewayControlsPanel() {
 
   const handleToggle = async (scope: string, enabled: boolean) => {
     if (isProduction && enabled) {
-      toast({
-        title: "Safety Blocked",
-        description: "Production Environment strictly forbids gateway_enabled=true.",
-        variant: "destructive",
-      });
+      toast.error("Safety Blocked: Production Environment strictly forbids gateway_enabled=true.");
       return;
     }
     
     try {
       const reason = "Manual UI Toggle";
       await m9SendControlApi.toggleGatewayControl(scope, enabled, reason);
-      toast({
-        title: "Gateway updated",
-        description: `Gateway for ${scope} is now ${enabled ? "enabled" : "disabled"}`,
-      });
+      toast.success(`Gateway updated: Gateway for ${scope} is now ${enabled ? "enabled" : "disabled"}`);
       await fetchControls();
     } catch (e: any) {
-      toast({
-        title: "Error updating gateway",
-        description: e.message,
-        variant: "destructive",
-      });
+      toast.error(`Error updating gateway: ${e.message}`);
     }
   };
 

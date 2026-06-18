@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { M9SafetyBanner } from "@/features/marketing/m9-send-control/components/M9SafetyBanner";
 import { BatchIdInput } from "@/features/marketing/m9-send-control/components/BatchIdInput";
 import { DispatchPreviewCard } from "@/features/marketing/m9-send-control/components/DispatchPreviewCard";
@@ -18,7 +18,6 @@ export const Route = createFileRoute("/marketing/send-control/")({
 function SendControlRoute() {
   const { user, isAdmin, isSubAdmin } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   const [batchId, setBatchId] = useState<string | null>(null);
   const [previewData, setPreviewData] = useState<any>(null);
@@ -52,9 +51,9 @@ function SendControlRoute() {
     try {
       const data = await m9SendControlApi.previewDispatchPlan(batchId);
       setPreviewData(data);
-      toast({ title: "Preview Generated", description: "Successfully generated dispatch preview." });
+      toast.success("Preview Generated: Successfully generated dispatch preview.");
     } catch (e: any) {
-      toast({ title: "Error generating preview", description: e.message, variant: "destructive" });
+      toast.error(`Error generating preview: ${e.message}`);
     } finally {
       setLoadingPreview(false);
     }
@@ -65,10 +64,10 @@ function SendControlRoute() {
     setIsProcessing(true);
     try {
       await m9SendControlApi.createDispatchPlan(batchId);
-      toast({ title: "Dispatch Plan Created", description: "Successfully created dispatch plan." });
+      toast.success("Dispatch Plan Created: Successfully created dispatch plan.");
       handleRefreshStatus();
     } catch (e: any) {
-      toast({ title: "Error creating plan", description: e.message, variant: "destructive" });
+      toast.error(`Error creating plan: ${e.message}`);
     } finally {
       setIsProcessing(false);
     }
@@ -81,7 +80,7 @@ function SendControlRoute() {
       const data = await m9SendControlApi.getDispatchStatus(batchId);
       setStatusData(data);
     } catch (e: any) {
-      toast({ title: "Error fetching status", description: e.message, variant: "destructive" });
+      toast.error(`Error fetching status: ${e.message}`);
     } finally {
       setLoadingStatus(false);
     }
@@ -92,11 +91,11 @@ function SendControlRoute() {
     setIsProcessing(true);
     try {
       await m9SendControlApi.cancelDispatchPlan(batchId);
-      toast({ title: "Dispatch Plan Cancelled", description: "Successfully cancelled dispatch plan." });
+      toast.success("Dispatch Plan Cancelled: Successfully cancelled dispatch plan.");
       handleRefreshStatus();
       setCancelModalOpen(false);
     } catch (e: any) {
-      toast({ title: "Error cancelling plan", description: e.message, variant: "destructive" });
+      toast.error(`Error cancelling plan: ${e.message}`);
     } finally {
       setIsProcessing(false);
     }

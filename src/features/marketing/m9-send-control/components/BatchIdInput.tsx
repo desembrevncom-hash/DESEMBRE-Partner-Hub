@@ -3,7 +3,7 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { validateUuid } from "../utils/validateUuid";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 interface BatchIdInputProps {
   onBatchIdSelect: (id: string) => void;
@@ -11,16 +11,11 @@ interface BatchIdInputProps {
 
 export function BatchIdInput({ onBatchIdSelect }: BatchIdInputProps) {
   const [inputValue, setInputValue] = useState("");
-  const { toast } = useToast();
 
   const handleSearch = () => {
     if (!inputValue) return;
     if (!validateUuid(inputValue)) {
-      toast({
-        title: "Invalid Batch ID",
-        description: "Please enter a valid UUID format.",
-        variant: "destructive",
-      });
+      toast.error("Invalid Batch ID: Please enter a valid UUID format.");
       return;
     }
     onBatchIdSelect(inputValue);
