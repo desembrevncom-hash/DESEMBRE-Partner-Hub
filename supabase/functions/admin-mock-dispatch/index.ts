@@ -43,7 +43,7 @@ serve(async (req) => {
 
       const { data, error } = await adminClient
         .from('marketing_send_dispatches')
-        .select('id, send_batch_id, send_queue_id, channel, status, idempotency_key, mock_execution_id, mock_claimed_at, mock_finalized_at')
+        .select('id, send_batch_id, send_queue_id, channel, status, mock_execution_id, mock_claimed_at, mock_finalized_at')
         .eq('send_batch_id', batchId)
         .order('created_at', { ascending: true });
 

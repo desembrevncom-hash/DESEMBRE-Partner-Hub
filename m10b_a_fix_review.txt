@@ -1,0 +1,377 @@
+PWD: F:\Downloads\DESEMBRE-Partner-Hub\DESEMBRE-Partner-Hub
+===== FULL SOURCE =====
+
+
+===== FILE: src/components/admin/mock-dispatches/MockDispatchDashboard.tsx =====
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { BatchDataTable } from './BatchDataTable';
+import { DispatchDataTable } from './DispatchDataTable';
+import { MockBatch } from '@/types/mockDispatches';
+
+export function MockDispatchDashboard() {
+  const [batches, setBatches] = useState<MockBatch[]>([]);
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchBatches();
+  }, []);
+
+  const fetchBatches = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      // Fetch securely using standard fetch with auth headers
+      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-mock-dispatch?resource=batches`;
+      const res = await fetch(functionUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+        }
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to fetch batches');
+      }
+
+      const batchData = await res.json();
+      setBatches(batchData);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div className="text-red-500">Error: {error}</div>;
+
+  return (
+    <div className="space-y-6">
+      <BatchDataTable 
+        batches={batches} 
+        onSelectBatch={(id) => setSelectedBatchId(id)} 
+        selectedId={selectedBatchId}
+      />
+      {selectedBatchId && (
+        <DispatchDataTable batchId={selectedBatchId} />
+      )}
+    </div>
+  );
+}
+
+
+
+===== FILE: src/components/admin/mock-dispatches/DispatchDataTable.tsx =====
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { MockDispatch } from '@/types/mockDispatches';
+import { AttemptLogsModal } from './AttemptLogsModal';
+
+interface DispatchDataTableProps {
+  batchId: string;
+}
+
+export function DispatchDataTable({ batchId }: DispatchDataTableProps) {
+  const [dispatches, setDispatches] = useState<MockDispatch[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedDispatchId, setSelectedDispatchId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchDispatches();
+  }, [batchId]);
+
+  const fetchDispatches = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-mock-dispatch?resource=dispatches&batch_id=${encodeURIComponent(batchId)}`;
+      const res = await fetch(functionUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+        }
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to fetch dispatches');
+      }
+
+      const data = await res.json();
+      setDispatches(data);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) return <div className="mt-4">Loading dispatches...</div>;
+  if (error) return <div className="mt-4 text-red-500">Error: {error}</div>;
+  if (dispatches.length === 0) return <div className="mt-4 text-gray-500">No dispatches found for this batch.</div>;
+
+  return (
+    <div className="mt-6">
+      <h2 className="text-xl font-bold mb-4">Dispatches for Batch</h2>
+      <div className="bg-white shadow rounded-lg overflow-hidden border border-gray-200">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dispatch ID</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Claimed At</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Finalized At</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {dispatches.map((dispatch) => (
+              <tr key={dispatch.id}>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dispatch.id}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{dispatch.status}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {dispatch.mock_claimed_at ? new Date(dispatch.mock_claimed_at).toLocaleString() : '-'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {dispatch.mock_finalized_at ? new Date(dispatch.mock_finalized_at).toLocaleString() : '-'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <button 
+                    onClick={() => setSelectedDispatchId(dispatch.id)}
+                    className="text-blue-600 hover:text-blue-900"
+                  >
+                    View Logs
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {selectedDispatchId && (
+        <AttemptLogsModal 
+          dispatchId={selectedDispatchId} 
+          onClose={() => setSelectedDispatchId(null)} 
+        />
+      )}
+    </div>
+  );
+}
+
+
+
+===== FILE: src/components/admin/mock-dispatches/AttemptLogsModal.tsx =====
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { MockAttemptLog } from '@/types/mockDispatches';
+
+interface AttemptLogsModalProps {
+  dispatchId: string;
+  onClose: () => void;
+}
+
+export function AttemptLogsModal({ dispatchId, onClose }: AttemptLogsModalProps) {
+  const [logs, setLogs] = useState<MockAttemptLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchLogs();
+  }, [dispatchId]);
+
+  const fetchLogs = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-mock-dispatch?resource=attempts&dispatch_id=${encodeURIComponent(dispatchId)}`;
+      const res = await fetch(functionUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+        }
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to fetch logs');
+      }
+
+      const data = await res.json();
+      setLogs(data);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl p-6 overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Attempt Logs (Sanitized)</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            Close
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-auto">
+          {loading ? (
+            <div>Loading logs...</div>
+          ) : error ? (
+            <div className="text-red-500">Error: {error}</div>
+          ) : logs.length === 0 ? (
+            <div className="text-gray-500">No logs found for this dispatch.</div>
+          ) : (
+            <div className="space-y-4">
+              {logs.map((log, index) => (
+                <div key={index} className="p-4 border border-gray-200 rounded-md bg-gray-50">
+                  <div className="font-semibold text-sm mb-2 text-gray-700">
+                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-2">{log.event_type}</span>
+                    {new Date(log.created_at).toLocaleString()}
+                  </div>
+                  <pre className="text-xs bg-gray-800 text-green-400 p-2 rounded overflow-x-auto">
+                    {JSON.stringify(log.event_json_safe, null, 2)}
+                  </pre>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+===== FILE: src/routes/admin/mock-dispatches.tsx =====
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { MockDispatchDashboard } from '../../components/admin/mock-dispatches/MockDispatchDashboard';
+
+export const Route = createFileRoute('/admin/mock-dispatches')({
+  component: MockDispatchesGuard,
+});
+
+function MockDispatchesGuard() {
+  const navigate = useNavigate();
+  const [authorized, setAuthorized] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    async function checkAuth() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setAuthorized(false);
+        return;
+      }
+      
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', session.user.id)
+        .in('role', ['admin', 'sub_admin'])
+        .limit(1)
+        .maybeSingle();
+
+      if (roleData) {
+        setAuthorized(true);
+      } else {
+        setAuthorized(false);
+      }
+    }
+    
+    checkAuth();
+  }, []);
+
+  if (authorized === null) {
+    return <div className="p-6">Verifying access...</div>;
+  }
+
+  if (authorized === false) {
+    return (
+      <div className="p-6 text-red-500">
+        <h1 className="text-2xl font-bold mb-4">Unauthorized</h1>
+        <p>You do not have permission to view this page. Admin or Sub-admin role is required.</p>
+        <button onClick={() => navigate({ to: '/' })} className="mt-4 text-blue-500 underline">Return Home</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Mock Dispatch Control Center (Read-only)</h1>
+      <MockDispatchDashboard />
+    </div>
+  );
+}
+
+
+
+===== FILE: supabase/functions/_shared/authGuard.ts =====
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+
+export async function requireAdmin(req: Request) {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    throw new Error('Unauthorized: Missing Authorization header');
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+  const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  const { data: { user }, error: userError } = await authClient.auth.getUser();
+  if (userError || !user) {
+    throw new Error('Unauthorized: Invalid JWT');
+  }
+
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+  const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+  const { data: roleData, error: roleError } = await adminClient
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', user.id)
+    .in('role', ['admin', 'sub_admin'])
+    .limit(1)
+    .single();
+
+  if (roleError || !roleData) {
+    throw new Error('Forbidden: Role not found');
+  }
+
+  if (roleData.role !== 'admin' && roleData.role !== 'sub_admin') {
+    throw new Error('Forbidden: Requires admin/sub_admin role');
+  }
+
+  return adminClient;
+}
+
+
+===== STATIC SCAN =====
+
