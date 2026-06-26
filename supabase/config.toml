@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.resolve-facebook-uid]
 verify_jwt = true
+
+[functions.admin-mock-dispatch]
+verify_jwt = false

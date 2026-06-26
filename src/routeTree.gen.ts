@@ -56,6 +56,7 @@ import { Route as AdminProductCopilotRouteImport } from './routes/admin/product-
 import { Route as AdminPilotObservationRouteImport } from './routes/admin/pilot-observation'
 import { Route as AdminPilotRouteImport } from './routes/admin/pilot'
 import { Route as AdminOperationsRouteImport } from './routes/admin/operations'
+import { Route as AdminMockDispatchesRouteImport } from './routes/admin/mock-dispatches'
 import { Route as AdminLeadPerformanceRouteImport } from './routes/admin/lead-performance'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
 import { Route as AdminHubRouteImport } from './routes/admin/hub'
@@ -319,6 +320,11 @@ const AdminOperationsRoute = AdminOperationsRouteImport.update({
   path: '/admin/operations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminMockDispatchesRoute = AdminMockDispatchesRouteImport.update({
+  id: '/admin/mock-dispatches',
+  path: '/admin/mock-dispatches',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminLeadPerformanceRoute = AdminLeadPerformanceRouteImport.update({
   id: '/admin/lead-performance',
   path: '/admin/lead-performance',
@@ -470,6 +476,7 @@ export interface FileRoutesByFullPath {
   '/admin/hub': typeof AdminHubRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/lead-performance': typeof AdminLeadPerformanceRoute
+  '/admin/mock-dispatches': typeof AdminMockDispatchesRoute
   '/admin/operations': typeof AdminOperationsRoute
   '/admin/pilot': typeof AdminPilotRoute
   '/admin/pilot-observation': typeof AdminPilotObservationRoute
@@ -543,6 +550,7 @@ export interface FileRoutesByTo {
   '/admin/hub': typeof AdminHubRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/lead-performance': typeof AdminLeadPerformanceRoute
+  '/admin/mock-dispatches': typeof AdminMockDispatchesRoute
   '/admin/operations': typeof AdminOperationsRoute
   '/admin/pilot': typeof AdminPilotRoute
   '/admin/pilot-observation': typeof AdminPilotObservationRoute
@@ -618,6 +626,7 @@ export interface FileRoutesById {
   '/admin/hub': typeof AdminHubRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/lead-performance': typeof AdminLeadPerformanceRoute
+  '/admin/mock-dispatches': typeof AdminMockDispatchesRoute
   '/admin/operations': typeof AdminOperationsRoute
   '/admin/pilot': typeof AdminPilotRoute
   '/admin/pilot-observation': typeof AdminPilotObservationRoute
@@ -694,6 +703,7 @@ export interface FileRouteTypes {
     | '/admin/hub'
     | '/admin/inventory'
     | '/admin/lead-performance'
+    | '/admin/mock-dispatches'
     | '/admin/operations'
     | '/admin/pilot'
     | '/admin/pilot-observation'
@@ -767,6 +777,7 @@ export interface FileRouteTypes {
     | '/admin/hub'
     | '/admin/inventory'
     | '/admin/lead-performance'
+    | '/admin/mock-dispatches'
     | '/admin/operations'
     | '/admin/pilot'
     | '/admin/pilot-observation'
@@ -841,6 +852,7 @@ export interface FileRouteTypes {
     | '/admin/hub'
     | '/admin/inventory'
     | '/admin/lead-performance'
+    | '/admin/mock-dispatches'
     | '/admin/operations'
     | '/admin/pilot'
     | '/admin/pilot-observation'
@@ -916,6 +928,7 @@ export interface RootRouteChildren {
   AdminHubRoute: typeof AdminHubRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminLeadPerformanceRoute: typeof AdminLeadPerformanceRoute
+  AdminMockDispatchesRoute: typeof AdminMockDispatchesRoute
   AdminOperationsRoute: typeof AdminOperationsRoute
   AdminPilotRoute: typeof AdminPilotRoute
   AdminPilotObservationRoute: typeof AdminPilotObservationRoute
@@ -1299,6 +1312,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminOperationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/mock-dispatches': {
+      id: '/admin/mock-dispatches'
+      path: '/admin/mock-dispatches'
+      fullPath: '/admin/mock-dispatches'
+      preLoaderRoute: typeof AdminMockDispatchesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/lead-performance': {
       id: '/admin/lead-performance'
       path: '/admin/lead-performance'
@@ -1513,6 +1533,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminHubRoute: AdminHubRoute,
   AdminInventoryRoute: AdminInventoryRoute,
   AdminLeadPerformanceRoute: AdminLeadPerformanceRoute,
+  AdminMockDispatchesRoute: AdminMockDispatchesRoute,
   AdminOperationsRoute: AdminOperationsRoute,
   AdminPilotRoute: AdminPilotRoute,
   AdminPilotObservationRoute: AdminPilotObservationRoute,

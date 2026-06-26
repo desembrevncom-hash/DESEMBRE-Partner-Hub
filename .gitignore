@@ -47,3 +47,5 @@ scratch/backups/
 .env.staging
 .env.production
 .env.*.backup
+.env.staging
+.env.staging
