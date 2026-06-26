@@ -10,6 +10,8 @@ import { DispatchActionPanel } from "@/features/marketing/m9-send-control/compon
 import { GatewayControlsPanel } from "@/features/marketing/m9-send-control/components/GatewayControlsPanel";
 import { ConfirmCancelDispatchModal } from "@/features/marketing/m9-send-control/components/ConfirmCancelDispatchModal";
 import { m9SendControlApi } from "@/features/marketing/m9-send-control/api/m9SendControlApi";
+import { AdminMockDispatchWorkerPanel } from "@/features/marketing/mock-dispatch/AdminMockDispatchWorkerPanel";
+import { MockDispatchAttemptsPanel } from "@/features/marketing/mock-dispatch/MockDispatchAttemptsPanel";
 
 export const Route = createFileRoute("/marketing/send-control/")({
   component: SendControlRoute,
@@ -138,6 +140,12 @@ function SendControlRoute() {
               onCancel={() => setCancelModalOpen(true)}
             />
           </div>
+        </div>
+
+        {/* Mock Environment / M10B Dispatch Worker */}
+        <div className="pt-8 mt-8 border-t border-slate-200 space-y-8">
+          <AdminMockDispatchWorkerPanel initialBatchId={batchId} />
+          <MockDispatchAttemptsPanel batchId={batchId} />
         </div>
       </div>
 
