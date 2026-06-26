@@ -16,8 +16,11 @@
     "test": "vitest run",
     "staging:preflight": "node scripts/check-env-target.mjs",
     "staging:verify": "npm run staging:preflight && npm run build && npm run test",
-    "staging:deploy:functions": "npm run staging:preflight && npx supabase functions deploy generate-product-sales-sheet --project-ref wmhfvggbthyikqvlyqup",
+    "staging:deploy:functions": "npm run staging:preflight && npx supabase functions deploy generate-product-sales-sheet --project-ref wmhfvggbthyikqvlyqup && npx supabase functions deploy process-resend-webhook-events --project-ref wmhfvggbthyikqvlyqup && npx supabase functions deploy process-zalo-webhook-events --project-ref wmhfvggbthyikqvlyqup",
     "staging:smoke": "npm run staging:preflight && node scripts/check-staging.mjs",
+    "staging:smoke:m10d": "npm run staging:smoke:m10d:resend && npm run staging:smoke:m10d:zalo",
+    "staging:smoke:m10d:resend": "node scripts/marketing/smoke-resend-webhook.mjs",
+    "staging:smoke:m10d:zalo": "node scripts/marketing/smoke-zalo-webhook.mjs",
     "release:check": "node scripts/release-check.mjs",
     "prod:readiness": "node scripts/production-check.mjs"
   },
