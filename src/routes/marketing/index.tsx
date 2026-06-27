@@ -324,6 +324,15 @@ function MarketingDashboardPage() {
               asChild
               className="rounded-xl border-slate-200 font-bold text-xs h-10 px-5"
             >
+              <Link to="/marketing/audiences">
+                <Users className="w-4 h-4 mr-2" /> Audience Builder
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              asChild
+              className="rounded-xl border-slate-200 font-bold text-xs h-10 px-5"
+            >
               <Link to="/marketing/campaigns">Quản lý Dispatcher</Link>
             </Button>
             <Button

@@ -66,7 +66,9 @@ import { Route as AdminAutomationGovernanceRouteImport } from './routes/admin/au
 import { Route as AdminAutomationRouteImport } from './routes/admin/automation'
 import { Route as AdminAiSettingsRouteImport } from './routes/admin/ai-settings'
 import { Route as AdminAiDebugRouteImport } from './routes/admin/ai-debug'
+import { Route as MarketingAudiencesIndexRouteImport } from './routes/marketing/audiences/index'
 import { Route as AdminIdentityResolutionIndexRouteImport } from './routes/admin/identity-resolution/index'
+import { Route as MarketingAudiencesNewRouteImport } from './routes/marketing/audiences/new'
 
 const WorkspaceRoute = WorkspaceRouteImport.update({
   id: '/workspace',
@@ -355,12 +357,22 @@ const AdminAiDebugRoute = AdminAiDebugRouteImport.update({
   path: '/admin/ai-debug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MarketingAudiencesIndexRoute = MarketingAudiencesIndexRouteImport.update({
+  id: '/marketing/audiences/',
+  path: '/marketing/audiences/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminIdentityResolutionIndexRoute =
   AdminIdentityResolutionIndexRouteImport.update({
     id: '/admin/identity-resolution/',
     path: '/admin/identity-resolution/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const MarketingAudiencesNewRoute = MarketingAudiencesNewRouteImport.update({
+  id: '/marketing/audiences/new',
+  path: '/marketing/audiences/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -420,7 +432,9 @@ export interface FileRoutesByFullPath {
   '/marketing/': typeof MarketingIndexRoute
   '/orders/': typeof OrdersIndexRoute
   '/reports/': typeof ReportsIndexRoute
+  '/marketing/audiences/new': typeof MarketingAudiencesNewRoute
   '/admin/identity-resolution/': typeof AdminIdentityResolutionIndexRoute
+  '/marketing/audiences/': typeof MarketingAudiencesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -479,7 +493,9 @@ export interface FileRoutesByTo {
   '/marketing': typeof MarketingIndexRoute
   '/orders': typeof OrdersIndexRoute
   '/reports': typeof ReportsIndexRoute
+  '/marketing/audiences/new': typeof MarketingAudiencesNewRoute
   '/admin/identity-resolution': typeof AdminIdentityResolutionIndexRoute
+  '/marketing/audiences': typeof MarketingAudiencesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -540,7 +556,9 @@ export interface FileRoutesById {
   '/marketing/': typeof MarketingIndexRoute
   '/orders/': typeof OrdersIndexRoute
   '/reports/': typeof ReportsIndexRoute
+  '/marketing/audiences/new': typeof MarketingAudiencesNewRoute
   '/admin/identity-resolution/': typeof AdminIdentityResolutionIndexRoute
+  '/marketing/audiences/': typeof MarketingAudiencesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -602,7 +620,9 @@ export interface FileRouteTypes {
     | '/marketing/'
     | '/orders/'
     | '/reports/'
+    | '/marketing/audiences/new'
     | '/admin/identity-resolution/'
+    | '/marketing/audiences/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -661,7 +681,9 @@ export interface FileRouteTypes {
     | '/marketing'
     | '/orders'
     | '/reports'
+    | '/marketing/audiences/new'
     | '/admin/identity-resolution'
+    | '/marketing/audiences'
   id:
     | '__root__'
     | '/'
@@ -721,7 +743,9 @@ export interface FileRouteTypes {
     | '/marketing/'
     | '/orders/'
     | '/reports/'
+    | '/marketing/audiences/new'
     | '/admin/identity-resolution/'
+    | '/marketing/audiences/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -779,7 +803,9 @@ export interface RootRouteChildren {
   MarketingIndexRoute: typeof MarketingIndexRoute
   OrdersIndexRoute: typeof OrdersIndexRoute
   ReportsIndexRoute: typeof ReportsIndexRoute
+  MarketingAudiencesNewRoute: typeof MarketingAudiencesNewRoute
   AdminIdentityResolutionIndexRoute: typeof AdminIdentityResolutionIndexRoute
+  MarketingAudiencesIndexRoute: typeof MarketingAudiencesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1183,11 +1209,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAiDebugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/marketing/audiences/': {
+      id: '/marketing/audiences/'
+      path: '/marketing/audiences'
+      fullPath: '/marketing/audiences/'
+      preLoaderRoute: typeof MarketingAudiencesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/identity-resolution/': {
       id: '/admin/identity-resolution/'
       path: '/admin/identity-resolution'
       fullPath: '/admin/identity-resolution/'
       preLoaderRoute: typeof AdminIdentityResolutionIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketing/audiences/new': {
+      id: '/marketing/audiences/new'
+      path: '/marketing/audiences/new'
+      fullPath: '/marketing/audiences/new'
+      preLoaderRoute: typeof MarketingAudiencesNewRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -1264,7 +1304,9 @@ const rootRouteChildren: RootRouteChildren = {
   MarketingIndexRoute: MarketingIndexRoute,
   OrdersIndexRoute: OrdersIndexRoute,
   ReportsIndexRoute: ReportsIndexRoute,
+  MarketingAudiencesNewRoute: MarketingAudiencesNewRoute,
   AdminIdentityResolutionIndexRoute: AdminIdentityResolutionIndexRoute,
+  MarketingAudiencesIndexRoute: MarketingAudiencesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
