@@ -350,6 +350,11 @@ function MarketingDashboardPage() {
                   <LayoutTemplate className="w-3.5 h-3.5" /> Template Library
                 </Link>
               </Button>
+              <Button variant="outline" asChild className="rounded-xl border-purple-200 text-purple-700 hover:bg-purple-50 font-bold text-xs h-9 px-4 gap-2">
+                <Link to="/marketing/reports">
+                  <BarChart3 className="w-3.5 h-3.5" /> Báo cáo Tương tác
+                </Link>
+              </Button>
             </div>
 
             {/* Group 2 & 3: Readiness & Accounts (Admin Only) */}
