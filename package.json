@@ -21,6 +21,9 @@
     "staging:smoke:m10d": "npm run staging:smoke:m10d:resend && npm run staging:smoke:m10d:zalo",
     "staging:smoke:m10d:resend": "node scripts/marketing/smoke-resend-webhook.mjs",
     "staging:smoke:m10d:zalo": "node scripts/marketing/smoke-zalo-webhook.mjs",
+    "staging:smoke:m10c": "npm run staging:smoke:m10c:resend-receiver && npm run staging:smoke:m10c:zalo-receiver",
+    "staging:smoke:m10c:resend-receiver": "node scripts/marketing/smoke-resend-webhook-receiver.mjs",
+    "staging:smoke:m10c:zalo-receiver": "node scripts/marketing/smoke-zalo-webhook-receiver.mjs",
     "release:check": "node scripts/release-check.mjs",
     "prod:readiness": "node scripts/production-check.mjs"
   },
@@ -106,6 +109,7 @@
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
     "prettier": "^3.7.3",
+    "svix": "^1.96.1",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^7.3.1",
