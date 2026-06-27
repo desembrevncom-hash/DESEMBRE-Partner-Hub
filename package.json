@@ -19,7 +19,10 @@
     "staging:deploy:functions": "npm run staging:preflight && npx supabase functions deploy generate-product-sales-sheet --project-ref wmhfvggbthyikqvlyqup",
     "staging:smoke": "npm run staging:preflight && node scripts/check-staging.mjs",
     "release:check": "node scripts/release-check.mjs",
-    "prod:readiness": "node scripts/production-check.mjs"
+    "prod:readiness": "node scripts/production-check.mjs",
+    "staging:smoke:m10c": "npm run staging:smoke:m10c:resend-receiver && npm run staging:smoke:m10c:zalo-receiver",
+    "staging:smoke:m10c:resend-receiver": "node scripts/marketing/smoke-resend-webhook-receiver.mjs",
+    "staging:smoke:m10c:zalo-receiver": "node scripts/marketing/smoke-zalo-webhook-receiver.mjs"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.5",
@@ -103,6 +106,7 @@
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
     "prettier": "^3.7.3",
+    "svix": "^1.96.1",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^7.3.1",
