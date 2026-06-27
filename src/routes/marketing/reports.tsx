@@ -63,112 +63,21 @@ function MarketingReportsPage() {
   const [topCampaigns, setTopCampaigns] = useState<TopCampaign[]>([]);
   const [optOutList, setOptOutList] = useState<OptOutRecord[]>([]);
 
-  // Dữ liệu mô phỏng cao cấp cho ngành B2B Skincare
-  const baselineCampaigns: TopCampaign[] = [
-    {
-      id: "c1",
-      name: "🔥 Chuyển giao Phác đồ Điều trị Nám Siêu Vi Tảo T5/2026",
-      channel: "email_campaign",
-      purpose: "marketing_campaign",
-      sent: 142,
-      opened: 116,
-      clicked: 58,
-      opt_outs: 1,
-      created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
-    },
-    {
-      id: "c2",
-      name: "💎 Công bố Chính sách Chiết khấu Đại lý Quý 3/2026",
-      channel: "email_campaign",
-      purpose: "monthly_campaign",
-      sent: 185,
-      opened: 168,
-      clicked: 102,
-      opt_outs: 0,
-      created_at: new Date(Date.now() - 12 * 24 * 3600 * 1000).toISOString(),
-    },
-    {
-      id: "c3",
-      name: "🎁 Ra mắt Dòng Tinh chất Phục hồi DESEMBRE Premium",
-      channel: "zalo_zns",
-      purpose: "product_launch",
-      sent: 95,
-      opened: 88,
-      clicked: 42,
-      opt_outs: 2,
-      created_at: new Date(Date.now() - 20 * 24 * 3600 * 1000).toISOString(),
-    },
-    {
-      id: "c4",
-      name: "💡 Chuỗi Chăm sóc Khách hàng Nhận Báo giá Chưa chốt",
-      channel: "email",
-      purpose: "quote_follow_up",
-      sent: 45,
-      opened: 32,
-      clicked: 14,
-      opt_outs: 0,
-      created_at: new Date(Date.now() - 28 * 24 * 3600 * 1000).toISOString(),
-    },
-  ];
-
-  const baselineOptOuts: OptOutRecord[] = [
-    {
-      id: "cust-opt-1",
-      email: "thuy_linh_spa@gmail.com",
-      facility_name: "Linh Premium Skincare",
-      opt_out_at: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
-      reason: "Đã chuyển đổi sang mô hình Gội đầu dưỡng sinh, không tập trung phác đồ điều trị.",
-    },
-    {
-      id: "cust-opt-2",
-      email: "hoang_anh_clinic@yahoo.com",
-      facility_name: "Viện Thẩm Mỹ Hoàng Anh",
-      opt_out_at: new Date(Date.now() - 15 * 24 * 3600 * 1000).toISOString(),
-      reason: "Tạm ngưng hoạt động kinh doanh do chuyển mặt bằng.",
-    },
-    {
-      id: "cust-opt-3",
-      email: "ngoc_beauty_99@gmail.com",
-      facility_name: "Ngọc Beauty Center",
-      opt_out_at: new Date(Date.now() - 22 * 24 * 3600 * 1000).toISOString(),
-      reason: "Nhận thông báo lịch hội thảo quá dày đặc.",
-    },
-  ];
-
-  const isMock = !!localStorage.getItem("mock_marketing_session");
-  const [useLocalFallback, setUseLocalFallback] = useState(isMock);
-
   const loadAnalyticsData = async () => {
     setLoading(true);
 
-    if (useLocalFallback) {
-      setTimeout(() => {
-        setTopCampaigns([...baselineCampaigns]);
-
-        // Nạp danh sách Opt-out từ localStorage hoặc dùng mẫu
-        let localOptOuts = JSON.parse(localStorage.getItem("mock_opt_outs") || "[]");
-        if (localOptOuts.length === 0) {
-          localOptOuts = [...baselineOptOuts];
-          try {
-            localStorage.setItem("mock_opt_outs", JSON.stringify(localOptOuts));
-          } catch {}
-        }
-        setOptOutList(localOptOuts);
-        setLoading(false);
-      }, 600);
-      return;
-    }
-
     try {
-      // 1. Tải danh sách chiến dịch đã hoàn thành
+      // 1. Tải dữ liệu báo cáo từ view
       let queryCamps = supabase
-        .from("marketing_campaigns")
-        .select("*, message_templates(channel, purpose)")
-        .eq("status", "completed")
+        .from("campaign_analytics_view")
+        .select("*")
         .order("created_at", { ascending: false });
 
-      if (isSale && !isAdmin && !isSubAdmin) {
-        queryCamps = queryCamps.eq("created_by", user?.id);
+      if (timeRange !== "all") {
+        const days = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 90;
+        const date = new Date();
+        date.setDate(date.getDate() - days);
+        queryCamps = queryCamps.gte("created_at", date.toISOString());
       }
 
       const { data: camps, error: errCamps } = await queryCamps.limit(20);
@@ -177,27 +86,21 @@ function MarketingReportsPage() {
 
       if (camps && camps.length > 0) {
         const mappedCamps: TopCampaign[] = camps.map((c: any) => {
-          const m = c.metrics || { total_targets: 0, sent: 0, failed: 0 };
-          // Mô phỏng lượt mở và click nếu logs chi tiết chưa ghi đủ
-          const effSent = m.sent || 0;
-          const effOpened = Math.round(effSent * (0.65 + Math.random() * 0.2));
-          const effClicked = Math.round(effOpened * (0.35 + Math.random() * 0.2));
-
           return {
-            id: c.id,
-            name: c.name,
-            channel: c.message_templates?.channel || "email",
-            purpose: c.message_templates?.purpose || "marketing",
-            sent: effSent,
-            opened: Math.min(effOpened, effSent),
-            clicked: Math.min(effClicked, effOpened),
-            opt_outs: Math.random() > 0.7 ? 1 : 0,
+            id: c.campaign_id,
+            name: c.campaign_name,
+            channel: c.channel || "unknown",
+            purpose: "marketing", // fallback if purpose is not in view
+            sent: c.total_sent || 0,
+            opened: c.total_opened || 0,
+            clicked: c.total_clicked || 0,
+            opt_outs: c.total_suppressed || 0,
             created_at: c.created_at,
           };
         });
         setTopCampaigns(mappedCamps);
       } else {
-        setTopCampaigns([...baselineCampaigns]);
+        setTopCampaigns([]);
       }
 
       // 2. Tải danh sách khách hàng đã Opt-out
@@ -206,6 +109,13 @@ function MarketingReportsPage() {
         .select("id, email, phone, facility_name, marketing_opt_out_at, opt_out_reason")
         .not("marketing_opt_out_at", "is", null)
         .order("marketing_opt_out_at", { ascending: false });
+
+      if (timeRange !== "all") {
+        const days = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 90;
+        const date = new Date();
+        date.setDate(date.getDate() - days);
+        queryCusts = queryCusts.gte("marketing_opt_out_at", date.toISOString());
+      }
 
       if (isSale && !isAdmin && !isSubAdmin) {
         queryCusts = queryCusts.eq("owner_sale_id", user?.id);
@@ -225,16 +135,12 @@ function MarketingReportsPage() {
           })),
         );
       } else {
-        setOptOutList([...baselineOptOuts]);
+        setOptOutList([]);
       }
     } catch (err: any) {
-      console.warn(
-        "Chưa đồng bộ dữ liệu báo cáo Cloud, fallback nạp dữ liệu B2B mẫu:",
-        err.message,
-      );
-      setUseLocalFallback(true);
-      setTopCampaigns([...baselineCampaigns]);
-      setOptOutList([...baselineOptOuts]);
+      toast.error("Lỗi tải dữ liệu báo cáo: " + err.message);
+      setTopCampaigns([]);
+      setOptOutList([]);
     } finally {
       setLoading(false);
     }
@@ -242,7 +148,7 @@ function MarketingReportsPage() {
 
   useEffect(() => {
     loadAnalyticsData();
-  }, [useLocalFallback, timeRange]);
+  }, [timeRange]);
 
   // Bộ lọc theo kênh
   const filteredCampaigns = useMemo(() => {
@@ -280,17 +186,6 @@ function MarketingReportsPage() {
       )
     )
       return;
-
-    if (useLocalFallback) {
-      let currentList = [...optOutList];
-      currentList = currentList.filter((o) => o.id !== record.id);
-      setOptOutList(currentList);
-      localStorage.setItem("mock_opt_outs", JSON.stringify(currentList));
-      toast.success(
-        `Đã khôi phục trạng thái Opt-in thành công cho đối tác ${record.facility_name || record.email}`,
-      );
-      return;
-    }
 
     try {
       const { error } = await supabase
@@ -588,7 +483,7 @@ function MarketingReportsPage() {
                 phase: "4. Nhấp Link CTA",
                 count: metrics.totalClicked,
                 percent:
-                  parseFloat(metrics.openRate) > 0
+                  metrics.totalSent > 0
                     ? Math.round((metrics.totalClicked / metrics.totalSent) * 100)
                     : 0,
                 color: "bg-indigo-600",
