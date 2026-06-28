@@ -48,6 +48,7 @@ import {
   Workflow,
   History,
   ShieldAlert,
+  Send,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -433,6 +434,12 @@ function MarketingDashboardPage() {
             <Button variant="outline" asChild className="rounded-xl border-red-200 text-red-700 bg-red-50 hover:bg-red-100 font-bold text-xs h-9 px-4 gap-2 flex-shrink-0">
               <Link to="/marketing/safety">
                 <ShieldAlert className="w-3.5 h-3.5 text-red-600" /> Ops Safety (M16)
+              </Link>
+            </Button>
+
+            <Button variant="outline" asChild className="rounded-xl border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 font-bold text-xs h-9 px-4 gap-2 flex-shrink-0">
+              <Link to="/marketing/send-gateway">
+                <Send className="w-3.5 h-3.5 text-amber-600" /> Send Gateway (M17)
               </Link>
             </Button>
           </div>
