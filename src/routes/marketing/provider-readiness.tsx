@@ -70,9 +70,12 @@ function ProviderReadinessPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" asChild>
-              <Link to="/marketing">Back to Marketing</Link>
-            </Button>
+            <Link
+  to="/marketing"
+  className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+>
+  Back to Marketing
+</Link>
 
             <Button onClick={runDryValidation} disabled={loading}>
               <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
