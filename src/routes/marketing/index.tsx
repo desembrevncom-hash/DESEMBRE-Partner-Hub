@@ -438,13 +438,16 @@ function MarketingDashboardPage() {
             </Button>
             
             <Button variant="outline" asChild className="rounded-xl border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 font-bold text-xs h-9 px-4 gap-2 flex-shrink-0">
-              <Link to="/marketing/send-gateway">
-                <Send className="w-3.5 h-3.5 text-amber-600" /> Send Gateway (M17)
-              </Link>
-<Link to="/marketing/provider-readiness">
-  <Server className="w-3.5 h-3.5 text-indigo-600" /> Provider Readiness (M19)
-</Link>
-            </Button>
+  <Link to="/marketing/send-gateway">
+    <Send className="w-3.5 h-3.5 text-amber-600" /> Send Gateway (M17)
+  </Link>
+</Button>
+
+<Button variant="outline" asChild className="rounded-xl border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-bold text-xs h-9 px-4 gap-2 flex-shrink-0">
+  <Link to="/marketing/provider-readiness">
+    <Server className="w-3.5 h-3.5 text-indigo-600" /> Provider Readiness (M19)
+  </Link>
+</Button>
           </div>
         </div>
       </header>
