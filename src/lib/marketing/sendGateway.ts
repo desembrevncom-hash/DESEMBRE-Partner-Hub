@@ -123,6 +123,13 @@ export async function executeSendJob(jobId: string) {
     duplicate_prevention_hours: 24,
   };
 
+  let suppressions: any[] = [];
+  if (job.customer_id || job.recipient_email || job.recipient_phone) {
+    let q = supabase.from("marketing_suppression_list").select("*").eq("is_active", true);
+    const { data: suppData } = await q;
+    if (suppData) suppressions = suppData;
+  }
+
   const context: MarketingSafetyContext = {
     channel: job.channel as 'email' | 'zalo',
     approved: !!job.approved_at,
@@ -131,6 +138,7 @@ export async function executeSendJob(jobId: string) {
       email: job.recipient_email,
       phone: job.recipient_phone,
     },
+    suppressions,
     current_daily_sends: 0,
     current_campaign_sends: 0,
   };
@@ -193,4 +201,121 @@ export async function executeSendJob(jobId: string) {
       
     return { success: false, reason: "Provider execution failed", job: failedJob };
   }
+}
+
+async function verifyAdminRole() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const { data: roleRow } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", user.id)
+    .single();
+
+  const role = roleRow?.role;
+  if (role !== "admin" && role !== "sub_admin") {
+    throw new Error("Insufficient permissions: Admin role required");
+  }
+  return user.id;
+}
+
+export async function markJobApproved(jobId: string) {
+  // Check admin role explicitly
+  const userId = await verifyAdminRole();
+
+  const { data: job, error } = await supabase
+    .from("marketing_send_jobs")
+    .update({
+      approved_by: userId,
+      approved_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jobId)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to approve job: ${error.message}`);
+  }
+
+  return { success: true, job };
+}
+
+export async function reevaluateJobSafety(jobId: string) {
+  // Check admin role explicitly
+  await verifyAdminRole();
+
+  const { data: job, error: fetchError } = await supabase
+    .from("marketing_send_jobs")
+    .select("*")
+    .eq("id", jobId)
+    .single();
+
+  if (fetchError || !job) {
+    throw new Error("Job not found");
+  }
+
+  const { data: settings } = await supabase
+    .from("marketing_ops_safety_settings")
+    .select("*")
+    .eq("is_default", true)
+    .single();
+
+  const safeSettings: MarketingSafetySettings = settings || {
+    global_kill_switch: true,
+    email_enabled: false,
+    zalo_enabled: false,
+    require_admin_approval: true,
+    daily_send_quota: 0,
+    per_campaign_quota: 0,
+    cooldown_minutes: 0,
+    duplicate_prevention_hours: 24,
+  };
+
+  let suppressions: any[] = [];
+  if (job.customer_id || job.recipient_email || job.recipient_phone) {
+    let q = supabase.from("marketing_suppression_list").select("*").eq("is_active", true);
+    const { data: suppData } = await q;
+    if (suppData) suppressions = suppData;
+  }
+
+  const context: MarketingSafetyContext = {
+    channel: job.channel as 'email' | 'zalo',
+    approved: !!job.approved_at,
+    customer: {
+      id: job.customer_id,
+      email: job.recipient_email,
+      phone: job.recipient_phone,
+    },
+    suppressions,
+    current_daily_sends: 0,
+    current_campaign_sends: 0,
+  };
+
+  const evaluation = evaluateMarketingSafety(safeSettings, context);
+
+  let newStatus = job.status;
+  if (job.status === "safety_blocked" && evaluation.allowed) {
+    newStatus = "queued";
+  } else if (!evaluation.allowed) {
+    newStatus = "safety_blocked";
+  }
+
+  const { data: updatedJob, error } = await supabase
+    .from("marketing_send_jobs")
+    .update({
+      status: newStatus,
+      safety_result: { reasons: evaluation.reasons, warnings: evaluation.warnings },
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jobId)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to re-evaluate safety: ${error.message}`);
+  }
+
+  return { success: true, allowed: evaluation.allowed, job: updatedJob };
 }
