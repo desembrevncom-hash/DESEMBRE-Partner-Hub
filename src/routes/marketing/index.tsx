@@ -28,6 +28,7 @@ import {
   Calendar,
   Search,
   Filter,
+  ShieldCheck,
   Plus,
   BarChart3,
   Globe,
@@ -43,8 +44,10 @@ import {
   XCircle,
   X,
   LayoutTemplate,
-  GitBranch,
+  Server,
+  Workflow,
   History,
+  ShieldAlert,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -320,87 +323,116 @@ function MarketingDashboardPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              asChild
-              className="rounded-xl border-slate-200 font-bold text-xs h-10 px-5"
-            >
-              <Link to="/marketing/audiences">
-                <Users className="w-4 h-4 mr-2" /> Audience Builder
-              </Link>
-            </Button>
-            <Button
-              variant="outline"
-              asChild
-              className="rounded-xl border-slate-200 font-bold text-xs h-10 px-5"
-            >
-              <Link to="/marketing/automation">
-                <GitBranch className="w-4 h-4 mr-2" /> Automation
-              </Link>
-            </Button>
-            <Button
-              variant="outline"
-              asChild
-              className="rounded-xl border-amber-200 text-amber-600 hover:bg-amber-50 font-bold text-xs h-10 px-5"
-            >
-              <Link to="/marketing/automation/events">
-                <History className="w-4 h-4 mr-2" /> QA Events
-              </Link>
-            </Button>
-            <Button
-              variant="outline"
-              asChild
-              className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 font-bold text-xs h-10 px-5"
-            >
-              <Link to="/marketing/safety">
-                <Shield className="w-4 h-4 mr-2" /> Ops Safety
-              </Link>
-            </Button>
-            <Button
-              variant="outline"
-              asChild
-              className="rounded-xl border-slate-200 font-bold text-xs h-10 px-5"
-            >
-              <Link to="/marketing/campaigns">Quản lý Dispatcher</Link>
-            </Button>
-            <Button
-              variant="outline"
-              asChild
-              className="rounded-xl border-indigo-200 text-indigo-600 hover:bg-indigo-50 font-bold text-xs h-10 px-4 gap-2"
-            >
-              <Link to="/marketing/templates">
-                <LayoutTemplate className="w-4 h-4" /> Template Library
-              </Link>
-            </Button>
-            {(isAdmin || isSubAdmin) && (
-              <>
-                <Button
-                  variant="outline"
-                  asChild
-                  className="rounded-xl border-violet-200 text-violet-600 hover:bg-violet-50 font-bold text-xs h-10 px-4 gap-2"
-                >
-                  <Link to="/admin/sender-accounts">
-                    <Shield className="w-4 h-4" /> Sender Accounts
-                  </Link>
-                </Button>
-                <Button
-                  variant="outline"
-                  asChild
-                  className="rounded-xl border-amber-200 text-amber-700 hover:bg-amber-50 font-bold text-xs h-10 px-4 gap-2"
-                >
-                  <Link to="/marketing/readiness">
-                    <AlertTriangle className="w-4 h-4" /> Marketing Readiness
-                  </Link>
-                </Button>
-              </>
-            )}
+          <div className="flex items-center">
             <Button
               asChild
-              className="rounded-xl bg-pink-600 hover:bg-pink-700 font-black text-xs h-10 px-6 shadow-lg shadow-pink-200 transition-all hover:scale-105"
+              className="rounded-xl bg-pink-600 hover:bg-pink-700 font-black text-xs h-10 px-6 shadow-lg shadow-pink-200 transition-all hover:scale-105 whitespace-nowrap flex-shrink-0"
             >
               <Link to="/marketing/campaigns" search={{ new: "true" }}>
                 <Plus className="w-4 h-4 mr-2" /> Tạo chiến dịch mới
+              </Link>
+            </Button>
+          </div>
+        </div>
+        
+        {/* SUB-NAVIGATION BAR */}
+        <div className="container mx-auto px-4 pb-4 max-w-7xl">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 overflow-x-auto pb-1 scrollbar-hide">
+            {/* Group 1: Core */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button variant="outline" asChild className="rounded-xl border-slate-200 font-bold text-xs h-9 px-4">
+                <Link to="/marketing/audiences">
+                  <Users className="w-3.5 h-3.5 mr-2" /> Audience Builder
+                </Link>
+              </Button>
+              <Button variant="outline" asChild className="rounded-xl border-slate-200 font-bold text-xs h-9 px-4">
+                <Link to="/marketing/campaigns">Quản lý chiến dịch</Link>
+              </Button>
+              <Button variant="outline" asChild className="rounded-xl border-indigo-200 text-indigo-600 hover:bg-indigo-50 font-bold text-xs h-9 px-4 gap-2">
+                <Link to="/marketing/templates">
+                  <LayoutTemplate className="w-3.5 h-3.5" /> Template Library
+                </Link>
+              </Button>
+            </div>
+
+            {/* Group 2 & 3: Readiness & Accounts (Admin Only) */}
+            {(isAdmin || isSubAdmin) && (
+              <>
+                <div className="w-px h-6 bg-slate-200 hidden md:block"></div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button variant="outline" asChild className="rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50 font-bold text-xs h-9 px-4 gap-2">
+                    <Link to="/marketing/senders">
+                      <Server className="w-3.5 h-3.5" /> Sender Readiness
+                    </Link>
+                  </Button>
+                  <Button variant="outline" asChild className="rounded-xl border-amber-200 text-amber-700 hover:bg-amber-50 font-bold text-xs h-9 px-4 gap-2">
+                    <Link to="/marketing/readiness">
+                      <AlertTriangle className="w-3.5 h-3.5" /> Marketing Readiness
+                    </Link>
+                  </Button>
+                  <Button variant="outline" asChild className="rounded-xl border-cyan-200 text-cyan-700 hover:bg-cyan-50 font-bold text-xs h-9 px-4 gap-2">
+                    <Link to="/marketing/providers/readiness">
+                      <Server className="w-3.5 h-3.5" /> Provider Readiness (M6)
+                    </Link>
+                  </Button>
+                  <Button variant="outline" asChild className="rounded-xl border-red-200 text-red-700 hover:bg-red-50 font-bold text-xs h-9 px-4 gap-2">
+                    <Link to="/marketing/send-control">
+                      <Rocket className="w-3.5 h-3.5" /> M9 Send Control
+                    </Link>
+                  </Button>
+                  <Button variant="outline" asChild className="rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50 font-bold text-xs h-9 px-4 gap-2">
+                    <Link to="/marketing/consent">
+                      <ShieldCheck className="w-3.5 h-3.5" /> Consent Registry (M8)
+                    </Link>
+                  </Button>
+                </div>
+                
+                <div className="w-px h-6 bg-slate-200 hidden md:block"></div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button variant="outline" asChild className="rounded-xl border-violet-200 text-violet-600 hover:bg-violet-50 font-bold text-xs h-9 px-4 gap-2">
+                    <Link to="/admin/sender-accounts">
+                      <Shield className="w-3.5 h-3.5" /> Sender Accounts
+                    </Link>
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* M11-M16 Safe Foundation */}
+          <div className="flex flex-wrap items-center gap-2 overflow-x-auto pb-1 mt-3 scrollbar-hide">
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-100 rounded-lg border border-slate-200 mr-1 flex-shrink-0">
+              <ShieldAlert className="w-3.5 h-3.5 text-slate-500" />
+              <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Safe Foundation</span>
+            </div>
+            
+            <Button variant="outline" asChild className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs h-9 px-4 gap-2 flex-shrink-0">
+              <Link to="/marketing/reports">
+                <BarChart3 className="w-3.5 h-3.5 text-indigo-500" /> Analytics (M11)
+              </Link>
+            </Button>
+            
+            <Button variant="outline" asChild className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs h-9 px-4 gap-2 flex-shrink-0">
+              <Link to="/marketing/audiences">
+                <Users className="w-3.5 h-3.5 text-blue-500" /> Audiences (M12)
+              </Link>
+            </Button>
+            
+            <Button variant="outline" asChild className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs h-9 px-4 gap-2 flex-shrink-0">
+              <Link to="/marketing/automation">
+                <Workflow className="w-3.5 h-3.5 text-violet-500" /> Automation (M13/M14)
+              </Link>
+            </Button>
+            
+            <Button variant="outline" asChild className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs h-9 px-4 gap-2 flex-shrink-0">
+              <Link to="/marketing/automation/events">
+                <History className="w-3.5 h-3.5 text-emerald-500" /> QA Events (M15)
+              </Link>
+            </Button>
+            
+            <Button variant="outline" asChild className="rounded-xl border-red-200 text-red-700 bg-red-50 hover:bg-red-100 font-bold text-xs h-9 px-4 gap-2 flex-shrink-0">
+              <Link to="/marketing/safety">
+                <ShieldAlert className="w-3.5 h-3.5 text-red-600" /> Ops Safety (M16)
               </Link>
             </Button>
           </div>
@@ -610,10 +642,10 @@ function MarketingDashboardPage() {
             <CardHeader className="p-8 pb-4 flex flex-row items-center justify-between border-b border-slate-50">
               <div>
                 <CardTitle className="text-base font-black text-slate-900 uppercase tracking-widest">
-                  Chiến dịch đang chạy
+                  Danh sách chiến dịch nháp
                 </CardTitle>
                 <p className="text-xs text-slate-400 font-medium mt-1">
-                  Đo lường hiệu quả thời gian thực
+                  Kế hoạch chiến dịch đang chuẩn bị
                 </p>
               </div>
               <Button variant="ghost" size="sm" className="text-xs font-bold text-indigo-500">
@@ -628,7 +660,7 @@ function MarketingDashboardPage() {
                       <th className="px-8 py-4 text-left">Chiến dịch</th>
                       <th className="px-8 py-4 text-center">Loại hình</th>
                       <th className="px-8 py-4 text-center">Số Lead</th>
-                      <th className="px-8 py-4 text-center">Ngân sách</th>
+                      <th className="px-8 py-4 text-center">Ngân sách <Badge variant="outline" className="ml-1 text-[10px] text-red-500 border-red-200">Demo / Mock Data</Badge></th>
                       <th className="px-8 py-4 text-center">Trạng thái</th>
                       <th className="px-8 py-4 text-right">Hành động</th>
                     </tr>
@@ -684,6 +716,7 @@ function MarketingDashboardPage() {
               </div>
             </CardContent>
           </Card>
+
         </div>
       </main>
     </div>
