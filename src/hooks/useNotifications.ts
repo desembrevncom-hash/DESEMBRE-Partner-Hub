@@ -23,7 +23,8 @@ export function useNotifications(pollIntervalMs = 30000) {
 
       if (rpcError) throw rpcError;
 
-      const rawNotifications = (res.notifications || []) as NotificationItem[];
+      const notificationResponse = data as NotificationsResponse | null;
+      const rawNotifications = (notificationResponse?.notifications || []) as NotificationItem[];
 
       // Deduplicate: If there is a task_assigned notification and a lead_assigned notification for the same customer
       // created within a minute, hide the task_assigned notification to reduce noise.
@@ -50,7 +51,7 @@ export function useNotifications(pollIntervalMs = 30000) {
         (n) => !processedNotifications.includes(n) && n.status === "unread",
       ).length;
 
-      setUnreadCount(Math.max(0, (res.unread_count || 0) - hiddenUnreadCount));
+      setUnreadCount(Math.max(0, (notificationResponse?.unread_count || 0) - hiddenUnreadCount));
       setError(null);
     } catch (err: any) {
       console.error("Failed to fetch notifications:", err);
