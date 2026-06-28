@@ -351,6 +351,15 @@ function MarketingDashboardPage() {
             <Button
               variant="outline"
               asChild
+              className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 font-bold text-xs h-10 px-5"
+            >
+              <Link to="/marketing/safety">
+                <Shield className="w-4 h-4 mr-2" /> Ops Safety
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              asChild
               className="rounded-xl border-slate-200 font-bold text-xs h-10 px-5"
             >
               <Link to="/marketing/campaigns">Quản lý Dispatcher</Link>
