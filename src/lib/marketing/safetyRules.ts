@@ -64,16 +64,18 @@ export function evaluateMarketingSafety(
   // 4. Suppression List Check
   if (context.customer && context.suppressions && context.suppressions.length > 0) {
     const isSuppressed = context.suppressions.some(s => {
-      if (!s.active) return false;
+      if (!s.is_active) return false;
       // Channel match: 'all' applies to everything. 
       // Specific channel applies only to that channel.
       if (s.channel !== 'all' && s.channel !== context.channel) return false;
       
-      const matchId = s.customer_id && s.customer_id === context.customer?.id;
-      const matchEmail = s.email && s.email === context.customer?.email;
-      const matchPhone = s.phone && s.phone === context.customer?.phone;
+      const emailNorm = context.customer?.email?.trim().toLowerCase();
+      const phoneNorm = context.customer?.phone?.trim().toLowerCase(); // Basic norm
       
-      return matchId || matchEmail || matchPhone;
+      const matchEmail = emailNorm && s.normalized_contact_value === emailNorm;
+      const matchPhone = phoneNorm && s.normalized_contact_value === phoneNorm;
+      
+      return matchEmail || matchPhone;
     });
 
     if (isSuppressed) {

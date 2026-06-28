@@ -36,17 +36,17 @@ INSERT INTO public.marketing_ops_safety_settings (
 
 CREATE TABLE IF NOT EXISTS public.marketing_suppression_list (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    customer_id UUID,
-    email TEXT,
-    phone TEXT,
-    channel TEXT NOT NULL CHECK (channel IN ('email', 'zalo', 'all')),
-    reason TEXT,
-    source TEXT DEFAULT 'admin' NOT NULL,
-    active BOOLEAN DEFAULT true NOT NULL,
+    channel TEXT NOT NULL,
+    contact_value TEXT NOT NULL,
+    normalized_contact_value TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    note TEXT,
+    source TEXT DEFAULT 'manual',
+    is_active BOOLEAN DEFAULT true,
+    metadata JSONB DEFAULT '{}',
     created_by UUID REFERENCES auth.users(id),
     created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now(),
-    CHECK (customer_id IS NOT NULL OR email IS NOT NULL OR phone IS NOT NULL)
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- RLS
