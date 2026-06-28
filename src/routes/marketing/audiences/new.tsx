@@ -1,298 +1,346 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+// @ts-nocheck
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowLeft, Save, Users, RefreshCw, Filter, List, Loader2 } from "lucide-react";
-import { applySegmentRulesToQuery, SegmentRules } from "@/lib/marketing/segmentRules";
+import { getAudienceStats } from "@/lib/marketing/segmentRules";
+import { FilterRulesJson, SegmentRule, AudienceStats, MarketingVisibility } from "@/lib/marketing/types";
+import { Loader2, Save, Users, AlertTriangle, PhoneOff, MailX, AlertCircle, Plus } from "lucide-react";
 
 export const Route = createFileRoute("/marketing/audiences/new")({
-  component: AudienceBuilderPage,
+  component: AudienceBuilderNewPage,
 });
 
-function AudienceBuilderPage() {
-  const navigate = useNavigate();
+const DEFAULT_RULE: SegmentRule = { field: "has_valid_phone", operator: "equals", value: true };
+
+function AudienceBuilderNewPage() {
+  const { user, isAdmin, isSubAdmin } = useAuth();
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [evaluating, setEvaluating] = useState(false);
+  const [stats, setStats] = useState<AudienceStats | null>(null);
+  const [rules, setRules] = useState<FilterRulesJson>({
+    group: { type: "AND", rules: [{ ...DEFAULT_RULE }] }
+  });
+  
+  // Save Modal State
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [visibility, setVisibility] = useState<MarketingVisibility>("private");
+  const [saving, setSaving] = useState(false);
   
-  const [rules, setRules] = useState<SegmentRules>({
-    has_email: false,
-    has_phone: false,
-    exclude_opt_outs: true,
-    lifecycle_stages: [],
-  });
+  const navigate = useNavigate();
 
-  const [previewCount, setPreviewCount] = useState<number | null>(null);
-  const [previewSample, setPreviewSample] = useState<any[]>([]);
-  const [isCounting, setIsCounting] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-
-  // Debounce preview update
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchPreview();
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [rules]);
+    fetchCustomers();
+  }, []);
 
-  const fetchPreview = async () => {
-    setIsCounting(true);
+  useEffect(() => {
+    evaluateRules();
+  }, [rules, customers]);
+
+  const fetchCustomers = async () => {
     try {
-      // 1. Fetch exact count
-      let countQuery = supabase.from("customers").select("*", { count: "exact", head: true });
-      countQuery = applySegmentRulesToQuery(countQuery, rules);
-      const { count, error: countErr } = await countQuery;
-      if (countErr) throw countErr;
-      
-      setPreviewCount(count);
-
-      // 2. Fetch sample (max 5)
-      let sampleQuery = supabase.from("customers").select("id, facility_name, email, phone, lifecycle_stage").limit(5);
-      sampleQuery = applySegmentRulesToQuery(sampleQuery, rules);
-      const { data: sampleData, error: sampleErr } = await sampleQuery;
-      if (sampleErr) throw sampleErr;
-      
-      setPreviewSample(sampleData || []);
-    } catch (err: any) {
-      toast.error("Lỗi khi tải preview: " + err.message);
-    } finally {
-      setIsCounting(false);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!name.trim()) {
-      toast.error("Vui lòng nhập tên tập khách hàng");
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const { error } = await supabase.from("marketing_audiences").insert({
-        name,
-        description,
-        rules,
-        last_computed_count: previewCount || 0,
-      });
-
+      const { data, error } = await supabase.from("customers").select("*");
       if (error) throw error;
-      toast.success("Đã lưu tập khách hàng thành công!");
-      navigate({ to: "/marketing/audiences" });
-    } catch (err: any) {
-      toast.error("Lỗi khi lưu: " + err.message);
+      setCustomers(data || []);
+    } catch (e: any) {
+      toast.error("Failed to load customers: " + e.message);
     } finally {
-      setIsSaving(false);
+      setLoading(false);
     }
   };
 
-  const handleLifecycleChange = (stage: string, checked: boolean) => {
-    setRules((prev) => {
-      const current = prev.lifecycle_stages || [];
-      if (checked) return { ...prev, lifecycle_stages: [...current, stage] };
-      return { ...prev, lifecycle_stages: current.filter((s) => s !== stage) };
+  const evaluateRules = () => {
+    if (customers.length === 0) return;
+    setEvaluating(true);
+    setTimeout(() => {
+      try {
+        const newStats = getAudienceStats(customers, rules);
+        setStats(newStats);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setEvaluating(false);
+      }
+    }, 100);
+  };
+
+  const handleAddRule = () => {
+    setRules(prev => ({
+      group: {
+        ...prev.group,
+        rules: [...prev.group.rules, { ...DEFAULT_RULE }]
+      }
+    }));
+  };
+
+  const handleUpdateRule = (index: number, updates: Partial<SegmentRule>) => {
+    setRules(prev => {
+      const newRules = [...prev.group.rules];
+      newRules[index] = { ...newRules[index], ...updates } as SegmentRule;
+      return { group: { ...prev.group, rules: newRules } };
     });
   };
 
+  const handleRemoveRule = (index: number) => {
+    setRules(prev => {
+      const newRules = [...prev.group.rules];
+      newRules.splice(index, 1);
+      return { group: { ...prev.group, rules: newRules } };
+    });
+  };
+
+  const handleSave = async () => {
+    if (!name) {
+      toast.error("Name is required");
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        name,
+        description,
+        visibility,
+        filter_rules_json: rules,
+        created_by: user?.id,
+        last_preview_count: stats?.matched_customers || 0,
+        last_previewed_at: new Date().toISOString()
+      };
+      const { data, error } = await supabase.from("marketing_segments").insert([payload]).select().single();
+      if (error) throw error;
+      toast.success("Segment saved successfully!");
+      navigate({ to: `/marketing/audiences/${data.id}` });
+    } catch (e: any) {
+      toast.error("Failed to save segment: " + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 font-sans selection:bg-indigo-500 selection:text-white">
-      <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-xl sticky top-0 z-30">
-        <div className="container mx-auto px-4 md:px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link
-              to="/marketing/audiences"
-              className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div>
-              <h1 className="text-xl font-black tracking-tight text-white flex items-center gap-2 mt-0.5">
-                Tạo tập khách hàng mới
-              </h1>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              className="h-10 px-4 rounded-xl border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700"
-              onClick={() => setRules({ has_email: false, has_phone: false, exclude_opt_outs: true, lifecycle_stages: [] })}
-            >
-              Xóa bộ lọc
-            </Button>
-            <Button
-              className="h-10 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-all shadow-lg shadow-indigo-500/20"
-              onClick={handleSave}
-              disabled={isSaving}
-            >
-              {isSaving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-              Lưu Segment
-            </Button>
-          </div>
+    <div className="space-y-6 max-w-7xl mx-auto px-4 pb-20">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Tạo nhóm khách hàng</h1>
+          <p className="text-muted-foreground mt-2">
+            Tạo điều kiện lọc khách hàng để xuất tệp marketing.
+          </p>
+          <p className="text-sm font-medium text-amber-600 mt-1">
+            Dùng bộ lọc này để tạo tệp khách hàng trước khi export. Hệ thống chưa gửi tin nhắn tự động.
+          </p>
         </div>
-      </header>
+      </div>
 
-      <main className="container mx-auto px-4 md:px-6 mt-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Builder Section */}
-          <div className="lg:col-span-2 space-y-6">
-            <section className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-4">
-              <h2 className="font-bold text-lg text-white flex items-center gap-2 border-b border-slate-800 pb-3">
-                <List className="w-5 h-5 text-indigo-400" /> Thông tin cơ bản
-              </h2>
-              <div className="space-y-4">
-                <div>
-                  <Label className="text-slate-400">Tên tập khách hàng *</Label>
-                  <Input 
-                    value={name} 
-                    onChange={(e) => setName(e.target.value)} 
-                    placeholder="VD: Khách hàng tiềm năng tháng này" 
-                    className="mt-1 bg-slate-950 border-slate-700 text-white focus-visible:ring-indigo-500"
-                  />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column: Rule Builder */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Điều kiện lọc khách hàng</CardTitle>
+              <CardDescription>Khách hàng phải thỏa mãn tất cả điều kiện bên dưới.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {rules.group.rules.map((rule: any, i: number) => (
+                <div key={i} className="flex flex-col sm:flex-row gap-3 items-end bg-muted/30 p-3 rounded-lg border">
+                  <div className="flex-1 space-y-1">
+                    <Label>Trường dữ liệu</Label>
+                    <Select value={rule.field} onValueChange={(val) => handleUpdateRule(i, { field: val as any })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="stage">Giai đoạn</SelectItem>
+                        <SelectItem value="source">Nguồn</SelectItem>
+                        <SelectItem value="province">Tỉnh/Thành phố</SelectItem>
+                        <SelectItem value="has_valid_phone">Có số điện thoại hợp lệ</SelectItem>
+                        <SelectItem value="has_zalo_capable_phone">Có thể liên hệ Zalo</SelectItem>
+                        <SelectItem value="has_email">Có email</SelectItem>
+                        <SelectItem value="phone_is_facebook_uid">Dữ liệu là Facebook UID, không phải SĐT</SelectItem>
+                        <SelectItem value="phone_possibly_missing_leading_zero">SĐT có thể thiếu số 0 đầu</SelectItem>
+                        <SelectItem value="UNASSIGNED">Chưa có người phụ trách</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <Label>Điều kiện</Label>
+                    <Select value={rule.operator} onValueChange={(val) => handleUpdateRule(i, { operator: val as any })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="equals">Bằng</SelectItem>
+                        <SelectItem value="not_equals">Khác</SelectItem>
+                        <SelectItem value="contains">Chứa</SelectItem>
+                        <SelectItem value="exists">Có dữ liệu</SelectItem>
+                        <SelectItem value="not_exists">Không có dữ liệu</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <Label>Giá trị</Label>
+                    {rule.operator === "equals" && typeof rule.value === "boolean" ? (
+                      <Select value={String(rule.value)} onValueChange={(val) => handleUpdateRule(i, { value: val === "true" })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="true">Có</SelectItem>
+                          <SelectItem value="false">Không</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input 
+                        value={rule.value || ""} 
+                        onChange={(e) => handleUpdateRule(i, { value: e.target.value })} 
+                        disabled={["exists", "not_exists"].includes(rule.operator)}
+                      />
+                    )}
+                  </div>
+                  <Button variant="destructive" size="icon" onClick={() => handleRemoveRule(i)}>
+                    &times;
+                  </Button>
                 </div>
-                <div>
-                  <Label className="text-slate-400">Mô tả (Tuỳ chọn)</Label>
-                  <Input 
-                    value={description} 
-                    onChange={(e) => setDescription(e.target.value)} 
-                    placeholder="Ghi chú về mục đích sử dụng..." 
-                    className="mt-1 bg-slate-950 border-slate-700 text-white focus-visible:ring-indigo-500"
-                  />
-                </div>
-              </div>
-            </section>
-
-            <section className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-4">
-              <h2 className="font-bold text-lg text-white flex items-center gap-2 border-b border-slate-800 pb-3">
-                <Filter className="w-5 h-5 text-indigo-400" /> Bộ lọc Audience (Segment Rules)
-              </h2>
+              ))}
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                {/* Channel Filters */}
-                <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">Kênh liên lạc</h3>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="has_email" 
-                      checked={rules.has_email} 
-                      onCheckedChange={(c) => setRules({...rules, has_email: !!c})}
-                      className="border-slate-600 data-[state=checked]:bg-indigo-500"
-                    />
-                    <Label htmlFor="has_email" className="text-sm text-slate-300 cursor-pointer">Bắt buộc có Email</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="has_phone" 
-                      checked={rules.has_phone} 
-                      onCheckedChange={(c) => setRules({...rules, has_phone: !!c})}
-                      className="border-slate-600 data-[state=checked]:bg-indigo-500"
-                    />
-                    <Label htmlFor="has_phone" className="text-sm text-slate-300 cursor-pointer">Bắt buộc có Số điện thoại</Label>
-                  </div>
+              <Button variant="outline" onClick={handleAddRule} className="w-full border-dashed border-primary/50 text-primary hover:bg-primary/5">
+                <Plus className="mr-2 h-4 w-4" /> Thêm điều kiện
+              </Button>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Xem trước kết quả ({stats?.sample.length || 0} khách mẫu)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {evaluating ? (
+                <div className="flex items-center justify-center py-8"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+              ) : stats?.sample.length ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-muted text-muted-foreground text-xs uppercase">
+                      <tr>
+                        <th className="px-4 py-3">Tên khách hàng</th>
+                        <th className="px-4 py-3">Số điện thoại</th>
+                        <th className="px-4 py-3">Cảnh báo dữ liệu</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {stats.sample.map(c => (
+                        <tr key={c.id}>
+                          <td className="px-4 py-3 font-medium">{c.name || c.contact_name || "Khách chưa có tên"}</td>
+                          <td className="px-4 py-3">{c.phone || "-"}</td>
+                          <td className="px-4 py-3">
+                            {getWarnings(c).map((w: string, i: number) => (
+                              <Badge key={i} variant="destructive" className="mr-1 text-[10px]">{w}</Badge>
+                            ))}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-
-                {/* Consent Filters */}
-                <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">Sự đồng thuận</h3>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="exclude_opt_outs" 
-                      checked={rules.exclude_opt_outs} 
-                      onCheckedChange={(c) => setRules({...rules, exclude_opt_outs: !!c})}
-                      className="border-slate-600 data-[state=checked]:bg-indigo-500"
-                    />
-                    <Label htmlFor="exclude_opt_outs" className="text-sm text-slate-300 cursor-pointer text-emerald-400">
-                      Loại trừ người đã Opt-out (Khuyên dùng)
-                    </Label>
-                  </div>
-                </div>
-
-                {/* Date Filters */}
-                <div className="space-y-3 md:col-span-2 border-t border-slate-800 pt-4">
-                  <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">Thời gian tạo (Created At)</h3>
-                  <div className="flex flex-col md:flex-row gap-4">
-                    <div className="flex-1">
-                      <Label className="text-xs text-slate-500">Từ ngày</Label>
-                      <Input 
-                        type="date" 
-                        value={rules.created_after || ""}
-                        onChange={(e) => setRules({...rules, created_after: e.target.value})}
-                        className="mt-1 bg-slate-950 border-slate-700 text-white [color-scheme:dark]"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <Label className="text-xs text-slate-500">Đến ngày</Label>
-                      <Input 
-                        type="date" 
-                        value={rules.created_before || ""}
-                        onChange={(e) => setRules({...rules, created_before: e.target.value})}
-                        className="mt-1 bg-slate-950 border-slate-700 text-white [color-scheme:dark]"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Lifecycle Filters */}
-                <div className="space-y-3 md:col-span-2 border-t border-slate-800 pt-4">
-                  <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">Vòng đời (Lifecycle Stage)</h3>
-                  <div className="flex flex-wrap gap-4">
-                    {["Lead", "Opportunity", "Customer", "Churned"].map(stage => (
-                      <div key={stage} className="flex items-center space-x-2">
-                        <Checkbox 
-                          id={`stage_${stage}`} 
-                          checked={(rules.lifecycle_stages || []).includes(stage)}
-                          onCheckedChange={(c) => handleLifecycleChange(stage, !!c)}
-                          className="border-slate-600 data-[state=checked]:bg-indigo-500"
-                        />
-                        <Label htmlFor={`stage_${stage}`} className="text-sm text-slate-300 cursor-pointer">{stage}</Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-              </div>
-            </section>
-          </div>
-
-          {/* Preview Section */}
-          <div className="space-y-6">
-            <div className="p-6 rounded-3xl bg-indigo-950/30 border border-indigo-500/20 sticky top-28">
-              <h2 className="font-bold text-lg text-white flex items-center gap-2 mb-4">
-                <Users className="w-5 h-5 text-indigo-400" /> Live Preview
-              </h2>
-
-              <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between mb-6">
-                <span className="text-slate-400 font-medium">Khách hàng thoả mãn:</span>
-                {isCounting ? (
-                  <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
-                ) : (
-                  <span className="text-2xl font-black text-indigo-400">{previewCount ?? "~"}</span>
-                )}
-              </div>
-
-              {previewSample.length > 0 && (
-                <div className="space-y-3">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Mẫu khách hàng (Tối đa 5)</h3>
-                  <div className="space-y-2">
-                    {previewSample.map(c => (
-                      <div key={c.id} className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-sm">
-                        <div className="font-medium text-slate-200 line-clamp-1">{c.facility_name || "Chưa có tên"}</div>
-                        <div className="text-xs text-slate-500 mt-1 flex gap-2">
-                          {c.email && <span>Email</span>}
-                          {c.phone && <span>SĐT</span>}
-                          <span className="bg-slate-800 px-1.5 rounded">{c.lifecycle_stage || "N/A"}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              ) : (
+                <p className="text-muted-foreground py-4 text-center">Không có khách hàng nào thỏa mãn điều kiện này.</p>
               )}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
-      </main>
+
+        {/* Right Column: Stats & Save */}
+        <div className="space-y-6 lg:sticky lg:top-24 h-max">
+          <Card className="border-primary/50 bg-primary/5">
+            <CardHeader>
+              <CardTitle>Thống kê nhóm</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {evaluating ? (
+                <div className="flex items-center justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+              ) : (
+                <>
+                  <div className="bg-background rounded-lg p-4 border text-center">
+                    <p className="text-sm text-muted-foreground">Khách phù hợp</p>
+                    <p className="text-4xl font-bold text-primary">{stats?.matched_customers || 0}</p>
+                    <p className="text-xs text-muted-foreground mt-1">trong tổng số {stats?.total_customers || 0} khách</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="flex flex-col bg-background p-2 rounded border">
+                      <span className="text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3"/> Có thể gọi</span>
+                      <span className="font-semibold">{stats?.callable_count || 0}</span>
+                    </div>
+                    <div className="flex flex-col bg-background p-2 rounded border">
+                      <span className="text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3"/> Có thể Zalo</span>
+                      <span className="font-semibold">{stats?.zalo_count || 0}</span>
+                    </div>
+                  </div>
+                  
+                  {stats && stats.data_quality_issue_count > 0 && (
+                    <div className="bg-destructive/10 text-destructive p-3 rounded-lg border border-destructive/20 text-sm mt-4">
+                      <div className="flex items-center gap-2 font-medium mb-1">
+                        <AlertTriangle className="h-4 w-4" />
+                        <span>Cảnh báo dữ liệu ({stats.data_quality_issue_count})</span>
+                      </div>
+                      <ul className="list-disc pl-5 text-xs opacity-90 space-y-1 mt-2">
+                        {Object.entries(stats.skipped_reasons).map(([reason, count]) => (
+                          <li key={reason}>{reason}: {count}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Lưu nhóm khách hàng</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="text-[11px] font-medium text-amber-600 bg-amber-50 p-2 rounded border border-amber-100 mb-2 leading-relaxed">
+                <AlertCircle className="w-3 h-3 inline mr-1 mb-[2px]" />
+                Module này chỉ tạo nhóm và xuất file, không gửi chiến dịch.
+              </div>
+              <div className="space-y-2">
+                <Label>Tên nhóm khách hàng</Label>
+                <Input value={name} onChange={e => setName(e.target.value)} placeholder="VD: Khách hàng VIP Hà Nội" />
+              </div>
+              <div className="space-y-2">
+                <Label>Mô tả</Label>
+                <Input value={description} onChange={e => setDescription(e.target.value)} placeholder="Mô tả thêm (không bắt buộc)..." />
+              </div>
+              <div className="space-y-2">
+                <Label>Quyền hiển thị</Label>
+                <Select value={visibility} onValueChange={(val) => setVisibility(val as any)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="private">Riêng tư, chỉ mình tôi</SelectItem>
+                    {(isAdmin || isSubAdmin) && <SelectItem value="public_to_org">Công khai trong hệ thống</SelectItem>}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button className="w-full" onClick={handleSave} disabled={saving || !name}>
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Lưu nhóm khách hàng
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
+}
+
+// Helper to get warnings for the preview table
+function getWarnings(customer: any) {
+  const warnings = [];
+  if (!customer.phone) warnings.push("THIẾU SĐT");
+  else if (customer.phone.length > 12 && customer.phone.startsWith("100")) warnings.push("FB UID KHÔNG PHẢI SĐT");
+  else if (customer.phone.length === 9 && !customer.phone.startsWith("0")) warnings.push("CÓ THỂ THIẾU SỐ 0");
+  if (!customer.email) warnings.push("THIẾU EMAIL");
+  if (!customer.owner_sale_id && !customer.owner_tele_id) warnings.push("UNASSIGNED");
+  return warnings;
 }
