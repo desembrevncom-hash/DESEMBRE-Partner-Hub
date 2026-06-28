@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Plus, GitBranch, Play, Clock, Zap, AlertCircle } from "lucide-react";
+import { ArrowLeft, Plus, GitBranch, Play, Clock, Zap, AlertCircle, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/marketing/automation/")({
@@ -56,6 +56,15 @@ function AutomationIndexPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <Button
+              asChild
+              variant="outline"
+              className="h-10 px-4 rounded-xl border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white transition-all bg-slate-900 font-bold"
+            >
+              <Link to="/marketing/automation/events">
+                <History className="w-4 h-4 mr-2 text-amber-500" /> QA Events
+              </Link>
+            </Button>
             <Button
               asChild
               className="h-10 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-all shadow-lg shadow-indigo-500/20"
