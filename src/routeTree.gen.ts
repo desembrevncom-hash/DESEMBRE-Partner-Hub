@@ -32,6 +32,7 @@ import { Route as ProductsKnowledgeRouteImport } from './routes/products/knowled
 import { Route as OrdersNewRouteImport } from './routes/orders/new'
 import { Route as OrdersIdRouteImport } from './routes/orders/$id'
 import { Route as MarketingTemplatesRouteImport } from './routes/marketing/templates'
+import { Route as MarketingSendGatewayRouteImport } from './routes/marketing/send-gateway'
 import { Route as MarketingSafetyRouteImport } from './routes/marketing/safety'
 import { Route as MarketingReportsRouteImport } from './routes/marketing/reports'
 import { Route as MarketingReadinessRouteImport } from './routes/marketing/readiness'
@@ -189,6 +190,11 @@ const OrdersIdRoute = OrdersIdRouteImport.update({
 const MarketingTemplatesRoute = MarketingTemplatesRouteImport.update({
   id: '/marketing/templates',
   path: '/marketing/templates',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketingSendGatewayRoute = MarketingSendGatewayRouteImport.update({
+  id: '/marketing/send-gateway',
+  path: '/marketing/send-gateway',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MarketingSafetyRoute = MarketingSafetyRouteImport.update({
@@ -451,6 +457,7 @@ export interface FileRoutesByFullPath {
   '/marketing/readiness': typeof MarketingReadinessRoute
   '/marketing/reports': typeof MarketingReportsRoute
   '/marketing/safety': typeof MarketingSafetyRoute
+  '/marketing/send-gateway': typeof MarketingSendGatewayRoute
   '/marketing/templates': typeof MarketingTemplatesRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
@@ -517,6 +524,7 @@ export interface FileRoutesByTo {
   '/marketing/readiness': typeof MarketingReadinessRoute
   '/marketing/reports': typeof MarketingReportsRoute
   '/marketing/safety': typeof MarketingSafetyRoute
+  '/marketing/send-gateway': typeof MarketingSendGatewayRoute
   '/marketing/templates': typeof MarketingTemplatesRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
@@ -585,6 +593,7 @@ export interface FileRoutesById {
   '/marketing/readiness': typeof MarketingReadinessRoute
   '/marketing/reports': typeof MarketingReportsRoute
   '/marketing/safety': typeof MarketingSafetyRoute
+  '/marketing/send-gateway': typeof MarketingSendGatewayRoute
   '/marketing/templates': typeof MarketingTemplatesRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
@@ -654,6 +663,7 @@ export interface FileRouteTypes {
     | '/marketing/readiness'
     | '/marketing/reports'
     | '/marketing/safety'
+    | '/marketing/send-gateway'
     | '/marketing/templates'
     | '/orders/$id'
     | '/orders/new'
@@ -720,6 +730,7 @@ export interface FileRouteTypes {
     | '/marketing/readiness'
     | '/marketing/reports'
     | '/marketing/safety'
+    | '/marketing/send-gateway'
     | '/marketing/templates'
     | '/orders/$id'
     | '/orders/new'
@@ -787,6 +798,7 @@ export interface FileRouteTypes {
     | '/marketing/readiness'
     | '/marketing/reports'
     | '/marketing/safety'
+    | '/marketing/send-gateway'
     | '/marketing/templates'
     | '/orders/$id'
     | '/orders/new'
@@ -853,6 +865,7 @@ export interface RootRouteChildren {
   MarketingReadinessRoute: typeof MarketingReadinessRoute
   MarketingReportsRoute: typeof MarketingReportsRoute
   MarketingSafetyRoute: typeof MarketingSafetyRoute
+  MarketingSendGatewayRoute: typeof MarketingSendGatewayRoute
   MarketingTemplatesRoute: typeof MarketingTemplatesRoute
   OrdersIdRoute: typeof OrdersIdRoute
   OrdersNewRoute: typeof OrdersNewRoute
@@ -1036,6 +1049,13 @@ declare module '@tanstack/react-router' {
       path: '/marketing/templates'
       fullPath: '/marketing/templates'
       preLoaderRoute: typeof MarketingTemplatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketing/send-gateway': {
+      id: '/marketing/send-gateway'
+      path: '/marketing/send-gateway'
+      fullPath: '/marketing/send-gateway'
+      preLoaderRoute: typeof MarketingSendGatewayRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/marketing/safety': {
@@ -1394,6 +1414,7 @@ const rootRouteChildren: RootRouteChildren = {
   MarketingReadinessRoute: MarketingReadinessRoute,
   MarketingReportsRoute: MarketingReportsRoute,
   MarketingSafetyRoute: MarketingSafetyRoute,
+  MarketingSendGatewayRoute: MarketingSendGatewayRoute,
   MarketingTemplatesRoute: MarketingTemplatesRoute,
   OrdersIdRoute: OrdersIdRoute,
   OrdersNewRoute: OrdersNewRoute,
