@@ -43,6 +43,7 @@ import {
   XCircle,
   X,
   LayoutTemplate,
+  GitBranch,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -326,6 +327,15 @@ function MarketingDashboardPage() {
             >
               <Link to="/marketing/audiences">
                 <Users className="w-4 h-4 mr-2" /> Audience Builder
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              asChild
+              className="rounded-xl border-slate-200 font-bold text-xs h-10 px-5"
+            >
+              <Link to="/marketing/automation">
+                <GitBranch className="w-4 h-4 mr-2" /> Automation
               </Link>
             </Button>
             <Button

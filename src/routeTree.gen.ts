@@ -66,8 +66,10 @@ import { Route as AdminAutomationGovernanceRouteImport } from './routes/admin/au
 import { Route as AdminAutomationRouteImport } from './routes/admin/automation'
 import { Route as AdminAiSettingsRouteImport } from './routes/admin/ai-settings'
 import { Route as AdminAiDebugRouteImport } from './routes/admin/ai-debug'
+import { Route as MarketingAutomationIndexRouteImport } from './routes/marketing/automation/index'
 import { Route as MarketingAudiencesIndexRouteImport } from './routes/marketing/audiences/index'
 import { Route as AdminIdentityResolutionIndexRouteImport } from './routes/admin/identity-resolution/index'
+import { Route as MarketingAutomationNewRouteImport } from './routes/marketing/automation/new'
 import { Route as MarketingAudiencesNewRouteImport } from './routes/marketing/audiences/new'
 
 const WorkspaceRoute = WorkspaceRouteImport.update({
@@ -357,6 +359,12 @@ const AdminAiDebugRoute = AdminAiDebugRouteImport.update({
   path: '/admin/ai-debug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MarketingAutomationIndexRoute =
+  MarketingAutomationIndexRouteImport.update({
+    id: '/marketing/automation/',
+    path: '/marketing/automation/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const MarketingAudiencesIndexRoute = MarketingAudiencesIndexRouteImport.update({
   id: '/marketing/audiences/',
   path: '/marketing/audiences/',
@@ -368,6 +376,11 @@ const AdminIdentityResolutionIndexRoute =
     path: '/admin/identity-resolution/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const MarketingAutomationNewRoute = MarketingAutomationNewRouteImport.update({
+  id: '/marketing/automation/new',
+  path: '/marketing/automation/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MarketingAudiencesNewRoute = MarketingAudiencesNewRouteImport.update({
   id: '/marketing/audiences/new',
   path: '/marketing/audiences/new',
@@ -433,8 +446,10 @@ export interface FileRoutesByFullPath {
   '/orders/': typeof OrdersIndexRoute
   '/reports/': typeof ReportsIndexRoute
   '/marketing/audiences/new': typeof MarketingAudiencesNewRoute
+  '/marketing/automation/new': typeof MarketingAutomationNewRoute
   '/admin/identity-resolution/': typeof AdminIdentityResolutionIndexRoute
   '/marketing/audiences/': typeof MarketingAudiencesIndexRoute
+  '/marketing/automation/': typeof MarketingAutomationIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -494,8 +509,10 @@ export interface FileRoutesByTo {
   '/orders': typeof OrdersIndexRoute
   '/reports': typeof ReportsIndexRoute
   '/marketing/audiences/new': typeof MarketingAudiencesNewRoute
+  '/marketing/automation/new': typeof MarketingAutomationNewRoute
   '/admin/identity-resolution': typeof AdminIdentityResolutionIndexRoute
   '/marketing/audiences': typeof MarketingAudiencesIndexRoute
+  '/marketing/automation': typeof MarketingAutomationIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -557,8 +574,10 @@ export interface FileRoutesById {
   '/orders/': typeof OrdersIndexRoute
   '/reports/': typeof ReportsIndexRoute
   '/marketing/audiences/new': typeof MarketingAudiencesNewRoute
+  '/marketing/automation/new': typeof MarketingAutomationNewRoute
   '/admin/identity-resolution/': typeof AdminIdentityResolutionIndexRoute
   '/marketing/audiences/': typeof MarketingAudiencesIndexRoute
+  '/marketing/automation/': typeof MarketingAutomationIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -621,8 +640,10 @@ export interface FileRouteTypes {
     | '/orders/'
     | '/reports/'
     | '/marketing/audiences/new'
+    | '/marketing/automation/new'
     | '/admin/identity-resolution/'
     | '/marketing/audiences/'
+    | '/marketing/automation/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -682,8 +703,10 @@ export interface FileRouteTypes {
     | '/orders'
     | '/reports'
     | '/marketing/audiences/new'
+    | '/marketing/automation/new'
     | '/admin/identity-resolution'
     | '/marketing/audiences'
+    | '/marketing/automation'
   id:
     | '__root__'
     | '/'
@@ -744,8 +767,10 @@ export interface FileRouteTypes {
     | '/orders/'
     | '/reports/'
     | '/marketing/audiences/new'
+    | '/marketing/automation/new'
     | '/admin/identity-resolution/'
     | '/marketing/audiences/'
+    | '/marketing/automation/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -804,8 +829,10 @@ export interface RootRouteChildren {
   OrdersIndexRoute: typeof OrdersIndexRoute
   ReportsIndexRoute: typeof ReportsIndexRoute
   MarketingAudiencesNewRoute: typeof MarketingAudiencesNewRoute
+  MarketingAutomationNewRoute: typeof MarketingAutomationNewRoute
   AdminIdentityResolutionIndexRoute: typeof AdminIdentityResolutionIndexRoute
   MarketingAudiencesIndexRoute: typeof MarketingAudiencesIndexRoute
+  MarketingAutomationIndexRoute: typeof MarketingAutomationIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1209,6 +1236,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAiDebugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/marketing/automation/': {
+      id: '/marketing/automation/'
+      path: '/marketing/automation'
+      fullPath: '/marketing/automation/'
+      preLoaderRoute: typeof MarketingAutomationIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/marketing/audiences/': {
       id: '/marketing/audiences/'
       path: '/marketing/audiences'
@@ -1221,6 +1255,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/identity-resolution'
       fullPath: '/admin/identity-resolution/'
       preLoaderRoute: typeof AdminIdentityResolutionIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketing/automation/new': {
+      id: '/marketing/automation/new'
+      path: '/marketing/automation/new'
+      fullPath: '/marketing/automation/new'
+      preLoaderRoute: typeof MarketingAutomationNewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/marketing/audiences/new': {
@@ -1305,8 +1346,10 @@ const rootRouteChildren: RootRouteChildren = {
   OrdersIndexRoute: OrdersIndexRoute,
   ReportsIndexRoute: ReportsIndexRoute,
   MarketingAudiencesNewRoute: MarketingAudiencesNewRoute,
+  MarketingAutomationNewRoute: MarketingAutomationNewRoute,
   AdminIdentityResolutionIndexRoute: AdminIdentityResolutionIndexRoute,
   MarketingAudiencesIndexRoute: MarketingAudiencesIndexRoute,
+  MarketingAutomationIndexRoute: MarketingAutomationIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
