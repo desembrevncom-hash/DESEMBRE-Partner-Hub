@@ -32,6 +32,7 @@ import { Route as ProductsKnowledgeRouteImport } from './routes/products/knowled
 import { Route as OrdersNewRouteImport } from './routes/orders/new'
 import { Route as OrdersIdRouteImport } from './routes/orders/$id'
 import { Route as MarketingTemplatesRouteImport } from './routes/marketing/templates'
+import { Route as MarketingSafetyRouteImport } from './routes/marketing/safety'
 import { Route as MarketingReportsRouteImport } from './routes/marketing/reports'
 import { Route as MarketingReadinessRouteImport } from './routes/marketing/readiness'
 import { Route as MarketingLogsRouteImport } from './routes/marketing/logs'
@@ -188,6 +189,11 @@ const OrdersIdRoute = OrdersIdRouteImport.update({
 const MarketingTemplatesRoute = MarketingTemplatesRouteImport.update({
   id: '/marketing/templates',
   path: '/marketing/templates',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketingSafetyRoute = MarketingSafetyRouteImport.update({
+  id: '/marketing/safety',
+  path: '/marketing/safety',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MarketingReportsRoute = MarketingReportsRouteImport.update({
@@ -444,6 +450,7 @@ export interface FileRoutesByFullPath {
   '/marketing/logs': typeof MarketingLogsRoute
   '/marketing/readiness': typeof MarketingReadinessRoute
   '/marketing/reports': typeof MarketingReportsRoute
+  '/marketing/safety': typeof MarketingSafetyRoute
   '/marketing/templates': typeof MarketingTemplatesRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
@@ -509,6 +516,7 @@ export interface FileRoutesByTo {
   '/marketing/logs': typeof MarketingLogsRoute
   '/marketing/readiness': typeof MarketingReadinessRoute
   '/marketing/reports': typeof MarketingReportsRoute
+  '/marketing/safety': typeof MarketingSafetyRoute
   '/marketing/templates': typeof MarketingTemplatesRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
@@ -576,6 +584,7 @@ export interface FileRoutesById {
   '/marketing/logs': typeof MarketingLogsRoute
   '/marketing/readiness': typeof MarketingReadinessRoute
   '/marketing/reports': typeof MarketingReportsRoute
+  '/marketing/safety': typeof MarketingSafetyRoute
   '/marketing/templates': typeof MarketingTemplatesRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
@@ -644,6 +653,7 @@ export interface FileRouteTypes {
     | '/marketing/logs'
     | '/marketing/readiness'
     | '/marketing/reports'
+    | '/marketing/safety'
     | '/marketing/templates'
     | '/orders/$id'
     | '/orders/new'
@@ -709,6 +719,7 @@ export interface FileRouteTypes {
     | '/marketing/logs'
     | '/marketing/readiness'
     | '/marketing/reports'
+    | '/marketing/safety'
     | '/marketing/templates'
     | '/orders/$id'
     | '/orders/new'
@@ -775,6 +786,7 @@ export interface FileRouteTypes {
     | '/marketing/logs'
     | '/marketing/readiness'
     | '/marketing/reports'
+    | '/marketing/safety'
     | '/marketing/templates'
     | '/orders/$id'
     | '/orders/new'
@@ -840,6 +852,7 @@ export interface RootRouteChildren {
   MarketingLogsRoute: typeof MarketingLogsRoute
   MarketingReadinessRoute: typeof MarketingReadinessRoute
   MarketingReportsRoute: typeof MarketingReportsRoute
+  MarketingSafetyRoute: typeof MarketingSafetyRoute
   MarketingTemplatesRoute: typeof MarketingTemplatesRoute
   OrdersIdRoute: typeof OrdersIdRoute
   OrdersNewRoute: typeof OrdersNewRoute
@@ -1023,6 +1036,13 @@ declare module '@tanstack/react-router' {
       path: '/marketing/templates'
       fullPath: '/marketing/templates'
       preLoaderRoute: typeof MarketingTemplatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketing/safety': {
+      id: '/marketing/safety'
+      path: '/marketing/safety'
+      fullPath: '/marketing/safety'
+      preLoaderRoute: typeof MarketingSafetyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/marketing/reports': {
@@ -1373,6 +1393,7 @@ const rootRouteChildren: RootRouteChildren = {
   MarketingLogsRoute: MarketingLogsRoute,
   MarketingReadinessRoute: MarketingReadinessRoute,
   MarketingReportsRoute: MarketingReportsRoute,
+  MarketingSafetyRoute: MarketingSafetyRoute,
   MarketingTemplatesRoute: MarketingTemplatesRoute,
   OrdersIdRoute: OrdersIdRoute,
   OrdersNewRoute: OrdersNewRoute,
