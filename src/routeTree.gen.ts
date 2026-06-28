@@ -36,6 +36,7 @@ import { Route as MarketingSendGatewayRouteImport } from './routes/marketing/sen
 import { Route as MarketingSafetyRouteImport } from './routes/marketing/safety'
 import { Route as MarketingReportsRouteImport } from './routes/marketing/reports'
 import { Route as MarketingReadinessRouteImport } from './routes/marketing/readiness'
+import { Route as MarketingProviderReadinessRouteImport } from './routes/marketing/provider-readiness'
 import { Route as MarketingLogsRouteImport } from './routes/marketing/logs'
 import { Route as MarketingCampaignsRouteImport } from './routes/marketing/campaigns'
 import { Route as CustomersMapRouteImport } from './routes/customers/map'
@@ -212,6 +213,12 @@ const MarketingReadinessRoute = MarketingReadinessRouteImport.update({
   path: '/marketing/readiness',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MarketingProviderReadinessRoute =
+  MarketingProviderReadinessRouteImport.update({
+    id: '/marketing/provider-readiness',
+    path: '/marketing/provider-readiness',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const MarketingLogsRoute = MarketingLogsRouteImport.update({
   id: '/marketing/logs',
   path: '/marketing/logs',
@@ -454,6 +461,7 @@ export interface FileRoutesByFullPath {
   '/customers/map': typeof CustomersMapRoute
   '/marketing/campaigns': typeof MarketingCampaignsRoute
   '/marketing/logs': typeof MarketingLogsRoute
+  '/marketing/provider-readiness': typeof MarketingProviderReadinessRoute
   '/marketing/readiness': typeof MarketingReadinessRoute
   '/marketing/reports': typeof MarketingReportsRoute
   '/marketing/safety': typeof MarketingSafetyRoute
@@ -521,6 +529,7 @@ export interface FileRoutesByTo {
   '/customers/map': typeof CustomersMapRoute
   '/marketing/campaigns': typeof MarketingCampaignsRoute
   '/marketing/logs': typeof MarketingLogsRoute
+  '/marketing/provider-readiness': typeof MarketingProviderReadinessRoute
   '/marketing/readiness': typeof MarketingReadinessRoute
   '/marketing/reports': typeof MarketingReportsRoute
   '/marketing/safety': typeof MarketingSafetyRoute
@@ -590,6 +599,7 @@ export interface FileRoutesById {
   '/customers/map': typeof CustomersMapRoute
   '/marketing/campaigns': typeof MarketingCampaignsRoute
   '/marketing/logs': typeof MarketingLogsRoute
+  '/marketing/provider-readiness': typeof MarketingProviderReadinessRoute
   '/marketing/readiness': typeof MarketingReadinessRoute
   '/marketing/reports': typeof MarketingReportsRoute
   '/marketing/safety': typeof MarketingSafetyRoute
@@ -660,6 +670,7 @@ export interface FileRouteTypes {
     | '/customers/map'
     | '/marketing/campaigns'
     | '/marketing/logs'
+    | '/marketing/provider-readiness'
     | '/marketing/readiness'
     | '/marketing/reports'
     | '/marketing/safety'
@@ -727,6 +738,7 @@ export interface FileRouteTypes {
     | '/customers/map'
     | '/marketing/campaigns'
     | '/marketing/logs'
+    | '/marketing/provider-readiness'
     | '/marketing/readiness'
     | '/marketing/reports'
     | '/marketing/safety'
@@ -795,6 +807,7 @@ export interface FileRouteTypes {
     | '/customers/map'
     | '/marketing/campaigns'
     | '/marketing/logs'
+    | '/marketing/provider-readiness'
     | '/marketing/readiness'
     | '/marketing/reports'
     | '/marketing/safety'
@@ -862,6 +875,7 @@ export interface RootRouteChildren {
   AdminWebhooksRoute: typeof AdminWebhooksRoute
   MarketingCampaignsRoute: typeof MarketingCampaignsRoute
   MarketingLogsRoute: typeof MarketingLogsRoute
+  MarketingProviderReadinessRoute: typeof MarketingProviderReadinessRoute
   MarketingReadinessRoute: typeof MarketingReadinessRoute
   MarketingReportsRoute: typeof MarketingReportsRoute
   MarketingSafetyRoute: typeof MarketingSafetyRoute
@@ -1077,6 +1091,13 @@ declare module '@tanstack/react-router' {
       path: '/marketing/readiness'
       fullPath: '/marketing/readiness'
       preLoaderRoute: typeof MarketingReadinessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketing/provider-readiness': {
+      id: '/marketing/provider-readiness'
+      path: '/marketing/provider-readiness'
+      fullPath: '/marketing/provider-readiness'
+      preLoaderRoute: typeof MarketingProviderReadinessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/marketing/logs': {
@@ -1411,6 +1432,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminWebhooksRoute: AdminWebhooksRoute,
   MarketingCampaignsRoute: MarketingCampaignsRoute,
   MarketingLogsRoute: MarketingLogsRoute,
+  MarketingProviderReadinessRoute: MarketingProviderReadinessRoute,
   MarketingReadinessRoute: MarketingReadinessRoute,
   MarketingReportsRoute: MarketingReportsRoute,
   MarketingSafetyRoute: MarketingSafetyRoute,

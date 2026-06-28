@@ -441,6 +441,9 @@ function MarketingDashboardPage() {
               <Link to="/marketing/send-gateway">
                 <Send className="w-3.5 h-3.5 text-amber-600" /> Send Gateway (M17)
               </Link>
+<Link to="/marketing/provider-readiness">
+  <Server className="w-3.5 h-3.5 text-indigo-600" /> Provider Readiness (M19)
+</Link>
             </Button>
           </div>
         </div>

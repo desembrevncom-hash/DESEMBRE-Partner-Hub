@@ -1,0 +1,297 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import {
+  AlertTriangle,
+  CheckCircle,
+  RefreshCw,
+  ShieldCheck,
+  ShieldAlert,
+  Server,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  getProviderReadinessReport,
+  ProviderReadinessReport,
+} from "@/lib/marketing/providerReadiness";
+
+export const Route = createFileRoute("/marketing/provider-readiness")({
+  component: ProviderReadinessPage,
+});
+
+function ProviderReadinessPage() {
+  const [report, setReport] = useState<ProviderReadinessReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    runDryValidation();
+  }, []);
+
+  const runDryValidation = async () => {
+    setLoading(true);
+    setErrorMessage("");
+
+    try {
+      const nextReport = await getProviderReadinessReport();
+      setReport(nextReport);
+    } catch (error: any) {
+      setErrorMessage(error?.message || "Failed to run provider readiness validation.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const statusBadgeClass =
+    report?.summary.status === "pass"
+      ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+      : "bg-amber-100 text-amber-700 border-amber-200";
+
+  return (
+    <div className="min-h-screen bg-slate-50 p-6">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="mb-2 flex items-center gap-2">
+              <Server className="h-6 w-6 text-indigo-600" />
+              <Badge className="border-indigo-200 bg-indigo-50 text-indigo-700">
+                M19 Dry Validation
+              </Badge>
+            </div>
+
+            <h1 className="text-2xl font-bold text-slate-900">
+              Provider Readiness
+            </h1>
+
+            <p className="mt-2 max-w-3xl text-sm text-slate-600">
+              Validate provider adapters and marketing safety settings without
+              sending real messages and without calling external provider APIs.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" asChild>
+              <Link to="/marketing">Back to Marketing</Link>
+            </Button>
+
+            <Button onClick={runDryValidation} disabled={loading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Run Dry Validation
+            </Button>
+          </div>
+        </div>
+
+        {errorMessage && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {errorMessage}
+          </div>
+        )}
+
+        {loading && (
+          <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
+            Running dry validation...
+          </div>
+        )}
+
+        {!loading && report && (
+          <>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-slate-500">Summary</p>
+                  <Badge className={statusBadgeClass}>
+                    {report.summary.status.toUpperCase()}
+                  </Badge>
+                </div>
+
+                <p className="mt-3 text-sm text-slate-700">
+                  {report.summary.message}
+                </p>
+
+                <p className="mt-3 text-xs text-slate-400">
+                  Generated at: {new Date(report.generated_at).toLocaleString()}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-emerald-700" />
+                  <p className="font-semibold text-emerald-800">No Real Send</p>
+                </div>
+
+                <p className="mt-3 text-sm text-emerald-700">
+                  real_send_enabled ={" "}
+                  <span className="font-mono">
+                    {String(report.summary.real_send_enabled)}
+                  </span>
+                </p>
+
+                <p className="mt-1 text-sm text-emerald-700">
+                  external_provider_calls_enabled ={" "}
+                  <span className="font-mono">
+                    {String(report.summary.external_provider_calls_enabled)}
+                  </span>
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-2">
+                  {report.safety.fail_closed ? (
+                    <CheckCircle className="h-5 w-5 text-emerald-600" />
+                  ) : (
+                    <AlertTriangle className="h-5 w-5 text-amber-600" />
+                  )}
+                  <p className="font-semibold text-slate-900">
+                    Fail-Closed Safety
+                  </p>
+                </div>
+
+                <p className="mt-3 text-sm text-slate-700">
+                  fail_closed ={" "}
+                  <span className="font-mono">
+                    {String(report.safety.fail_closed)}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <ShieldAlert className="h-5 w-5 text-slate-700" />
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Safety Settings Checklist
+                </h2>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                <SafetyValue label="Global Kill Switch" value={report.safety.global_kill_switch} />
+                <SafetyValue label="Email Enabled" value={report.safety.email_enabled} />
+                <SafetyValue label="Zalo Enabled" value={report.safety.zalo_enabled} />
+                <SafetyValue label="Daily Quota" value={report.safety.daily_send_quota} />
+                <SafetyValue label="Per-Campaign Quota" value={report.safety.per_campaign_quota} />
+                <SafetyValue label="Require Admin Approval" value={report.safety.require_admin_approval} />
+              </div>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <div>
+                  <p className="mb-2 text-sm font-semibold text-emerald-700">
+                    Checks
+                  </p>
+                  <ul className="space-y-2">
+                    {report.safety.checks.map((check) => (
+                      <li key={check} className="flex gap-2 text-sm text-slate-700">
+                        <CheckCircle className="mt-0.5 h-4 w-4 text-emerald-600" />
+                        {check}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-sm font-semibold text-amber-700">
+                    Warnings
+                  </p>
+                  {report.safety.warnings.length === 0 ? (
+                    <p className="text-sm text-slate-500">No warnings.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {report.safety.warnings.map((warning) => (
+                        <li key={warning} className="flex gap-2 text-sm text-slate-700">
+                          <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600" />
+                          {warning}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              {report.providers.map((provider) => (
+                <div
+                  key={provider.provider}
+                  className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-lg font-semibold text-slate-900">
+                        {provider.label}
+                      </p>
+                      <p className="text-sm text-slate-500">
+                        Channel: {provider.channel}
+                      </p>
+                    </div>
+
+                    <Badge
+                      className={
+                        provider.status === "pass"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-slate-100 text-slate-700"
+                      }
+                    >
+                      {provider.status}
+                    </Badge>
+                  </div>
+
+                  <div className="mt-4 space-y-2 text-sm">
+                    <p>
+                      dry_run_only:{" "}
+                      <span className="font-mono">{String(provider.dry_run_only)}</span>
+                    </p>
+                    <p>
+                      real_send_enabled:{" "}
+                      <span className="font-mono">{String(provider.real_send_enabled)}</span>
+                    </p>
+                    <p>
+                      can_initialize_adapter:{" "}
+                      <span className="font-mono">{String(provider.can_initialize_adapter)}</span>
+                    </p>
+                  </div>
+
+                  <div className="mt-4">
+                    <p className="mb-2 text-sm font-semibold text-slate-700">
+                      Dry checks
+                    </p>
+                    <ul className="space-y-2">
+                      {provider.checks.map((check) => (
+                        <li key={check} className="flex gap-2 text-sm text-slate-600">
+                          <CheckCircle className="mt-0.5 h-4 w-4 text-emerald-600" />
+                          {check}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {provider.warnings.length > 0 && (
+                    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                      <ul className="space-y-2">
+                        {provider.warnings.map((warning) => (
+                          <li key={warning} className="flex gap-2 text-sm text-amber-800">
+                            <AlertTriangle className="mt-0.5 h-4 w-4" />
+                            {warning}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SafetyValue({ label, value }: { label: string; value: boolean | number }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 font-mono text-sm text-slate-900">{String(value)}</p>
+    </div>
+  );
+}
