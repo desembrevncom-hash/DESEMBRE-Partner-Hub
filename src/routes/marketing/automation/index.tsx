@@ -104,14 +104,14 @@ function AutomationIndexPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {workflows.map((wf) => (
-              <div key={wf.id} className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition-all group flex flex-col h-full relative overflow-hidden">
+              <Link to={"/marketing/automation/" + wf.id} key={wf.id} className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 hover:bg-slate-800/50 transition-all group flex flex-col h-full relative overflow-hidden block">
                 <div className="absolute top-0 right-0 p-4">
-                  <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest bg-slate-800 text-slate-400">
+                  <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest bg-slate-800 text-slate-400 group-hover:bg-slate-700 transition-colors">
                     {wf.status}
                   </span>
                 </div>
                 
-                <h3 className="text-lg font-bold text-white mb-1 pr-16 leading-tight">{wf.name}</h3>
+                <h3 className="text-lg font-bold text-white mb-1 pr-16 leading-tight group-hover:text-indigo-400 transition-colors">{wf.name}</h3>
                 <p className="text-sm text-slate-400 mb-6 line-clamp-2 min-h-[40px]">{wf.description || "Không có mô tả"}</p>
                 
                 <div className="space-y-4 flex-1">
@@ -137,7 +137,7 @@ function AutomationIndexPage() {
 
                   {/* Delay */}
                   <div className="flex items-start gap-3 relative before:absolute before:left-4 before:-top-4 before:bottom-0 before:w-0.5 before:bg-slate-800">
-                    <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0 mt-0.5 z-10">
+                    <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0 mt-0.5 z-10 group-hover:bg-amber-500/20 transition-colors">
                       <Clock className="w-4 h-4 text-amber-400" />
                     </div>
                     <div>
@@ -174,7 +174,7 @@ function AutomationIndexPage() {
                     </div>
                   )}
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}
