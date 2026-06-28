@@ -45,6 +45,9 @@ import {
   X,
   LayoutTemplate,
   Server,
+  Workflow,
+  History,
+  ShieldAlert,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -394,6 +397,44 @@ function MarketingDashboardPage() {
                 </div>
               </>
             )}
+          </div>
+
+          {/* M11-M16 Safe Foundation */}
+          <div className="flex flex-wrap items-center gap-2 overflow-x-auto pb-1 mt-3 scrollbar-hide">
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-100 rounded-lg border border-slate-200 mr-1 flex-shrink-0">
+              <ShieldAlert className="w-3.5 h-3.5 text-slate-500" />
+              <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Safe Foundation</span>
+            </div>
+            
+            <Button variant="outline" asChild className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs h-9 px-4 gap-2 flex-shrink-0">
+              <Link to="/marketing/reports">
+                <BarChart3 className="w-3.5 h-3.5 text-indigo-500" /> Analytics (M11)
+              </Link>
+            </Button>
+            
+            <Button variant="outline" asChild className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs h-9 px-4 gap-2 flex-shrink-0">
+              <Link to="/marketing/audiences">
+                <Users className="w-3.5 h-3.5 text-blue-500" /> Audiences (M12)
+              </Link>
+            </Button>
+            
+            <Button variant="outline" asChild className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs h-9 px-4 gap-2 flex-shrink-0">
+              <Link to="/marketing/automation">
+                <Workflow className="w-3.5 h-3.5 text-violet-500" /> Automation (M13/M14)
+              </Link>
+            </Button>
+            
+            <Button variant="outline" asChild className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs h-9 px-4 gap-2 flex-shrink-0">
+              <Link to="/marketing/automation/events">
+                <History className="w-3.5 h-3.5 text-emerald-500" /> QA Events (M15)
+              </Link>
+            </Button>
+            
+            <Button variant="outline" asChild className="rounded-xl border-red-200 text-red-700 bg-red-50 hover:bg-red-100 font-bold text-xs h-9 px-4 gap-2 flex-shrink-0">
+              <Link to="/marketing/safety">
+                <ShieldAlert className="w-3.5 h-3.5 text-red-600" /> Ops Safety (M16)
+              </Link>
+            </Button>
           </div>
         </div>
       </header>
