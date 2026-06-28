@@ -31,6 +31,7 @@ import { Route as ReportsAutomationRouteImport } from './routes/reports/automati
 import { Route as ProductsKnowledgeRouteImport } from './routes/products/knowledge'
 import { Route as OrdersNewRouteImport } from './routes/orders/new'
 import { Route as OrdersIdRouteImport } from './routes/orders/$id'
+import { Route as MarketingSafetyRouteImport } from './routes/marketing/safety'
 import { Route as MarketingReportsRouteImport } from './routes/marketing/reports'
 import { Route as MarketingReadinessRouteImport } from './routes/marketing/readiness'
 import { Route as MarketingLogsRouteImport } from './routes/marketing/logs'
@@ -71,6 +72,7 @@ import { Route as MarketingTemplatesIndexRouteImport } from './routes/marketing/
 import { Route as MarketingSendersIndexRouteImport } from './routes/marketing/senders/index'
 import { Route as MarketingSendControlIndexRouteImport } from './routes/marketing/send-control/index'
 import { Route as MarketingCampaignsIndexRouteImport } from './routes/marketing/campaigns/index'
+import { Route as MarketingAutomationIndexRouteImport } from './routes/marketing/automation/index'
 import { Route as MarketingAudiencesIndexRouteImport } from './routes/marketing/audiences/index'
 import { Route as AdminIdentityResolutionIndexRouteImport } from './routes/admin/identity-resolution/index'
 import { Route as MarketingTemplatesNewRouteImport } from './routes/marketing/templates/new'
@@ -78,6 +80,9 @@ import { Route as MarketingTemplatesIdRouteImport } from './routes/marketing/tem
 import { Route as MarketingSendersIdRouteImport } from './routes/marketing/senders/$id'
 import { Route as MarketingCampaignsNewRouteImport } from './routes/marketing/campaigns/new'
 import { Route as MarketingCampaignsIdRouteImport } from './routes/marketing/campaigns/$id'
+import { Route as MarketingAutomationNewRouteImport } from './routes/marketing/automation/new'
+import { Route as MarketingAutomationEventsRouteImport } from './routes/marketing/automation/events'
+import { Route as MarketingAutomationIdRouteImport } from './routes/marketing/automation/$id'
 import { Route as MarketingAudiencesNewRouteImport } from './routes/marketing/audiences/new'
 import { Route as MarketingAudiencesIdRouteImport } from './routes/marketing/audiences/$id'
 import { Route as MarketingProvidersReadinessIndexRouteImport } from './routes/marketing/providers/readiness/index'
@@ -192,6 +197,11 @@ const OrdersNewRoute = OrdersNewRouteImport.update({
 const OrdersIdRoute = OrdersIdRouteImport.update({
   id: '/orders/$id',
   path: '/orders/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketingSafetyRoute = MarketingSafetyRouteImport.update({
+  id: '/marketing/safety',
+  path: '/marketing/safety',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MarketingReportsRoute = MarketingReportsRouteImport.update({
@@ -397,6 +407,12 @@ const MarketingCampaignsIndexRoute = MarketingCampaignsIndexRouteImport.update({
   path: '/marketing/campaigns/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MarketingAutomationIndexRoute =
+  MarketingAutomationIndexRouteImport.update({
+    id: '/marketing/automation/',
+    path: '/marketing/automation/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const MarketingAudiencesIndexRoute = MarketingAudiencesIndexRouteImport.update({
   id: '/marketing/audiences/',
   path: '/marketing/audiences/',
@@ -431,6 +447,22 @@ const MarketingCampaignsNewRoute = MarketingCampaignsNewRouteImport.update({
 const MarketingCampaignsIdRoute = MarketingCampaignsIdRouteImport.update({
   id: '/marketing/campaigns/$id',
   path: '/marketing/campaigns/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketingAutomationNewRoute = MarketingAutomationNewRouteImport.update({
+  id: '/marketing/automation/new',
+  path: '/marketing/automation/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketingAutomationEventsRoute =
+  MarketingAutomationEventsRouteImport.update({
+    id: '/marketing/automation/events',
+    path: '/marketing/automation/events',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const MarketingAutomationIdRoute = MarketingAutomationIdRouteImport.update({
+  id: '/marketing/automation/$id',
+  path: '/marketing/automation/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MarketingAudiencesNewRoute = MarketingAudiencesNewRouteImport.update({
@@ -502,6 +534,7 @@ export interface FileRoutesByFullPath {
   '/marketing/logs': typeof MarketingLogsRoute
   '/marketing/readiness': typeof MarketingReadinessRoute
   '/marketing/reports': typeof MarketingReportsRoute
+  '/marketing/safety': typeof MarketingSafetyRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
   '/products/knowledge': typeof ProductsKnowledgeRoute
@@ -517,6 +550,9 @@ export interface FileRoutesByFullPath {
   '/reports/': typeof ReportsIndexRoute
   '/marketing/audiences/$id': typeof MarketingAudiencesIdRoute
   '/marketing/audiences/new': typeof MarketingAudiencesNewRoute
+  '/marketing/automation/$id': typeof MarketingAutomationIdRoute
+  '/marketing/automation/events': typeof MarketingAutomationEventsRoute
+  '/marketing/automation/new': typeof MarketingAutomationNewRoute
   '/marketing/campaigns/$id': typeof MarketingCampaignsIdRoute
   '/marketing/campaigns/new': typeof MarketingCampaignsNewRoute
   '/marketing/senders/$id': typeof MarketingSendersIdRoute
@@ -524,6 +560,7 @@ export interface FileRoutesByFullPath {
   '/marketing/templates/new': typeof MarketingTemplatesNewRoute
   '/admin/identity-resolution/': typeof AdminIdentityResolutionIndexRoute
   '/marketing/audiences/': typeof MarketingAudiencesIndexRoute
+  '/marketing/automation/': typeof MarketingAutomationIndexRoute
   '/marketing/campaigns/': typeof MarketingCampaignsIndexRoute
   '/marketing/send-control/': typeof MarketingSendControlIndexRoute
   '/marketing/senders/': typeof MarketingSendersIndexRoute
@@ -576,6 +613,7 @@ export interface FileRoutesByTo {
   '/marketing/logs': typeof MarketingLogsRoute
   '/marketing/readiness': typeof MarketingReadinessRoute
   '/marketing/reports': typeof MarketingReportsRoute
+  '/marketing/safety': typeof MarketingSafetyRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
   '/products/knowledge': typeof ProductsKnowledgeRoute
@@ -591,6 +629,9 @@ export interface FileRoutesByTo {
   '/reports': typeof ReportsIndexRoute
   '/marketing/audiences/$id': typeof MarketingAudiencesIdRoute
   '/marketing/audiences/new': typeof MarketingAudiencesNewRoute
+  '/marketing/automation/$id': typeof MarketingAutomationIdRoute
+  '/marketing/automation/events': typeof MarketingAutomationEventsRoute
+  '/marketing/automation/new': typeof MarketingAutomationNewRoute
   '/marketing/campaigns/$id': typeof MarketingCampaignsIdRoute
   '/marketing/campaigns/new': typeof MarketingCampaignsNewRoute
   '/marketing/senders/$id': typeof MarketingSendersIdRoute
@@ -598,6 +639,7 @@ export interface FileRoutesByTo {
   '/marketing/templates/new': typeof MarketingTemplatesNewRoute
   '/admin/identity-resolution': typeof AdminIdentityResolutionIndexRoute
   '/marketing/audiences': typeof MarketingAudiencesIndexRoute
+  '/marketing/automation': typeof MarketingAutomationIndexRoute
   '/marketing/campaigns': typeof MarketingCampaignsIndexRoute
   '/marketing/send-control': typeof MarketingSendControlIndexRoute
   '/marketing/senders': typeof MarketingSendersIndexRoute
@@ -652,6 +694,7 @@ export interface FileRoutesById {
   '/marketing/logs': typeof MarketingLogsRoute
   '/marketing/readiness': typeof MarketingReadinessRoute
   '/marketing/reports': typeof MarketingReportsRoute
+  '/marketing/safety': typeof MarketingSafetyRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
   '/products/knowledge': typeof ProductsKnowledgeRoute
@@ -667,6 +710,9 @@ export interface FileRoutesById {
   '/reports/': typeof ReportsIndexRoute
   '/marketing/audiences/$id': typeof MarketingAudiencesIdRoute
   '/marketing/audiences/new': typeof MarketingAudiencesNewRoute
+  '/marketing/automation/$id': typeof MarketingAutomationIdRoute
+  '/marketing/automation/events': typeof MarketingAutomationEventsRoute
+  '/marketing/automation/new': typeof MarketingAutomationNewRoute
   '/marketing/campaigns/$id': typeof MarketingCampaignsIdRoute
   '/marketing/campaigns/new': typeof MarketingCampaignsNewRoute
   '/marketing/senders/$id': typeof MarketingSendersIdRoute
@@ -674,6 +720,7 @@ export interface FileRoutesById {
   '/marketing/templates/new': typeof MarketingTemplatesNewRoute
   '/admin/identity-resolution/': typeof AdminIdentityResolutionIndexRoute
   '/marketing/audiences/': typeof MarketingAudiencesIndexRoute
+  '/marketing/automation/': typeof MarketingAutomationIndexRoute
   '/marketing/campaigns/': typeof MarketingCampaignsIndexRoute
   '/marketing/send-control/': typeof MarketingSendControlIndexRoute
   '/marketing/senders/': typeof MarketingSendersIndexRoute
@@ -729,6 +776,7 @@ export interface FileRouteTypes {
     | '/marketing/logs'
     | '/marketing/readiness'
     | '/marketing/reports'
+    | '/marketing/safety'
     | '/orders/$id'
     | '/orders/new'
     | '/products/knowledge'
@@ -744,6 +792,9 @@ export interface FileRouteTypes {
     | '/reports/'
     | '/marketing/audiences/$id'
     | '/marketing/audiences/new'
+    | '/marketing/automation/$id'
+    | '/marketing/automation/events'
+    | '/marketing/automation/new'
     | '/marketing/campaigns/$id'
     | '/marketing/campaigns/new'
     | '/marketing/senders/$id'
@@ -751,6 +802,7 @@ export interface FileRouteTypes {
     | '/marketing/templates/new'
     | '/admin/identity-resolution/'
     | '/marketing/audiences/'
+    | '/marketing/automation/'
     | '/marketing/campaigns/'
     | '/marketing/send-control/'
     | '/marketing/senders/'
@@ -803,6 +855,7 @@ export interface FileRouteTypes {
     | '/marketing/logs'
     | '/marketing/readiness'
     | '/marketing/reports'
+    | '/marketing/safety'
     | '/orders/$id'
     | '/orders/new'
     | '/products/knowledge'
@@ -818,6 +871,9 @@ export interface FileRouteTypes {
     | '/reports'
     | '/marketing/audiences/$id'
     | '/marketing/audiences/new'
+    | '/marketing/automation/$id'
+    | '/marketing/automation/events'
+    | '/marketing/automation/new'
     | '/marketing/campaigns/$id'
     | '/marketing/campaigns/new'
     | '/marketing/senders/$id'
@@ -825,6 +881,7 @@ export interface FileRouteTypes {
     | '/marketing/templates/new'
     | '/admin/identity-resolution'
     | '/marketing/audiences'
+    | '/marketing/automation'
     | '/marketing/campaigns'
     | '/marketing/send-control'
     | '/marketing/senders'
@@ -878,6 +935,7 @@ export interface FileRouteTypes {
     | '/marketing/logs'
     | '/marketing/readiness'
     | '/marketing/reports'
+    | '/marketing/safety'
     | '/orders/$id'
     | '/orders/new'
     | '/products/knowledge'
@@ -893,6 +951,9 @@ export interface FileRouteTypes {
     | '/reports/'
     | '/marketing/audiences/$id'
     | '/marketing/audiences/new'
+    | '/marketing/automation/$id'
+    | '/marketing/automation/events'
+    | '/marketing/automation/new'
     | '/marketing/campaigns/$id'
     | '/marketing/campaigns/new'
     | '/marketing/senders/$id'
@@ -900,6 +961,7 @@ export interface FileRouteTypes {
     | '/marketing/templates/new'
     | '/admin/identity-resolution/'
     | '/marketing/audiences/'
+    | '/marketing/automation/'
     | '/marketing/campaigns/'
     | '/marketing/send-control/'
     | '/marketing/senders/'
@@ -952,6 +1014,7 @@ export interface RootRouteChildren {
   MarketingLogsRoute: typeof MarketingLogsRoute
   MarketingReadinessRoute: typeof MarketingReadinessRoute
   MarketingReportsRoute: typeof MarketingReportsRoute
+  MarketingSafetyRoute: typeof MarketingSafetyRoute
   OrdersIdRoute: typeof OrdersIdRoute
   OrdersNewRoute: typeof OrdersNewRoute
   ProductsKnowledgeRoute: typeof ProductsKnowledgeRoute
@@ -966,6 +1029,9 @@ export interface RootRouteChildren {
   ReportsIndexRoute: typeof ReportsIndexRoute
   MarketingAudiencesIdRoute: typeof MarketingAudiencesIdRoute
   MarketingAudiencesNewRoute: typeof MarketingAudiencesNewRoute
+  MarketingAutomationIdRoute: typeof MarketingAutomationIdRoute
+  MarketingAutomationEventsRoute: typeof MarketingAutomationEventsRoute
+  MarketingAutomationNewRoute: typeof MarketingAutomationNewRoute
   MarketingCampaignsIdRoute: typeof MarketingCampaignsIdRoute
   MarketingCampaignsNewRoute: typeof MarketingCampaignsNewRoute
   MarketingSendersIdRoute: typeof MarketingSendersIdRoute
@@ -973,6 +1039,7 @@ export interface RootRouteChildren {
   MarketingTemplatesNewRoute: typeof MarketingTemplatesNewRoute
   AdminIdentityResolutionIndexRoute: typeof AdminIdentityResolutionIndexRoute
   MarketingAudiencesIndexRoute: typeof MarketingAudiencesIndexRoute
+  MarketingAutomationIndexRoute: typeof MarketingAutomationIndexRoute
   MarketingCampaignsIndexRoute: typeof MarketingCampaignsIndexRoute
   MarketingSendControlIndexRoute: typeof MarketingSendControlIndexRoute
   MarketingSendersIndexRoute: typeof MarketingSendersIndexRoute
@@ -1135,6 +1202,13 @@ declare module '@tanstack/react-router' {
       path: '/orders/$id'
       fullPath: '/orders/$id'
       preLoaderRoute: typeof OrdersIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketing/safety': {
+      id: '/marketing/safety'
+      path: '/marketing/safety'
+      fullPath: '/marketing/safety'
+      preLoaderRoute: typeof MarketingSafetyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/marketing/reports': {
@@ -1417,6 +1491,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MarketingCampaignsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/marketing/automation/': {
+      id: '/marketing/automation/'
+      path: '/marketing/automation'
+      fullPath: '/marketing/automation/'
+      preLoaderRoute: typeof MarketingAutomationIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/marketing/audiences/': {
       id: '/marketing/audiences/'
       path: '/marketing/audiences'
@@ -1464,6 +1545,27 @@ declare module '@tanstack/react-router' {
       path: '/marketing/campaigns/$id'
       fullPath: '/marketing/campaigns/$id'
       preLoaderRoute: typeof MarketingCampaignsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketing/automation/new': {
+      id: '/marketing/automation/new'
+      path: '/marketing/automation/new'
+      fullPath: '/marketing/automation/new'
+      preLoaderRoute: typeof MarketingAutomationNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketing/automation/events': {
+      id: '/marketing/automation/events'
+      path: '/marketing/automation/events'
+      fullPath: '/marketing/automation/events'
+      preLoaderRoute: typeof MarketingAutomationEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketing/automation/$id': {
+      id: '/marketing/automation/$id'
+      path: '/marketing/automation/$id'
+      fullPath: '/marketing/automation/$id'
+      preLoaderRoute: typeof MarketingAutomationIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/marketing/audiences/new': {
@@ -1557,6 +1659,7 @@ const rootRouteChildren: RootRouteChildren = {
   MarketingLogsRoute: MarketingLogsRoute,
   MarketingReadinessRoute: MarketingReadinessRoute,
   MarketingReportsRoute: MarketingReportsRoute,
+  MarketingSafetyRoute: MarketingSafetyRoute,
   OrdersIdRoute: OrdersIdRoute,
   OrdersNewRoute: OrdersNewRoute,
   ProductsKnowledgeRoute: ProductsKnowledgeRoute,
@@ -1571,6 +1674,9 @@ const rootRouteChildren: RootRouteChildren = {
   ReportsIndexRoute: ReportsIndexRoute,
   MarketingAudiencesIdRoute: MarketingAudiencesIdRoute,
   MarketingAudiencesNewRoute: MarketingAudiencesNewRoute,
+  MarketingAutomationIdRoute: MarketingAutomationIdRoute,
+  MarketingAutomationEventsRoute: MarketingAutomationEventsRoute,
+  MarketingAutomationNewRoute: MarketingAutomationNewRoute,
   MarketingCampaignsIdRoute: MarketingCampaignsIdRoute,
   MarketingCampaignsNewRoute: MarketingCampaignsNewRoute,
   MarketingSendersIdRoute: MarketingSendersIdRoute,
@@ -1578,6 +1684,7 @@ const rootRouteChildren: RootRouteChildren = {
   MarketingTemplatesNewRoute: MarketingTemplatesNewRoute,
   AdminIdentityResolutionIndexRoute: AdminIdentityResolutionIndexRoute,
   MarketingAudiencesIndexRoute: MarketingAudiencesIndexRoute,
+  MarketingAutomationIndexRoute: MarketingAutomationIndexRoute,
   MarketingCampaignsIndexRoute: MarketingCampaignsIndexRoute,
   MarketingSendControlIndexRoute: MarketingSendControlIndexRoute,
   MarketingSendersIndexRoute: MarketingSendersIndexRoute,

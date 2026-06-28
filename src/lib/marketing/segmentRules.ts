@@ -46,3 +46,94 @@ export function applySegmentRulesToQuery(query: any, rules: SegmentRules) {
   
   return query;
 }
+/**
+ * Backward-compatible helper for legacy campaign creation page.
+ * Used by src/routes/marketing/campaigns/new.tsx.
+ */
+export function getAudienceStats(customers: any[] = [], rules: any = {}) {
+  const customerList = Array.isArray(customers) ? customers : [];
+
+  const normalizedRules = rules?.rules ?? rules ?? {};
+  const hasRules =
+    normalizedRules &&
+    typeof normalizedRules === "object" &&
+    Object.keys(normalizedRules).length > 0;
+
+  if (!hasRules) {
+    return {
+      total_customers: customerList.length,
+      matched_customers: customerList.length,
+      unmatched_customers: 0,
+      match_rate: customerList.length > 0 ? 100 : 0,
+    };
+  }
+
+  const matchedCustomers = customerList.filter((customer) => {
+    return Object.entries(normalizedRules).every(([key, value]) => {
+      if (value === undefined || value === null || value === "" || value === "all") {
+        return true;
+      }
+
+      const customerValue = customer?.[key];
+
+      if (Array.isArray(value)) {
+        if (value.length === 0) return true;
+        return value.includes(customerValue);
+      }
+
+      if (typeof value === "boolean") {
+        return Boolean(customerValue) === value;
+      }
+
+      return String(customerValue ?? "").toLowerCase() === String(value).toLowerCase();
+    });
+  }).length;
+
+  return {
+    total_customers: customerList.length,
+    matched_customers: matchedCustomers,
+    unmatched_customers: customerList.length - matchedCustomers,
+    match_rate:
+      customerList.length > 0
+        ? Math.round((matchedCustomers / customerList.length) * 100)
+        : 0,
+  };
+}
+/**
+ * Backward-compatible helper for legacy campaign detail export page.
+ * Used by src/routes/marketing/campaigns/$id.tsx.
+ */
+export function evaluateAudience(customers: any[] = [], rules: any = {}) {
+  const customerList = Array.isArray(customers) ? customers : [];
+
+  const normalizedRules = rules?.rules ?? rules ?? {};
+  const hasRules =
+    normalizedRules &&
+    typeof normalizedRules === "object" &&
+    Object.keys(normalizedRules).length > 0;
+
+  if (!hasRules) {
+    return customerList;
+  }
+
+  return customerList.filter((customer) => {
+    return Object.entries(normalizedRules).every(([key, value]) => {
+      if (value === undefined || value === null || value === "" || value === "all") {
+        return true;
+      }
+
+      const customerValue = customer?.[key];
+
+      if (Array.isArray(value)) {
+        if (value.length === 0) return true;
+        return value.includes(customerValue);
+      }
+
+      if (typeof value === "boolean") {
+        return Boolean(customerValue) === value;
+      }
+
+      return String(customerValue ?? "").toLowerCase() === String(value).toLowerCase();
+    });
+  });
+}
