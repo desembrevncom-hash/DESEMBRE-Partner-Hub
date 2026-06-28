@@ -101,15 +101,27 @@ function OpsSafetyPage() {
     }
     
     try {
+      let contact_value = "";
+      let channel = newSuppression.channel;
+      
+      if (newSuppression.email) {
+        contact_value = newSuppression.email.trim();
+        if (channel === 'all') channel = 'email';
+      } else if (newSuppression.phone) {
+        contact_value = newSuppression.phone.trim();
+        if (channel === 'all') channel = 'zalo';
+      }
+
       const { error } = await supabase
         .from("marketing_suppression_list")
         .insert({
-          email: newSuppression.email || null,
-          phone: newSuppression.phone || null,
-          channel: newSuppression.channel,
-          reason: newSuppression.reason || null,
-          source: 'admin',
-          active: true
+          channel: channel,
+          contact_value: contact_value,
+          normalized_contact_value: contact_value.toLowerCase(),
+          reason: newSuppression.reason || 'manual_block',
+          source: 'manual',
+          is_active: true,
+          metadata: {}
         });
 
       if (error) throw error;
@@ -125,7 +137,7 @@ function OpsSafetyPage() {
     try {
       const { error } = await supabase
         .from("marketing_suppression_list")
-        .update({ active: !currentActive, updated_at: new Date().toISOString() })
+        .update({ is_active: !currentActive, updated_at: new Date().toISOString() })
         .eq("id", id);
       if (error) throw error;
       fetchData();
@@ -348,16 +360,16 @@ function OpsSafetyPage() {
                   <div className="text-center py-8 text-slate-500 text-sm">Chưa có ai trong Blacklist.</div>
                 ) : (
                   suppressions.map(s => (
-                    <div key={s.id} className={`p-3 rounded-xl border flex items-center justify-between ${s.active ? 'bg-red-500/5 border-red-500/20' : 'bg-slate-800/20 border-slate-800'}`}>
+                    <div key={s.id} className={`p-3 rounded-xl border flex items-center justify-between ${s.is_active ? 'bg-red-500/5 border-red-500/20' : 'bg-slate-800/20 border-slate-800'}`}>
                       <div>
                         <div className="flex items-center gap-2">
-                          {s.active ? (
+                          {s.is_active ? (
                             <XCircle className="w-4 h-4 text-red-500" />
                           ) : (
                             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                           )}
-                          <span className={`font-bold text-sm ${s.active ? 'text-red-400' : 'text-slate-400'}`}>
-                            {s.email || s.phone || s.customer_id}
+                          <span className={`font-bold text-sm ${s.is_active ? 'text-red-400' : 'text-slate-400'}`}>
+                            {s.contact_value}
                           </span>
                         </div>
                         <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
@@ -366,8 +378,8 @@ function OpsSafetyPage() {
                         </div>
                       </div>
                       <Switch 
-                        checked={s.active}
-                        onCheckedChange={() => toggleSuppressionActive(s.id, s.active)}
+                        checked={s.is_active}
+                        onCheckedChange={() => toggleSuppressionActive(s.id, s.is_active)}
                         className="data-[state=checked]:bg-red-500"
                       />
                     </div>
