@@ -22,6 +22,8 @@ import {
   getProviderSandboxPlan,
   SandboxPlanResult,
 } from "@/lib/marketing/providerSandboxPlan";
+import { SecretGateResult } from "@/lib/marketing/providerSecretGate";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/marketing/provider-readiness")({
   component: ProviderReadinessPage,
@@ -31,6 +33,7 @@ function ProviderReadinessPage() {
   const [report, setReport] = useState<ProviderReadinessReport | null>(null);
   const [configAudit, setConfigAudit] = useState<ProviderConfigAuditResult[]>([]);
   const [sandboxPlan, setSandboxPlan] = useState<SandboxPlanResult[]>([]);
+  const [secretGate, setSecretGate] = useState<SecretGateResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -47,6 +50,14 @@ function ProviderReadinessPage() {
       setReport(nextReport);
       setConfigAudit(runProviderConfigAudit());
       setSandboxPlan(getProviderSandboxPlan());
+
+      // M25 Edge Function call
+      const { data, error: secretGateError } = await supabase.functions.invoke(
+        "provider-secret-gate"
+      );
+      if (!secretGateError && data) {
+        setSecretGate(data);
+      }
     } catch (error: any) {
       setErrorMessage(error?.message || "Failed to run provider readiness validation.");
     } finally {
@@ -444,6 +455,83 @@ function ProviderReadinessPage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-indigo-700" />
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Provider Sandbox Secret Gate (M25)
+                </h2>
+              </div>
+              
+              {secretGate.length === 0 ? (
+                <div className="text-sm text-slate-500 italic">
+                  Loading server-side gate evaluation...
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-3">
+                  {secretGate.map((gate) => (
+                    <div
+                      key={gate.provider_id}
+                      className="rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm flex flex-col"
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-4">
+                        <p className="text-lg font-semibold text-slate-900">
+                          {gate.provider_id.toUpperCase()}
+                        </p>
+                        <Badge
+                          className={
+                            gate.configured
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-red-100 text-red-700"
+                          }
+                        >
+                          {gate.configured ? "Configured" : "Missing Config"}
+                        </Badge>
+                      </div>
+
+                      <div className="space-y-2 text-xs font-mono text-slate-700 mb-4">
+                        <p>secret_values_exposed: {String(gate.secret_values_exposed)}</p>
+                        <p>provider_api_called: {String(gate.provider_api_called)}</p>
+                        <p>real_send_enabled: {String(gate.real_send_enabled)}</p>
+                        <p>external_provider_calls_enabled: {String(gate.external_provider_calls_enabled)}</p>
+                        <p>production_gate_required: {String(gate.production_gate_required)}</p>
+                      </div>
+
+                      {gate.missing_env_names.length > 0 && (
+                        <div className="mt-auto pt-4 border-t border-slate-200">
+                          <p className="mb-2 text-sm font-semibold text-red-700 flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4" /> Missing Env Names
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {gate.missing_env_names.map((envName) => (
+                              <Badge key={envName} variant="outline" className="font-mono text-[10px] text-red-600 border-red-300 bg-red-50">
+                                {envName}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {gate.configured && gate.checked_env_names.length > 0 && (
+                        <div className="mt-auto pt-4 border-t border-slate-200">
+                          <p className="mb-2 text-sm font-semibold text-emerald-700 flex items-center gap-2">
+                            <CheckCircle className="w-4 h-4" /> Checked Env Names
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {gate.checked_env_names.map((envName) => (
+                              <Badge key={envName} variant="outline" className="font-mono text-[10px] text-emerald-600 border-emerald-300 bg-emerald-50">
+                                {envName}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </>
         )}
