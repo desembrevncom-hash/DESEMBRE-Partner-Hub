@@ -36,9 +36,17 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { createContactChannel } from "@/lib/contactChannels";
+import {
+  useCustomerFacebookIdentityQuery,
+  useApplyFacebookNameMutation,
+  useFetchMissingFacebookNameMutation,
+  useTriggerAutoResolveMutation
+} from "@/lib/customers/facebookIdentityApi";
+import { FacebookIdentityBadge } from "./FacebookIdentityBadge";
 
 interface CustomerContactChannelsProps {
   customerId: string;
+  customer?: any;
 }
 
 const CHANNEL_TYPE_ICONS: Record<string, string> = {
@@ -61,7 +69,7 @@ const PURPOSE_CONFIG: Record<string, { label: string; color: string; Icon: React
   other: { label: "Khác", color: "bg-slate-100 text-slate-500", Icon: HelpCircle },
 };
 
-export function CustomerContactChannels({ customerId }: CustomerContactChannelsProps) {
+export function CustomerContactChannels({ customerId, customer }: CustomerContactChannelsProps) {
   const { user, isAdmin, isSubAdmin } = useAuth();
   const [channels, setChannels] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,6 +87,23 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
     isPrimary: false,
     notes: "",
   });
+
+  const { data: identityData, refetch: refetchIdentity } = useCustomerFacebookIdentityQuery(customerId);
+  const profilesData = identityData?.profiles || [];
+  const jobsData = identityData?.jobs || [];
+  const applyNameMutation = useApplyFacebookNameMutation();
+  const fetchMissingNameMutation = useFetchMissingFacebookNameMutation();
+  const retryResolve = useTriggerAutoResolveMutation();
+
+  const canApplyName = isAdmin || isSubAdmin || (customer && (customer.owner_sale_id === user?.id || (!customer.owner_sale_id && customer.created_by === user?.id)));
+
+  useEffect(() => {
+    const hasResolving = jobsData.some((j: any) => j.auto_resolve_status === "resolving");
+    if (hasResolving) {
+      const interval = setInterval(() => refetchIdentity(), 5000);
+      return () => clearInterval(interval);
+    }
+  }, [jobsData, refetchIdentity]);
 
   const fetchChannels = async () => {
     setLoading(true);
@@ -331,20 +356,15 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
         <div className="flex items-center justify-between gap-3">
           {/* Left info */}
           <div className="min-w-0 flex-1">
-            <div className="flex flex-col gap-1 mb-1">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mb-1">
+              {c.channel_type === "facebook" ? (
+                <Facebook className="w-[1.125rem] h-[1.125rem] text-[#1877F2] shrink-0 fill-current" />
+              ) : (
                 <span className="text-xl leading-none">{icon}</span>
-                <div className="text-lg font-black text-slate-800 truncate" title={c.channel_value}>
-                  {c.normalized_value || c.channel_value}
-                </div>
-              </div>
-              {/* Display UID if available */}
-              {socialProfiles[c.channel_value]?.facebook_uid && (
-                <div className="flex items-center gap-1.5 pl-7 text-xs font-semibold text-emerald-600">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  UID: {socialProfiles[c.channel_value].facebook_uid}
-                </div>
               )}
+              <div className="text-lg font-black text-slate-800 truncate" title={c.channel_value}>
+                {c.normalized_value || c.channel_value}
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
@@ -370,6 +390,82 @@ export function CustomerContactChannels({ customerId }: CustomerContactChannelsP
                   </Badge>
                 )}
               </span>
+              
+              {c.channel_type === "facebook" && (() => {
+                const profile = profilesData.find((p: any) => 
+                  (c.social_profile_id && p.id === c.social_profile_id) || 
+                  (!c.social_profile_id && (p.raw_url === c.channel_value || p.normalized_url === c.normalized_value || p.facebook_username === c.channel_value))
+                );
+                const job = jobsData.find((j: any) => 
+                  (c.identity_job_id && j.id === c.identity_job_id) || 
+                  (!c.identity_job_id && (j.raw_url === c.channel_value))
+                );
+                
+                return (
+                  <FacebookIdentityBadge
+                    facebookUid={profile?.facebook_uid}
+                    resolverMethod={profile?.resolver_method}
+                    confidenceScore={profile?.confidence_score}
+                    autoResolveStatus={job?.auto_resolve_status}
+                    lastAutoResolveError={job?.last_auto_resolve_error}
+                    jobStatus={job?.status}
+                    facebookDisplayName={profile?.facebook_display_name}
+                    displayNameSource={profile?.display_name_source}
+                    displayNameConfidenceScore={profile?.display_name_confidence_score}
+                    canApplyName={!!canApplyName}
+                    currentCustomerName={customer?.name}
+                    currentCustomerContactName={customer?.contact_name}
+                    isApplyPending={applyNameMutation.isPending}
+
+                    onForceRetry={job?.id ? () => retryResolve.mutate(job.id, {
+                      onSuccess: () => {
+                        toast.success("Đã đưa vào hàng đợi phân giải lại");
+                      },
+                      onError: (err: any) => {
+                        toast.error("Lỗi", { description: err.message });
+                      }
+                    }) : undefined}
+                    isRetryPending={retryResolve.isPending && retryResolve.variables === job?.id}
+                    onFetchMissingName={() => {
+                        fetchMissingNameMutation.mutate({ customerId, rawUrl: c.channel_value }, {
+                          onSuccess: () => {
+                            toast.success("Đã đưa vào hàng đợi", {
+                              description: "Hệ thống đang thử tìm UID và tên Facebook trong nền. Tên sẽ hiển thị nếu provider trả về.",
+                            });
+                          },
+                          onError: (err: any) => {
+                            toast.error("Lỗi", {
+                              description: err.message,
+                            });
+                          }
+                        });
+                      }}
+                      isFetchPending={(fetchMissingNameMutation.isPending && fetchMissingNameMutation.variables?.rawUrl === c.channel_value) || job?.status === "manual_review_required"}
+                    onApplyName={(name, forceOverwrite) => {
+                      if (!customer) return;
+                      
+                      const currentName = customer.name || "";
+                      const isNameUrl = !currentName.trim() || currentName.includes("facebook.com") || currentName.includes("http") || currentName.includes("profile.php");
+                      
+                      const currentContactName = customer.contact_name || "";
+                      const isContactUrl = !currentContactName.trim() || currentContactName.includes("facebook.com") || currentContactName.includes("http") || currentContactName.includes("profile.php");
+
+                      if (!isNameUrl || !isContactUrl) {
+                        const existingNames = Array.from(new Set([currentName, currentContactName].filter(n => n && !n.includes("facebook.com") && !n.includes("http")))).join(" / ");
+                        if (existingNames && !confirm(`Khách hàng đang có tên là "${existingNames}". Bạn có chắc chắn muốn cập nhật thành "${name}" không?`)) {
+                          return;
+                        }
+                      }
+
+                      applyNameMutation.mutate({ customerId, socialProfileId: profile.id, forceOverwrite }, {
+                        onSuccess: () => toast.success(`Đã áp dụng tên Facebook vào tên khách hàng.`),
+                        onError: (err: any) => toast.error("Lỗi", { description: err.message })
+                      });
+                    }}
+                    duplicateProfile={job?.duplicate_profile}
+                  />
+                );
+              })()}
             </div>
           </div>
 

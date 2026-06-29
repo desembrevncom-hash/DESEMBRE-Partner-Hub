@@ -42,6 +42,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CustomerUpsellIntel } from "@/components/customers/CustomerUpsellIntel";
+import { CustomerContactChannels } from "@/components/customers/CustomerContactChannels";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,6 +76,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getCustomerPersonDisplayName, getCustomerCardTitle } from "@/lib/customers/customerDisplayName";
+import { formatPhoneForCallHref, formatPhoneForDisplay } from "@/lib/customers/phoneUtils";
 
 const DEFAULT_CROSS_SELL_RULES = [
   {
@@ -528,6 +531,14 @@ function CustomerDetailPage() {
     fetchAppointments();
     fetchEvents();
     fetchOrderItems();
+
+    const handleCustomerUpdated = (e: any) => {
+      if (e.detail?.id === id) {
+        fetchCustomer();
+      }
+    };
+    window.addEventListener("customer_updated", handleCustomerUpdated);
+    return () => window.removeEventListener("customer_updated", handleCustomerUpdated);
   }, [id]);
 
   useEffect(() => {
@@ -694,10 +705,7 @@ function CustomerDetailPage() {
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none">
-                  {customer.business_name ||
-                    customer.facility_name ||
-                    customer.name ||
-                    "Khách Hàng Tự Do"}
+                  {getCustomerCardTitle(customer)}
                 </h1>
                 {renderStatusBadge(customer.lifecycle_stage)}
                 <Badge
@@ -714,15 +722,12 @@ function CustomerDetailPage() {
               <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-500">
                 <span className="flex items-center gap-1.5">
                   <UserCircle className="w-4 h-4 text-slate-400" />{" "}
-                  {customer.contact_name || customer.name || "N/A"}
+                  {getCustomerPersonDisplayName(customer)}
                 </span>
                 {customer.phone && (
-                  <>
-                    <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                    <span className="flex items-center gap-1.5">
-                      <Phone className="w-4 h-4 text-slate-400" /> {customer.phone}
-                    </span>
-                  </>
+                  <div className="flex items-center text-slate-600 font-medium bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
+                    <Phone className="w-4 h-4 text-slate-400 mr-2" /> {formatPhoneForDisplay(customer.phone)}
+                  </div>
                 )}
                 {customer.city && (
                   <>
@@ -738,9 +743,9 @@ function CustomerDetailPage() {
 
           <div className="flex flex-wrap items-center gap-2 lg:justify-end">
             <NotificationBell />
-            {customer.phone && (
+            {customer.phone && formatPhoneForCallHref(customer.phone) && (
               <a
-                href={`tel:${customer.phone}`}
+                href={formatPhoneForCallHref(customer.phone) || "#"}
                 className="inline-flex items-center justify-center rounded-xl bg-emerald-500 hover:bg-emerald-600 font-bold text-xs h-10 px-4 text-white shadow-sm transition-all"
               >
                 <PhoneCall className="mr-2 h-4 w-4" /> Gọi điện
@@ -891,7 +896,7 @@ function CustomerDetailPage() {
                     <div className="space-y-1.5">
                       <p className="text-[10px] font-bold text-slate-400 uppercase">Tên liên hệ</p>
                       <p className="text-sm font-black text-slate-800">
-                        {customer.contact_name || customer.name || "N/A"}
+                        {getCustomerPersonDisplayName(customer)}
                       </p>
                     </div>
                     {customer.email && (
@@ -963,6 +968,14 @@ function CustomerDetailPage() {
                       </Badge>
                     </div>
                   </div>
+                </Card>
+
+                {/* Contact Channels card */}
+                <Card className="rounded-3xl border-none shadow-3xs bg-white p-6 md:col-span-3">
+                  <h3 className="text-xs font-black uppercase text-slate-800 tracking-wider mb-5 flex items-center gap-2">
+                    <Target className="w-4 h-4 text-indigo-500" /> Kênh liên hệ & Remarketing
+                  </h3>
+                  <CustomerContactChannels customerId={customer.id} customer={customer} />
                 </Card>
 
                 {/* Purchase KPIs card */}

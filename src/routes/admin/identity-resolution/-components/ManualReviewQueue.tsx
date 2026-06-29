@@ -1,11 +1,22 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "@tanstack/react-router";
-import { useManualReviewJobsQuery, useResolveManualReviewJobMutation, useTriggerAutoResolveMutation, ManualReviewJob } from "@/lib/customers/facebookIdentityApi";
+import { useManualReviewJobsQuery, useResolveManualReviewJobMutation, ManualReviewJob, useTriggerAutoResolveMutation } from "@/lib/customers/facebookIdentityApi";
 import { toast } from "sonner";
 import { Copy, ExternalLink, AlertCircle, CheckCircle2, RefreshCw, Clock, AlertTriangle, XCircle, Search } from "lucide-react";
 
 export function ManualReviewQueue() {
-  const { data: jobs, isLoading, error } = useManualReviewJobsQuery();
+  const { data: jobs, isLoading, error, refetch } = useManualReviewJobsQuery();
+
+  useEffect(() => {
+    if (!jobs) return;
+    const hasResolving = jobs.some(j => j.auto_resolve_status === 'resolving' || j.auto_resolve_status === 'queued');
+    if (hasResolving) {
+      const timer = setInterval(() => {
+        refetch();
+      }, 5000);
+      return () => clearInterval(timer);
+    }
+  }, [jobs, refetch]);
 
   if (isLoading) {
     return (
@@ -38,29 +49,69 @@ export function ManualReviewQueue() {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-medium">
-            <tr>
-              <th className="px-4 py-3">Khách hàng</th>
-              <th className="px-4 py-3">Link / Username</th>
-              <th className="px-4 py-3 w-72">Thao tác xử lý UID</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {jobs.map((job) => (
-              <JobRow key={job.id} job={job} />
-            ))}
-          </tbody>
-        </table>
+    <SafeManualReviewQueueWrapper>
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-medium">
+              <tr>
+                <th className="px-4 py-3">Khách hàng</th>
+                <th className="px-4 py-3">Link / Username</th>
+                <th className="px-4 py-3 w-72">Thao tác xử lý UID</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {jobs.map((job) => (
+                <SafeJobRow key={job.id} job={job} />
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </SafeManualReviewQueueWrapper>
   );
+}
+
+class SafeManualReviewQueueWrapper extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: any }> {
+  state = { hasError: false, error: null };
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 bg-red-50 text-red-600 rounded-lg">
+          Lỗi render Queue: {this.state.error?.message}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+class SafeJobRow extends React.Component<{ job: ManualReviewJob }, { hasError: boolean; error: any }> {
+  state = { hasError: false, error: null };
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <tr>
+          <td colSpan={3} className="px-4 py-3 text-red-500 bg-red-50">
+            <AlertCircle className="w-4 h-4 inline mr-2" />
+            Lỗi render Row: {this.state.error?.message}
+          </td>
+        </tr>
+      );
+    }
+    return <JobRow job={this.props.job} />;
+  }
 }
 
 function JobRow({ job }: { job: ManualReviewJob }) {
   const [uidInput, setUidInput] = useState("");
+  const [nameInput, setNameInput] = useState("");
   const [note, setNote] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const resolveMutation = useResolveManualReviewJobMutation();
@@ -73,8 +124,8 @@ function JobRow({ job }: { job: ManualReviewJob }) {
 
   const handleTriggerAuto = () => {
     autoResolveMutation.mutate(job.id, {
-      onSuccess: () => {
-        toast.success("Đã gửi yêu cầu tự động phân giải ở chế độ nền.");
+      onSuccess: (data: any) => {
+        toast.success(data?.message || "Đã phân giải xong.");
       },
       onError: (err) => {
         toast.error("Không thể kích hoạt tự động phân giải: " + err.message);
@@ -95,13 +146,17 @@ function JobRow({ job }: { job: ManualReviewJob }) {
       case "resolving":
         color = "bg-blue-50 text-blue-600 border-blue-200";
         Icon = RefreshCw;
-        label = "Đang tìm tự động...";
+        label = "Đang tìm UID Facebook...";
         break;
       case "failed":
-      case "not_found":
         color = "bg-amber-50 text-amber-600 border-amber-200";
         Icon = AlertTriangle;
         label = "Tự động tìm thất bại";
+        break;
+      case "not_found":
+        color = "bg-slate-50 text-slate-500 border-slate-200";
+        Icon = Search;
+        label = "Không tìm thấy UID tự động, cần nhập thủ công";
         break;
       case "timeout":
         color = "bg-orange-50 text-orange-600 border-orange-200";
@@ -126,7 +181,7 @@ function JobRow({ job }: { job: ManualReviewJob }) {
           <Icon className={`w-3 h-3 ${status === "resolving" || status === "queued" ? "animate-spin" : ""}`} />
           <span className="font-medium">{label}</span>
         </div>
-        {job.last_auto_resolve_error && (
+        {job.last_auto_resolve_error && status !== "resolving" && status !== "queued" && (
           <div className="text-red-500 mt-1 italic break-words max-w-xs">
             Lỗi: {job.last_auto_resolve_error}
           </div>
@@ -146,9 +201,8 @@ function JobRow({ job }: { job: ManualReviewJob }) {
       setErrorMsg("UID phải là chuỗi số (chỉ chứa các chữ số).");
       return;
     }
-
     resolveMutation.mutate(
-      { jobId: job.id, status: "resolved", numericUid: trimmedUid, note: note.trim() },
+      { jobId: job.id, status: "resolved", numericUid: trimmedUid, note: note.trim(), facebookName: nameInput.trim() || null },
       {
         onSuccess: () => {
           toast.success("Đã cập nhật UID thành công");
@@ -159,6 +213,24 @@ function JobRow({ job }: { job: ManualReviewJob }) {
       }
     );
   };
+
+  const isFinalState = 
+    job.status === 'resolved' || 
+    job.status === 'duplicate_candidate' || 
+    job.status === 'failed' || 
+    job.status === 'ignored' || 
+    job.auto_resolve_status === 'resolved' || 
+    job.auto_resolve_status === 'duplicate_detected' || 
+    job.auto_resolve_status === 'skipped_invalid_type' || 
+    job.auto_resolve_status === 'disabled' || 
+    job.auto_resolve_status === 'rate_limited';
+
+  const isDuplicate = job.status === 'duplicate_candidate' || job.auto_resolve_status === 'duplicate_detected';
+  const isFailed = job.auto_resolve_status === 'failed' || job.auto_resolve_status === 'timeout' || job.auto_resolve_status === 'not_found';
+  const isActivelyResolving = 
+    (job.auto_resolve_status === "resolving" || job.auto_resolve_status === "queued") && 
+    job.last_auto_resolve_at && 
+    (Date.now() - new Date(job.last_auto_resolve_at).getTime() < 10 * 60 * 1000);
 
   const handleFail = () => {
     if (!confirm("Bạn có chắc chắn link này không thể phân giải hoặc bị lỗi?")) return;
@@ -179,45 +251,61 @@ function JobRow({ job }: { job: ManualReviewJob }) {
   return (
     <tr className="hover:bg-slate-50 transition-colors">
       <td className="px-4 py-3 align-top">
-        {job.customers ? (
-          <div>
-            <Link
-              to="/customers/$id"
-              params={{ id: job.customers.id }}
-              className="font-bold text-indigo-600 hover:text-indigo-800"
-              target="_blank"
-            >
-              {job.customers.name}
-            </Link>
-            {job.customers.phone && <div className="text-slate-500 mt-1">{job.customers.phone}</div>}
-            <div className="text-xs text-slate-400 mt-1" title={new Date(job.created_at).toLocaleString()}>
-              {new Date(job.created_at).toLocaleDateString()}
-            </div>
-          </div>
-        ) : (
-          <span className="text-slate-400">Khách hàng đã xóa</span>
-        )}
+        {(() => {
+          const mainCustomer = Array.isArray(job.customers) ? job.customers[0] : job.customers;
+          
+          if (mainCustomer) {
+            return (
+              <div>
+                {mainCustomer.id ? (
+                  <Link
+                    to="/customers/$id"
+                    params={{ id: mainCustomer.id }}
+                    className="font-bold text-indigo-600 hover:text-indigo-800"
+                    target="_blank"
+                  >
+                    {mainCustomer.name}
+                  </Link>
+                ) : (
+                  <span className="font-bold text-indigo-600">{mainCustomer.name}</span>
+                )}
+                {mainCustomer.phone && <div className="text-slate-500 mt-1">{mainCustomer.phone}</div>}
+                <div className="text-xs text-slate-400 mt-1" title={new Date(job.created_at).toLocaleString()}>
+                  {new Date(job.created_at).toLocaleDateString()}
+                </div>
+              </div>
+            );
+          }
+          
+          return <span className="text-slate-400">Khách hàng đã xóa</span>;
+        })()}
       </td>
       <td className="px-4 py-3 align-top">
         <div className="flex flex-col gap-2 items-start">
           <div className="flex items-center gap-2 max-w-xs break-all">
-            <span className="text-slate-700 font-medium bg-slate-100 px-2 py-1 rounded">{job.raw_url}</span>
+            <span className="text-slate-700 font-medium bg-slate-100 px-2 py-1 rounded">{job.raw_url || "Chưa có Link"}</span>
           </div>
           <div className="flex items-center gap-2">
-            <a
-              href={job.raw_url.startsWith('http') ? job.raw_url : `https://${job.raw_url}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-xs text-blue-600 hover:underline bg-blue-50 px-2 py-1 rounded"
-            >
-              <ExternalLink className="w-3 h-3" /> Mở Link
-            </a>
-            <button
-              onClick={() => handleCopy(job.raw_url)}
-              className="flex items-center gap-1 text-xs text-slate-600 hover:bg-slate-200 bg-slate-100 px-2 py-1 rounded transition-colors"
-            >
-              <Copy className="w-3 h-3" /> Copy Link
-            </button>
+            {job.raw_url ? (
+              <>
+                <a
+                  href={job.raw_url.startsWith('http') ? job.raw_url : `https://${job.raw_url}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs text-blue-600 hover:underline bg-blue-50 px-2 py-1 rounded"
+                >
+                  <ExternalLink className="w-3 h-3" /> Mở Link
+                </a>
+                <button
+                  onClick={() => handleCopy(job.raw_url)}
+                  className="flex items-center gap-1 text-xs text-slate-600 hover:bg-slate-200 bg-slate-100 px-2 py-1 rounded transition-colors"
+                >
+                  <Copy className="w-3 h-3" /> Copy Link
+                </button>
+              </>
+            ) : (
+              <span className="text-xs text-slate-400 italic">Không có link</span>
+            )}
           </div>
           {renderAutoStatus()}
         </div>
@@ -225,27 +313,37 @@ function JobRow({ job }: { job: ManualReviewJob }) {
       <td className="px-4 py-3 align-top">
         <div className="flex flex-col gap-2">
           <div className="flex gap-2">
-            <div className="flex-1">
+            <div className="flex-1 flex flex-col gap-2">
               <input
                 type="text"
-              placeholder="Nhập UID số..."
-              value={uidInput}
-              onChange={(e) => setUidInput(e.target.value)}
-              className={`w-full text-sm px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
-                errorMsg ? "border-red-300 focus:ring-red-200" : "border-slate-300 focus:ring-indigo-100 focus:border-indigo-400"
-              }`}
-              disabled={resolveMutation.isPending}
-            />
-            {errorMsg && <div className="text-red-500 text-xs mt-1">{errorMsg}</div>}
+                placeholder="Nhập UID số..."
+                value={uidInput}
+                onChange={(e) => setUidInput(e.target.value)}
+                className={`w-full text-sm px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                  errorMsg ? "border-red-300 focus:ring-red-200" : "border-slate-300 focus:ring-indigo-100 focus:border-indigo-400"
+                }`}
+                disabled={resolveMutation.isPending}
+              />
+              <input
+                type="text"
+                placeholder="Tên Facebook (Tùy chọn)"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                className="w-full text-sm px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400"
+                disabled={resolveMutation.isPending}
+              />
+              {errorMsg && <div className="text-red-500 text-xs mt-1">{errorMsg}</div>}
             </div>
-            <button
-              onClick={handleTriggerAuto}
-              disabled={autoResolveMutation.isPending || resolveMutation.isPending || job.auto_resolve_status === "resolving" || job.auto_resolve_status === "queued"}
-              className="flex items-center justify-center gap-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 text-xs font-bold px-3 rounded shadow-sm disabled:opacity-50 transition-colors whitespace-nowrap"
-              title="Tìm UID tự động (nền)"
-            >
-              <Search className={`w-3 h-3 ${(autoResolveMutation.isPending || job.auto_resolve_status === "resolving") ? "animate-spin" : ""}`} /> Tìm tự động
-            </button>
+            {!isDuplicate && !job.auto_resolve_status?.match(/^(resolved|disabled|rate_limited|skipped_invalid_type)$/) && (
+              <button
+                onClick={handleTriggerAuto}
+                disabled={autoResolveMutation.isPending || resolveMutation.isPending || isActivelyResolving || isFinalState}
+                className="flex items-center justify-center gap-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 text-xs font-bold px-3 rounded shadow-sm disabled:opacity-50 transition-colors whitespace-nowrap"
+                title={isFailed ? "Thử lại tự động" : "Tìm UID tự động"}
+              >
+                <Search className={`w-3 h-3 ${isActivelyResolving ? "animate-spin" : ""}`} /> {isFailed ? "Thử lại" : "Tìm tự động"}
+              </button>
+            )}
           </div>
           <input
             type="text"
@@ -271,6 +369,45 @@ function JobRow({ job }: { job: ManualReviewJob }) {
               <AlertCircle className="w-3 h-3" /> Đánh dấu lỗi
             </button>
           </div>
+          
+          {/* Duplicate candidate warning & link */}
+          {isDuplicate && (
+            <div className="mt-2 bg-rose-50 border border-rose-200 p-3 rounded-lg text-xs text-rose-700">
+              <div className="flex items-start gap-1 font-bold mb-2">
+                <AlertCircle className="w-4 h-4 mt-0.5" /> Phát hiện trùng lặp UID!
+              </div>
+              <div className="mb-2">UID phân giải được đã thuộc về một khách hàng khác. Bạn cần kiểm tra xem đây là khách cũ hay khách mới bị trùng.</div>
+              {(() => {
+                const dupCustomer = Array.isArray(job.duplicate_profile?.customers) 
+                  ? job.duplicate_profile?.customers[0] 
+                  : job.duplicate_profile?.customers;
+                  
+                if (!dupCustomer) return null;
+                
+                return (
+                  <div className="bg-white p-2 rounded border border-rose-100 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-bold text-slate-800 truncate">{dupCustomer.name}</div>
+                      <div className="text-slate-500 text-[10px] truncate">{dupCustomer.phone || 'Không có SĐT'}</div>
+                      {job.duplicate_profile?.facebook_display_name && (
+                        <div className="text-slate-600 font-semibold mt-0.5">Tên Facebook: {job.duplicate_profile.facebook_display_name}</div>
+                      )}
+                    </div>
+                    {dupCustomer.id && (
+                      <Link
+                        to="/customers/$id"
+                        params={{ id: dupCustomer.id }}
+                        target="_blank"
+                        className="flex-shrink-0 flex items-center gap-1 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold px-2 py-1.5 rounded transition-colors whitespace-nowrap"
+                      >
+                        Mở khách cũ <ExternalLink className="w-3 h-3" />
+                      </Link>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
         </div>
       </td>
     </tr>
