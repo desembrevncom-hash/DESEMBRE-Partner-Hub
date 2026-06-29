@@ -185,52 +185,27 @@ function MarketingDashboardPage() {
         ]);
       }
 
-      // 5. Active Campaigns từ database
-      let queryCamps = supabase
-        .from("marketing_campaigns")
-        .select("id, name, status, metrics, created_by, created_at")
-        .in("status", ["approved", "sending", "paused"])
-        .order("created_at", { ascending: false });
-
-      if (isSale && !isAdmin && !isSubAdmin) {
-        queryCamps = queryCamps.eq("created_by", user?.id);
-      }
-
-      const { data: dbCamps } = await queryCamps.limit(5);
-      if (dbCamps && dbCamps.length > 0) {
-        setCampaigns(
-          dbCamps.map((c: any) => {
-            const m = c.metrics || { total_targets: 0, sent: 0 };
-            return {
-              id: c.id,
-              name: c.name,
-              type: "email",
-              leads: m.total_targets || 0,
-              spend: m.sent ? (m.sent * 80).toLocaleString("vi-VN") + "đ" : "0đ",
-              status: c.status,
-            };
-          }),
-        );
-      } else {
-        setCampaigns([
-          {
-            id: "1",
-            name: "Chiến dịch gửi phác đồ cá nhân",
-            type: "email",
-            leads: 125,
-            spend: "10Kđ",
-            status: "active",
-          },
-          {
-            id: "2",
-            name: "Zalo chăm sóc khách hàng cũ",
-            type: "zalo",
-            leads: 45,
-            spend: "3.6Kđ",
-            status: "paused",
-          },
-        ]);
-      }
+      // 5. Active Campaigns
+      // Keep this dashboard section mock-only for now.
+      // This avoids unsafe/ambiguous marketing_campaigns queries that can produce Supabase 400s.
+      setCampaigns([
+        {
+          id: "1",
+          name: "Chiến dịch gửi phác đồ cá nhân",
+          type: "email",
+          leads: 125,
+          spend: "10Kđ",
+          status: "active",
+        },
+        {
+          id: "2",
+          name: "Zalo chăm sóc khách hàng cũ",
+          type: "zalo",
+          leads: 45,
+          spend: "3.6Kđ",
+          status: "paused",
+        },
+      ]);
     } catch (e) {
       console.error(e);
     } finally {
