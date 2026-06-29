@@ -18,6 +18,10 @@ import {
   runProviderConfigAudit,
   ProviderConfigAuditResult,
 } from "@/lib/marketing/providerConfigAudit";
+import {
+  getProviderSandboxPlan,
+  SandboxPlanResult,
+} from "@/lib/marketing/providerSandboxPlan";
 
 export const Route = createFileRoute("/marketing/provider-readiness")({
   component: ProviderReadinessPage,
@@ -26,6 +30,7 @@ export const Route = createFileRoute("/marketing/provider-readiness")({
 function ProviderReadinessPage() {
   const [report, setReport] = useState<ProviderReadinessReport | null>(null);
   const [configAudit, setConfigAudit] = useState<ProviderConfigAuditResult[]>([]);
+  const [sandboxPlan, setSandboxPlan] = useState<SandboxPlanResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -41,6 +46,7 @@ function ProviderReadinessPage() {
       const nextReport = await getProviderReadinessReport();
       setReport(nextReport);
       setConfigAudit(runProviderConfigAudit());
+      setSandboxPlan(getProviderSandboxPlan());
     } catch (error: any) {
       setErrorMessage(error?.message || "Failed to run provider readiness validation.");
     } finally {
@@ -357,6 +363,84 @@ function ProviderReadinessPage() {
                         </div>
                       </div>
                     )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-indigo-700" />
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Provider Sandbox Credential Planning (M24)
+                </h2>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                {sandboxPlan.map((plan) => (
+                  <div
+                    key={plan.provider}
+                    className="rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm flex flex-col"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-4">
+                      <div>
+                        <p className="text-lg font-semibold text-slate-900">
+                          {plan.display_name}
+                        </p>
+                        <p className="text-sm text-slate-500">
+                          Sandbox Supported: {plan.sandbox_supported ? "Yes" : "No"}
+                        </p>
+                      </div>
+                      <Badge
+                        className={
+                          plan.setup_status === "dry_run_only"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-amber-100 text-amber-700"
+                        }
+                      >
+                        {plan.setup_status}
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-2 text-xs font-mono text-slate-700 mb-4">
+                      <p>Secret Owner Role: <span className="font-semibold">{plan.secret_owner_role}</span></p>
+                      <p>Production Gate Required: <span className="font-semibold">{String(plan.production_gate_required)}</span></p>
+                    </div>
+
+                    <div className="mt-auto">
+                      <p className="mb-2 text-sm font-semibold text-slate-700">
+                        Allowed Test Recipients
+                      </p>
+                      <p className="text-xs text-slate-600 mb-4 border-l-2 border-slate-300 pl-2">
+                        {plan.allowed_test_recipient_policy}
+                      </p>
+
+                      <p className="mb-2 text-sm font-semibold text-slate-700">
+                        Safety Notes
+                      </p>
+                      <ul className="space-y-2 mb-4">
+                        {plan.safety_notes.map((note, idx) => (
+                          <li key={idx} className="flex gap-2 text-xs text-slate-600">
+                            <ShieldAlert className="mt-0.5 h-3.5 w-3.5 text-amber-600 flex-shrink-0" />
+                            {note}
+                          </li>
+                        ))}
+                      </ul>
+
+                      {plan.required_env_names.length > 0 && (
+                        <div>
+                          <p className="mb-2 text-sm font-semibold text-slate-700">
+                            Required Sandbox Env Names
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {plan.required_env_names.map((envName) => (
+                              <Badge key={envName} variant="outline" className="font-mono text-[10px] text-slate-600 border-slate-300">
+                                {envName}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
