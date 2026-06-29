@@ -2,9 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ShieldAlert, Send, ShieldCheck, AlertTriangle, Play, X, Search, CheckCircle } from "lucide-react";
+import { ShieldAlert, Send, ShieldCheck, AlertTriangle, Play, X, Search, CheckCircle, Activity, Mail, XCircle, Clock } from "lucide-react";
 import { createSendJob, executeSendJob, markJobApproved, reevaluateJobSafety } from "@/lib/marketing/sendGateway";
 import { Badge } from "@/components/ui/badge";
+import { buildDeliveryTimeline, TimelineNode } from "@/lib/marketing/timelineBuilder";
 
 export const Route = createFileRoute("/marketing/send-gateway")({
   component: SendGatewayPage,
@@ -26,6 +27,7 @@ function SendGatewayPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [testIdempotencyKey, setTestIdempotencyKey] = useState("");
   const [selectedJob, setSelectedJob] = useState<any>(null);
+  const [selectedJobEvents, setSelectedJobEvents] = useState<any[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -114,10 +116,29 @@ function SendGatewayPage() {
       }
       alert("Sandbox execution finished successfully: " + JSON.stringify(data));
       fetchData();
-      setSelectedJob(null);
+      if (selectedJob && selectedJob.id === jobId) {
+        handleJobSelect(selectedJob); // Refresh the current job
+      }
     } catch (error: any) {
       alert("Sandbox execution failed: " + error.message);
     }
+  };
+
+  const handleJobSelect = async (job: any) => {
+    if (!job) {
+      setSelectedJob(null);
+      setSelectedJobEvents([]);
+      return;
+    }
+    setSelectedJob(job);
+    setSelectedJobEvents([]);
+    const { data } = await supabase.from("marketing_send_job_events")
+      .select("*")
+      .eq("job_id", job.id)
+      .order("occurred_at", { ascending: true });
+    
+    // In case the user clicked a different job while loading
+    setSelectedJobEvents(data || []);
   };
 
   const filteredJobs = jobs.filter(job => {
@@ -233,7 +254,7 @@ function SendGatewayPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredJobs.map((job) => (
-                <tr key={job.id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setSelectedJob(job)}>
+                <tr key={job.id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => handleJobSelect(job)}>
                   <td className="px-6 py-4">
                     {job.status === "safety_blocked" ? (
                       <Badge className="bg-rose-100 text-rose-700 border-none font-bold">Safety Blocked</Badge>
@@ -313,7 +334,7 @@ function SendGatewayPage() {
                 </div>
                 <p className="text-slate-500 text-sm font-mono">{selectedJob.id}</p>
               </div>
-              <button onClick={() => setSelectedJob(null)} className="text-slate-400 hover:text-slate-600 bg-slate-100 p-2 rounded-full">
+              <button onClick={() => handleJobSelect(null)} className="text-slate-400 hover:text-slate-600 bg-slate-100 p-2 rounded-full">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -327,19 +348,64 @@ function SendGatewayPage() {
                 <p className="text-xs text-slate-500 uppercase font-bold mb-1">Recipient</p>
                 <p className="text-sm text-slate-700">{selectedJob.recipient_email || selectedJob.recipient_phone || "N/A"}</p>
               </div>
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                <p className="text-xs text-slate-500 uppercase font-bold mb-1">Created</p>
-                <p className="text-sm text-slate-700">{new Date(selectedJob.created_at).toLocaleString('vi-VN')}</p>
+            </div>
+
+            <div className="mb-6 border border-slate-200 rounded-xl overflow-hidden">
+              <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                  <Activity className="w-4 h-4" /> Delivery Timeline
+                </h3>
               </div>
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                <p className="text-xs text-slate-500 uppercase font-bold mb-1">Approved By</p>
-                {selectedJob.approved_by ? (
-                  <p className="text-sm text-emerald-600 font-bold flex items-center gap-1">
-                    <CheckCircle className="w-4 h-4" /> {new Date(selectedJob.approved_at).toLocaleString('vi-VN')}
-                  </p>
-                ) : (
-                  <p className="text-sm text-slate-400 italic">Not approved</p>
-                )}
+              <div className="p-6 bg-white relative">
+                {/* Vertical line */}
+                <div className="absolute left-[39px] top-6 bottom-6 w-0.5 bg-slate-100 z-0"></div>
+                
+                <div className="space-y-6 relative z-10">
+                  {buildDeliveryTimeline(selectedJob, selectedJobEvents).map((node, index) => (
+                    <div key={node.id} className="flex gap-4">
+                      <div className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center border-2 border-white shadow-sm ${
+                        node.eventType === "created" ? "bg-slate-100 text-slate-500" :
+                        node.eventType === "safety_blocked" ? "bg-rose-100 text-rose-600" :
+                        node.eventType === "approved" ? "bg-emerald-100 text-emerald-600" :
+                        node.eventType === "sending" ? "bg-blue-100 text-blue-600" :
+                        node.eventType === "sent" ? "bg-emerald-100 text-emerald-600" :
+                        node.eventType === "failed" || node.eventType === "bounced" || node.eventType === "complained" ? "bg-red-100 text-red-600" :
+                        "bg-indigo-100 text-indigo-600"
+                      }`}>
+                        {node.eventType === "created" && <Clock className="w-4 h-4" />}
+                        {node.eventType === "safety_blocked" && <ShieldAlert className="w-4 h-4" />}
+                        {node.eventType === "approved" && <CheckCircle className="w-4 h-4" />}
+                        {node.eventType === "sending" && <Play className="w-4 h-4" />}
+                        {node.eventType === "sent" && <Send className="w-4 h-4" />}
+                        {node.eventType === "failed" && <XCircle className="w-4 h-4" />}
+                        {(node.eventType === "delivered" || node.eventType === "opened" || node.eventType === "clicked") && <Mail className="w-4 h-4" />}
+                        {(node.eventType === "bounced" || node.eventType === "complained") && <AlertTriangle className="w-4 h-4" />}
+                      </div>
+                      <div className="flex-1 pt-1">
+                        <div className="flex justify-between items-start mb-1">
+                          <p className="font-bold text-slate-800 capitalize flex items-center gap-2">
+                            {node.eventType.replace("_", " ")}
+                            {node.isSandbox && <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-none text-[10px] uppercase font-bold py-0 h-4">Sandbox</Badge>}
+                          </p>
+                          <span className="text-xs text-slate-500 font-mono bg-slate-50 px-2 py-1 rounded">
+                            {new Date(node.occurredAt).toLocaleString('vi-VN')}
+                          </span>
+                        </div>
+                        {node.providerMessageId && (
+                          <p className="text-xs text-slate-500 font-mono mt-1">Provider ID: {node.providerMessageId}</p>
+                        )}
+                        {node.providerErrorMessage && (
+                          <p className="text-sm text-red-600 mt-2 bg-red-50 p-2 rounded-lg border border-red-100 break-words font-mono text-xs">
+                            {node.providerErrorMessage}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {buildDeliveryTimeline(selectedJob, selectedJobEvents).length === 0 && (
+                    <div className="text-center text-slate-400 text-sm py-4">No events found.</div>
+                  )}
+                </div>
               </div>
             </div>
 
