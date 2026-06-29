@@ -19,7 +19,7 @@ import { SaleCustomerInsights } from "./SaleCustomerInsights";
 import { AssignStaffDialog } from "./AssignStaffDialog";
 import { DataHealthBadge } from "@/components/customers/DataHealthBadge";
 import { getCustomerDataHealth } from "@/lib/customers/dataHealth";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useCheckInFlow } from "@/hooks/useCheckInFlow";
 import { CheckInFlow } from "./checkin/CheckInFlow";
 import { Badge } from "@/components/ui/badge";
@@ -121,7 +121,7 @@ import { getDistanceTypeFromMeters, getRecommendedRoutingByDistance } from "@/li
 import { isFeatureEnabledForUser } from "@/lib/pilotMode";
 import { CommunicationLaunchers } from "./CommunicationLaunchers";
 import { FocusInteractionPanel } from "./FocusInteractionPanel";
-import { useCopilotContext } from "../chat/ProductCopilotContext";
+import { ProductCopilotContext } from "../chat/ProductCopilotContext";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 
 const drawerCache: Record<string, { data: any; timestamp: number }> = {};
@@ -148,7 +148,8 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   const customer = activeCustomer || customerProp || {};
   const settings = useSystemSettings();
   const navigate = useNavigate();
-  const { setCustomerContext } = useCopilotContext();
+  const copilotContext = React.useContext(ProductCopilotContext);
+  const setCustomerContext = copilotContext?.setCustomerContext;
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [pinning, setPinning] = useState(false);
@@ -287,7 +288,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       fetchCustomerDetails();
 
       // Set copilot context
-      setCustomerContext({
+      setCustomerContext?.({
         currentCustomerId: customerProp.id,
         customerName:
           customerProp.contact_name || customerProp.name || customerProp.full_name || "Khách hàng",
@@ -296,12 +297,12 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       });
     } else {
       setActiveCustomer(null);
-      setCustomerContext(null);
+      setCustomerContext?.(null);
     }
 
     // Clear on unmount
     return () => {
-      setCustomerContext(null);
+      setCustomerContext?.(null);
     };
   }, [open, customerProp?.id, initialQuickAction]);
 
@@ -1159,6 +1160,8 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-xl w-full p-0 flex flex-col h-[100dvh] lg:h-full border-l border-slate-200 shadow-2xl">
+        <SheetTitle className="sr-only">Customer Preview Drawer</SheetTitle>
+        <SheetDescription className="sr-only">Detailed view of customer information and history.</SheetDescription>
         {/* HEADER SECTION (UPGRADED TO QUICK AXIS CENTER) */}
         <div className="bg-slate-900 text-white p-6 relative overflow-hidden shrink-0">
           <div className="absolute top-0 right-0 p-8 opacity-10">

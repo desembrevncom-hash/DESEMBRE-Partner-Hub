@@ -65,7 +65,7 @@ import { AssignStaffDialog } from "@/components/customers/AssignStaffDialog";
 import { AddTaskDialog } from "@/components/customers/AddTaskDialog";
 import { TaskActionDialog } from "@/components/workspace/TaskActionDialog";
 import { getTaskStatusLabel, getTaskTypeLabel } from "@/lib/tasks";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";

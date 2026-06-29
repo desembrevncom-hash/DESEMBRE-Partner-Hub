@@ -35,7 +35,7 @@ interface ProductCopilotContextType {
   quickReplies: QuickReply[];
 }
 
-const ProductCopilotContext = createContext<ProductCopilotContextType | undefined>(undefined);
+export const ProductCopilotContext = createContext<ProductCopilotContextType | undefined>(undefined);
 
 export function ProductCopilotProvider({ children }: { children: ReactNode }) {
   const [customerContext, setCustomerContext] = useState<CustomerContextData | null>(null);

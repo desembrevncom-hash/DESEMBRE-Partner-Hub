@@ -509,24 +509,36 @@ function CustomersPage() {
           console.error("fetch intelligence error:", intelError);
         }
 
-        const { data: channelData, error: channelError } = await supabase.rpc(
-          "get_customer_channel_summary",
-          {
-            p_customer_ids: cIds,
-          },
-        );
-        if (!channelError && channelData) {
-          const channelMap = new Map(
-            channelData.map((i: any) => [i.customer_id, i] as [string, any]),
+        const ENABLE_CUSTOMER_CHANNEL_SUMMARY_RPC = false;
+
+        if (ENABLE_CUSTOMER_CHANNEL_SUMMARY_RPC) {
+          const { data: channelData, error: channelError } = await supabase.rpc(
+            "get_customer_channel_summary",
+            {
+              p_customer_ids: cIds,
+            },
           );
-          processed.forEach((c: any) => {
-            const channel = channelMap.get(c.id);
-            if (channel) {
-              c.channel_summary = channel;
+          if (!channelError && channelData) {
+            const channelMap = new Map(
+              channelData.map((i: any) => [i.customer_id, i] as [string, any]),
+            );
+            processed.forEach((c: any) => {
+              const channel = channelMap.get(c.id);
+              if (channel) {
+                c.channel_summary = channel;
+              }
+            });
+          } else if (channelError) {
+            const isIgnorable = channelError.code === "400" || channelError.code?.startsWith("PGRST") || channelError.status === 400;
+            if (!isIgnorable) {
+              console.error("fetch channel summary error:", channelError);
             }
+          }
+        } else {
+          // Disable channel summary fetch to prevent 400 error spam
+          processed.forEach((c: any) => {
+            c.channel_summary = null;
           });
-        } else if (channelError) {
-          console.error("fetch channel summary error:", channelError);
         }
       }
 
