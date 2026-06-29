@@ -28,14 +28,20 @@ export const CustomerRiskSummary: React.FC<CustomerRiskSummaryProps> = ({ custom
     const fetchCachedAi = async () => {
       if (!customer?.id) return;
       try {
-        const { data } = await supabase
-          .from("ai_customer_suggestions")
-          .select("suggestion_json")
-          .eq("customer_id", customer.id)
-          .eq("status", "active")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .single();
+        const ENABLE_AI_CUSTOMER_SUGGESTIONS_DB = false;
+        let data = null;
+
+        if (ENABLE_AI_CUSTOMER_SUGGESTIONS_DB) {
+          const res = await supabase
+            .from("ai_customer_suggestions")
+            .select("suggestion_json")
+            .eq("customer_id", customer.id)
+            .eq("status", "active")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .single();
+          data = res.data;
+        }
 
         if (isMounted && data) {
           setAiSuggestion(data.suggestion_json);

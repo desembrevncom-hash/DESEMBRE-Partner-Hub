@@ -48,13 +48,19 @@ export const CustomerAiSuggestions: React.FC<CustomerAiSuggestionsProps> = ({ cu
   useEffect(() => {
     const fetchExisting = async () => {
       try {
-        const { data, error } = await supabase
-          .from("ai_customer_suggestions")
-          .select("*")
-          .eq("customer_id", customerId)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .single();
+        const ENABLE_AI_CUSTOMER_SUGGESTIONS_DB = false;
+        let data = null;
+
+        if (ENABLE_AI_CUSTOMER_SUGGESTIONS_DB) {
+          const res = await supabase
+            .from("ai_customer_suggestions")
+            .select("*")
+            .eq("customer_id", customerId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .single();
+          data = res.data;
+        }
 
         if (data && data.status === "active") {
           const createdAt = new Date(data.created_at);

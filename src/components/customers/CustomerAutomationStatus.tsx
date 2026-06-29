@@ -23,7 +23,7 @@ export const CustomerAutomationStatus: React.FC<CustomerAutomationStatusProps> =
         // For MVP, we check automation_logs with status 'pending', 'scheduled' or 'running'
         const { data, error } = await supabase
           .from("automation_logs")
-          .select("id, rule_id, status, error_message, rule:automation_rules(name, rule_type)")
+          .select("id, rule_id, status, error_message, rule:automation_rules(name)")
           .eq("customer_id", customerId)
           .in("status", ["pending", "running", "scheduled"])
           .order("created_at", { ascending: false });
