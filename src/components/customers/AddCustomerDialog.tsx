@@ -47,8 +47,12 @@ import { VIETNAM_PROVINCES, stripAccents, findProvinceByName } from "@/lib/vietn
 import { createLeadAssignedAutomation } from "@/lib/automation";
 import { Badge } from "@/components/ui/badge";
 import { createContactChannel } from "@/lib/contactChannels";
-import { parseFacebookUrl, ParsedFacebookProfile } from "@/lib/customers/facebookUrlParser";
+import {
+  classifyFacebookUrl,
+  FacebookUrlClassification,
+} from "@/lib/customers/facebookUrlClassifier";
 import { checkCustomerDuplicate } from "@/lib/customers/customerDuplicateChecker";
+import { safeLower, safeStripAccents } from "@/lib/utils/safeString";
 interface AddCustomerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -83,8 +87,8 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
   const [previewDuplicateInfo, setPreviewDuplicateInfo] = useState<any>(null);
 
   // --- FACEBOOK URL STATES ---
-  const [fbPreviewStatus, setFbPreviewStatus] = useState<"idle" | "loading" | "uid" | "username" | "invalid_fb" | "invalid">("idle");
-  const [fbParsedData, setFbParsedData] = useState<ParsedFacebookProfile | null>(null);
+  const [fbPreviewStatus, setFbPreviewStatus] = useState<"idle" | "loading" | "uid" | "username" | "invalid_type" | "invalid_fb" | "invalid">("idle");
+  const [fbParsedData, setFbParsedData] = useState<FacebookUrlClassification | null>(null);
   const [fbDuplicateInfo, setFbDuplicateInfo] = useState<any>(null);
 
   useEffect(() => {
@@ -144,10 +148,12 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
     setFbDuplicateInfo(null);
 
     const timer = setTimeout(async () => {
-      const parsed = parseFacebookUrl(val);
+      const parsed = classifyFacebookUrl(val);
       setFbParsedData(parsed);
 
-      if (parsed.facebookUid) {
+      if (!parsed.isProfileOrPage) {
+        setFbPreviewStatus("invalid_type");
+      } else if (parsed.facebookUid) {
         setFbPreviewStatus("uid");
       } else if (parsed.facebookUsername) {
         setFbPreviewStatus("username");
@@ -313,10 +319,10 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
     }
 
     // city
-    const tLow = stripAccents(t.toLowerCase());
+    const tLow = safeStripAccents(safeLower(t));
     for (const p of VIETNAM_PROVINCES) {
-      const pLow = stripAccents(p.toLowerCase());
-      const alias = stripAccents((findProvinceByName(pLow) || "").toLowerCase());
+      const pLow = safeStripAccents(safeLower(p));
+      const alias = safeStripAccents(safeLower(findProvinceByName(pLow) || ""));
       if (tLow.includes(pLow)) {
         city = p;
         t = t.replace(new RegExp(pLow, "i"), "").replace(new RegExp(p, "i"), "").trim();
@@ -553,6 +559,7 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
         const uid = fbParsedData?.facebookUid;
         const username = fbParsedData?.facebookUsername;
         const normalized = fbParsedData?.normalizedUrl;
+        const isProfileOrPage = fbParsedData?.isProfileOrPage;
         
         let resolver_status = "unresolved";
         let confidence_score = null;
@@ -587,21 +594,21 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
           }
         }
 
-        // Insert job if it needs manual review (username only, or unresolved but it's a FB url)
-        if (!uid && username) {
+        // Insert job if it needs manual review
+        if (!isProfileOrPage || (!uid && username)) {
           const { data: jobData, error: jobErr } = await supabase.from("facebook_identity_resolution_jobs").insert({
             customer_id: newCustomer.id,
             raw_url: rawUrl,
             status: "manual_review_required",
             resolver_method: "local_parser",
-            confidence_score,
+            confidence_score: confidence_score || 0,
             created_by: user?.id
           }).select('id').single();
           
           if (jobErr) {
             console.warn("Failed to insert facebook_identity_resolution_jobs:", jobErr);
-          } else if (jobData) {
-            // Trigger background auto-resolver silently
+          } else if (jobData && isProfileOrPage) {
+            // Trigger background auto-resolver silently ONLY if it's a profile/page
             supabase.functions.invoke("resolve-facebook-uid", {
               body: { job_id: jobData.id }
             }).catch(e => console.warn("Auto-resolver invoke failed:", e));
@@ -620,6 +627,7 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
           if (jobErr) {
             console.warn("Failed to insert facebook_identity_resolution_jobs invalid fb:", jobErr);
           } else if (jobData) {
+            // Trigger background auto-resolver silently
             supabase.functions.invoke("resolve-facebook-uid", {
               body: { job_id: jobData.id }
             }).catch(e => console.warn("Auto-resolver invoke failed:", e));
@@ -1078,8 +1086,27 @@ export function AddCustomerDialog({ open, onOpenChange, onSuccess }: AddCustomer
                       <div className="text-xs text-amber-700 bg-amber-50/80 px-3 py-2.5 rounded-xl flex items-start gap-2 border border-amber-100">
                         <AlertCircle className="w-4 h-4 text-amber-500 mt-px shrink-0" />
                         <div>
-                          <span>Đã nhận diện username: <span className="font-bold">{fbParsedData?.facebookUsername}</span></span>
-                          <div className="opacity-80 text-[10px] mt-0.5">Chưa có UID ổn định. Bạn vẫn có thể tiếp tục tạo khách hàng.</div>
+                          <span className="font-bold">Đã nhận diện username: </span>
+                          <span className="font-mono bg-white px-1 py-0.5 rounded text-amber-600 border border-amber-100">
+                            {fbParsedData?.username}
+                          </span>
+                          <div className="opacity-80 text-[10px] mt-0.5">
+                            Chưa có UID ổn định. Bạn vẫn có thể tiếp tục tạo khách hàng.
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {fbPreviewStatus === "invalid_type" && (
+                      <div className="text-xs text-amber-700 bg-amber-50/80 px-3 py-2.5 rounded-xl flex items-start gap-2 border border-amber-100">
+                        <AlertCircle className="w-4 h-4 text-amber-500 mt-px shrink-0" />
+                        <div>
+                          <span className="font-bold">
+                            Hệ thống không tự động phân giải loại link này (Group, Bài viết,
+                            Reel...).
+                          </span>
+                          <div className="opacity-80 text-[10px] mt-0.5">
+                            Sẽ đưa vào hàng đợi kiểm tra thủ công.
+                          </div>
                         </div>
                       </div>
                     )}
