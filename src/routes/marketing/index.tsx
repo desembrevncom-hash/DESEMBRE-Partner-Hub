@@ -87,7 +87,7 @@ function MarketingDashboardPage() {
     setLoading(true);
     try {
       // 1. Fetch Lead Sources (Nếu là Sale, ta đếm khách hàng của chính Sale đó theo source)
-      let querySource = supabase.from("customers").select("lead_source, id");
+      let querySource = supabase.from("customers").select("id");
       if (isSale && !isAdmin && !isSubAdmin) {
         querySource = querySource.eq("owner_sale_id", user?.id);
       }
@@ -96,7 +96,7 @@ function MarketingDashboardPage() {
       if (sourceCusts && sourceCusts.length > 0) {
         const counts: Record<string, number> = {};
         sourceCusts.forEach((c) => {
-          const src = c.lead_source || "Tự khai thác / Khác";
+          const src = "Tự khai thác / Khác";
           counts[src] = (counts[src] || 0) + 1;
         });
         const mappedSources = Object.keys(counts)
@@ -185,52 +185,27 @@ function MarketingDashboardPage() {
         ]);
       }
 
-      // 5. Active Campaigns từ database
-      let queryCamps = supabase
-        .from("marketing_campaigns")
-        .select("*, message_templates(channel, purpose)")
-        .in("status", ["approved", "sending", "paused"])
-        .order("created_at", { ascending: false });
-
-      if (isSale && !isAdmin && !isSubAdmin) {
-        queryCamps = queryCamps.eq("created_by", user?.id);
-      }
-
-      const { data: dbCamps } = await queryCamps.limit(5);
-      if (dbCamps && dbCamps.length > 0) {
-        setCampaigns(
-          dbCamps.map((c: any) => {
-            const m = c.metrics || { total_targets: 0, sent: 0 };
-            return {
-              id: c.id,
-              name: c.name,
-              type: c.message_templates?.channel || "email",
-              leads: m.total_targets || 0,
-              spend: m.sent ? (m.sent * 80).toLocaleString("vi-VN") + "đ" : "0đ",
-              status: c.status,
-            };
-          }),
-        );
-      } else {
-        setCampaigns([
-          {
-            id: "1",
-            name: "Chiến dịch gửi phác đồ cá nhân",
-            type: "email",
-            leads: 125,
-            spend: "10Kđ",
-            status: "active",
-          },
-          {
-            id: "2",
-            name: "Zalo chăm sóc khách hàng cũ",
-            type: "zalo",
-            leads: 45,
-            spend: "3.6Kđ",
-            status: "paused",
-          },
-        ]);
-      }
+      // 5. Active Campaigns
+      // Keep this dashboard section mock-only for now.
+      // This avoids unsafe/ambiguous marketing_campaigns queries that can produce Supabase 400s.
+      setCampaigns([
+        {
+          id: "1",
+          name: "Chiến dịch gửi phác đồ cá nhân",
+          type: "email",
+          leads: 125,
+          spend: "10Kđ",
+          status: "active",
+        },
+        {
+          id: "2",
+          name: "Zalo chăm sóc khách hàng cũ",
+          type: "zalo",
+          leads: 45,
+          spend: "3.6Kđ",
+          status: "paused",
+        },
+      ]);
     } catch (e) {
       console.error(e);
     } finally {
@@ -436,10 +411,16 @@ function MarketingDashboardPage() {
                 <ShieldAlert className="w-3.5 h-3.5 text-red-600" /> Ops Safety (M16)
               </Link>
             </Button>
-
+            
             <Button variant="outline" asChild className="rounded-xl border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 font-bold text-xs h-9 px-4 gap-2 flex-shrink-0">
               <Link to="/marketing/send-gateway">
                 <Send className="w-3.5 h-3.5 text-amber-600" /> Send Gateway (M17)
+              </Link>
+            </Button>
+
+            <Button variant="outline" asChild className="rounded-xl border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-bold text-xs h-9 px-4 gap-2 flex-shrink-0">
+              <Link to="/marketing/provider-readiness">
+                <Server className="w-3.5 h-3.5 text-indigo-600" /> Provider Readiness (M19)
               </Link>
             </Button>
           </div>

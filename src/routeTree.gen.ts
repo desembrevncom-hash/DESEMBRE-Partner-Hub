@@ -35,6 +35,7 @@ import { Route as MarketingSendGatewayRouteImport } from './routes/marketing/sen
 import { Route as MarketingSafetyRouteImport } from './routes/marketing/safety'
 import { Route as MarketingReportsRouteImport } from './routes/marketing/reports'
 import { Route as MarketingReadinessRouteImport } from './routes/marketing/readiness'
+import { Route as MarketingProviderReadinessRouteImport } from './routes/marketing/provider-readiness'
 import { Route as MarketingLogsRouteImport } from './routes/marketing/logs'
 import { Route as MarketingConsentRouteImport } from './routes/marketing/consent'
 import { Route as DebugCustomersNormalizationRouteImport } from './routes/debug/customers-normalization'
@@ -220,6 +221,12 @@ const MarketingReadinessRoute = MarketingReadinessRouteImport.update({
   path: '/marketing/readiness',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MarketingProviderReadinessRoute =
+  MarketingProviderReadinessRouteImport.update({
+    id: '/marketing/provider-readiness',
+    path: '/marketing/provider-readiness',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const MarketingLogsRoute = MarketingLogsRouteImport.update({
   id: '/marketing/logs',
   path: '/marketing/logs',
@@ -538,6 +545,7 @@ export interface FileRoutesByFullPath {
   '/debug/customers-normalization': typeof DebugCustomersNormalizationRoute
   '/marketing/consent': typeof MarketingConsentRoute
   '/marketing/logs': typeof MarketingLogsRoute
+  '/marketing/provider-readiness': typeof MarketingProviderReadinessRoute
   '/marketing/readiness': typeof MarketingReadinessRoute
   '/marketing/reports': typeof MarketingReportsRoute
   '/marketing/safety': typeof MarketingSafetyRoute
@@ -618,6 +626,7 @@ export interface FileRoutesByTo {
   '/debug/customers-normalization': typeof DebugCustomersNormalizationRoute
   '/marketing/consent': typeof MarketingConsentRoute
   '/marketing/logs': typeof MarketingLogsRoute
+  '/marketing/provider-readiness': typeof MarketingProviderReadinessRoute
   '/marketing/readiness': typeof MarketingReadinessRoute
   '/marketing/reports': typeof MarketingReportsRoute
   '/marketing/safety': typeof MarketingSafetyRoute
@@ -700,6 +709,7 @@ export interface FileRoutesById {
   '/debug/customers-normalization': typeof DebugCustomersNormalizationRoute
   '/marketing/consent': typeof MarketingConsentRoute
   '/marketing/logs': typeof MarketingLogsRoute
+  '/marketing/provider-readiness': typeof MarketingProviderReadinessRoute
   '/marketing/readiness': typeof MarketingReadinessRoute
   '/marketing/reports': typeof MarketingReportsRoute
   '/marketing/safety': typeof MarketingSafetyRoute
@@ -783,6 +793,7 @@ export interface FileRouteTypes {
     | '/debug/customers-normalization'
     | '/marketing/consent'
     | '/marketing/logs'
+    | '/marketing/provider-readiness'
     | '/marketing/readiness'
     | '/marketing/reports'
     | '/marketing/safety'
@@ -863,6 +874,7 @@ export interface FileRouteTypes {
     | '/debug/customers-normalization'
     | '/marketing/consent'
     | '/marketing/logs'
+    | '/marketing/provider-readiness'
     | '/marketing/readiness'
     | '/marketing/reports'
     | '/marketing/safety'
@@ -944,6 +956,7 @@ export interface FileRouteTypes {
     | '/debug/customers-normalization'
     | '/marketing/consent'
     | '/marketing/logs'
+    | '/marketing/provider-readiness'
     | '/marketing/readiness'
     | '/marketing/reports'
     | '/marketing/safety'
@@ -1024,6 +1037,7 @@ export interface RootRouteChildren {
   DebugCustomersNormalizationRoute: typeof DebugCustomersNormalizationRoute
   MarketingConsentRoute: typeof MarketingConsentRoute
   MarketingLogsRoute: typeof MarketingLogsRoute
+  MarketingProviderReadinessRoute: typeof MarketingProviderReadinessRoute
   MarketingReadinessRoute: typeof MarketingReadinessRoute
   MarketingReportsRoute: typeof MarketingReportsRoute
   MarketingSafetyRoute: typeof MarketingSafetyRoute
@@ -1243,6 +1257,13 @@ declare module '@tanstack/react-router' {
       path: '/marketing/readiness'
       fullPath: '/marketing/readiness'
       preLoaderRoute: typeof MarketingReadinessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketing/provider-readiness': {
+      id: '/marketing/provider-readiness'
+      path: '/marketing/provider-readiness'
+      fullPath: '/marketing/provider-readiness'
+      preLoaderRoute: typeof MarketingProviderReadinessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/marketing/logs': {
@@ -1677,6 +1698,7 @@ const rootRouteChildren: RootRouteChildren = {
   DebugCustomersNormalizationRoute: DebugCustomersNormalizationRoute,
   MarketingConsentRoute: MarketingConsentRoute,
   MarketingLogsRoute: MarketingLogsRoute,
+  MarketingProviderReadinessRoute: MarketingProviderReadinessRoute,
   MarketingReadinessRoute: MarketingReadinessRoute,
   MarketingReportsRoute: MarketingReportsRoute,
   MarketingSafetyRoute: MarketingSafetyRoute,
