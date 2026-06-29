@@ -526,7 +526,10 @@ function CustomersPage() {
             }
           });
         } else if (channelError) {
-          console.error("fetch channel summary error:", channelError);
+          const isIgnorable = channelError.code === "400" || channelError.code?.startsWith("PGRST") || channelError.status === 400;
+          if (!isIgnorable) {
+            console.error("fetch channel summary error:", channelError);
+          }
         }
       }
 

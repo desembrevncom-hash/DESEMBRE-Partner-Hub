@@ -121,7 +121,7 @@ import { getDistanceTypeFromMeters, getRecommendedRoutingByDistance } from "@/li
 import { isFeatureEnabledForUser } from "@/lib/pilotMode";
 import { CommunicationLaunchers } from "./CommunicationLaunchers";
 import { FocusInteractionPanel } from "./FocusInteractionPanel";
-import { useCopilotContext } from "../chat/ProductCopilotContext";
+import { ProductCopilotContext } from "../chat/ProductCopilotContext";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 
 const drawerCache: Record<string, { data: any; timestamp: number }> = {};
@@ -148,7 +148,8 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   const customer = activeCustomer || customerProp || {};
   const settings = useSystemSettings();
   const navigate = useNavigate();
-  const { setCustomerContext } = useCopilotContext();
+  const copilotContext = React.useContext(ProductCopilotContext);
+  const setCustomerContext = copilotContext?.setCustomerContext;
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [pinning, setPinning] = useState(false);
@@ -287,7 +288,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       fetchCustomerDetails();
 
       // Set copilot context
-      setCustomerContext({
+      setCustomerContext?.({
         currentCustomerId: customerProp.id,
         customerName:
           customerProp.contact_name || customerProp.name || customerProp.full_name || "Khách hàng",
@@ -296,12 +297,12 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       });
     } else {
       setActiveCustomer(null);
-      setCustomerContext(null);
+      setCustomerContext?.(null);
     }
 
     // Clear on unmount
     return () => {
-      setCustomerContext(null);
+      setCustomerContext?.(null);
     };
   }, [open, customerProp?.id, initialQuickAction]);
 
