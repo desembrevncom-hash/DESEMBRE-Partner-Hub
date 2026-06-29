@@ -39,6 +39,7 @@ import { Route as MarketingReadinessRouteImport } from './routes/marketing/readi
 import { Route as MarketingProviderReadinessRouteImport } from './routes/marketing/provider-readiness'
 import { Route as MarketingLogsRouteImport } from './routes/marketing/logs'
 import { Route as MarketingCampaignsRouteImport } from './routes/marketing/campaigns'
+import { Route as MarketingAnalyticsRouteImport } from './routes/marketing/analytics'
 import { Route as CustomersMapRouteImport } from './routes/customers/map'
 import { Route as CustomersIdRouteImport } from './routes/customers/$id'
 import { Route as AdminWebhooksRouteImport } from './routes/admin/webhooks'
@@ -227,6 +228,11 @@ const MarketingLogsRoute = MarketingLogsRouteImport.update({
 const MarketingCampaignsRoute = MarketingCampaignsRouteImport.update({
   id: '/marketing/campaigns',
   path: '/marketing/campaigns',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketingAnalyticsRoute = MarketingAnalyticsRouteImport.update({
+  id: '/marketing/analytics',
+  path: '/marketing/analytics',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CustomersMapRoute = CustomersMapRouteImport.update({
@@ -459,6 +465,7 @@ export interface FileRoutesByFullPath {
   '/admin/webhooks': typeof AdminWebhooksRoute
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
+  '/marketing/analytics': typeof MarketingAnalyticsRoute
   '/marketing/campaigns': typeof MarketingCampaignsRoute
   '/marketing/logs': typeof MarketingLogsRoute
   '/marketing/provider-readiness': typeof MarketingProviderReadinessRoute
@@ -527,6 +534,7 @@ export interface FileRoutesByTo {
   '/admin/webhooks': typeof AdminWebhooksRoute
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
+  '/marketing/analytics': typeof MarketingAnalyticsRoute
   '/marketing/campaigns': typeof MarketingCampaignsRoute
   '/marketing/logs': typeof MarketingLogsRoute
   '/marketing/provider-readiness': typeof MarketingProviderReadinessRoute
@@ -597,6 +605,7 @@ export interface FileRoutesById {
   '/admin/webhooks': typeof AdminWebhooksRoute
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
+  '/marketing/analytics': typeof MarketingAnalyticsRoute
   '/marketing/campaigns': typeof MarketingCampaignsRoute
   '/marketing/logs': typeof MarketingLogsRoute
   '/marketing/provider-readiness': typeof MarketingProviderReadinessRoute
@@ -668,6 +677,7 @@ export interface FileRouteTypes {
     | '/admin/webhooks'
     | '/customers/$id'
     | '/customers/map'
+    | '/marketing/analytics'
     | '/marketing/campaigns'
     | '/marketing/logs'
     | '/marketing/provider-readiness'
@@ -736,6 +746,7 @@ export interface FileRouteTypes {
     | '/admin/webhooks'
     | '/customers/$id'
     | '/customers/map'
+    | '/marketing/analytics'
     | '/marketing/campaigns'
     | '/marketing/logs'
     | '/marketing/provider-readiness'
@@ -805,6 +816,7 @@ export interface FileRouteTypes {
     | '/admin/webhooks'
     | '/customers/$id'
     | '/customers/map'
+    | '/marketing/analytics'
     | '/marketing/campaigns'
     | '/marketing/logs'
     | '/marketing/provider-readiness'
@@ -873,6 +885,7 @@ export interface RootRouteChildren {
   AdminUatRoute: typeof AdminUatRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminWebhooksRoute: typeof AdminWebhooksRoute
+  MarketingAnalyticsRoute: typeof MarketingAnalyticsRoute
   MarketingCampaignsRoute: typeof MarketingCampaignsRoute
   MarketingLogsRoute: typeof MarketingLogsRoute
   MarketingProviderReadinessRoute: typeof MarketingProviderReadinessRoute
@@ -1112,6 +1125,13 @@ declare module '@tanstack/react-router' {
       path: '/marketing/campaigns'
       fullPath: '/marketing/campaigns'
       preLoaderRoute: typeof MarketingCampaignsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketing/analytics': {
+      id: '/marketing/analytics'
+      path: '/marketing/analytics'
+      fullPath: '/marketing/analytics'
+      preLoaderRoute: typeof MarketingAnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/customers/map': {
@@ -1430,6 +1450,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminUatRoute: AdminUatRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminWebhooksRoute: AdminWebhooksRoute,
+  MarketingAnalyticsRoute: MarketingAnalyticsRoute,
   MarketingCampaignsRoute: MarketingCampaignsRoute,
   MarketingLogsRoute: MarketingLogsRoute,
   MarketingProviderReadinessRoute: MarketingProviderReadinessRoute,
