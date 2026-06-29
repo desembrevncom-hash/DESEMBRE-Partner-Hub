@@ -22,7 +22,7 @@ import {
   getProviderSandboxPlan,
   SandboxPlanResult,
 } from "@/lib/marketing/providerSandboxPlan";
-import { SecretGateResult } from "@/lib/marketing/providerSecretGate";
+import { SecretGateResult, getFallbackSecretGateState } from "@/lib/marketing/providerSecretGate";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/marketing/provider-readiness")({
@@ -34,6 +34,7 @@ function ProviderReadinessPage() {
   const [configAudit, setConfigAudit] = useState<ProviderConfigAuditResult[]>([]);
   const [sandboxPlan, setSandboxPlan] = useState<SandboxPlanResult[]>([]);
   const [secretGate, setSecretGate] = useState<SecretGateResult[]>([]);
+  const [secretGateErrorMsg, setSecretGateErrorMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -52,11 +53,19 @@ function ProviderReadinessPage() {
       setSandboxPlan(getProviderSandboxPlan());
 
       // M25 Edge Function call
-      const { data, error: secretGateError } = await supabase.functions.invoke(
-        "provider-secret-gate"
-      );
-      if (!secretGateError && data) {
-        setSecretGate(data);
+      try {
+        const { data, error: secretGateError } = await supabase.functions.invoke(
+          "provider-secret-gate"
+        );
+        if (secretGateError || !data) {
+          setSecretGateErrorMsg("Server-side secret gate is not deployed or unavailable. Real sends remain disabled.");
+          setSecretGate(getFallbackSecretGateState());
+        } else {
+          setSecretGate(data);
+        }
+      } catch (invokeError) {
+        setSecretGateErrorMsg("Server-side secret gate is not deployed or unavailable. Real sends remain disabled.");
+        setSecretGate(getFallbackSecretGateState());
       }
     } catch (error: any) {
       setErrorMessage(error?.message || "Failed to run provider readiness validation.");
@@ -464,8 +473,24 @@ function ProviderReadinessPage() {
                   Provider Sandbox Secret Gate (M25)
                 </h2>
               </div>
+
+              {secretGateErrorMsg && (
+                <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-600 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-amber-900">
+                        Function Unavailable
+                      </p>
+                      <p className="mt-1 text-sm text-amber-700">
+                        {secretGateErrorMsg}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
               
-              {secretGate.length === 0 ? (
+              {secretGate.length === 0 && !secretGateErrorMsg ? (
                 <div className="text-sm text-slate-500 italic">
                   Loading server-side gate evaluation...
                 </div>

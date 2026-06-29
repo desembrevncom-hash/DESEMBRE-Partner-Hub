@@ -73,3 +73,41 @@ export function checkProviderSecretGate(envPresence: Record<string, boolean>): S
     }
   });
 }
+
+export function getFallbackSecretGateState(): SecretGateResult[] {
+  return [
+    {
+      provider_id: "mock",
+      configured: true,
+      checked_env_names: [],
+      missing_env_names: [],
+      secret_values_exposed: false,
+      provider_api_called: false,
+      real_send_enabled: false,
+      external_provider_calls_enabled: false,
+      production_gate_required: false,
+    },
+    {
+      provider_id: "resend",
+      configured: false,
+      checked_env_names: [],
+      missing_env_names: [],
+      secret_values_exposed: false,
+      provider_api_called: false,
+      real_send_enabled: false,
+      external_provider_calls_enabled: false,
+      production_gate_required: true,
+    },
+    {
+      provider_id: "zalo_zns",
+      configured: false,
+      checked_env_names: [],
+      missing_env_names: [],
+      secret_values_exposed: false,
+      provider_api_called: false,
+      real_send_enabled: false,
+      external_provider_calls_enabled: false,
+      production_gate_required: true,
+    },
+  ];
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { checkProviderSecretGate } from "../src/lib/marketing/providerSecretGate";
+import { checkProviderSecretGate, getFallbackSecretGateState } from "../src/lib/marketing/providerSecretGate";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -115,5 +115,24 @@ describe("M25 Provider Sandbox Secret Gate", () => {
 
     expect(edgeSourceCode).not.toContain("Deno.env.toObject");
     expect(edgeSourceCode).toContain("Deno.env.get");
+  });
+
+  it("should have a safe fallback state when edge function is missing", () => {
+    const fallback = getFallbackSecretGateState();
+    expect(fallback).toHaveLength(3);
+    
+    fallback.forEach((plan: any) => {
+      expect(plan.secret_values_exposed).toBe(false);
+      expect(plan.provider_api_called).toBe(false);
+      expect(plan.real_send_enabled).toBe(false);
+      expect(plan.external_provider_calls_enabled).toBe(false);
+
+      if (plan.provider_id === "resend" || plan.provider_id === "zalo_zns") {
+        expect(plan.configured).toBe(false);
+        expect(plan.production_gate_required).toBe(true);
+      } else {
+        expect(plan.configured).toBe(true);
+      }
+    });
   });
 });
