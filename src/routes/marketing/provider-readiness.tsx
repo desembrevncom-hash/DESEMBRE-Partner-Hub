@@ -27,6 +27,10 @@ import {
   getSandboxExecutionPlan,
   ExecutionPlanResult,
 } from "@/lib/marketing/sandboxExecutionPlan";
+import {
+  evaluateSandboxExecution,
+  SandboxExecutionControllerResult,
+} from "@/lib/marketing/sandboxExecutionController";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/marketing/provider-readiness")({
@@ -39,6 +43,7 @@ function ProviderReadinessPage() {
   const [sandboxPlan, setSandboxPlan] = useState<SandboxPlanResult[]>([]);
   const [secretGate, setSecretGate] = useState<SecretGateResult[]>([]);
   const [executionPlan, setExecutionPlan] = useState<ExecutionPlanResult[]>([]);
+  const [controllerResults, setControllerResults] = useState<SandboxExecutionControllerResult[]>([]);
   const [secretGateErrorMsg, setSecretGateErrorMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -57,6 +62,31 @@ function ProviderReadinessPage() {
       setConfigAudit(runProviderConfigAudit());
       setSandboxPlan(getProviderSandboxPlan());
       setExecutionPlan(getSandboxExecutionPlan());
+
+      // M27 Static evaluations
+      setControllerResults([
+        evaluateSandboxExecution({
+          provider_id: "mock",
+          channel: "email",
+          recipient: "test@desembre.vn",
+          requested_by_role: "admin",
+          sandbox_mode_requested: true,
+        }),
+        evaluateSandboxExecution({
+          provider_id: "resend",
+          channel: "email",
+          recipient: "test@desembre.vn",
+          requested_by_role: "admin",
+          sandbox_mode_requested: true,
+        }),
+        evaluateSandboxExecution({
+          provider_id: "zalo_zns",
+          channel: "zalo",
+          recipient: "0001234567",
+          requested_by_role: "admin",
+          sandbox_mode_requested: true,
+        }),
+      ]);
 
       // M25 Edge Function call
       try {
@@ -644,6 +674,89 @@ function ProviderReadinessPage() {
                               </li>
                             ))}
                           </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-indigo-700" />
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Controlled Sandbox Execution Controller (M27 Phase 1)
+                </h2>
+              </div>
+
+              <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm font-semibold text-amber-800 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  M27 Phase 1 is mock/controller-only. No Resend or Zalo provider execution is enabled.
+                </p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                {controllerResults.map((result) => (
+                  <div
+                    key={result.provider_id}
+                    className="rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm flex flex-col"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-4">
+                      <p className="text-lg font-semibold text-slate-900">
+                        {result.provider_id.toUpperCase()}
+                      </p>
+                      <Badge
+                        className={
+                          result.execution_mode === "mock_sandbox_executed"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-red-100 text-red-700"
+                        }
+                      >
+                        {result.execution_mode}
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-2 text-xs font-mono text-slate-700 mb-4 pb-4 border-b border-slate-200">
+                      <p>provider_api_called: {String(result.provider_api_called)}</p>
+                      <p>real_send_enabled: {String(result.real_send_enabled)}</p>
+                      <p>external_provider_calls_enabled: {String(result.external_provider_calls_enabled)}</p>
+                      <p>production_gate_open: {String(result.production_gate_open)}</p>
+                      <p>approval_required: {String(result.approval_required)}</p>
+                    </div>
+
+                    <div className="mt-auto">
+                      <p className="mb-2 text-sm font-semibold text-slate-700">
+                        Reasons
+                      </p>
+                      <ul className="mb-4 space-y-1">
+                        {result.reasons.map((reason, idx) => (
+                          <li key={idx} className="text-xs text-slate-600 border-l-2 border-slate-300 pl-2">
+                            {reason}
+                          </li>
+                        ))}
+                      </ul>
+
+                      {result.synthetic_message_id && (
+                        <div className="mt-4 p-2 bg-slate-100 rounded border border-slate-200">
+                          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                            Synthetic Message ID
+                          </p>
+                          <p className="text-xs font-mono text-indigo-700 break-all">
+                            {result.synthetic_message_id}
+                          </p>
+                        </div>
+                      )}
+                      
+                      {result.provider_message_id === null && !result.synthetic_message_id && (
+                        <div className="mt-4 p-2 bg-slate-100 rounded border border-slate-200">
+                          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                            Provider Message ID
+                          </p>
+                          <p className="text-xs font-mono text-slate-400">
+                            null
+                          </p>
                         </div>
                       )}
                     </div>
