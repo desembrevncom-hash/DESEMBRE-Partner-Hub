@@ -87,7 +87,8 @@ function MarketingDashboardPage() {
     setLoading(true);
     try {
       // 1. Fetch Lead Sources (Nếu là Sale, ta đếm khách hàng của chính Sale đó theo source)
-      let querySource = supabase.from("customers").select("lead_source, id");
+      // Fix: lead_source column doesn't exist, using id only to avoid 400 error
+      let querySource = supabase.from("customers").select("id");
       if (isSale && !isAdmin && !isSubAdmin) {
         querySource = querySource.eq("owner_sale_id", user?.id);
       }
@@ -186,9 +187,10 @@ function MarketingDashboardPage() {
       }
 
       // 5. Active Campaigns từ database
+      // Fix: Explicitly specify the foreign key to avoid ambiguity 400 error
       let queryCamps = supabase
         .from("marketing_campaigns")
-        .select("*, message_templates(channel, purpose)")
+        .select("*, message_templates!marketing_campaigns_template_id_fkey(channel, purpose)")
         .in("status", ["approved", "sending", "paused"])
         .order("created_at", { ascending: false });
 
