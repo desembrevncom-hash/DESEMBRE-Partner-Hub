@@ -160,14 +160,19 @@ function SendGatewayPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl font-sans relative">
-      <div className="flex items-center gap-3 mb-6">
-        <ShieldAlert className="w-8 h-8 text-indigo-600" />
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Send Gateway QA (M18)</h1>
-          <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">
-            Hardening & Approval Console
-          </p>
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-3">
+          <ShieldAlert className="w-8 h-8 text-indigo-600" />
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Send Gateway QA (M18)</h1>
+            <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">
+              Hardening & Approval Console
+            </p>
+          </div>
         </div>
+        <Link to="/marketing/analytics" className="px-4 py-2 bg-white border border-slate-200 text-slate-700 font-bold rounded-lg hover:bg-slate-50 flex items-center gap-2 shadow-sm transition-all hover:shadow">
+          <Activity className="w-4 h-4 text-blue-600" /> View Analytics v2
+        </Link>
       </div>
 
       <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 mb-6 flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
