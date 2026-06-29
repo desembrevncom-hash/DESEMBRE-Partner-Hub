@@ -6,6 +6,7 @@ import { ShieldAlert, Send, ShieldCheck, AlertTriangle, Play, X, Search, CheckCi
 import { createSendJob, executeSendJob, markJobApproved, reevaluateJobSafety } from "@/lib/marketing/sendGateway";
 import { Badge } from "@/components/ui/badge";
 import { buildDeliveryTimeline, TimelineNode } from "@/lib/marketing/timelineBuilder";
+import { aggregateDeliveryEvents } from "@/lib/marketing/eventAggregator";
 
 export const Route = createFileRoute("/marketing/send-gateway")({
   component: SendGatewayPage,
@@ -331,6 +332,15 @@ function SendGatewayPage() {
                 <div className="flex items-center gap-3 mb-1">
                   <h2 className="text-2xl font-black">Job Details</h2>
                   <Badge variant="outline">{selectedJob.status}</Badge>
+                  {selectedJobEvents.length > 0 && (
+                    <Badge className={
+                      aggregateDeliveryEvents(selectedJob, selectedJobEvents).latest_delivery_state === "bounced" || aggregateDeliveryEvents(selectedJob, selectedJobEvents).latest_delivery_state === "failed" || aggregateDeliveryEvents(selectedJob, selectedJobEvents).latest_delivery_state === "complained" 
+                        ? "bg-red-600 hover:bg-red-700 text-white border-none"
+                        : "bg-emerald-600 hover:bg-emerald-700 text-white border-none"
+                    }>
+                      Latest State: {aggregateDeliveryEvents(selectedJob, selectedJobEvents).latest_delivery_state}
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-slate-500 text-sm font-mono">{selectedJob.id}</p>
               </div>
@@ -349,6 +359,37 @@ function SendGatewayPage() {
                 <p className="text-sm text-slate-700">{selectedJob.recipient_email || selectedJob.recipient_phone || "N/A"}</p>
               </div>
             </div>
+
+            {selectedJobEvents.length > 0 && (() => {
+              const agg = aggregateDeliveryEvents(selectedJob, selectedJobEvents);
+              return (
+                <div className="mb-6 border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                      <Activity className="w-4 h-4" /> Telemetry Summary
+                    </h3>
+                  </div>
+                  <div className="p-4 bg-white grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="flex flex-col items-center justify-center p-3 bg-slate-50 rounded-lg">
+                      <span className="text-xs text-slate-500 font-bold uppercase mb-1">Delivered</span>
+                      <span className="text-xl font-black text-emerald-600">{agg.event_counts["delivered"] || 0}</span>
+                    </div>
+                    <div className="flex flex-col items-center justify-center p-3 bg-slate-50 rounded-lg">
+                      <span className="text-xs text-slate-500 font-bold uppercase mb-1">Opened</span>
+                      <span className="text-xl font-black text-blue-600">{agg.event_counts["opened"] || 0}</span>
+                    </div>
+                    <div className="flex flex-col items-center justify-center p-3 bg-slate-50 rounded-lg">
+                      <span className="text-xs text-slate-500 font-bold uppercase mb-1">Clicked</span>
+                      <span className="text-xl font-black text-purple-600">{agg.event_counts["clicked"] || 0}</span>
+                    </div>
+                    <div className="flex flex-col items-center justify-center p-3 bg-slate-50 rounded-lg">
+                      <span className="text-xs text-slate-500 font-bold uppercase mb-1">Bounced</span>
+                      <span className={`text-xl font-black ${agg.event_counts["bounced"] ? "text-red-600" : "text-slate-400"}`}>{agg.event_counts["bounced"] || 0}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="mb-6 border border-slate-200 rounded-xl overflow-hidden">
               <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
