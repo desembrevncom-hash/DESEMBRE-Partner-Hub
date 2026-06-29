@@ -105,6 +105,15 @@ describe("M25 Provider Sandbox Secret Gate", () => {
     expect(sourceCode).not.toContain("process.env");
     expect(sourceCode).not.toContain("Deno.env");
     expect(sourceCode).not.toContain("fetch(");
-    // Note: We only check the helper since the Edge function uses Deno.env legally server-side
+  });
+
+  it("edge function should not read all envs", () => {
+    const edgeSourceCode = readFileSync(
+      join(__dirname, "../supabase/functions/provider-secret-gate/index.ts"),
+      "utf8"
+    );
+
+    expect(edgeSourceCode).not.toContain("Deno.env.toObject");
+    expect(edgeSourceCode).toContain("Deno.env.get");
   });
 });

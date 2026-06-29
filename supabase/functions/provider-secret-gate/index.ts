@@ -12,8 +12,25 @@ serve(async (req) => {
   }
 
   try {
-    const envObj = Deno.env.toObject();
-    const result = checkProviderSecretGate(envObj);
+    const approvedNames = [
+      "RESEND_API_KEY",
+      "RESEND_FROM_EMAIL",
+      "RESEND_SANDBOX_TO_ALLOWLIST",
+      "ZALO_ZNS_APP_ID",
+      "ZALO_ZNS_SECRET_KEY",
+      "ZALO_ZNS_OA_ID",
+      "ZALO_ZNS_SANDBOX_PHONE_ALLOWLIST",
+      "MARKETING_PROVIDER_SANDBOX_MODE",
+      "MARKETING_REAL_SEND_ENABLED",
+      "MARKETING_EXTERNAL_PROVIDER_CALLS_ENABLED"
+    ];
+
+    const envPresence: Record<string, boolean> = {};
+    approvedNames.forEach((name) => {
+      envPresence[name] = Boolean(Deno.env.get(name));
+    });
+
+    const result = checkProviderSecretGate(envPresence);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

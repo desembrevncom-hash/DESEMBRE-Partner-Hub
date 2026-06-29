@@ -12,7 +12,7 @@ export interface SecretGateResult {
   production_gate_required: boolean;
 }
 
-export function checkProviderSecretGate(env: Record<string, string | undefined>): SecretGateResult[] {
+export function checkProviderSecretGate(envPresence: Record<string, boolean>): SecretGateResult[] {
   return getSupportedProviderNames().map((providerName) => {
     switch (providerName) {
       case "mock":
@@ -34,7 +34,7 @@ export function checkProviderSecretGate(env: Record<string, string | undefined>)
           "RESEND_FROM_EMAIL",
           "RESEND_SANDBOX_TO_ALLOWLIST",
         ];
-        const missing = required.filter((name) => !env[name]);
+        const missing = required.filter((name) => !envPresence[name]);
 
         return {
           provider_id: "resend",
@@ -56,7 +56,7 @@ export function checkProviderSecretGate(env: Record<string, string | undefined>)
           "ZALO_ZNS_OA_ID",
           "ZALO_ZNS_SANDBOX_PHONE_ALLOWLIST",
         ];
-        const missing = required.filter((name) => !env[name]);
+        const missing = required.filter((name) => !envPresence[name]);
 
         return {
           provider_id: "zalo_zns",
