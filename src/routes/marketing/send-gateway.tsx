@@ -102,6 +102,24 @@ function SendGatewayPage() {
     }
   };
 
+  const handleExecuteSandbox = async (jobId: string) => {
+    if (!isAdminOrSubAdmin) return;
+    try {
+      const { data, error } = await supabase.functions.invoke("marketing-sandbox-send", {
+        body: { job_id: jobId }
+      });
+      if (error) throw error;
+      if (data && data.success === false) {
+        throw new Error(data.message || data.code || "Unknown sandbox error");
+      }
+      alert("Sandbox execution finished successfully: " + JSON.stringify(data));
+      fetchData();
+      setSelectedJob(null);
+    } catch (error: any) {
+      alert("Sandbox execution failed: " + error.message);
+    }
+  };
+
   const filteredJobs = jobs.filter(job => {
     if (filterStatus !== "all" && job.status !== filterStatus) return false;
     if (filterChannel !== "all" && job.channel !== filterChannel) return false;
@@ -150,6 +168,18 @@ function SendGatewayPage() {
               <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none font-bold">OFF (LIVE)</Badge>
             )}
           </div>
+        </div>
+      </div>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 mb-6 flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-blue-600" />
+            <h3 className="font-bold text-blue-900">Staging Sandbox Only</h3>
+          </div>
+          <p className="text-sm text-blue-800 font-medium max-w-xl">
+            Controlled Sandbox Provider Execution Phase 2. Sandbox sends are strictly isolated and routed through Edge Functions. No Production sends allowed.
+          </p>
         </div>
       </div>
 
@@ -341,6 +371,11 @@ function SendGatewayPage() {
               {isAdminOrSubAdmin && !selectedJob.approved_at && (
                 <Button onClick={() => handleMarkApproved(selectedJob.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
                   <CheckCircle className="w-4 h-4 mr-2" /> Mark Approved for QA
+                </Button>
+              )}
+              {isAdminOrSubAdmin && selectedJob.approved_at && (selectedJob.status === "queued" || selectedJob.status === "safety_blocked") && (
+                <Button onClick={() => handleExecuteSandbox(selectedJob.id)} className="bg-amber-600 hover:bg-amber-700 text-white font-bold">
+                  <Play className="w-4 h-4 mr-2 fill-current" /> Execute Sandbox
                 </Button>
               )}
               {!isAdminOrSubAdmin && (
