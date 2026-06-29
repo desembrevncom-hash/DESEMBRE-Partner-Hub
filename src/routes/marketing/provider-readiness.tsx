@@ -14,6 +14,10 @@ import {
   getProviderReadinessReport,
   ProviderReadinessReport,
 } from "@/lib/marketing/providerReadiness";
+import {
+  runProviderConfigAudit,
+  ProviderConfigAuditResult,
+} from "@/lib/marketing/providerConfigAudit";
 
 export const Route = createFileRoute("/marketing/provider-readiness")({
   component: ProviderReadinessPage,
@@ -21,6 +25,7 @@ export const Route = createFileRoute("/marketing/provider-readiness")({
 
 function ProviderReadinessPage() {
   const [report, setReport] = useState<ProviderReadinessReport | null>(null);
+  const [configAudit, setConfigAudit] = useState<ProviderConfigAuditResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -35,6 +40,7 @@ function ProviderReadinessPage() {
     try {
       const nextReport = await getProviderReadinessReport();
       setReport(nextReport);
+      setConfigAudit(runProviderConfigAudit());
     } catch (error: any) {
       setErrorMessage(error?.message || "Failed to run provider readiness validation.");
     } finally {
@@ -280,6 +286,80 @@ function ProviderReadinessPage() {
                   )}
                 </div>
               ))}
+            </div>
+
+            <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-indigo-700" />
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Provider Config Audit (M22)
+                </h2>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                {configAudit.map((audit) => (
+                  <div
+                    key={audit.provider}
+                    className="rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-4">
+                      <div>
+                        <p className="text-lg font-semibold text-slate-900">
+                          {audit.label}
+                        </p>
+                        <p className="text-sm text-slate-500">
+                          Channel: {audit.channel}
+                        </p>
+                      </div>
+                      <Badge
+                        className={
+                          audit.status === "ready_for_dry_run_only"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-amber-100 text-amber-700"
+                        }
+                      >
+                        {audit.status}
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-2 text-xs font-mono text-slate-700">
+                      <p>real_send_enabled: {String(audit.real_send_enabled)}</p>
+                      <p>external_provider_calls_enabled: {String(audit.external_provider_calls_enabled)}</p>
+                      <p>secrets_read: {String(audit.secrets_read)}</p>
+                      <p>secret_values_exposed: {String(audit.secret_values_exposed)}</p>
+                      <p>provider_api_called: {String(audit.provider_api_called)}</p>
+                    </div>
+
+                    <div className="mt-4">
+                      <p className="mb-2 text-sm font-semibold text-slate-700">
+                        Checklist
+                      </p>
+                      <ul className="space-y-2">
+                        {audit.checklist.map((check, idx) => (
+                          <li key={idx} className="flex gap-2 text-sm text-slate-600">
+                            <CheckCircle className="mt-0.5 h-4 w-4 text-emerald-600 flex-shrink-0" />
+                            {check}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {audit.required_env_names.length > 0 && (
+                      <div className="mt-4">
+                        <p className="mb-2 text-sm font-semibold text-slate-700">
+                          Required Env Names (Names Only)
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {audit.required_env_names.map((envName) => (
+                            <Badge key={envName} variant="outline" className="font-mono text-xs text-slate-600 border-slate-300">
+                              {envName}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </>
         )}
