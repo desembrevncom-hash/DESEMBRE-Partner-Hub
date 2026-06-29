@@ -87,7 +87,7 @@ function MarketingDashboardPage() {
     setLoading(true);
     try {
       // 1. Fetch Lead Sources (Nếu là Sale, ta đếm khách hàng của chính Sale đó theo source)
-      let querySource = supabase.from("customers").select("lead_source, id");
+      let querySource = supabase.from("customers").select("id");
       if (isSale && !isAdmin && !isSubAdmin) {
         querySource = querySource.eq("owner_sale_id", user?.id);
       }
@@ -96,7 +96,7 @@ function MarketingDashboardPage() {
       if (sourceCusts && sourceCusts.length > 0) {
         const counts: Record<string, number> = {};
         sourceCusts.forEach((c) => {
-          const src = c.lead_source || "Tự khai thác / Khác";
+          const src = "Tự khai thác / Khác";
           counts[src] = (counts[src] || 0) + 1;
         });
         const mappedSources = Object.keys(counts)
@@ -188,7 +188,7 @@ function MarketingDashboardPage() {
       // 5. Active Campaigns từ database
       let queryCamps = supabase
         .from("marketing_campaigns")
-        .select("*, message_templates(channel, purpose)")
+        .select("id, name, status, metrics, created_by, created_at")
         .in("status", ["approved", "sending", "paused"])
         .order("created_at", { ascending: false });
 
@@ -204,7 +204,7 @@ function MarketingDashboardPage() {
             return {
               id: c.id,
               name: c.name,
-              type: c.message_templates?.channel || "email",
+              type: "email",
               leads: m.total_targets || 0,
               spend: m.sent ? (m.sent * 80).toLocaleString("vi-VN") + "đ" : "0đ",
               status: c.status,
@@ -441,9 +441,12 @@ function MarketingDashboardPage() {
               <Link to="/marketing/send-gateway">
                 <Send className="w-3.5 h-3.5 text-amber-600" /> Send Gateway (M17)
               </Link>
-<Link to="/marketing/provider-readiness">
-  <Server className="w-3.5 h-3.5 text-indigo-600" /> Provider Readiness (M19)
-</Link>
+            </Button>
+
+            <Button variant="outline" asChild className="rounded-xl border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-bold text-xs h-9 px-4 gap-2 flex-shrink-0">
+              <Link to="/marketing/provider-readiness">
+                <Server className="w-3.5 h-3.5 text-indigo-600" /> Provider Readiness (M19)
+              </Link>
             </Button>
           </div>
         </div>
