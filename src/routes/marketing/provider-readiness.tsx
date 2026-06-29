@@ -23,6 +23,10 @@ import {
   SandboxPlanResult,
 } from "@/lib/marketing/providerSandboxPlan";
 import { SecretGateResult, getFallbackSecretGateState } from "@/lib/marketing/providerSecretGate";
+import {
+  getSandboxExecutionPlan,
+  ExecutionPlanResult,
+} from "@/lib/marketing/sandboxExecutionPlan";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/marketing/provider-readiness")({
@@ -34,6 +38,7 @@ function ProviderReadinessPage() {
   const [configAudit, setConfigAudit] = useState<ProviderConfigAuditResult[]>([]);
   const [sandboxPlan, setSandboxPlan] = useState<SandboxPlanResult[]>([]);
   const [secretGate, setSecretGate] = useState<SecretGateResult[]>([]);
+  const [executionPlan, setExecutionPlan] = useState<ExecutionPlanResult[]>([]);
   const [secretGateErrorMsg, setSecretGateErrorMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -51,6 +56,7 @@ function ProviderReadinessPage() {
       setReport(nextReport);
       setConfigAudit(runProviderConfigAudit());
       setSandboxPlan(getProviderSandboxPlan());
+      setExecutionPlan(getSandboxExecutionPlan());
 
       // M25 Edge Function call
       try {
@@ -557,6 +563,93 @@ function ProviderReadinessPage() {
                   ))}
                 </div>
               )}
+            </div>
+
+            <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-indigo-700" />
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Controlled Sandbox Execution Design (M26)
+                </h2>
+              </div>
+              
+              <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  No sandbox or real provider execution is enabled in M26.
+                </p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                {executionPlan.map((plan) => (
+                  <div
+                    key={plan.provider_id}
+                    className="rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm flex flex-col"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-4">
+                      <p className="text-lg font-semibold text-slate-900">
+                        {plan.provider_id.toUpperCase()}
+                      </p>
+                      <Badge
+                        className={
+                          plan.current_execution_mode === "dry_run_only"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-red-100 text-red-700"
+                        }
+                      >
+                        {plan.current_execution_mode}
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-2 text-xs font-mono text-slate-700 mb-4 pb-4 border-b border-slate-200">
+                      <p>Blocked Reason: <span className="font-semibold text-red-600">{plan.blocked_reason}</span></p>
+                      <p>provider_api_called: {String(plan.provider_api_called)}</p>
+                      <p>real_send_enabled: {String(plan.real_send_enabled)}</p>
+                      <p>external_provider_calls_enabled: {String(plan.external_provider_calls_enabled)}</p>
+                      <p>production_gate_open: {String(plan.production_gate_open)}</p>
+                    </div>
+
+                    <div className="mt-auto">
+                      <p className="mb-2 text-sm font-semibold text-slate-700">
+                        Allowed Recipient Policy
+                      </p>
+                      <p className="text-xs text-slate-600 mb-4 border-l-2 border-slate-300 pl-2">
+                        {plan.allowed_recipient_policy}
+                      </p>
+
+                      {plan.required_gates.length > 0 && (
+                        <div className="mb-4">
+                          <p className="mb-2 text-sm font-semibold text-amber-700 flex items-center gap-1">
+                            <ShieldAlert className="h-3 w-3" /> Required Gates
+                          </p>
+                          <ul className="space-y-1">
+                            {plan.required_gates.map((gate, idx) => (
+                              <li key={idx} className="text-[10px] font-mono text-amber-900 bg-amber-50 p-1 rounded border border-amber-200">
+                                {gate}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {plan.future_m27_requirements.length > 0 && (
+                        <div>
+                          <p className="mb-2 text-sm font-semibold text-indigo-700 flex items-center gap-1">
+                            <CheckCircle className="h-3 w-3" /> Future M27 Req
+                          </p>
+                          <ul className="space-y-1">
+                            {plan.future_m27_requirements.map((req, idx) => (
+                              <li key={idx} className="text-[10px] text-slate-600 italic">
+                                - {req}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </>
         )}
