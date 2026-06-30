@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { ArrowRight, RefreshCw, Play, ShieldAlert, CheckCircle2, Clock, AlertTriangle, Info, Search, XCircle, Users } from 'lucide-react'
 import { toast } from 'sonner'
+import { isProductionEnv } from '@/lib/marketing/envGuard'
 
 export const Route = createFileRoute("/marketing/automation-queue")({
   component: AutomationQueuePage,
@@ -238,6 +239,16 @@ function AutomationQueuePage() {
   }, [recipients, recipientSearch]);
 
   const selectedBatch = batches.find(b => b.id === selectedBatchId);
+
+  if (isProductionEnv()) {
+    return (
+      <div className="p-12 text-center max-w-lg mx-auto mt-20 bg-white rounded-xl shadow-sm border border-rose-100">
+         <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-4" />
+         <h2 className="text-xl font-bold text-slate-800 mb-2">Production Restricted</h2>
+         <p className="text-slate-500">Automation execution tools are disabled in Production.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
