@@ -40,6 +40,7 @@ import { Route as MarketingProviderReadinessRouteImport } from './routes/marketi
 import { Route as MarketingLogsRouteImport } from './routes/marketing/logs'
 import { Route as MarketingCampaignsRouteImport } from './routes/marketing/campaigns'
 import { Route as MarketingAutomationSimulatorRouteImport } from './routes/marketing/automation-simulator'
+import { Route as MarketingAutomationQueueRouteImport } from './routes/marketing/automation-queue'
 import { Route as MarketingAnalyticsRouteImport } from './routes/marketing/analytics'
 import { Route as CustomersMapRouteImport } from './routes/customers/map'
 import { Route as CustomersIdRouteImport } from './routes/customers/$id'
@@ -235,6 +236,12 @@ const MarketingAutomationSimulatorRoute =
   MarketingAutomationSimulatorRouteImport.update({
     id: '/marketing/automation-simulator',
     path: '/marketing/automation-simulator',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const MarketingAutomationQueueRoute =
+  MarketingAutomationQueueRouteImport.update({
+    id: '/marketing/automation-queue',
+    path: '/marketing/automation-queue',
     getParentRoute: () => rootRouteImport,
   } as any)
 const MarketingAnalyticsRoute = MarketingAnalyticsRouteImport.update({
@@ -473,6 +480,7 @@ export interface FileRoutesByFullPath {
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
   '/marketing/analytics': typeof MarketingAnalyticsRoute
+  '/marketing/automation-queue': typeof MarketingAutomationQueueRoute
   '/marketing/automation-simulator': typeof MarketingAutomationSimulatorRoute
   '/marketing/campaigns': typeof MarketingCampaignsRoute
   '/marketing/logs': typeof MarketingLogsRoute
@@ -543,6 +551,7 @@ export interface FileRoutesByTo {
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
   '/marketing/analytics': typeof MarketingAnalyticsRoute
+  '/marketing/automation-queue': typeof MarketingAutomationQueueRoute
   '/marketing/automation-simulator': typeof MarketingAutomationSimulatorRoute
   '/marketing/campaigns': typeof MarketingCampaignsRoute
   '/marketing/logs': typeof MarketingLogsRoute
@@ -615,6 +624,7 @@ export interface FileRoutesById {
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
   '/marketing/analytics': typeof MarketingAnalyticsRoute
+  '/marketing/automation-queue': typeof MarketingAutomationQueueRoute
   '/marketing/automation-simulator': typeof MarketingAutomationSimulatorRoute
   '/marketing/campaigns': typeof MarketingCampaignsRoute
   '/marketing/logs': typeof MarketingLogsRoute
@@ -688,6 +698,7 @@ export interface FileRouteTypes {
     | '/customers/$id'
     | '/customers/map'
     | '/marketing/analytics'
+    | '/marketing/automation-queue'
     | '/marketing/automation-simulator'
     | '/marketing/campaigns'
     | '/marketing/logs'
@@ -758,6 +769,7 @@ export interface FileRouteTypes {
     | '/customers/$id'
     | '/customers/map'
     | '/marketing/analytics'
+    | '/marketing/automation-queue'
     | '/marketing/automation-simulator'
     | '/marketing/campaigns'
     | '/marketing/logs'
@@ -829,6 +841,7 @@ export interface FileRouteTypes {
     | '/customers/$id'
     | '/customers/map'
     | '/marketing/analytics'
+    | '/marketing/automation-queue'
     | '/marketing/automation-simulator'
     | '/marketing/campaigns'
     | '/marketing/logs'
@@ -899,6 +912,7 @@ export interface RootRouteChildren {
   AdminUsersRoute: typeof AdminUsersRoute
   AdminWebhooksRoute: typeof AdminWebhooksRoute
   MarketingAnalyticsRoute: typeof MarketingAnalyticsRoute
+  MarketingAutomationQueueRoute: typeof MarketingAutomationQueueRoute
   MarketingAutomationSimulatorRoute: typeof MarketingAutomationSimulatorRoute
   MarketingCampaignsRoute: typeof MarketingCampaignsRoute
   MarketingLogsRoute: typeof MarketingLogsRoute
@@ -1146,6 +1160,13 @@ declare module '@tanstack/react-router' {
       path: '/marketing/automation-simulator'
       fullPath: '/marketing/automation-simulator'
       preLoaderRoute: typeof MarketingAutomationSimulatorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketing/automation-queue': {
+      id: '/marketing/automation-queue'
+      path: '/marketing/automation-queue'
+      fullPath: '/marketing/automation-queue'
+      preLoaderRoute: typeof MarketingAutomationQueueRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/marketing/analytics': {
@@ -1472,6 +1493,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminUsersRoute: AdminUsersRoute,
   AdminWebhooksRoute: AdminWebhooksRoute,
   MarketingAnalyticsRoute: MarketingAnalyticsRoute,
+  MarketingAutomationQueueRoute: MarketingAutomationQueueRoute,
   MarketingAutomationSimulatorRoute: MarketingAutomationSimulatorRoute,
   MarketingCampaignsRoute: MarketingCampaignsRoute,
   MarketingLogsRoute: MarketingLogsRoute,
