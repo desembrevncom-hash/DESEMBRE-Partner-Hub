@@ -116,7 +116,21 @@ function NewAutomationRunPage() {
       }
 
       const result = simulateAutomationScheduler(config, recipients, safetySettings);
-      setPreviewResult({ ...result, originalRecipients: recipients, workflow: wf });
+      
+      const summary = {
+        total: recipients.length,
+        eligible: result.eligible_count,
+        blocked: result.excluded_count,
+        delayed: 0
+      };
+
+      setPreviewResult({ 
+        empty: false,
+        workflow: wf,
+        originalRecipients: recipients,
+        summary,
+        recipient_preview: result.recipient_preview
+      });
 
     } catch (e: any) {
       console.error(e);
@@ -127,12 +141,12 @@ function NewAutomationRunPage() {
   };
 
   const handleCreateRun = async () => {
-    if (!previewResult) return;
+    if (!previewResult || previewResult.empty) return;
     
     setIsCreatingRun(true);
     
     try {
-      const { workflow, evaluatedRecipients, summary } = previewResult;
+      const { workflow, recipient_preview, summary } = previewResult;
 
       // 1. Create Draft Batch
       const { data: batchData, error: batchError } = await supabase
@@ -160,17 +174,22 @@ function NewAutomationRunPage() {
       const channel = workflow.action_type.includes('zalo') ? 'zalo' : 'email';
 
       // 2. Prepare Recipients
-      const inserts = evaluatedRecipients.map((rec: any) => ({
+      const inserts = recipient_preview.map((rec: any) => ({
         batch_id: batchId,
         workflow_id: workflow.id,
-        customer_id: rec.id,
+        customer_id: rec.customer_id,
         recipient_email: rec.email,
         recipient_phone: rec.phone,
         channel,
         provider: 'mock',
         status: 'pending',
-        execute_at: rec.executeAt.toISOString(),
-        safety_result: rec.safetyResult
+        execute_at: rec.execute_at,
+        safety_result: {
+          consent: rec.consent_gate_result,
+          safety: rec.safety_rules_result,
+          allowed: rec.overall_allowed,
+          reason: rec.exclusion_reason
+        }
       }));
 
       // 3. Chunk Inserts at 100 per batch
@@ -305,7 +324,7 @@ function NewAutomationRunPage() {
               </CardTitle>
               {previewResult && !previewResult.empty && (
                 <Badge variant="outline" className="text-[10px] font-mono text-slate-500">
-                  Total: {previewResult.summary.total}
+                  Total: {previewResult.summary?.total ?? 0}
                 </Badge>
               )}
             </div>
@@ -321,8 +340,8 @@ function NewAutomationRunPage() {
                   <ShieldAlert className="w-8 h-8 text-slate-400 mb-2" />
                   <p className="text-sm font-semibold text-slate-700">No customers resolved for this workflow audience</p>
                   <p className="text-xs text-slate-500 mt-2 font-mono">
-                    workflow_id: {previewResult.workflow.id} <br />
-                    audience_id: {previewResult.workflow.audience_id || 'null'}
+                    workflow_id: {previewResult.workflow?.id} <br />
+                    audience_id: {previewResult.workflow?.audience_id || 'null'}
                   </p>
                 </div>
               </div>
@@ -331,15 +350,15 @@ function NewAutomationRunPage() {
                 <div className="grid grid-cols-3 gap-4">
                   <div className="bg-white border border-slate-200 rounded-lg p-4 text-center">
                     <p className="text-xs text-slate-500 font-medium">Eligible</p>
-                    <p className="text-2xl font-bold text-emerald-600">{previewResult.summary.eligible}</p>
+                    <p className="text-2xl font-bold text-emerald-600">{previewResult.summary?.eligible ?? 0}</p>
                   </div>
                   <div className="bg-white border border-slate-200 rounded-lg p-4 text-center">
                     <p className="text-xs text-slate-500 font-medium">Blocked</p>
-                    <p className="text-2xl font-bold text-rose-600">{previewResult.summary.blocked}</p>
+                    <p className="text-2xl font-bold text-rose-600">{previewResult.summary?.blocked ?? 0}</p>
                   </div>
                   <div className="bg-white border border-slate-200 rounded-lg p-4 text-center">
                     <p className="text-xs text-slate-500 font-medium">Delayed</p>
-                    <p className="text-2xl font-bold text-amber-600">{previewResult.summary.delayed}</p>
+                    <p className="text-2xl font-bold text-amber-600">{previewResult.summary?.delayed ?? 0}</p>
                   </div>
                 </div>
 
@@ -348,7 +367,7 @@ function NewAutomationRunPage() {
                   <div className="text-sm">
                     <p className="font-semibold">Review before continuing</p>
                     <p className="mt-1">
-                      Creating this run will insert {previewResult.summary.total} recipients into the staging database. 
+                      Creating this run will insert {previewResult.summary?.total ?? 0} recipients into the staging database. 
                       The batch will be created as <strong>pending_approval</strong> and will require Admin approval before it can be processed manually.
                     </p>
                   </div>
