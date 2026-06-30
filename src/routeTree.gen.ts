@@ -38,6 +38,7 @@ import { Route as MarketingReadinessRouteImport } from './routes/marketing/readi
 import { Route as MarketingProviderReadinessRouteImport } from './routes/marketing/provider-readiness'
 import { Route as MarketingLogsRouteImport } from './routes/marketing/logs'
 import { Route as MarketingConsentRouteImport } from './routes/marketing/consent'
+import { Route as MarketingAutomationQueueRouteImport } from './routes/marketing/automation-queue'
 import { Route as DebugCustomersNormalizationRouteImport } from './routes/debug/customers-normalization'
 import { Route as CustomersMapRouteImport } from './routes/customers/map'
 import { Route as CustomersIdRouteImport } from './routes/customers/$id'
@@ -82,6 +83,7 @@ import { Route as MarketingTemplatesIdRouteImport } from './routes/marketing/tem
 import { Route as MarketingSendersIdRouteImport } from './routes/marketing/senders/$id'
 import { Route as MarketingCampaignsNewRouteImport } from './routes/marketing/campaigns/new'
 import { Route as MarketingCampaignsIdRouteImport } from './routes/marketing/campaigns/$id'
+import { Route as MarketingAutomationNewRunRouteImport } from './routes/marketing/automation/new-run'
 import { Route as MarketingAutomationNewRouteImport } from './routes/marketing/automation/new'
 import { Route as MarketingAutomationEventsRouteImport } from './routes/marketing/automation/events'
 import { Route as MarketingAutomationIdRouteImport } from './routes/marketing/automation/$id'
@@ -237,6 +239,12 @@ const MarketingConsentRoute = MarketingConsentRouteImport.update({
   path: '/marketing/consent',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MarketingAutomationQueueRoute =
+  MarketingAutomationQueueRouteImport.update({
+    id: '/marketing/automation-queue',
+    path: '/marketing/automation-queue',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const DebugCustomersNormalizationRoute =
   DebugCustomersNormalizationRouteImport.update({
     id: '/debug/customers-normalization',
@@ -462,6 +470,12 @@ const MarketingCampaignsIdRoute = MarketingCampaignsIdRouteImport.update({
   path: '/marketing/campaigns/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MarketingAutomationNewRunRoute =
+  MarketingAutomationNewRunRouteImport.update({
+    id: '/marketing/automation/new-run',
+    path: '/marketing/automation/new-run',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const MarketingAutomationNewRoute = MarketingAutomationNewRouteImport.update({
   id: '/marketing/automation/new',
   path: '/marketing/automation/new',
@@ -543,6 +557,7 @@ export interface FileRoutesByFullPath {
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
   '/debug/customers-normalization': typeof DebugCustomersNormalizationRoute
+  '/marketing/automation-queue': typeof MarketingAutomationQueueRoute
   '/marketing/consent': typeof MarketingConsentRoute
   '/marketing/logs': typeof MarketingLogsRoute
   '/marketing/provider-readiness': typeof MarketingProviderReadinessRoute
@@ -568,6 +583,7 @@ export interface FileRoutesByFullPath {
   '/marketing/automation/$id': typeof MarketingAutomationIdRoute
   '/marketing/automation/events': typeof MarketingAutomationEventsRoute
   '/marketing/automation/new': typeof MarketingAutomationNewRoute
+  '/marketing/automation/new-run': typeof MarketingAutomationNewRunRoute
   '/marketing/campaigns/$id': typeof MarketingCampaignsIdRoute
   '/marketing/campaigns/new': typeof MarketingCampaignsNewRoute
   '/marketing/senders/$id': typeof MarketingSendersIdRoute
@@ -624,6 +640,7 @@ export interface FileRoutesByTo {
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
   '/debug/customers-normalization': typeof DebugCustomersNormalizationRoute
+  '/marketing/automation-queue': typeof MarketingAutomationQueueRoute
   '/marketing/consent': typeof MarketingConsentRoute
   '/marketing/logs': typeof MarketingLogsRoute
   '/marketing/provider-readiness': typeof MarketingProviderReadinessRoute
@@ -649,6 +666,7 @@ export interface FileRoutesByTo {
   '/marketing/automation/$id': typeof MarketingAutomationIdRoute
   '/marketing/automation/events': typeof MarketingAutomationEventsRoute
   '/marketing/automation/new': typeof MarketingAutomationNewRoute
+  '/marketing/automation/new-run': typeof MarketingAutomationNewRunRoute
   '/marketing/campaigns/$id': typeof MarketingCampaignsIdRoute
   '/marketing/campaigns/new': typeof MarketingCampaignsNewRoute
   '/marketing/senders/$id': typeof MarketingSendersIdRoute
@@ -707,6 +725,7 @@ export interface FileRoutesById {
   '/customers/$id': typeof CustomersIdRoute
   '/customers/map': typeof CustomersMapRoute
   '/debug/customers-normalization': typeof DebugCustomersNormalizationRoute
+  '/marketing/automation-queue': typeof MarketingAutomationQueueRoute
   '/marketing/consent': typeof MarketingConsentRoute
   '/marketing/logs': typeof MarketingLogsRoute
   '/marketing/provider-readiness': typeof MarketingProviderReadinessRoute
@@ -732,6 +751,7 @@ export interface FileRoutesById {
   '/marketing/automation/$id': typeof MarketingAutomationIdRoute
   '/marketing/automation/events': typeof MarketingAutomationEventsRoute
   '/marketing/automation/new': typeof MarketingAutomationNewRoute
+  '/marketing/automation/new-run': typeof MarketingAutomationNewRunRoute
   '/marketing/campaigns/$id': typeof MarketingCampaignsIdRoute
   '/marketing/campaigns/new': typeof MarketingCampaignsNewRoute
   '/marketing/senders/$id': typeof MarketingSendersIdRoute
@@ -791,6 +811,7 @@ export interface FileRouteTypes {
     | '/customers/$id'
     | '/customers/map'
     | '/debug/customers-normalization'
+    | '/marketing/automation-queue'
     | '/marketing/consent'
     | '/marketing/logs'
     | '/marketing/provider-readiness'
@@ -816,6 +837,7 @@ export interface FileRouteTypes {
     | '/marketing/automation/$id'
     | '/marketing/automation/events'
     | '/marketing/automation/new'
+    | '/marketing/automation/new-run'
     | '/marketing/campaigns/$id'
     | '/marketing/campaigns/new'
     | '/marketing/senders/$id'
@@ -872,6 +894,7 @@ export interface FileRouteTypes {
     | '/customers/$id'
     | '/customers/map'
     | '/debug/customers-normalization'
+    | '/marketing/automation-queue'
     | '/marketing/consent'
     | '/marketing/logs'
     | '/marketing/provider-readiness'
@@ -897,6 +920,7 @@ export interface FileRouteTypes {
     | '/marketing/automation/$id'
     | '/marketing/automation/events'
     | '/marketing/automation/new'
+    | '/marketing/automation/new-run'
     | '/marketing/campaigns/$id'
     | '/marketing/campaigns/new'
     | '/marketing/senders/$id'
@@ -954,6 +978,7 @@ export interface FileRouteTypes {
     | '/customers/$id'
     | '/customers/map'
     | '/debug/customers-normalization'
+    | '/marketing/automation-queue'
     | '/marketing/consent'
     | '/marketing/logs'
     | '/marketing/provider-readiness'
@@ -979,6 +1004,7 @@ export interface FileRouteTypes {
     | '/marketing/automation/$id'
     | '/marketing/automation/events'
     | '/marketing/automation/new'
+    | '/marketing/automation/new-run'
     | '/marketing/campaigns/$id'
     | '/marketing/campaigns/new'
     | '/marketing/senders/$id'
@@ -1035,6 +1061,7 @@ export interface RootRouteChildren {
   AdminUsersRoute: typeof AdminUsersRoute
   AdminWebhooksRoute: typeof AdminWebhooksRoute
   DebugCustomersNormalizationRoute: typeof DebugCustomersNormalizationRoute
+  MarketingAutomationQueueRoute: typeof MarketingAutomationQueueRoute
   MarketingConsentRoute: typeof MarketingConsentRoute
   MarketingLogsRoute: typeof MarketingLogsRoute
   MarketingProviderReadinessRoute: typeof MarketingProviderReadinessRoute
@@ -1059,6 +1086,7 @@ export interface RootRouteChildren {
   MarketingAutomationIdRoute: typeof MarketingAutomationIdRoute
   MarketingAutomationEventsRoute: typeof MarketingAutomationEventsRoute
   MarketingAutomationNewRoute: typeof MarketingAutomationNewRoute
+  MarketingAutomationNewRunRoute: typeof MarketingAutomationNewRunRoute
   MarketingCampaignsIdRoute: typeof MarketingCampaignsIdRoute
   MarketingCampaignsNewRoute: typeof MarketingCampaignsNewRoute
   MarketingSendersIdRoute: typeof MarketingSendersIdRoute
@@ -1278,6 +1306,13 @@ declare module '@tanstack/react-router' {
       path: '/marketing/consent'
       fullPath: '/marketing/consent'
       preLoaderRoute: typeof MarketingConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketing/automation-queue': {
+      id: '/marketing/automation-queue'
+      path: '/marketing/automation-queue'
+      fullPath: '/marketing/automation-queue'
+      preLoaderRoute: typeof MarketingAutomationQueueRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/debug/customers-normalization': {
@@ -1588,6 +1623,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MarketingCampaignsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/marketing/automation/new-run': {
+      id: '/marketing/automation/new-run'
+      path: '/marketing/automation/new-run'
+      fullPath: '/marketing/automation/new-run'
+      preLoaderRoute: typeof MarketingAutomationNewRunRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/marketing/automation/new': {
       id: '/marketing/automation/new'
       path: '/marketing/automation/new'
@@ -1696,6 +1738,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminUsersRoute: AdminUsersRoute,
   AdminWebhooksRoute: AdminWebhooksRoute,
   DebugCustomersNormalizationRoute: DebugCustomersNormalizationRoute,
+  MarketingAutomationQueueRoute: MarketingAutomationQueueRoute,
   MarketingConsentRoute: MarketingConsentRoute,
   MarketingLogsRoute: MarketingLogsRoute,
   MarketingProviderReadinessRoute: MarketingProviderReadinessRoute,
@@ -1720,6 +1763,7 @@ const rootRouteChildren: RootRouteChildren = {
   MarketingAutomationIdRoute: MarketingAutomationIdRoute,
   MarketingAutomationEventsRoute: MarketingAutomationEventsRoute,
   MarketingAutomationNewRoute: MarketingAutomationNewRoute,
+  MarketingAutomationNewRunRoute: MarketingAutomationNewRunRoute,
   MarketingCampaignsIdRoute: MarketingCampaignsIdRoute,
   MarketingCampaignsNewRoute: MarketingCampaignsNewRoute,
   MarketingSendersIdRoute: MarketingSendersIdRoute,
