@@ -15,6 +15,15 @@ export interface SendJobParams {
   idempotency_key?: string;
 }
 
+function checkIsSandboxInternal(channel: string, email?: string, phone?: string): boolean {
+  const rec = email || phone || '';
+  if (channel === 'email') {
+    return rec.endsWith('@desembre.vn') || rec.includes('test');
+  } else {
+    return rec.startsWith('000') || rec.includes('test');
+  }
+}
+
 export async function createSendJob(params: SendJobParams) {
   // 1. Fetch current safety settings
   const { data: settings } = await supabase
@@ -34,8 +43,19 @@ export async function createSendJob(params: SendJobParams) {
     duplicate_prevention_hours: 24,
   };
 
-  // 2. Fetch suppressions if customer_id/email/phone is provided
+  // 2. Fetch suppressions and preferences if customer_id/email/phone is provided
   let suppressions: any[] = [];
+  let customerPreferences = null;
+
+  if (params.customer_id) {
+    const { data: prefData } = await supabase
+      .from("customer_marketing_preferences")
+      .select("*")
+      .eq("customer_id", params.customer_id)
+      .maybeSingle();
+    customerPreferences = prefData;
+  }
+
   if (params.customer_id || params.recipient_email || params.recipient_phone) {
     let q = supabase.from("marketing_suppression_list").select("*").eq("is_active", true);
     const { data: suppData } = await q;
@@ -43,6 +63,8 @@ export async function createSendJob(params: SendJobParams) {
   }
 
   // 3. Prepare context
+  const isInternal = !params.customer_id && checkIsSandboxInternal(params.channel, params.recipient_email, params.recipient_phone);
+  
   const context: MarketingSafetyContext = {
     channel: params.channel,
     approved: false, // creation is not approved by default
@@ -52,8 +74,10 @@ export async function createSendJob(params: SendJobParams) {
       phone: params.recipient_phone,
     },
     suppressions,
-    current_daily_sends: 0, // Placeholder: in real scenario, count from DB
+    current_daily_sends: 0, // Placeholder
     current_campaign_sends: 0, // Placeholder
+    is_sandbox_internal: isInternal,
+    customer_preferences: customerPreferences,
   };
 
   // 4. Evaluate Safety
@@ -77,7 +101,11 @@ export async function createSendJob(params: SendJobParams) {
       payload: params.payload || {},
       idempotency_key: idempotencyKey,
       status: status,
-      safety_result: { reasons: evaluation.reasons, warnings: evaluation.warnings },
+      safety_result: { 
+        reasons: evaluation.reasons, 
+        warnings: evaluation.warnings,
+        consent: evaluation.consent
+      },
     })
     .select()
     .single();
@@ -124,11 +152,24 @@ export async function executeSendJob(jobId: string) {
   };
 
   let suppressions: any[] = [];
+  let customerPreferences = null;
+
+  if (job.customer_id) {
+    const { data: prefData } = await supabase
+      .from("customer_marketing_preferences")
+      .select("*")
+      .eq("customer_id", job.customer_id)
+      .maybeSingle();
+    customerPreferences = prefData;
+  }
+
   if (job.customer_id || job.recipient_email || job.recipient_phone) {
     let q = supabase.from("marketing_suppression_list").select("*").eq("is_active", true);
     const { data: suppData } = await q;
     if (suppData) suppressions = suppData;
   }
+
+  const isInternal = !job.customer_id && checkIsSandboxInternal(job.channel, job.recipient_email, job.recipient_phone);
 
   const context: MarketingSafetyContext = {
     channel: job.channel as 'email' | 'zalo',
@@ -141,6 +182,8 @@ export async function executeSendJob(jobId: string) {
     suppressions,
     current_daily_sends: 0,
     current_campaign_sends: 0,
+    is_sandbox_internal: isInternal,
+    customer_preferences: customerPreferences,
   };
 
   const evaluation = evaluateMarketingSafety(safeSettings, context);
@@ -151,7 +194,11 @@ export async function executeSendJob(jobId: string) {
       .from("marketing_send_jobs")
       .update({
         status: "safety_blocked",
-        safety_result: { reasons: evaluation.reasons, warnings: evaluation.warnings },
+        safety_result: { 
+          reasons: evaluation.reasons, 
+          warnings: evaluation.warnings,
+          consent: evaluation.consent
+        },
         updated_at: new Date().toISOString(),
       })
       .eq("id", jobId)
@@ -221,7 +268,6 @@ async function verifyAdminRole() {
 }
 
 export async function markJobApproved(jobId: string) {
-  // Check admin role explicitly
   const userId = await verifyAdminRole();
 
   const { data: job, error } = await supabase
@@ -243,7 +289,6 @@ export async function markJobApproved(jobId: string) {
 }
 
 export async function reevaluateJobSafety(jobId: string) {
-  // Check admin role explicitly
   await verifyAdminRole();
 
   const { data: job, error: fetchError } = await supabase
@@ -274,11 +319,24 @@ export async function reevaluateJobSafety(jobId: string) {
   };
 
   let suppressions: any[] = [];
+  let customerPreferences = null;
+
+  if (job.customer_id) {
+    const { data: prefData } = await supabase
+      .from("customer_marketing_preferences")
+      .select("*")
+      .eq("customer_id", job.customer_id)
+      .maybeSingle();
+    customerPreferences = prefData;
+  }
+
   if (job.customer_id || job.recipient_email || job.recipient_phone) {
     let q = supabase.from("marketing_suppression_list").select("*").eq("is_active", true);
     const { data: suppData } = await q;
     if (suppData) suppressions = suppData;
   }
+
+  const isInternal = !job.customer_id && checkIsSandboxInternal(job.channel, job.recipient_email, job.recipient_phone);
 
   const context: MarketingSafetyContext = {
     channel: job.channel as 'email' | 'zalo',
@@ -291,6 +349,8 @@ export async function reevaluateJobSafety(jobId: string) {
     suppressions,
     current_daily_sends: 0,
     current_campaign_sends: 0,
+    is_sandbox_internal: isInternal,
+    customer_preferences: customerPreferences,
   };
 
   const evaluation = evaluateMarketingSafety(safeSettings, context);
@@ -306,7 +366,11 @@ export async function reevaluateJobSafety(jobId: string) {
     .from("marketing_send_jobs")
     .update({
       status: newStatus,
-      safety_result: { reasons: evaluation.reasons, warnings: evaluation.warnings },
+      safety_result: { 
+        reasons: evaluation.reasons, 
+        warnings: evaluation.warnings,
+        consent: evaluation.consent
+      },
       updated_at: new Date().toISOString(),
     })
     .eq("id", jobId)

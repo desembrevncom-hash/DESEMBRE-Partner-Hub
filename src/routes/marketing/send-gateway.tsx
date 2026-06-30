@@ -460,6 +460,21 @@ function SendGatewayPage() {
                 <h4 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4" /> Safety Result
                 </h4>
+                
+                {selectedJob.safety_result?.consent && (
+                  <div className={`mb-4 p-4 rounded-xl border ${selectedJob.safety_result.consent.allowed ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+                    <h5 className={`font-bold text-sm mb-1 ${selectedJob.safety_result.consent.allowed ? 'text-emerald-800' : 'text-rose-800'}`}>
+                      Consent Gate: {selectedJob.safety_result.consent.allowed ? 'Passed' : 'Blocked'}
+                    </h5>
+                    <p className={`text-xs ${selectedJob.safety_result.consent.allowed ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      {selectedJob.safety_result.consent.reason}
+                    </p>
+                    {selectedJob.safety_result.consent.code === 'SANDBOX_SKIPPED' && (
+                      <Badge className="mt-2 bg-blue-100 text-blue-700 hover:bg-blue-100 border-none">Internal Sandbox Skipped</Badge>
+                    )}
+                  </div>
+                )}
+
                 <pre className="bg-slate-900 text-slate-50 p-4 rounded-xl text-xs overflow-auto">
                   {JSON.stringify(selectedJob.safety_result, null, 2)}
                 </pre>
