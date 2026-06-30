@@ -13,6 +13,7 @@ import {
 import { MarketingSafetySettings } from "@/lib/marketing/safetyRules";
 import { applySegmentRulesToQuery } from "@/lib/marketing/segmentRules";
 import { Badge } from "@/components/ui/badge";
+import { isProductionEnv } from "@/lib/marketing/envGuard";
 
 export const Route = createFileRoute("/marketing/automation/new-run")({
   component: NewAutomationRunPage,
@@ -268,6 +269,16 @@ function NewAutomationRunPage() {
   };
 
   const selectedWf = workflows.find(w => w.id === selectedWorkflowId);
+
+  if (isProductionEnv()) {
+    return (
+      <div className="p-12 text-center max-w-lg mx-auto mt-20 bg-white rounded-xl shadow-sm border border-rose-100">
+         <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-4" />
+         <h2 className="text-xl font-bold text-slate-800 mb-2">Production Restricted</h2>
+         <p className="text-slate-500">Automation execution tools are disabled in Production.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
