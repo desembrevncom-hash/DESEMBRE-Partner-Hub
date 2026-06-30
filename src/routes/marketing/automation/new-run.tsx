@@ -11,6 +11,7 @@ import {
   AutomationWorkflowConfig 
 } from "@/lib/marketing/automationSchedulerSimulator";
 import { MarketingSafetySettings } from "@/lib/marketing/safetyRules";
+import { applySegmentRulesToQuery } from "@/lib/marketing/segmentRules";
 import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/marketing/automation/new-run")({
@@ -36,7 +37,7 @@ function NewAutomationRunPage() {
     setIsLoading(true);
     try {
       const [wfRes, safeRes] = await Promise.all([
-        supabase.from("marketing_automation_workflows").select("*, marketing_audiences(name)").eq("mock_only", true),
+        supabase.from("marketing_automation_workflows").select("*, marketing_audiences(id, name, rules)").eq("mock_only", true),
         supabase.from("marketing_ops_safety_settings").select("*").eq("is_default", true).single()
       ]);
 
@@ -71,15 +72,15 @@ function NewAutomationRunPage() {
       };
 
       let recipients: SimulatorRecipientInput[] = [];
-      if (wf.audience_id) {
-        // Fetch audience members
-        const { data: members } = await supabase
-          .from("marketing_audience_members")
-          .select("customer_id, customers(email, phone)")
-          .eq("audience_id", wf.audience_id);
+      if (wf.marketing_audiences?.rules) {
+        let query = supabase.from("customers").select("id, email, phone");
+        query = applySegmentRulesToQuery(query, wf.marketing_audiences.rules);
+        
+        const { data: customers, error: customerErr } = await query;
+        if (customerErr) throw customerErr;
 
-        if (members && members.length > 0) {
-          const customerIds = members.map(m => m.customer_id);
+        if (customers && customers.length > 0) {
+          const customerIds = customers.map(c => c.id);
           
           const { data: prefs } = await supabase
             .from("customer_marketing_preferences")
@@ -91,12 +92,12 @@ function NewAutomationRunPage() {
             .select("*")
             .eq("is_active", true);
 
-          recipients = members.map(m => {
-            const customerPref = prefs?.find(p => p.customer_id === m.customer_id);
+          recipients = customers.map(c => {
+            const customerPref = prefs?.find(p => p.customer_id === c.id);
             return {
-              id: m.customer_id,
-              email: m.customers?.email,
-              phone: m.customers?.phone,
+              id: c.id,
+              email: c.email,
+              phone: c.phone,
               preferences: customerPref || null,
               suppressions: supps || []
             };
@@ -110,7 +111,7 @@ function NewAutomationRunPage() {
       }
 
       if (recipients.length === 0) {
-        toast.error("Empty Audience", { description: "This workflow's audience has no members."});
+        setPreviewResult({ empty: true, workflow: wf });
         return;
       }
 
@@ -302,7 +303,7 @@ function NewAutomationRunPage() {
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 Preview & Activation
               </CardTitle>
-              {previewResult && (
+              {previewResult && !previewResult.empty && (
                 <Badge variant="outline" className="text-[10px] font-mono text-slate-500">
                   Total: {previewResult.summary.total}
                 </Badge>
@@ -313,6 +314,17 @@ function NewAutomationRunPage() {
             {!previewResult ? (
               <div className="h-full flex items-center justify-center text-sm text-slate-400">
                 Select a workflow and generate a preview to continue.
+              </div>
+            ) : previewResult.empty ? (
+              <div className="space-y-4">
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 flex flex-col items-center justify-center text-center">
+                  <ShieldAlert className="w-8 h-8 text-slate-400 mb-2" />
+                  <p className="text-sm font-semibold text-slate-700">No customers resolved for this workflow audience</p>
+                  <p className="text-xs text-slate-500 mt-2 font-mono">
+                    workflow_id: {previewResult.workflow.id} <br />
+                    audience_id: {previewResult.workflow.audience_id || 'null'}
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="space-y-6">
