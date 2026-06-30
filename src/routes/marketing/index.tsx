@@ -412,6 +412,12 @@ function MarketingDashboardPage() {
                 <Activity className="w-3.5 h-3.5 text-emerald-600" /> QA Console (M42)
               </Link>
             </Button>
+
+            <Button variant="outline" asChild className="rounded-xl border-violet-200 text-violet-700 bg-violet-50 hover:bg-violet-100 font-bold text-xs h-9 px-4 gap-2 flex-shrink-0">
+              <Link to="/marketing/automation/new-run">
+                <Workflow className="w-3.5 h-3.5 text-violet-600" /> New Run (M43)
+              </Link>
+            </Button>
             
             <Button variant="outline" asChild className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs h-9 px-4 gap-2 flex-shrink-0">
               <Link to="/marketing/automation/events">
