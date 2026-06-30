@@ -235,10 +235,10 @@ function AutomationQueuePage() {
                     </div>
                     {batch.summary && (
                       <div className="flex gap-2 text-[10px] text-slate-500 font-medium bg-white border border-slate-100 rounded px-2 py-1">
-                        <span className="text-slate-700">T: {batch.summary.total || 0}</span>
-                        <span className="text-emerald-600">C: {batch.summary.completed || 0}</span>
-                        <span className="text-rose-600">B: {batch.summary.blocked || 0}</span>
-                        <span className="text-red-600">F: {batch.summary.failed || 0}</span>
+                        <span className="text-slate-700">T: {batch.summary?.total ?? 0}</span>
+                        <span className="text-emerald-600">C: {batch.summary?.completed ?? 0}</span>
+                        <span className="text-rose-600">B: {batch.summary?.blocked ?? 0}</span>
+                        <span className="text-red-600">F: {batch.summary?.failed ?? 0}</span>
                       </div>
                     )}
                   </div>
