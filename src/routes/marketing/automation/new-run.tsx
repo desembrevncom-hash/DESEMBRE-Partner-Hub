@@ -51,6 +51,10 @@ function NewAutomationRunPage() {
   }, []);
 
   const fetchData = async () => {
+    if (isProductionEnv()) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const [wfRes, safeRes] = await Promise.all([
