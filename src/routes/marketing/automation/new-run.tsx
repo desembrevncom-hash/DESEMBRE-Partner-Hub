@@ -51,7 +51,7 @@ function NewAutomationRunPage() {
   }, []);
 
   const fetchData = async () => {
-    setIsLoading(true);
+    if (isProductionEnv()) {`r`n      setIsLoading(false);`r`n      return;`r`n    }`r`n    setIsLoading(true);
     try {
       const [wfRes, safeRes] = await Promise.all([
         supabase.from("marketing_automation_workflows").select("*, marketing_audiences(id, name, rules)").eq("mock_only", true),

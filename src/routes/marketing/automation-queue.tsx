@@ -79,7 +79,7 @@ function AutomationQueuePage() {
   const [batchToCancel, setBatchToCancel] = useState<string | null>(null)
 
   const fetchData = async () => {
-    setLoading(true)
+    if (isProductionEnv()) {`r`n      setLoading(false)`r`n      return`r`n    }`r`n    setLoading(true)
     try {
       const { data: batchData, error: batchError } = await supabase
         .from('marketing_automation_run_batches')
