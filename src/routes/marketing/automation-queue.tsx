@@ -1,10 +1,10 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ArrowRight, RefreshCw, Play, ShieldAlert, CheckCircle2, Clock, AlertTriangle, Info } from 'lucide-react'
+import { ArrowRight, RefreshCw, Play, ShieldAlert, CheckCircle2, Clock, AlertTriangle, Info, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 
 export const Route = createFileRoute("/marketing/automation-queue")({
@@ -102,33 +102,44 @@ function AutomationQueuePage() {
     loadRecipients(batchId)
   }
 
+  const handleApproveBatch = async (batchId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error("No active session")
+
+      const { error } = await supabase
+        .from('marketing_automation_run_batches')
+        .update({
+          status: 'approved',
+          approved_by: session.user.id,
+          approved_at: new Date().toISOString()
+        })
+        .eq('id', batchId)
+        .eq('status', 'pending_approval') // Only approve if pending
+
+      if (error) throw error
+
+      toast.success('Batch Approved', { description: 'Batch is now ready for processing.' })
+      await fetchData()
+    } catch (e: any) {
+      console.error(e)
+      toast.error('Approval Failed', { description: e.message })
+    }
+  }
+
   const handleProcessQueue = async () => {
     setProcessing(true)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        throw new Error("No active session. Please log in.")
-      }
-
-      // Edge Function URL - dynamically use current supabase URL but append function path
-      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-automation-queue`
-      
-      const res = await fetch(functionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        }
+      const { data, error } = await supabase.functions.invoke('process-automation-queue', {
+        body: { limit_count: 50 }
       })
-
-      const result = await res.json()
       
-      if (!res.ok) {
-        throw new Error(result.error || `HTTP ${res.status}`)
+      if (error) {
+        throw new Error(error.message || `Edge function error`)
       }
 
       toast.success('Queue Processed', {
-        description: `Successfully processed ${result.processed || 0} recipients.`,
+        description: `Successfully processed ${data?.processed || 0} recipients.`,
       })
       
       // Refresh data
@@ -157,6 +168,12 @@ function AutomationQueuePage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <Link to="/marketing/automation/new-run">
+              <Button variant="outline" className="gap-2">
+                <Plus className="w-4 h-4" />
+                New Run
+              </Button>
+            </Link>
             <Button 
               variant="outline" 
               onClick={fetchData} 
@@ -218,10 +235,10 @@ function AutomationQueuePage() {
                     </div>
                     {batch.summary && (
                       <div className="flex gap-2 text-[10px] text-slate-500 font-medium bg-white border border-slate-100 rounded px-2 py-1">
-                        <span className="text-slate-700">T: {batch.summary.total || 0}</span>
-                        <span className="text-emerald-600">C: {batch.summary.completed || 0}</span>
-                        <span className="text-rose-600">B: {batch.summary.blocked || 0}</span>
-                        <span className="text-red-600">F: {batch.summary.failed || 0}</span>
+                        <span className="text-slate-700">T: {batch.summary?.total ?? 0}</span>
+                        <span className="text-emerald-600">C: {batch.summary?.completed ?? 0}</span>
+                        <span className="text-rose-600">B: {batch.summary?.blocked ?? 0}</span>
+                        <span className="text-red-600">F: {batch.summary?.failed ?? 0}</span>
                       </div>
                     )}
                   </div>
@@ -238,11 +255,22 @@ function AutomationQueuePage() {
                   <Info className="w-4 h-4 text-slate-400" />
                   Batch Recipients
                 </CardTitle>
-                {selectedBatch && (
-                  <span className="text-xs font-mono text-slate-500 bg-white px-2 py-1 rounded border border-slate-200">
-                    {selectedBatch}
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {selectedBatch && batches.find(b => b.id === selectedBatch)?.status === 'pending_approval' && (
+                    <Button 
+                      size="sm" 
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white h-7 text-xs px-3"
+                      onClick={() => handleApproveBatch(selectedBatch)}
+                    >
+                      <CheckCircle2 className="w-3 h-3 mr-1" /> Approve Batch
+                    </Button>
+                  )}
+                  {selectedBatch && (
+                    <span className="text-xs font-mono text-slate-500 bg-white px-2 py-1 rounded border border-slate-200">
+                      {selectedBatch}
+                    </span>
+                  )}
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-0 overflow-y-auto flex-1">
