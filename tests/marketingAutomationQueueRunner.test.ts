@@ -54,12 +54,39 @@ describe("M42.2 Edge Function Manual Runner - Static Analysis & Unit Tests", () 
     expect(true).toBe(true);
   });
 
-  it("should explicitly hard-block the production project ref", () => {
+  it("should explicitly hard-block the production project ref from SUPABASE_URL and req.url", () => {
     if (fs.existsSync(edgeFunctionPath)) {
       const content = fs.readFileSync(edgeFunctionPath, "utf8");
       // The production ref is xhfqjupiidexvlltstal
       expect(content).toContain("xhfqjupiidexvlltstal");
+      // It should check SUPABASE_URL and req.url
+      expect(content).toContain("supabaseUrl.includes(PROD_REF)");
+      expect(content).toContain("reqUrl.includes(PROD_REF)");
       expect(content).toContain("403"); // Should return 403 Forbidden or similar block
+    }
+  });
+
+  it("should require valid staging project ref from SUPABASE_URL or req.url", () => {
+    if (fs.existsSync(edgeFunctionPath)) {
+      const content = fs.readFileSync(edgeFunctionPath, "utf8");
+      // The staging ref is wmhfvggbthyikqvlyqup
+      expect(content).toContain("wmhfvggbthyikqvlyqup");
+      expect(content).toContain("environment verification failed");
+    }
+  });
+
+  it("should require admin or sub_admin role before calling the queue handler", () => {
+    if (fs.existsSync(edgeFunctionPath)) {
+      const content = fs.readFileSync(edgeFunctionPath, "utf8");
+      // Should check authorization header
+      expect(content).toContain("req.headers.get('Authorization')");
+      // Should check user roles table
+      expect(content).toContain("from('user_roles')");
+      expect(content).toContain("admin/sub_admin required");
+      // ensure processQueueHandler is ONLY called AFTER role check (in the try block at the end)
+      const roleCheckIndex = content.indexOf("admin/sub_admin required");
+      const processCallIndex = content.indexOf("processQueueHandler(");
+      expect(roleCheckIndex).toBeLessThan(processCallIndex);
     }
   });
 
