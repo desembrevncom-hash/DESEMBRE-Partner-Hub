@@ -399,6 +399,12 @@ function MarketingDashboardPage() {
                 <Workflow className="w-3.5 h-3.5 text-violet-500" /> Automation (M13/M14)
               </Link>
             </Button>
+
+            <Button variant="outline" asChild className="rounded-xl border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 font-bold text-xs h-9 px-4 gap-2 flex-shrink-0">
+              <Link to="/marketing/automation-simulator">
+                <Play className="w-3.5 h-3.5 text-amber-600" /> Simulator (M41)
+              </Link>
+            </Button>
             
             <Button variant="outline" asChild className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs h-9 px-4 gap-2 flex-shrink-0">
               <Link to="/marketing/automation/events">
