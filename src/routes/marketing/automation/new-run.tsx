@@ -18,6 +18,22 @@ export const Route = createFileRoute("/marketing/automation/new-run")({
   component: NewAutomationRunPage,
 });
 
+function calculateExecuteAt(workflow: {
+  delay_amount?: number | null;
+  delay_unit?: string | null;
+}) {
+  const amount = workflow.delay_amount ?? 0;
+  const unit = workflow.delay_unit ?? "minutes";
+  const executeAt = new Date();
+
+  if (unit === "minutes") executeAt.setMinutes(executeAt.getMinutes() + amount);
+  else if (unit === "hours") executeAt.setHours(executeAt.getHours() + amount);
+  else if (unit === "days") executeAt.setDate(executeAt.getDate() + amount);
+  else executeAt.setMinutes(executeAt.getMinutes() + amount);
+
+  return executeAt.toISOString();
+}
+
 function NewAutomationRunPage() {
   const navigate = useNavigate();
   const [workflows, setWorkflows] = useState<any[]>([]);
@@ -172,25 +188,30 @@ function NewAutomationRunPage() {
 
       const batchId = batchData.id;
       const channel = workflow.action_type.includes('zalo') ? 'zalo' : 'email';
+      const executeAt = calculateExecuteAt(workflow);
 
       // 2. Prepare Recipients
-      const inserts = recipient_preview.map((rec: any) => ({
-        batch_id: batchId,
-        workflow_id: workflow.id,
-        customer_id: rec.customer_id,
+      const inserts = recipient_preview.map((rec: any) => {
+        if (!executeAt) throw new Error("execute_at calculation failed and returned null");
+        return {
+          batch_id: batchId,
+          workflow_id: workflow.id,
+          customer_id: rec.customer_id,
         recipient_email: rec.email,
         recipient_phone: rec.phone,
         channel,
         provider: 'mock',
         status: 'pending',
-        execute_at: rec.execute_at,
+        execute_at: executeAt,
+        idempotency_key: `m43:${batchId}:${rec.customer_id}:${channel}`,
         safety_result: {
           consent: rec.consent_gate_result,
           safety: rec.safety_rules_result,
           allowed: rec.overall_allowed,
           reason: rec.exclusion_reason
         }
-      }));
+      };
+    });
 
       // 3. Chunk Inserts at 100 per batch
       const chunkSize = 100;
