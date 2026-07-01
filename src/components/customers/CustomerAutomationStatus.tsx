@@ -32,7 +32,7 @@ export const CustomerAutomationStatus: React.FC<CustomerAutomationStatusProps> =
           setActiveAutomations(data);
         }
       } catch (e) {
-        console.error("Error fetching automation status", e);
+        // silently ignore optional query;
       } finally {
         if (isMounted) setLoading(false);
       }

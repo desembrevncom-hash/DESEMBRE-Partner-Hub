@@ -35,7 +35,7 @@ export const CustomerRiskSummary: React.FC<CustomerRiskSummaryProps> = ({ custom
           .eq("status", "active")
           .order("created_at", { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (isMounted && data) {
           setAiSuggestion(data.suggestion_json);

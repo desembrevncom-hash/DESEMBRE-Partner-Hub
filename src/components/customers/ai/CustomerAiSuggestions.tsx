@@ -54,7 +54,7 @@ export const CustomerAiSuggestions: React.FC<CustomerAiSuggestionsProps> = ({ cu
           .eq("customer_id", customerId)
           .order("created_at", { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (data && data.status === "active") {
           const createdAt = new Date(data.created_at);
@@ -132,7 +132,7 @@ export const CustomerAiSuggestions: React.FC<CustomerAiSuggestionsProps> = ({ cu
         toast.success("Đã lưu lịch sử sử dụng gợi ý");
       }
     } catch (e) {
-      console.error(e);
+      // silently ignore;
     }
   };
 
