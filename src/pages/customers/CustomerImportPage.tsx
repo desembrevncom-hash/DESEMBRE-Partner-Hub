@@ -311,7 +311,6 @@ export function CustomerImportPage() {
           note: finalNote || null,
           owner_sale_id: r.owner_sale_id || null,
           status: "new",
-          customer_type: "retail",
           lifecycle_stage: "new_lead",
         };
       });

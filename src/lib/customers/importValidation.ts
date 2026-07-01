@@ -32,10 +32,31 @@ export interface ParsedImportRow {
 
 export function normalizePhone(phone: string | null | undefined): string | null {
   if (!phone) return null;
-  let p = phone.toString().replace(/[^0-9+]/g, "");
-  if (p.startsWith("+84")) p = "0" + p.slice(3);
-  if (p.startsWith("84") && p.length > 9) p = "0" + p.slice(2);
-  return p.length >= 9 ? p : null;
+  let p = phone.toString();
+  // Remove leading apostrophe if any
+  if (p.startsWith("'")) {
+    p = p.slice(1);
+  }
+  // Remove spaces, dots, dashes, parentheses (keep + for country code check)
+  p = p.replace(/[\s.\-()]/g, "");
+  
+  if (p.startsWith("+84")) {
+    p = "0" + p.slice(3);
+  } else if (p.startsWith("84") && p.length === 11) {
+    p = "0" + p.slice(2);
+  } else if (p.length === 9 && /^[35789]/.test(p)) {
+    p = "0" + p;
+  }
+  
+  // Final validation: must be 10 digits starting with 0
+  if (p.length === 10 && p.startsWith("0")) {
+    // Ensure it contains only digits
+    if (/^\d{10}$/.test(p)) {
+      return p;
+    }
+  }
+  
+  return null;
 }
 
 export function normalizeEmail(email: string | null | undefined): string | null {
