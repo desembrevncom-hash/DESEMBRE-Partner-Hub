@@ -360,9 +360,23 @@ export function CustomerImportPage() {
                 className="hidden"
                 onChange={handleFileUpload}
               />
-              <Button onClick={() => fileInputRef.current?.click()}>
-                <UploadCloud className="w-4 h-4 mr-2" /> Chọn file từ máy tính
-              </Button>
+              <div className="flex items-center gap-3">
+                <Button onClick={() => fileInputRef.current?.click()}>
+                  <UploadCloud className="w-4 h-4 mr-2" /> Chọn file từ máy tính
+                </Button>
+                <Button variant="outline" onClick={() => {
+                  const csvContent = "phone,business_name,contact_name,email,province,city,source,facebook,zalo,website,tiktok,note,owner_sale_email,owner_sale_id\n0961234567,Demo Spa 1,Chị Lan,lan1@example.com,Hà Nội,Hà Nội,Facebook,https://facebook.com/demo1,0961234567,,,Khách quan tâm treatment,sale@example.com,";
+                  const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = "customers_import_template.csv";
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}>
+                  <Download className="w-4 h-4 mr-2" /> Tải file mẫu
+                </Button>
+              </div>
             </div>
           )}
 
