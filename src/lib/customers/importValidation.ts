@@ -63,15 +63,17 @@ export function normalizePhone(phone: string | null | undefined): string | null 
   return null;
 }
 
-export function parseHistoricalRevenue(val: unknown): number | null {
+export function parseHistoricalRevenue(val: unknown): number | null | "INVALID_NUMBER" {
   if (val === null || val === undefined || val === "") return null;
   const str = String(val).toLowerCase().trim();
+  if (str === "null" || str === "undefined" || str === "-" || str === "n/a") return null;
+  
   let numStr = str;
   let multiplier = 1;
   if (numStr.includes("triệu") || numStr.includes("trieu") || numStr.includes("tr")) {
     multiplier = 1000000;
   }
-  numStr = numStr.replace(/[^0-9.,]/g, "");
+  numStr = numStr.replace(/[^0-9.,\-]/g, "");
   numStr = numStr.replace(/,/g, ".");
   if (multiplier === 1000000) {
     const parsed = parseFloat(numStr);
@@ -81,15 +83,71 @@ export function parseHistoricalRevenue(val: unknown): number | null {
     const parsed = parseInt(numStr, 10);
     if (!isNaN(parsed)) return parsed;
   }
-  return null;
+  return "INVALID_NUMBER";
 }
 
 export function normalizeText(text: unknown): string | null {
-  if (!text) return null;
-  return String(text)
-    .trim()
-    .normalize("NFC")
-    .replace(/\s+/g, " ");
+  if (text === null || text === undefined || text === "") return null;
+  const str = String(text).trim();
+  if (!str || str.toLowerCase() === "null" || str.toLowerCase() === "undefined") return null;
+  return str.normalize("NFC").replace(/\s+/g, " ");
+}
+
+export function parseHistoricalDate(value: unknown): string | null {
+  if (value === null || value === undefined || value === "") return null;
+  const str = String(value).trim();
+  const lowerStr = str.toLowerCase();
+  if (!str || lowerStr === "null" || lowerStr === "undefined" || lowerStr === "-" || lowerStr === "n/a") return null;
+
+  // Handle Excel serial numbers (from 1900-01-01 to 2073-10-14 approx)
+  const num = Number(str);
+  if (!isNaN(num) && num > 10000 && num < 100000) {
+    const epoch = new Date(1899, 11, 30); // Excel epoch considering 1900 leap year bug
+    const date = new Date(epoch.getTime() + num * 86400000);
+    if (!isNaN(date.getTime())) {
+      return date.toISOString().split("T")[0];
+    }
+  }
+
+  // Handle JS Date object
+  if (value instanceof Date) {
+    if (!isNaN(value.getTime())) {
+      return value.toISOString().split("T")[0];
+    }
+  }
+
+  // Handle common string formats
+  // YYYY-MM-DD
+  let match = str.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
+  if (match) {
+    const year = parseInt(match[1]);
+    const month = parseInt(match[2]);
+    const day = parseInt(match[3]);
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day) {
+      return date.toISOString().split("T")[0];
+    }
+  }
+
+  // DD/MM/YYYY or DD-MM-YYYY
+  match = str.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/);
+  if (match) {
+    const day = parseInt(match[1]);
+    const month = parseInt(match[2]);
+    const year = parseInt(match[3]);
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day) {
+      return date.toISOString().split("T")[0];
+    }
+  }
+  
+  // Try default JS parser as last resort for standard strings like "Dec 20, 2025"
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+     return d.toISOString().split("T")[0];
+  }
+
+  return "INVALID_DATE";
 }
 
 export function detectMojibake(text: unknown): boolean {
@@ -237,6 +295,22 @@ export function validateImportRow(row: ParsedImportRow): ParsedImportRow {
     warnings.push("Email người phụ trách sai định dạng.");
   }
 
+  if (row.historical_last_purchase_at === "INVALID_DATE") {
+    errors.push("Ngày mua cuối lịch sử không hợp lệ");
+  }
+
+  if (row.historical_revenue_total === "INVALID_NUMBER") {
+    errors.push("Doanh số lịch sử không hợp lệ.");
+  } else if (row.historical_revenue_total !== null && row.historical_revenue_total < 0) {
+    errors.push("Doanh số lịch sử không được âm.");
+  }
+
+  if (row.historical_order_count === "INVALID_NUMBER") {
+    errors.push("Số đơn lịch sử không hợp lệ.");
+  } else if (row.historical_order_count !== null && row.historical_order_count < 0) {
+    errors.push("Số đơn lịch sử không được âm.");
+  }
+
   let status: "valid" | "invalid" | "warning" | "duplicate" = "valid";
   let action: "skip" | "create_new" | "update_existing" = "create_new";
 
@@ -325,7 +399,7 @@ export function adaptMappedRow(mappedData: any, rawData: any, index: number): Pa
   const note = normalizeText(mappedData.note);
   const historical_revenue_total = parseHistoricalRevenue(mappedData.historical_revenue_total);
   const historical_order_count = mappedData.historical_order_count ? parseInt(mappedData.historical_order_count, 10) : null;
-  const historical_last_purchase_at = mappedData.historical_last_purchase_at ? mappedData.historical_last_purchase_at : null;
+  const historical_last_purchase_at = parseHistoricalDate(mappedData.historical_last_purchase_at);
   const historical_revenue_note = normalizeText(mappedData.historical_revenue_note);
 
   return {
@@ -357,7 +431,7 @@ export function adaptMappedRow(mappedData: any, rawData: any, index: number): Pa
     matched_customer_id: null,
     duplicate_reason: null,
     historical_revenue_total,
-    historical_order_count: Number.isNaN(historical_order_count as any) ? null : historical_order_count,
+    historical_order_count: Number.isNaN(historical_order_count as any) ? "INVALID_NUMBER" : historical_order_count,
     historical_last_purchase_at,
     historical_revenue_note,
     // extra mapped fields for customers table
