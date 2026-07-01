@@ -51,8 +51,13 @@ export const WorkspaceTasksCard: React.FC<WorkspaceTasksCardProps> = ({
   const [previewCustomer, setPreviewCustomer] = useState<any | null>(null);
   const [taskAction, setTaskAction] = useState<{ task: any; action: string } | null>(null);
 
+  const isTerminalTaskStatus = (status: any) =>
+    ["completed", "done", "cancelled", "archived"].includes(String(status || "pending").toLowerCase());
+
   // Sắp xếp items theo thời gian
-  const sortedItems = [...(items || [])].sort((a, b) => {
+  const sortedItems = [...(items || [])]
+    .filter((item) => !isTerminalTaskStatus(item.status))
+    .sort((a, b) => {
     const dateA = new Date(a.due_at || a.starts_at || 0).getTime();
     const dateB = new Date(b.due_at || b.starts_at || 0).getTime();
     return dateA - dateB;
