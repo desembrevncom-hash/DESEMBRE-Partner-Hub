@@ -490,24 +490,45 @@ function CustomersPage() {
           console.error("fetch intelligence error:", intelError);
         }
 
-        const { data: channelData, error: channelError } = await supabase.rpc(
-          "get_customer_channel_summary",
-          {
-            p_customer_ids: cIds,
-          },
-        );
-        if (!channelError && channelData) {
-          const channelMap = new Map(
-            channelData.map((i: any) => [i.customer_id, i] as [string, any]),
+        try {
+          const { data: channelData, error: channelError } = await supabase.rpc(
+            "get_customer_channel_summary",
+            {
+              p_customer_ids: cIds,
+            },
           );
+          
+          if (channelError) {
+            throw channelError;
+          }
+          
+          if (channelData) {
+            const channelMap = new Map(
+              channelData.map((i: any) => [i.customer_id, i] as [string, any]),
+            );
+            processed.forEach((c: any) => {
+              const channel = channelMap.get(c.id);
+              if (channel) {
+                c.channel_summary = channel;
+              }
+            });
+          }
+        } catch (err: any) {
+          console.warn("fetch channel summary error:", err);
+          // PROVIDE SAFE DEFAULT SUMMARY VALUES so the page can still render
           processed.forEach((c: any) => {
-            const channel = channelMap.get(c.id);
-            if (channel) {
-              c.channel_summary = channel;
-            }
+            c.channel_summary = {
+              customer_id: c.id,
+              has_facebook: false,
+              has_zalo: false,
+              has_email: !!c.email,
+              has_tiktok: false,
+              has_website: false,
+              has_phone: !!c.phone,
+              primary_channel: c.phone ? 'phone' : null,
+              last_remarketing_at: null,
+            };
           });
-        } else if (channelError) {
-          console.error("fetch channel summary error:", channelError);
         }
       }
 
