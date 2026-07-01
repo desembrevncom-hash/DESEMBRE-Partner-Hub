@@ -189,7 +189,7 @@ export function CustomerImportPage() {
     });
   };
 
-  const handleValidateAndNext = async () => {
+  const handlePreview = async () => {
     // 0. Initial check
     const requiredKeys = Object.values(columnMap);
     if (!requiredKeys.includes("phone")) {
