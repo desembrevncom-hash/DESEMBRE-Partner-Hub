@@ -282,23 +282,28 @@ export function CustomerImportPage() {
 
     for (let i = 0; i < totalChunks; i++) {
       const chunk = validRows.slice(i * chunkSize, (i + 1) * chunkSize);
-      const payload = chunk.map((r) => ({
-        business_name: r.business_name,
-        contact_name: r.contact_name,
-        phone: r.normalized_phone,
-        email: r.normalized_email,
-        province: r.city, // fallback
-        city: r.city,
-        source: r.source,
-        facebook: r.parsed_data.facebook,
-        zalo: r.parsed_data.zalo,
-        website: r.parsed_data.website,
-        tiktok: r.parsed_data.tiktok,
-        note: r.note,
-        owner_sale_id: r.owner_sale_id,
+      const payload = chunk.map((r: any) => ({
+        name: r.name || r.contact_name || r.business_name || r.phone,
+        facility_name: r.business_name || null,
+        business_name: r.business_name || null,
+        contact_name: r.contact_name || null,
+        phone: r.phone || null,
+        normalized_phone: r.normalized_phone || null,
+        email: r.email || null,
+        normalized_email: r.normalized_email || null,
+        province: r.province || r.city || null,
+        city: r.city || null,
+        source: r.source || null,
+        facebook: r.parsed_data.facebook || null,
+        zalo: r.parsed_data.zalo || null,
+        website: r.parsed_data.website || null,
+        tiktok: r.parsed_data.tiktok || null,
+        note: r.note || null,
+        owner_sale_id: r.owner_sale_id || null,
         // Set hard defaults
+        status: "new",
         customer_type: "retail",
-        lifecycle_stage: "lead",
+        lifecycle_stage: "new_lead",
       }));
 
       try {
