@@ -70,7 +70,7 @@ export function normalizeText(text: unknown): string | null {
 export function detectMojibake(text: unknown): boolean {
   if (!text) return false;
   const str = String(text);
-  if (str.includes("")) return true;
+  if (str.includes("\uFFFD")) return true; // Replacement character 
   if (str.includes("??")) return true;
   if (/[a-zA-Z]\?[a-zA-Z]/.test(str)) return true;
   if (/[a-zA-Z]\?\s/.test(str)) return true;
