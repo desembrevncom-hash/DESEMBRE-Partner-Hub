@@ -96,6 +96,7 @@ export function CustomerImportPage() {
     imported: number;
     skipped: number;
     failed: number;
+    failed_reasons?: { reason: string }[];
   } | null>(null);
   const [progress, setProgress] = useState(0);
 
@@ -276,58 +277,78 @@ export function CustomerImportPage() {
     setIsProcessing(true);
     let importedCount = 0;
     let failedCount = 0;
+    const failedReasons: { reason: string }[] = [];
 
     const chunkSize = 100;
     const totalChunks = Math.ceil(validRows.length / chunkSize);
 
     for (let i = 0; i < totalChunks; i++) {
       const chunk = validRows.slice(i * chunkSize, (i + 1) * chunkSize);
-      const payload = chunk.map((r: any) => ({
-        name: r.name || r.contact_name || r.business_name || r.phone,
-        facility_name: r.business_name || null,
-        business_name: r.business_name || null,
-        contact_name: r.contact_name || null,
-        phone: r.phone || null,
-        normalized_phone: r.normalized_phone || null,
-        email: r.email || null,
-        normalized_email: r.normalized_email || null,
-        province: r.province || r.city || null,
-        city: r.city || null,
-        source: r.source || null,
-        facebook: r.parsed_data.facebook || null,
-        zalo: r.parsed_data.zalo || null,
-        website: r.parsed_data.website || null,
-        tiktok: r.parsed_data.tiktok || null,
-        note: r.note || null,
-        owner_sale_id: r.owner_sale_id || null,
-        // Set hard defaults
-        status: "new",
-        customer_type: "retail",
-        lifecycle_stage: "new_lead",
-      }));
+      const payload = chunk.map((r: any) => {
+        const extraNote = [];
+        if (r.province) extraNote.push(`Tỉnh/Thành: ${r.province}`);
+        if (r.parsed_data?.website) extraNote.push(`Website: ${r.parsed_data.website}`);
+        if (r.parsed_data?.tiktok) extraNote.push(`TikTok: ${r.parsed_data.tiktok}`);
+        
+        let finalNote = r.note || "";
+        if (extraNote.length > 0) {
+          finalNote = finalNote ? `${finalNote}\n${extraNote.join(" | ")}` : extraNote.join(" | ");
+        }
+
+        return {
+          name: r.name || r.contact_name || r.business_name || r.phone,
+          facility_name: r.business_name || null,
+          business_name: r.business_name || null,
+          contact_name: r.contact_name || null,
+          phone: r.phone || null,
+          normalized_phone: r.normalized_phone || null,
+          email: r.email || null,
+          normalized_email: r.normalized_email || null,
+          city: r.city || null,
+          source: r.source || null,
+          facebook: r.parsed_data?.facebook || null,
+          zalo: r.parsed_data?.zalo || null,
+          note: finalNote || null,
+          owner_sale_id: r.owner_sale_id || null,
+          status: "new",
+          customer_type: "retail",
+          lifecycle_stage: "new_lead",
+        };
+      });
 
       try {
         const { error } = await supabase.from("customers").insert(payload);
         if (error) {
           console.error("Import chunk error", error);
-          failedCount += chunk.length;
+          for (let j = 0; j < payload.length; j++) {
+            const rowPayload = payload[j];
+            const { error: rowError } = await supabase.from("customers").insert([rowPayload]);
+            if (rowError) {
+              failedCount++;
+              failedReasons.push({ reason: `Dòng ${chunk[j].row_number} - SĐT ${rowPayload.phone}: ${rowError.message || rowError.details || rowError.code}` });
+            } else {
+              importedCount++;
+            }
+          }
         } else {
           importedCount += chunk.length;
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Import chunk exception", err);
         failedCount += chunk.length;
+        failedReasons.push({ reason: err.message || "Lỗi Exception" });
       }
       setProgress(Math.round(((i + 1) / totalChunks) * 100));
     }
 
-    setIsProcessing(false);
     setImportReport({
       imported: importedCount,
+      skipped: parsedRows.filter((r) => r.import_action === "skip").length,
       failed: failedCount,
-      skipped: parsedRows.length - validRows.length,
+      failed_reasons: failedReasons,
     });
     setStep(4);
+    setIsProcessing(false);
   };
 
   // --- UI Render ---
@@ -557,20 +578,39 @@ export function CustomerImportPage() {
                 Quá trình nhập dữ liệu khách hàng đã hoàn thành. Hãy kiểm tra lại danh sách.
               </p>
 
-              <div className="grid grid-cols-3 gap-6 mb-8 w-full max-w-lg">
-                <div className="bg-white border rounded-xl p-4 shadow-sm">
-                  <p className="text-sm text-slate-500 mb-1">Thành công</p>
-                  <p className="text-3xl font-bold text-emerald-600">{importReport.imported}</p>
+              <div className="flex justify-center gap-6 mb-8 text-center max-w-2xl mx-auto">
+                <div className="bg-white border rounded-xl p-6 shadow-sm flex-1">
+                  <div className="text-sm font-medium text-slate-500 mb-1">Thành công</div>
+                  <div className="text-3xl font-black text-emerald-600">
+                    {importReport?.imported || 0}
+                  </div>
                 </div>
-                <div className="bg-white border rounded-xl p-4 shadow-sm">
-                  <p className="text-sm text-slate-500 mb-1">Bỏ qua (Trùng/Lỗi)</p>
-                  <p className="text-3xl font-bold text-slate-400">{importReport.skipped}</p>
+                <div className="bg-white border rounded-xl p-6 shadow-sm flex-1">
+                  <div className="text-sm font-medium text-slate-500 mb-1">Bỏ qua (Trùng/Lỗi)</div>
+                  <div className="text-3xl font-black text-slate-600">
+                    {importReport?.skipped || 0}
+                  </div>
                 </div>
-                <div className="bg-white border rounded-xl p-4 shadow-sm border-rose-200">
-                  <p className="text-sm text-rose-500 mb-1">Thất bại (Server)</p>
-                  <p className="text-3xl font-bold text-rose-600">{importReport.failed}</p>
+                <div className="bg-white border border-rose-100 rounded-xl p-6 shadow-sm flex-1 bg-rose-50/30">
+                  <div className="text-sm font-medium text-rose-500 mb-1">Thất bại (Server)</div>
+                  <div className="text-3xl font-black text-rose-600">
+                    {importReport?.failed || 0}
+                  </div>
                 </div>
               </div>
+              
+              {importReport?.failed_reasons && importReport.failed_reasons.length > 0 && (
+                <div className="max-w-2xl mx-auto mb-8 text-left bg-rose-50 border border-rose-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 text-rose-800 font-semibold mb-3">
+                    <AlertTriangle className="w-5 h-5" /> Chi tiết lỗi Server:
+                  </div>
+                  <div className="max-h-48 overflow-y-auto space-y-2 text-sm text-rose-700 font-mono bg-white p-3 rounded border border-rose-100">
+                    {importReport.failed_reasons.map((r, i) => (
+                      <div key={i} className="pb-1 border-b border-rose-50 last:border-0">{r.reason}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-4">
                 <Button variant="outline" onClick={() => setStep(1)}>
