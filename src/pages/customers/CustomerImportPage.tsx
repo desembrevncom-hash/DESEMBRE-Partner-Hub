@@ -320,6 +320,14 @@ export function CustomerImportPage() {
       return;
     }
 
+    const toNullableHistoricalDate = (value: any) => {
+      const parsed = parseHistoricalDate(value);
+      if (parsed === "INVALID_DATE") {
+        throw new Error("Ngày mua cuối lịch sử không hợp lệ");
+      }
+      return parsed ?? null;
+    };
+
     setIsProcessing(true);
     let importedCount = 0;
     let failedCount = 0;
@@ -361,10 +369,19 @@ export function CustomerImportPage() {
           lifecycle_stage: "new_lead",
           historical_revenue_total: r.historical_revenue_total ?? 0,
           historical_order_count: r.historical_order_count ?? 0,
-          historical_last_purchase_at: r.historical_last_purchase_at || null,
+          historical_last_purchase_at: toNullableHistoricalDate(r.historical_last_purchase_at),
           historical_revenue_note: r.historical_revenue_note || null,
         };
       });
+
+      // Final guard check
+      for (const p of payload) {
+        if (p.historical_last_purchase_at === "null" || p.historical_last_purchase_at === "undefined") {
+          setIsProcessing(false);
+          toast.error("Ngày mua cuối lịch sử không hợp lệ (lỗi hệ thống gửi raw string).");
+          return;
+        }
+      }
 
       try {
         const { error } = await supabase.from("customers").insert(payload);
