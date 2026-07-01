@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
-import { Building2, Camera, Link as LinkIcon, Loader2, LogOut, Mail, MapPin, Phone, Shield, User, X } from "lucide-react";
+import { ArrowLeft, Building2, Camera, Edit2, Link as LinkIcon, Loader2, LogOut, Mail, MapPin, Phone, Save, Shield, User, X } from "lucide-react";
 import { safeDigits, toSafeString } from "@/lib/utils/safeString";
 import { Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
