@@ -35,7 +35,14 @@ interface ProductCopilotContextType {
   quickReplies: QuickReply[];
 }
 
-const ProductCopilotContext = createContext<ProductCopilotContextType | undefined>(undefined);
+const defaultContext: ProductCopilotContextType = {
+  customerContext: null,
+  setCustomerContext: () => {},
+  settings: null,
+  quickReplies: [],
+};
+
+export const ProductCopilotContext = createContext<ProductCopilotContextType>(defaultContext);
 
 export function ProductCopilotProvider({ children }: { children: ReactNode }) {
   const [customerContext, setCustomerContext] = useState<CustomerContextData | null>(null);
@@ -83,9 +90,5 @@ export function ProductCopilotProvider({ children }: { children: ReactNode }) {
 }
 
 export function useCopilotContext() {
-  const context = useContext(ProductCopilotContext);
-  if (context === undefined) {
-    throw new Error("useCopilotContext must be used within a ProductCopilotProvider");
-  }
-  return context;
+  return useContext(ProductCopilotContext);
 }
