@@ -20,19 +20,19 @@ export const CustomerAutomationStatus: React.FC<CustomerAutomationStatusProps> =
       try {
         // Query automation logs for this customer that are currently running or scheduled
         // In a real system, there might be a dedicated automation_queue or similar
-        // For MVP, we check automation_logs with status 'pending', 'scheduled' or 'running'
-        const { data, error } = await supabase
-          .from("automation_logs")
-          .select("id, rule_id, status, error_message, rule:automation_rules(name, rule_type)")
-          .eq("customer_id", customerId)
-          .in("status", ["pending", "running", "scheduled"])
-          .order("created_at", { ascending: false });
+        // Emergency Hotfix: Disable automation_logs query entirely to prevent Production network errors
+        // const { data, error } = await supabase
+        //   .from("automation_logs")
+        //   .select("id, rule_id, status, error_message, rule:automation_rules(name, rule_type)")
+        //   .eq("customer_id", customerId)
+        //   .in("status", ["pending", "running", "scheduled"])
+        //   .order("created_at", { ascending: false });
 
-        if (isMounted && data) {
-          setActiveAutomations(data);
-        }
+        // if (isMounted && data) {
+        //   setActiveAutomations(data);
+        // }
       } catch (e) {
-        console.error("Error fetching automation status", e);
+        // silently ignore optional query;
       } finally {
         if (isMounted) setLoading(false);
       }

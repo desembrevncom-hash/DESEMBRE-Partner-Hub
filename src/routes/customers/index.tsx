@@ -490,28 +490,54 @@ function CustomersPage() {
           console.error("fetch intelligence error:", intelError);
         }
 
-        const { data: channelData, error: channelError } = await supabase.rpc(
-          "get_customer_channel_summary",
-          {
-            p_customer_ids: cIds,
-          },
-        );
-        if (!channelError && channelData) {
-          const channelMap = new Map(
-            channelData.map((i: any) => [i.customer_id, i] as [string, any]),
-          );
-          processed.forEach((c: any) => {
-            const channel = channelMap.get(c.id);
-            if (channel) {
-              c.channel_summary = channel;
-            }
-          });
-        } else if (channelError) {
-          console.error("fetch channel summary error:", channelError);
-        }
+        // Emergency Hotfix: Disable get_customer_channel_summary completely to prevent production crashes
+        // try {
+        //   const { data: channelData, error: channelError } = await supabase.rpc(
+        //     "get_customer_channel_summary",
+        //     {
+        //       p_customer_ids: cIds,
+        //     },
+        //   );
+        //   
+        //   if (channelError) {
+        //     throw channelError;
+        //   }
+        //   
+        //   if (channelData) {
+        //     const channelMap = new Map(
+        //       channelData.map((i: any) => [i.customer_id, i] as [string, any]),
+        //     );
+        //     processed.forEach((c: any) => {
+        //       const channel = channelMap.get(c.id);
+        //       if (channel) {
+        //         c.channel_summary = channel;
+        //       }
+        //     });
+        //   }
+        // } catch (err: any) {
+        //   console.warn("fetch channel summary error:", err);
+        // }
       }
 
-      setCustomers(processed);
+      // 100% Ensure channel_summary exists to prevent any downstream hook order or render crash
+      const safeChannelSummary = (c: any) => ({
+        customer_id: c.id,
+        has_facebook: false,
+        has_zalo: false,
+        has_email: Boolean(c.email),
+        has_tiktok: false,
+        has_website: false,
+        has_phone: Boolean(c.phone),
+        primary_channel: c.phone ? "phone" : c.email ? "email" : null,
+        last_remarketing_at: null,
+      });
+
+      const normalizedCustomers = processed.map((c: any) => ({
+        ...c,
+        channel_summary: c.channel_summary ?? safeChannelSummary(c),
+      }));
+
+      setCustomers(normalizedCustomers);
 
       // Fetch user profiles to build staffMap
       const userIds = new Set<string>();
