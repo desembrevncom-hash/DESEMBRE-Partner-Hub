@@ -515,24 +515,28 @@ function CustomersPage() {
           }
         } catch (err: any) {
           console.warn("fetch channel summary error:", err);
-          // PROVIDE SAFE DEFAULT SUMMARY VALUES so the page can still render
-          processed.forEach((c: any) => {
-            c.channel_summary = {
-              customer_id: c.id,
-              has_facebook: false,
-              has_zalo: false,
-              has_email: !!c.email,
-              has_tiktok: false,
-              has_website: false,
-              has_phone: !!c.phone,
-              primary_channel: c.phone ? 'phone' : null,
-              last_remarketing_at: null,
-            };
-          });
         }
       }
 
-      setCustomers(processed);
+      // 100% Ensure channel_summary exists to prevent any downstream hook order or render crash
+      const safeChannelSummary = (c: any) => ({
+        customer_id: c.id,
+        has_facebook: false,
+        has_zalo: false,
+        has_email: Boolean(c.email),
+        has_tiktok: false,
+        has_website: false,
+        has_phone: Boolean(c.phone),
+        primary_channel: c.phone ? "phone" : c.email ? "email" : null,
+        last_remarketing_at: null,
+      });
+
+      const normalizedCustomers = processed.map((c: any) => ({
+        ...c,
+        channel_summary: c.channel_summary ?? safeChannelSummary(c),
+      }));
+
+      setCustomers(normalizedCustomers);
 
       // Fetch user profiles to build staffMap
       const userIds = new Set<string>();
