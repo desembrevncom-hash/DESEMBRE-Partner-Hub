@@ -234,7 +234,7 @@ export function CustomerImportPage() {
 
       const [dbPhones, dbEmails, sales] = await Promise.all([
         phoneSet.size > 0
-          ? supabase.from("customers").select("phone, id").in("phone", Array.from(phoneSet))
+          ? supabase.from("customers").select("id, phone, normalized_phone").or(`phone.in.(${Array.from(phoneSet).join(',')}),normalized_phone.in.(${Array.from(phoneSet).join(',')})`)
           : { data: [] },
         emailSet.size > 0
           ? supabase.from("customers").select("email, id").in("email", Array.from(emailSet))
@@ -244,7 +244,11 @@ export function CustomerImportPage() {
           : { data: [] },
       ]);
 
-      const existingPhones = new Set((dbPhones.data || []).map((x: any) => x.phone));
+      const existingPhones = new Set<string>();
+      (dbPhones.data || []).forEach((x: any) => {
+        if (x.phone) existingPhones.add(x.phone);
+        if (x.normalized_phone) existingPhones.add(x.normalized_phone);
+      });
       const existingEmails = new Set((dbEmails.data || []).map((x: any) => x.email));
       const saleEmailToId: Record<string, string> = {};
       (sales.data || []).forEach((s: any) => {
@@ -358,8 +362,12 @@ export function CustomerImportPage() {
             const rowPayload = payload[j];
             const { error: rowError } = await supabase.from("customers").insert([rowPayload]);
             if (rowError) {
-              failedCount++;
-              failedReasons.push({ reason: `Dòng ${chunk[j].row_number} - SĐT ${rowPayload.phone}: ${rowError.message || rowError.details || rowError.code}` });
+              if (rowError.code === "23505" || (rowError.message && (rowError.message.includes("duplicate key value") || rowError.message.includes("idx_customers_unique_normalized_phone")))) {
+                duplicateCount++;
+              } else {
+                failedCount++;
+                failedReasons.push({ reason: `Dòng ${chunk[j].row_number} - SĐT ${rowPayload.phone}: ${rowError.message || rowError.details || rowError.code}` });
+              }
             } else {
               importedCount++;
             }
