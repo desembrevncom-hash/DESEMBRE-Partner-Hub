@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import Papa from "papaparse";
+import * as XLSX from "xlsx";
 import {
   UploadCloud,
   FileSpreadsheet,
@@ -103,42 +104,74 @@ export function CustomerImportPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- Step 1: Upload ---
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
     if (!selected) return;
     setFile(selected);
 
-    Papa.parse(selected, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        if (!results.meta.fields || results.meta.fields.length === 0) {
-          toast.error("Không tìm thấy tiêu đề cột trong file CSV.");
+    const processData = (headers: string[], data: any[]) => {
+      if (!headers || headers.length === 0) {
+        toast.error("Không tìm thấy tiêu đề cột trong file.");
+        return;
+      }
+      setCsvHeaders(headers);
+      setCsvData(data);
+
+      const initialMap: Record<string, string | null> = {};
+      const usedTargets = new Set<string>();
+
+      headers.forEach((header) => {
+        const guessed = guessTargetField(header);
+        if (guessed && !usedTargets.has(guessed)) {
+          initialMap[header] = guessed;
+          usedTargets.add(guessed);
+        } else {
+          initialMap[header] = null;
+        }
+      });
+      setColumnMap(initialMap);
+      setStep(2);
+    };
+
+    if (selected.name.endsWith(".xlsx") || selected.name.endsWith(".xls")) {
+      try {
+        const data = await selected.arrayBuffer();
+        const workbook = XLSX.read(data, { type: "array" });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        // Convert to JSON
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+        if (jsonData.length < 1) {
+          toast.error("File Excel trống.");
           return;
         }
-        setCsvHeaders(results.meta.fields);
-        setCsvData(results.data);
-
-        // Auto guess mapping
-        const initialMap: Record<string, string | null> = {};
-        const usedTargets = new Set<string>();
-
-        results.meta.fields.forEach((header) => {
-          const guessed = guessTargetField(header);
-          if (guessed && !usedTargets.has(guessed)) {
-            initialMap[header] = guessed;
-            usedTargets.add(guessed);
-          } else {
-            initialMap[header] = null;
-          }
-        });
-        setColumnMap(initialMap);
-        setStep(2);
-      },
-      error: (error) => {
-        toast.error("Lỗi đọc file: " + error.message);
-      },
-    });
+        
+        const headers = jsonData[0].map((h: any) => h?.toString()?.trim() || "");
+        const rows = jsonData.slice(1).map((rowArr) => {
+          const rowObj: any = {};
+          headers.forEach((h, i) => {
+            rowObj[h] = rowArr[i] !== undefined ? rowArr[i] : null;
+          });
+          return rowObj;
+        }).filter(row => Object.values(row).some(v => v !== null && v !== ""));
+        
+        processData(headers, rows);
+      } catch (err: any) {
+        toast.error("Lỗi đọc file Excel: " + err.message);
+      }
+    } else {
+      Papa.parse(selected, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          processData(results.meta.fields || [], results.data);
+        },
+        error: (error) => {
+          toast.error("Lỗi đọc file CSV: " + error.message);
+        },
+      });
+    }
   };
 
   // --- Step 2: Mapping ---
@@ -374,23 +407,26 @@ export function CustomerImportPage() {
               <div className="bg-white p-4 rounded-full shadow-sm mb-4">
                 <FileSpreadsheet className="w-8 h-8 text-blue-600" />
               </div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">Tải lên file CSV</h3>
-              <p className="text-sm text-slate-500 max-w-sm mb-6">
-                Chọn file chứa danh sách khách hàng. Chắc chắn rằng file của bạn có dòng tiêu đề (header row).
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">Tải lên file dữ liệu</h3>
+              <p className="text-sm text-slate-500 max-w-md mb-2">
+                Hỗ trợ định dạng CSV và Excel (.xlsx). Chắc chắn rằng file của bạn có dòng tiêu đề (header row).
+              </p>
+              <p className="text-xs text-amber-600 bg-amber-50 px-3 py-1.5 rounded-md border border-amber-200 mb-6">
+                💡 Khuyến nghị dùng CSV UTF-8. Nếu dùng Excel bị lỗi font tiếng Việt, hãy lưu bằng: Save As → CSV UTF-8.
               </p>
               <input
                 type="file"
-                accept=".csv"
+                accept=".csv,.xlsx,.xls"
                 ref={fileInputRef}
                 className="hidden"
                 onChange={handleFileUpload}
               />
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-center gap-3">
                 <Button onClick={() => fileInputRef.current?.click()}>
                   <UploadCloud className="w-4 h-4 mr-2" /> Chọn file từ máy tính
                 </Button>
                 <Button variant="outline" onClick={() => {
-                  const csvContent = "phone,business_name,contact_name,email,province,city,source,facebook,zalo,website,tiktok,note,owner_sale_email,owner_sale_id\n0961234567,Demo Spa 1,Chị Lan,lan1@example.com,Hà Nội,Hà Nội,Facebook,https://facebook.com/demo1,0961234567,,,Khách quan tâm treatment,sale@example.com,";
+                  const csvContent = "phone,business_name,contact_name,email,province,city,address,source,facebook,zalo,website,tiktok,note,owner_sale_email,owner_sale_id\n0961234567,Thư Hà Spa,Chị Phương,phuong@example.com,Hải Phòng,Hồng Bàng,\"12 Lạch Tray\",Facebook,,,,,\"Khách quan tâm chăm sóc da\",,";
                   const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
@@ -399,7 +435,19 @@ export function CustomerImportPage() {
                   a.click();
                   URL.revokeObjectURL(url);
                 }}>
-                  <Download className="w-4 h-4 mr-2" /> Tải file mẫu
+                  <Download className="w-4 h-4 mr-2" /> Tải file mẫu CSV
+                </Button>
+                <Button variant="outline" onClick={() => {
+                  const wsData = [
+                    ["phone", "business_name", "contact_name", "email", "province", "city", "address", "source", "facebook", "zalo", "website", "tiktok", "note", "owner_sale_email", "owner_sale_id"],
+                    ["0961234567", "Thư Hà Spa", "Chị Phương", "phuong@example.com", "Hải Phòng", "Hồng Bàng", "12 Lạch Tray", "Facebook", "", "", "", "", "Khách quan tâm chăm sóc da", "", ""]
+                  ];
+                  const ws = XLSX.utils.aoa_to_sheet(wsData);
+                  const wb = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(wb, ws, "Template");
+                  XLSX.writeFile(wb, "customers_import_template.xlsx");
+                }}>
+                  <Download className="w-4 h-4 mr-2" /> Tải file mẫu Excel
                 </Button>
               </div>
             </div>

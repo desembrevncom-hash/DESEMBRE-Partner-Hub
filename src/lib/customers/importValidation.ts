@@ -131,16 +131,16 @@ export function mapImportRow(row: any, index: number): ParsedImportRow {
     phone: phone,
     normalized_phone: nPhone,
     email: email,
-    normalized_email: nEmail,
-    address: address,
-    city: city,
+    normalized_email: normalizeEmail(email),
+    city: city || province, // fallback
+    address,
     source: source,
     customer_channel: source,
-    status: status,
-    lifecycle_stage: status,
+    status: null,
+    lifecycle_stage: null,
     note: note,
-    owner_sale_id: null,
-    owner_sale_email: owner_sale_email,
+    owner_sale_id: mappedData.owner_sale_id || null,
+    owner_sale_email: mappedData.owner_sale_email || null,
     validation_status: "pending",
     validation_errors: [],
     warning_message: null,
@@ -148,12 +148,28 @@ export function mapImportRow(row: any, index: number): ParsedImportRow {
     import_action: "skip",
     matched_customer_id: null,
     duplicate_reason: null,
+    // extra mapped fields
+    ...mappedData,
+    province,
   };
 }
 
 export function validateImportRow(row: ParsedImportRow): ParsedImportRow {
   const errors: string[] = [];
   const warnings: string[] = [];
+
+  // 0. Detect encoding errors
+  const textsToCheck = [
+    row.business_name,
+    row.contact_name,
+    (row as any).province,
+    row.city,
+    row.address,
+    row.note,
+  ];
+  if (textsToCheck.some((t) => detectMojibake(t))) {
+    errors.push("Tên/địa chỉ có dấu hiệu lỗi font tiếng Việt.");
+  }
 
   // 1 & 2. Required info
   if (!row.name && !row.contact_name && !row.business_name && !row.facility_name) {
@@ -250,26 +266,35 @@ export function buildImportSummary(rows: ParsedImportRow[]) {
 }
 
 export function adaptMappedRow(mappedData: any, rawData: any, index: number): ParsedImportRow {
-  const phone = mappedData.phone || null;
-  const email = mappedData.email || null;
+  const phone = mappedData.phone ? mappedData.phone.toString() : null;
+  const email = mappedData.email ? mappedData.email.toString() : null;
   const nPhone = normalizePhone(phone);
   const nEmail = normalizeEmail(email);
+
+  // Normalize texts
+  const business_name = normalizeText(mappedData.business_name);
+  const contact_name = normalizeText(mappedData.contact_name);
+  const city = normalizeText(mappedData.city);
+  const province = normalizeText(mappedData.province);
+  const address = normalizeText(mappedData.address);
+  const source = normalizeText(mappedData.source);
+  const note = normalizeText(mappedData.note);
 
   return {
     row_number: index + 1,
     raw_data: rawData,
     parsed_data: mappedData,
-    name: mappedData.contact_name || mappedData.business_name || null,
-    contact_name: mappedData.contact_name || null,
-    business_name: mappedData.business_name || null,
-    facility_name: mappedData.business_name || null,
+    name: contact_name || business_name || null,
+    contact_name: contact_name,
+    business_name: business_name,
+    facility_name: business_name,
     phone: phone,
     normalized_phone: nPhone,
     email: email,
     normalized_email: nEmail,
-    address: null, // mapped from province/city usually
-    city: mappedData.city || null,
-    source: mappedData.source || null,
+    address: address || null,
+    city: city || province || null,
+    source: source,
     customer_channel: mappedData.source || null,
     status: null,
     lifecycle_stage: null,
