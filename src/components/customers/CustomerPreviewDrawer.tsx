@@ -1121,6 +1121,9 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     return map;
   }, [mergedTimeline]);
 
+  // Move hook above early return to fix React Error 310 hook order violation
+  const contactSummary = useMemo(() => getCustomerContactSummary(customer), [customer]);
+
   if (!customer.id) return null;
 
   const warning = getCareModelWarning();
@@ -1167,7 +1170,6 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     (!customer.customer_channel || !customer.customer_distance_type || !customer.care_model);
 
   const suggestedAction = getSuggestedNextAction(customer);
-  const contactSummary = useMemo(() => getCustomerContactSummary(customer), [customer]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
