@@ -232,20 +232,31 @@ export function CustomerImportPage() {
       const emailSet = new Set(rows.map((r) => r.normalized_email).filter(Boolean) as string[]);
       const ownerEmailSet = new Set(rows.map((r) => r.owner_sale_email).filter(Boolean) as string[]);
 
-      const [dbPhones, dbEmails, sales] = await Promise.all([
-        phoneSet.size > 0
-          ? supabase.from("customers").select("id, phone, normalized_phone").or(`phone.in.(${Array.from(phoneSet).join(',')}),normalized_phone.in.(${Array.from(phoneSet).join(',')})`)
+      const phoneArray = Array.from(phoneSet);
+      const emailArray = Array.from(emailSet);
+      const ownerEmailArray = Array.from(ownerEmailSet);
+
+      const [dbPhones, dbPhonesNorm, dbEmails, sales] = await Promise.all([
+        phoneArray.length > 0
+          ? supabase.from("customers").select("id, phone, normalized_phone").in("phone", phoneArray)
           : { data: [] },
-        emailSet.size > 0
-          ? supabase.from("customers").select("email, id").in("email", Array.from(emailSet))
+        phoneArray.length > 0
+          ? supabase.from("customers").select("id, phone, normalized_phone").in("normalized_phone", phoneArray)
           : { data: [] },
-        ownerEmailSet.size > 0
-          ? supabase.from("profiles").select("id, email").in("email", Array.from(ownerEmailSet))
+        emailArray.length > 0
+          ? supabase.from("customers").select("email, id").in("email", emailArray)
+          : { data: [] },
+        ownerEmailArray.length > 0
+          ? supabase.from("profiles").select("id, email").in("email", ownerEmailArray)
           : { data: [] },
       ]);
 
       const existingPhones = new Set<string>();
-      (dbPhones.data || []).forEach((x: any) => {
+      (dbPhones?.data || []).forEach((x: any) => {
+        if (x.phone) existingPhones.add(x.phone);
+        if (x.normalized_phone) existingPhones.add(x.normalized_phone);
+      });
+      (dbPhonesNorm?.data || []).forEach((x: any) => {
         if (x.phone) existingPhones.add(x.phone);
         if (x.normalized_phone) existingPhones.add(x.normalized_phone);
       });
@@ -385,7 +396,7 @@ export function CustomerImportPage() {
 
     setImportReport({
       imported: importedCount,
-      skipped: parsedRows.filter((r) => r.import_action === "skip").length,
+      skipped: parsedRows.filter((r) => r.import_action === "skip").length + duplicateCount,
       failed: failedCount,
       failed_reasons: failedReasons,
     });
