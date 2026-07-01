@@ -124,42 +124,48 @@ export function AssignStaffDialog({
           contentParts.push(`Ghi chú bàn giao mới: "${initialDemand.trim()}"`);
         }
 
-        const { error: actError } = await supabase.from("customer_activities").insert({
-          customer_id: customer.id,
-          activity_type: "handoff",
-          title: "Bàn giao & Luân chuyển nhân sự phụ trách",
-          content: contentParts.join("\n"),
-          created_by: user?.id,
-        });
-        if (actError) console.error("Handoff activity log error:", actError);
+        // TODO: re-enable after RLS/schema notification activity logging is reviewed.
+        // Emergency Hotfix: Temporarily disable customer_activities insert to prevent 400/403 errors breaking the flow
+        // const { error: actError } = await supabase.from("customer_activities").insert({
+        //   customer_id: customer.id,
+        //   activity_type: "handoff",
+        //   title: "Bàn giao & Luân chuyển nhân sự phụ trách",
+        //   content: contentParts.join("\n"),
+        //   created_by: user?.id,
+        // });
+        // if (actError) console.error("Handoff activity log error:", actError);
       }
 
       // Gửi thông báo cho Sale nếu được chọn mới
       if (saleId && saleId !== customer.owner_sale_id) {
-        const notifRes = await createNotification({
-          recipient_user_id: saleId,
-          title: "Bạn được giao Khách hàng mới",
-          message: `Khách hàng ${getCustomerCardTitle(customer)} vừa được chia cho bạn phụ trách (Direct Sale).`,
-          type: "lead_assigned",
-          priority: "high",
-          action_url: `/customers/${customer.id}`,
-          created_by: user?.id,
-        });
-        if (notifRes.error) console.error("Sale notif error:", notifRes.error);
+        // TODO: re-enable after RLS/schema notification activity logging is reviewed.
+        // Emergency Hotfix: Temporarily disable notifications insert to prevent 400/403 errors breaking the flow
+        // const notifRes = await createNotification({
+        //   recipient_user_id: saleId,
+        //   title: "Bạn được giao Khách hàng mới",
+        //   message: `Khách hàng ${getCustomerCardTitle(customer)} vừa được chia cho bạn phụ trách (Direct Sale).`,
+        //   type: "lead_assigned",
+        //   priority: "high",
+        //   action_url: `/customers/${customer.id}`,
+        //   created_by: user?.id,
+        // });
+        // if (notifRes.error) console.error("Sale notif error:", notifRes.error);
       }
 
       // Gửi thông báo cho Tele nếu được chọn mới
       if (teleId && teleId !== customer.owner_tele_id) {
-        const notifRes = await createNotification({
-          recipient_user_id: teleId,
-          title: "Bạn được giao Khách hàng mới",
-          message: `Khách hàng ${getCustomerCardTitle(customer)} vừa được chia cho bạn hỗ trợ (Telesale).`,
-          type: "lead_assigned",
-          priority: "high",
-          action_url: `/customers/${customer.id}`,
-          created_by: user?.id,
-        });
-        if (notifRes.error) console.error("Tele notif error:", notifRes.error);
+        // TODO: re-enable after RLS/schema notification activity logging is reviewed.
+        // Emergency Hotfix: Temporarily disable notifications insert to prevent 400/403 errors breaking the flow
+        // const notifRes = await createNotification({
+        //   recipient_user_id: teleId,
+        //   title: "Bạn được giao Khách hàng mới",
+        //   message: `Khách hàng ${getCustomerCardTitle(customer)} vừa được chia cho bạn hỗ trợ (Telesale).`,
+        //   type: "lead_assigned",
+        //   priority: "high",
+        //   action_url: `/customers/${customer.id}`,
+        //   created_by: user?.id,
+        // });
+        // if (notifRes.error) console.error("Tele notif error:", notifRes.error);
       }
 
       toast.success("Đã cập nhật luồng chăm sóc & người phụ trách");
