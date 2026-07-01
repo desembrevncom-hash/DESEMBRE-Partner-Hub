@@ -189,41 +189,41 @@ export function CustomerImportPage() {
     });
   };
 
-  const handlePreview = async () => {
-    // Check if phone is mapped
-    const hasPhoneMap = Object.values(columnMap).includes("phone");
-    if (!hasPhoneMap) {
-      toast.error("Bạn phải map ít nhất 1 cột vào trường 'Số điện thoại (*)'");
+  const handleValidateAndNext = async () => {
+    // 0. Initial check
+    const requiredKeys = Object.values(columnMap);
+    if (!requiredKeys.includes("phone")) {
+      toast.error("Vui lòng ghép cột cho trường bắt buộc: Số điện thoại.");
       return;
     }
 
     setIsValidating(true);
     setStep(3);
 
-    // 1. Build mapped rows
-    let rows = csvData.map((row, idx) => {
-      const mappedData: any = {};
-      Object.keys(columnMap).forEach((header) => {
-        const target = columnMap[header];
-        if (target) {
-          mappedData[target] = row[header] !== undefined && row[header] !== "" ? String(row[header]).trim() : null;
-        }
-      });
-      return adaptMappedRow(mappedData, row, idx);
-    });
-
-    // 2. Validate basic rules (phone, format)
-    rows = rows.map(validateImportRow);
-
-    // 3. Detect duplicate within file
-    rows = detectDuplicateInFile(rows);
-
-    // 4. Resolve DB duplicates and sale emails
-    const phoneSet = new Set(rows.map((r) => r.normalized_phone).filter(Boolean) as string[]);
-    const emailSet = new Set(rows.map((r) => r.normalized_email).filter(Boolean) as string[]);
-    const ownerEmailSet = new Set(rows.map((r) => r.owner_sale_email).filter(Boolean) as string[]);
-
     try {
+      // 1. Build mapped rows
+      let rows = csvData.map((row, idx) => {
+        const mappedData: any = {};
+        Object.keys(columnMap).forEach((header) => {
+          const target = columnMap[header];
+          if (target) {
+            mappedData[target] = row[header] !== undefined && row[header] !== "" ? String(row[header]).trim() : null;
+          }
+        });
+        return adaptMappedRow(mappedData, row, idx);
+      });
+
+      // 2. Validate basic rules (phone, format)
+      rows = rows.map(validateImportRow);
+
+      // 3. Detect duplicate within file
+      rows = detectDuplicateInFile(rows);
+
+      // 4. Resolve DB duplicates and sale emails
+      const phoneSet = new Set(rows.map((r) => r.normalized_phone).filter(Boolean) as string[]);
+      const emailSet = new Set(rows.map((r) => r.normalized_email).filter(Boolean) as string[]);
+      const ownerEmailSet = new Set(rows.map((r) => r.owner_sale_email).filter(Boolean) as string[]);
+
       const [dbPhones, dbEmails, sales] = await Promise.all([
         phoneSet.size > 0
           ? supabase.from("customers").select("phone, id").in("phone", Array.from(phoneSet))
@@ -244,59 +244,49 @@ export function CustomerImportPage() {
       });
 
       rows = rows.map((row) => {
-        if (row.validation_status === "invalid" || row.validation_status === "duplicate")
+        if (row.validation_status === "invalid" || row.validation_status === "duplicate") {
           return row;
-
-        const errors = [...(row.validation_errors || [])];
-        let isDup = false;
+        }
 
         if (row.normalized_phone && existingPhones.has(row.normalized_phone)) {
-          isDup = true;
-          errors.push("Trùng SĐT trong Database");
-        }
-        if (!isDup && row.normalized_email && existingEmails.has(row.normalized_email)) {
-          isDup = true;
-          errors.push("Trùng Email trong Database");
+          row.validation_status = "duplicate";
+          row.validation_errors.push(`Số điện thoại ${row.normalized_phone} đã tồn tại trong hệ thống.`);
+          row.import_action = "skip";
+          return row;
         }
 
-        if (isDup) {
-          return {
-            ...row,
-            validation_status: "duplicate",
-            validation_errors: errors,
-            error_message: errors.join(" | "),
-            duplicate_reason: "Đã có trong DB",
-            import_action: "skip",
-          };
+        if (row.normalized_email && existingEmails.has(row.normalized_email)) {
+          row.validation_status = "duplicate";
+          row.validation_errors.push(`Email ${row.normalized_email} đã tồn tại trong hệ thống.`);
+          row.import_action = "skip";
+          return row;
         }
 
-        // Handle sale email mapping
         if (row.owner_sale_email) {
-          const saleId = saleEmailToId[row.owner_sale_email];
-          if (saleId) {
-            row.owner_sale_id = saleId;
+          const sid = saleEmailToId[row.owner_sale_email];
+          if (sid) {
+            row.owner_sale_id = sid;
           } else {
-            errors.push("Không tìm thấy Sale với email này");
-            return {
-              ...row,
-              validation_status: "invalid",
-              validation_errors: errors,
-              error_message: errors.join(" | "),
-              import_action: "skip",
-            };
+            row.warning_message = "Không tìm thấy Sale phụ trách với Email này. Khách sẽ không được gán sale.";
           }
         }
 
+        if (row.validation_status === "pending") {
+          row.validation_status = "valid";
+          row.import_action = "create_new";
+        }
         return row;
       });
-    } catch (err) {
-      console.error("DB Validation Error", err);
-      toast.error("Lỗi khi kiểm tra dữ liệu với DB");
-    }
 
-    setParsedRows(rows);
-    setSummary(buildImportSummary(rows));
-    setIsValidating(false);
+      setParsedRows(rows);
+      setSummary(buildImportSummary(rows));
+      setIsValidating(false);
+    } catch (error) {
+      console.warn("Import validation failed", error);
+      toast.error("Không thể kiểm tra file import. Vui lòng kiểm tra lại định dạng file.");
+      setStep(2); // Go back to step 2 so user is not stuck in step 3 skeleton
+      setIsValidating(false);
+    }
   };
 
   // --- Step 3: Import ---

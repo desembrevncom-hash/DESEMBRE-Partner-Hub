@@ -59,6 +59,25 @@ export function normalizePhone(phone: string | null | undefined): string | null 
   return null;
 }
 
+export function normalizeText(text: unknown): string | null {
+  if (!text) return null;
+  return String(text)
+    .trim()
+    .normalize("NFC")
+    .replace(/\s+/g, " ");
+}
+
+export function detectMojibake(text: unknown): boolean {
+  if (!text) return false;
+  const str = String(text);
+  if (str.includes("")) return true;
+  if (str.includes("??")) return true;
+  if (/[a-zA-Z]\?[a-zA-Z]/.test(str)) return true;
+  if (/[a-zA-Z]\?\s/.test(str)) return true;
+  if (/\s\?[a-zA-Z]/.test(str)) return true;
+  return false;
+}
+
 export function normalizeEmail(email: string | null | undefined): string | null {
   if (!email) return null;
   return email.toString().trim().toLowerCase();
