@@ -490,32 +490,33 @@ function CustomersPage() {
           console.error("fetch intelligence error:", intelError);
         }
 
-        try {
-          const { data: channelData, error: channelError } = await supabase.rpc(
-            "get_customer_channel_summary",
-            {
-              p_customer_ids: cIds,
-            },
-          );
-          
-          if (channelError) {
-            throw channelError;
-          }
-          
-          if (channelData) {
-            const channelMap = new Map(
-              channelData.map((i: any) => [i.customer_id, i] as [string, any]),
-            );
-            processed.forEach((c: any) => {
-              const channel = channelMap.get(c.id);
-              if (channel) {
-                c.channel_summary = channel;
-              }
-            });
-          }
-        } catch (err: any) {
-          console.warn("fetch channel summary error:", err);
-        }
+        // Emergency Hotfix: Disable get_customer_channel_summary completely to prevent production crashes
+        // try {
+        //   const { data: channelData, error: channelError } = await supabase.rpc(
+        //     "get_customer_channel_summary",
+        //     {
+        //       p_customer_ids: cIds,
+        //     },
+        //   );
+        //   
+        //   if (channelError) {
+        //     throw channelError;
+        //   }
+        //   
+        //   if (channelData) {
+        //     const channelMap = new Map(
+        //       channelData.map((i: any) => [i.customer_id, i] as [string, any]),
+        //     );
+        //     processed.forEach((c: any) => {
+        //       const channel = channelMap.get(c.id);
+        //       if (channel) {
+        //         c.channel_summary = channel;
+        //       }
+        //     });
+        //   }
+        // } catch (err: any) {
+        //   console.warn("fetch channel summary error:", err);
+        // }
       }
 
       // 100% Ensure channel_summary exists to prevent any downstream hook order or render crash
