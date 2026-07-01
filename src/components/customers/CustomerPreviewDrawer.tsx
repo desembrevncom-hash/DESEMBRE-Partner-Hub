@@ -19,7 +19,7 @@ import { SaleCustomerInsights } from "./SaleCustomerInsights";
 import { AssignStaffDialog } from "./AssignStaffDialog";
 import { DataHealthBadge } from "@/components/customers/DataHealthBadge";
 import { getCustomerDataHealth } from "@/lib/customers/dataHealth";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useCheckInFlow } from "@/hooks/useCheckInFlow";
 import { CheckInFlow } from "./checkin/CheckInFlow";
 import { Badge } from "@/components/ui/badge";
@@ -221,7 +221,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
             }));
           }
         } catch (err) {
-          console.error("Error fetching missing profiles in drawer:", err);
+          console.warn("Error fetching missing profiles in drawer:", err);
         }
       };
       fetchProfiles();
@@ -281,6 +281,15 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   useEffect(() => {
     if (open && customerProp?.id) {
       setActiveCustomer(null);
+      setActivities([]);
+      setOrders([]);
+      setEvents([]);
+      setTasks([]);
+      setAppointments([]);
+      setUserCommAccounts([]);
+      setCustomerChannels([]);
+      setInteractionSummary(null);
+      setOrderItems([]);
       setQuickAction(initialQuickAction || null);
       setTimelineFilter("all");
       setCurrentGps(null);
@@ -363,7 +372,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
         setActiveCustomer({ ...customerProp, ...data });
       }
     } catch (err) {
-      console.error("Error loading customer base profile:", err);
+      console.warn("Error loading customer base profile:", err);
     }
 
     const fetchActivities = async () => {
@@ -375,7 +384,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           .order("created_at", { ascending: false });
         if (!error && data) setActivities(data);
       } catch (err) {
-        console.error("Error fetching activities:", err);
+        console.warn("Error fetching activities:", err);
       }
     };
 
@@ -389,7 +398,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           .limit(5);
         if (!error && data) setOrders(data);
       } catch (err) {
-        console.error("Error fetching orders:", err);
+        console.warn("Error fetching orders:", err);
       }
     };
 
@@ -403,7 +412,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           .limit(5);
         if (!error && data) setEvents(data);
       } catch (err) {
-        console.error("Error fetching events:", err);
+        console.warn("Error fetching events:", err);
       }
     };
 
@@ -429,7 +438,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
         });
         if (summary) setInteractionSummary(summary);
       } catch (err) {
-        console.error("Error fetching comm data:", err);
+        console.warn("Error fetching comm data:", err);
       }
     };
 
@@ -443,7 +452,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           .limit(5);
         if (!error && data) setTasks(data || []);
       } catch (err) {
-        console.error("Error fetching tasks:", err);
+        console.warn("Error fetching tasks:", err);
       }
     };
 
@@ -457,7 +466,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           .limit(5);
         if (!error && data) setAppointments(data || []);
       } catch (err) {
-        console.error("Error fetching appointments:", err);
+        console.warn("Error fetching appointments:", err);
       }
     };
 
@@ -481,7 +490,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           setOrderItems([]);
         }
       } catch (err) {
-        console.error("Error fetching order items:", err);
+        console.warn("Error fetching order items:", err);
       }
     };
 
@@ -499,7 +508,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           setCompanyLocation(data);
         }
       } catch (err) {
-        console.error("Error fetching company location:", err);
+        console.warn("Error fetching company location:", err);
       } finally {
         setCompanyLocationLoading(false);
       }
@@ -1173,7 +1182,11 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-xl w-full p-0 flex flex-col h-[100dvh] lg:h-full border-l border-slate-200 shadow-2xl">
+      <SheetContent 
+        className="sm:max-w-xl w-full p-0 flex flex-col h-[100dvh] lg:h-full border-l border-slate-200 shadow-2xl"
+        aria-describedby={undefined}
+      >
+        <SheetTitle className="sr-only">Hồ sơ khách hàng chi tiết</SheetTitle>
         {/* HEADER SECTION (UPGRADED TO QUICK AXIS CENTER) */}
         <div className="bg-slate-900 text-white p-6 relative overflow-hidden shrink-0">
           <div className="absolute top-0 right-0 p-8 opacity-10">
@@ -2409,7 +2422,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       />
 
       <Dialog open={showEditLocationDialog} onOpenChange={setShowEditLocationDialog}>
-        <DialogContent className="sm:max-w-md rounded-2xl p-5">
+        <DialogContent aria-describedby={undefined} className="sm:max-w-md rounded-2xl p-5">
           <DialogHeader>
             <DialogTitle className="text-base font-black text-slate-900 flex items-center gap-2">
               <MapPin className="w-5 h-5 text-blue-600" />
