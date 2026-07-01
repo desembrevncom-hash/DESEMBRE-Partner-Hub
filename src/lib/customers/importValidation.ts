@@ -140,8 +140,8 @@ export function validateImportRow(row: ParsedImportRow): ParsedImportRow {
   }
 
   // 3. Contact info
-  if (!row.phone && !row.email) {
-    errors.push("Thiếu cả số điện thoại và email (cần ít nhất 1).");
+  if (!row.phone) {
+    errors.push("Số điện thoại là bắt buộc.");
   }
 
   // 4 & 6. Format
@@ -225,5 +225,44 @@ export function buildImportSummary(rows: ParsedImportRow[]) {
     invalid_rows: rows.filter((r) => r.validation_status === "invalid").length,
     duplicate_rows: rows.filter((r) => r.validation_status === "duplicate").length,
     warning_rows: rows.filter((r) => r.validation_status === "warning").length,
+  };
+}
+
+export function adaptMappedRow(mappedData: any, rawData: any, index: number): ParsedImportRow {
+  const phone = mappedData.phone || null;
+  const email = mappedData.email || null;
+  const nPhone = normalizePhone(phone);
+  const nEmail = normalizeEmail(email);
+
+  return {
+    row_number: index + 1,
+    raw_data: rawData,
+    parsed_data: mappedData,
+    name: mappedData.contact_name || mappedData.business_name || null,
+    contact_name: mappedData.contact_name || null,
+    business_name: mappedData.business_name || null,
+    facility_name: mappedData.business_name || null,
+    phone: phone,
+    normalized_phone: nPhone,
+    email: email,
+    normalized_email: nEmail,
+    address: null, // mapped from province/city usually
+    city: mappedData.city || null,
+    source: mappedData.source || null,
+    customer_channel: mappedData.source || null,
+    status: null,
+    lifecycle_stage: null,
+    note: mappedData.note || null,
+    owner_sale_id: mappedData.owner_sale_id || null,
+    owner_sale_email: mappedData.owner_sale_email || null,
+    validation_status: "pending",
+    validation_errors: [],
+    warning_message: null,
+    error_message: null,
+    import_action: "skip",
+    matched_customer_id: null,
+    duplicate_reason: null,
+    // extra mapped fields for customers table
+    ...mappedData
   };
 }

@@ -39,6 +39,7 @@ import {
   AlertTriangle,
   Clock,
   Play,
+  UploadCloud,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -824,13 +825,22 @@ function CustomersPage() {
                   </Button>
                 )}
                 {isAdmin ? (
-                  /* Admin: Tạo Lead → vào Intake Queue ở CRM Ops */
-                  <Button
-                    className="rounded-xl bg-indigo-600 hover:bg-indigo-700 font-black text-xs h-10 px-5 shadow-lg shadow-indigo-200 transition-all hover:scale-105 text-white flex items-center gap-1.5"
-                    onClick={() => setIsAddDialogOpen(true)}
-                  >
-                    <Plus className="w-4 h-4" /> Tạo Lead mới
-                  </Button>
+                  /* Admin: Tạo Lead mới & Nhập hàng loạt */
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      className="rounded-xl border-slate-200 font-black text-xs h-10 px-5 shadow-3xs bg-white hover:bg-slate-50 transition-all flex items-center gap-1.5"
+                      onClick={() => navigate({ to: "/customers/import" })}
+                    >
+                      <UploadCloud className="w-4 h-4 text-slate-500" /> Nhập hàng loạt
+                    </Button>
+                    <Button
+                      className="rounded-xl bg-indigo-600 hover:bg-indigo-700 font-black text-xs h-10 px-5 shadow-lg shadow-indigo-200 transition-all hover:scale-105 text-white flex items-center gap-1.5"
+                      onClick={() => setIsAddDialogOpen(true)}
+                    >
+                      <Plus className="w-4 h-4" /> Tạo Lead mới
+                    </Button>
+                  </div>
                 ) : (
                   /* Sale: nút Thêm nhanh giữ nguyên */
                   <Button
