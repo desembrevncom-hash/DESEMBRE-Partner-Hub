@@ -21,6 +21,10 @@ export interface ParsedImportRow {
   note: string | null;
   owner_sale_id: string | null;
   owner_sale_email: string | null;
+  historical_revenue_total?: number | null;
+  historical_order_count?: number | null;
+  historical_last_purchase_at?: string | null;
+  historical_revenue_note?: string | null;
   validation_status: "pending" | "valid" | "invalid" | "duplicate" | "warning";
   validation_errors: string[];
   warning_message: string | null;
@@ -56,6 +60,27 @@ export function normalizePhone(phone: string | null | undefined): string | null 
     }
   }
   
+  return null;
+}
+
+export function parseHistoricalRevenue(val: unknown): number | null {
+  if (val === null || val === undefined || val === "") return null;
+  const str = String(val).toLowerCase().trim();
+  let numStr = str;
+  let multiplier = 1;
+  if (numStr.includes("triệu") || numStr.includes("trieu") || numStr.includes("tr")) {
+    multiplier = 1000000;
+  }
+  numStr = numStr.replace(/[^0-9.,]/g, "");
+  numStr = numStr.replace(/,/g, ".");
+  if (multiplier === 1000000) {
+    const parsed = parseFloat(numStr);
+    if (!isNaN(parsed)) return Math.floor(parsed * multiplier);
+  } else {
+    numStr = numStr.replace(/[.,]/g, "");
+    const parsed = parseInt(numStr, 10);
+    if (!isNaN(parsed)) return parsed;
+  }
   return null;
 }
 
@@ -298,6 +323,10 @@ export function adaptMappedRow(mappedData: any, rawData: any, index: number): Pa
   const address = normalizeText(mappedData.address);
   const source = normalizeText(mappedData.source);
   const note = normalizeText(mappedData.note);
+  const historical_revenue_total = parseHistoricalRevenue(mappedData.historical_revenue_total);
+  const historical_order_count = mappedData.historical_order_count ? parseInt(mappedData.historical_order_count, 10) : null;
+  const historical_last_purchase_at = mappedData.historical_last_purchase_at ? mappedData.historical_last_purchase_at : null;
+  const historical_revenue_note = normalizeText(mappedData.historical_revenue_note);
 
   return {
     row_number: index + 1,
@@ -327,6 +356,10 @@ export function adaptMappedRow(mappedData: any, rawData: any, index: number): Pa
     import_action: "skip",
     matched_customer_id: null,
     duplicate_reason: null,
+    historical_revenue_total,
+    historical_order_count: Number.isNaN(historical_order_count as any) ? null : historical_order_count,
+    historical_last_purchase_at,
+    historical_revenue_note,
     // extra mapped fields for customers table
     ...mappedData
   };

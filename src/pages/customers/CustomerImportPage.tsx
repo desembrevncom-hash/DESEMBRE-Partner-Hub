@@ -49,6 +49,10 @@ const TARGET_FIELDS = [
   { id: "note", label: "Ghi chú" },
   { id: "owner_sale_id", label: "Owner Sale ID" },
   { id: "owner_sale_email", label: "Owner Sale Email" },
+  { id: "historical_revenue_total", label: "Doanh số lịch sử" },
+  { id: "historical_order_count", label: "Số đơn lịch sử" },
+  { id: "historical_last_purchase_at", label: "Ngày mua cuối (lịch sử)" },
+  { id: "historical_revenue_note", label: "Ghi chú doanh số" },
 ];
 
 function guessTargetField(csvHeader: string): string | null {
@@ -70,6 +74,10 @@ function guessTargetField(csvHeader: string): string | null {
   if (h.includes("note") || h.includes("ghi chú")) return "note";
   if (h === "owner_sale_id" || h.includes("sale id")) return "owner_sale_id";
   if (h.includes("sale_email") || h.includes("email sale")) return "owner_sale_email";
+  if (h.includes("doanh số lịch sử") || h.includes("historical_revenue_total") || h.includes("doanh so")) return "historical_revenue_total";
+  if (h.includes("số đơn lịch sử") || h.includes("historical_order_count") || h.includes("so don")) return "historical_order_count";
+  if (h.includes("ngày mua cuối") || h.includes("historical_last_purchase_at") || h.includes("ngay mua")) return "historical_last_purchase_at";
+  if (h.includes("ghi chú doanh số") || h.includes("historical_revenue_note")) return "historical_revenue_note";
   return null;
 }
 
@@ -335,6 +343,10 @@ export function CustomerImportPage() {
           owner_sale_id: r.owner_sale_id || null,
           status: "new",
           lifecycle_stage: "new_lead",
+          historical_revenue_total: r.historical_revenue_total ?? 0,
+          historical_order_count: r.historical_order_count ?? 0,
+          historical_last_purchase_at: r.historical_last_purchase_at || null,
+          historical_revenue_note: r.historical_revenue_note || null,
         };
       });
 
@@ -416,7 +428,7 @@ export function CustomerImportPage() {
                   <UploadCloud className="w-4 h-4 mr-2" /> Chọn file từ máy tính
                 </Button>
                 <Button variant="outline" onClick={() => {
-                  const csvContent = "phone,business_name,contact_name,email,province,city,address,source,facebook,zalo,website,tiktok,note,owner_sale_email,owner_sale_id\n0961234567,Thư Hà Spa,Chị Phương,phuong@example.com,Hải Phòng,Hồng Bàng,\"12 Lạch Tray\",Facebook,,,,,\"Khách quan tâm chăm sóc da\",,";
+                  const csvContent = "phone,business_name,contact_name,email,province,city,address,source,facebook,zalo,website,tiktok,note,owner_sale_email,owner_sale_id,historical_revenue_total,historical_order_count,historical_last_purchase_at\n0961234567,Thu Hà Spa,Chị Phương,phuong@example.com,Hải Phòng,Hồng Bàng,\"12 Lạch Tray\",Facebook,,,,,\"Khách quan tâm chăm sóc da\",,,55000000,10,2023-12-01";
                   const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
@@ -429,8 +441,8 @@ export function CustomerImportPage() {
                 </Button>
                 <Button variant="outline" onClick={() => {
                   const wsData = [
-                    ["phone", "business_name", "contact_name", "email", "province", "city", "address", "source", "facebook", "zalo", "website", "tiktok", "note", "owner_sale_email", "owner_sale_id"],
-                    ["0961234567", "Thư Hà Spa", "Chị Phương", "phuong@example.com", "Hải Phòng", "Hồng Bàng", "12 Lạch Tray", "Facebook", "", "", "", "", "Khách quan tâm chăm sóc da", "", ""]
+                    ["phone", "business_name", "contact_name", "email", "province", "city", "address", "source", "facebook", "zalo", "website", "tiktok", "note", "owner_sale_email", "owner_sale_id", "historical_revenue_total", "historical_order_count", "historical_last_purchase_at"],
+                    ["0961234567", "Thu Hà Spa", "Chị Phương", "phuong@example.com", "Hải Phòng", "Hồng Bàng", "12 Lạch Tray", "Facebook", "", "", "", "", "Khách quan tâm chăm sóc da", "", "", "55000000", "10", "2023-12-01"]
                   ];
                   const ws = XLSX.utils.aoa_to_sheet(wsData);
                   const wb = XLSX.utils.book_new();
