@@ -323,6 +323,7 @@ export function CustomerImportPage() {
     setIsProcessing(true);
     let importedCount = 0;
     let failedCount = 0;
+    let duplicateCount = 0;
     const failedReasons: { reason: string }[] = [];
 
     const chunkSize = 100;
@@ -368,6 +369,11 @@ export function CustomerImportPage() {
       try {
         const { error } = await supabase.from("customers").insert(payload);
         if (error) {
+          if (error.code === "PGRST204" || error.code === "400" || (error.message && error.message.includes("column") && error.message.includes("historical_"))) {
+             toast.error("Staging schema chưa có historical revenue columns. Hãy chạy M55_SQL_Staging_Plan.sql trên Staging.");
+             setIsProcessing(false);
+             return;
+          }
           console.error("Import chunk error", error);
           for (let j = 0; j < payload.length; j++) {
             const rowPayload = payload[j];
@@ -394,9 +400,11 @@ export function CustomerImportPage() {
       setProgress(Math.round(((i + 1) / totalChunks) * 100));
     }
 
+    const skippedActionCount = parsedRows.filter((r) => r.import_action === "skip").length;
+
     setImportReport({
       imported: importedCount,
-      skipped: parsedRows.filter((r) => r.import_action === "skip").length + duplicateCount,
+      skipped: skippedActionCount + duplicateCount,
       failed: failedCount,
       failed_reasons: failedReasons,
     });
