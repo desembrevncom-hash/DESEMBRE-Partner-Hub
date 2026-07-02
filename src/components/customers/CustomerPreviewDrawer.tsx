@@ -148,9 +148,16 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   onUpdated,
 }) => {
   const { user, isAdmin, isSubAdmin, isSale, isTeleLead, isTelesale } = useAuth();
-  const [activeCustomer, setActiveCustomer] = useState<any | null>(null);
+  const [currentCustomer, setCurrentCustomer] = useState<any | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const customer = activeCustomer || customerProp || {};
+  
+  React.useEffect(() => {
+    if (customerProp) {
+      setCurrentCustomer(customerProp);
+    }
+  }, [customerProp]);
+
+  const customer = currentCustomer || {};
   const settings = useSystemSettings();
   const navigate = useNavigate();
   const copilotContext = React.useContext(ProductCopilotContext);
@@ -284,7 +291,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
 
   useEffect(() => {
     if (open && customerProp?.id) {
-      setActiveCustomer(null);
+      setCurrentCustomer(null);
       setQuickAction(initialQuickAction || null);
       setTimelineFilter("all");
       setCurrentGps(null);
@@ -301,7 +308,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
         stage: customerProp.lifecycle_stage || customerProp.status,
       });
     } else {
-      setActiveCustomer(null);
+      setCurrentCustomer(null);
       setCustomerContext?.(null);
     }
 
@@ -315,13 +322,13 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   const actionSuggestions = useMemo(() => {
     if (!customerProp?.id) return [];
     return generateSuggestions({
-      customer: activeCustomer || customerProp,
+      customer: currentCustomer || customerProp,
       orders,
       items: orderItems,
       activities,
       tasks,
     });
-  }, [customerProp?.id, activeCustomer, orders, orderItems, activities, tasks]);
+  }, [customerProp?.id, currentCustomer, orders, orderItems, activities, tasks]);
 
   const fetchCustomerDetails = async () => {
     if (!customerProp?.id) return;
@@ -330,7 +337,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     const cacheKey = customerProp.id;
     if (drawerCache[cacheKey] && Date.now() - drawerCache[cacheKey].timestamp < 60000) {
       const cached = drawerCache[cacheKey].data;
-      setActiveCustomer(cached.activeCustomer);
+      setCurrentCustomer(cached.currentCustomer);
       setActivities(cached.activities);
       setOrders(cached.orders);
       setEvents(cached.events);
@@ -354,7 +361,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
         .eq("id", customerProp.id)
         .single();
       if (!error && data) {
-        setActiveCustomer({ ...customerProp, ...data });
+        setCurrentCustomer({ ...customerProp, ...data });
       }
     } catch (err) {
       console.error("Error loading customer base profile:", err);
@@ -517,7 +524,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     drawerCache[customerProp.id] = {
       timestamp: Date.now(),
       data: {
-        activeCustomer: customer,
+        currentCustomer: customer,
         activities,
         orders,
         events,
@@ -1316,14 +1323,15 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 <CustomerEditForm 
                   customer={customer} 
                   permissionCtx={permissionContext}
-                  onSuccess={(updatedCustomer) => {
-                    setActiveCustomer(updatedCustomer);
+                  onSaved={(updatedCustomer) => {
+                    setCurrentCustomer(updatedCustomer);
                     setIsEditing(false);
                     // trigger refresh of list
+                    window.dispatchEvent(new Event("refresh_customers_list"));
+                    window.dispatchEvent(new CustomEvent("customer_updated", { detail: { id: updatedCustomer.id } }));
+                    
                     if (onUpdated) {
                       onUpdated(updatedCustomer);
-                    } else {
-                      window.dispatchEvent(new Event("refresh_customers_list"));
                     }
                   }} 
                   onCancel={() => setIsEditing(false)}
@@ -1361,14 +1369,14 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
 
             {/* SECTION: DATA HEALTH */}
             {(() => {
-              const health = getCustomerDataHealth(activeCustomer ?? customer);
+              const health = getCustomerDataHealth(currentCustomer || {});
               return (
                 <CRMCard className="p-4 bg-slate-50 shadow-sm space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-[12px] font-black text-slate-800 uppercase flex items-center gap-2">
                       <Activity className="w-4 h-4 text-slate-500" /> Sức khỏe dữ liệu
                     </h3>
-                    <DataHealthBadge customer={activeCustomer ?? customer} mode="compact" />
+                    <DataHealthBadge customer={currentCustomer || {}} mode="compact" />
                   </div>
                   {health.severity === "ok" ? (
                     <div className="text-[11px] font-bold text-emerald-600 bg-emerald-50 p-2.5 rounded-lg border border-emerald-100 flex items-center gap-2">
