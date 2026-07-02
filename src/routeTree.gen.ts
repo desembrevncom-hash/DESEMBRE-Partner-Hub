@@ -41,6 +41,7 @@ import { Route as MarketingConsentRouteImport } from './routes/marketing/consent
 import { Route as MarketingAutomationQueueRouteImport } from './routes/marketing/automation-queue'
 import { Route as DebugCustomersNormalizationRouteImport } from './routes/debug/customers-normalization'
 import { Route as CustomersMapRouteImport } from './routes/customers/map'
+import { Route as CustomersImportRouteImport } from './routes/customers/import'
 import { Route as CustomersIdRouteImport } from './routes/customers/$id'
 import { Route as AdminWebhooksRouteImport } from './routes/admin/webhooks'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
@@ -254,6 +255,11 @@ const DebugCustomersNormalizationRoute =
 const CustomersMapRoute = CustomersMapRouteImport.update({
   id: '/map',
   path: '/map',
+  getParentRoute: () => CustomersRoute,
+} as any)
+const CustomersImportRoute = CustomersImportRouteImport.update({
+  id: '/import',
+  path: '/import',
   getParentRoute: () => CustomersRoute,
 } as any)
 const CustomersIdRoute = CustomersIdRouteImport.update({
@@ -555,6 +561,7 @@ export interface FileRoutesByFullPath {
   '/admin/users': typeof AdminUsersRoute
   '/admin/webhooks': typeof AdminWebhooksRoute
   '/customers/$id': typeof CustomersIdRoute
+  '/customers/import': typeof CustomersImportRoute
   '/customers/map': typeof CustomersMapRoute
   '/debug/customers-normalization': typeof DebugCustomersNormalizationRoute
   '/marketing/automation-queue': typeof MarketingAutomationQueueRoute
@@ -638,6 +645,7 @@ export interface FileRoutesByTo {
   '/admin/users': typeof AdminUsersRoute
   '/admin/webhooks': typeof AdminWebhooksRoute
   '/customers/$id': typeof CustomersIdRoute
+  '/customers/import': typeof CustomersImportRoute
   '/customers/map': typeof CustomersMapRoute
   '/debug/customers-normalization': typeof DebugCustomersNormalizationRoute
   '/marketing/automation-queue': typeof MarketingAutomationQueueRoute
@@ -723,6 +731,7 @@ export interface FileRoutesById {
   '/admin/users': typeof AdminUsersRoute
   '/admin/webhooks': typeof AdminWebhooksRoute
   '/customers/$id': typeof CustomersIdRoute
+  '/customers/import': typeof CustomersImportRoute
   '/customers/map': typeof CustomersMapRoute
   '/debug/customers-normalization': typeof DebugCustomersNormalizationRoute
   '/marketing/automation-queue': typeof MarketingAutomationQueueRoute
@@ -809,6 +818,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/admin/webhooks'
     | '/customers/$id'
+    | '/customers/import'
     | '/customers/map'
     | '/debug/customers-normalization'
     | '/marketing/automation-queue'
@@ -892,6 +902,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/admin/webhooks'
     | '/customers/$id'
+    | '/customers/import'
     | '/customers/map'
     | '/debug/customers-normalization'
     | '/marketing/automation-queue'
@@ -976,6 +987,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/admin/webhooks'
     | '/customers/$id'
+    | '/customers/import'
     | '/customers/map'
     | '/debug/customers-normalization'
     | '/marketing/automation-queue'
@@ -1327,6 +1339,13 @@ declare module '@tanstack/react-router' {
       path: '/map'
       fullPath: '/customers/map'
       preLoaderRoute: typeof CustomersMapRouteImport
+      parentRoute: typeof CustomersRoute
+    }
+    '/customers/import': {
+      id: '/customers/import'
+      path: '/import'
+      fullPath: '/customers/import'
+      preLoaderRoute: typeof CustomersImportRouteImport
       parentRoute: typeof CustomersRoute
     }
     '/customers/$id': {
@@ -1684,12 +1703,14 @@ declare module '@tanstack/react-router' {
 
 interface CustomersRouteChildren {
   CustomersIdRoute: typeof CustomersIdRoute
+  CustomersImportRoute: typeof CustomersImportRoute
   CustomersMapRoute: typeof CustomersMapRoute
   CustomersIndexRoute: typeof CustomersIndexRoute
 }
 
 const CustomersRouteChildren: CustomersRouteChildren = {
   CustomersIdRoute: CustomersIdRoute,
+  CustomersImportRoute: CustomersImportRoute,
   CustomersMapRoute: CustomersMapRoute,
   CustomersIndexRoute: CustomersIndexRoute,
 }

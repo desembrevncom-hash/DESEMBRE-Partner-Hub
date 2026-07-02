@@ -80,6 +80,10 @@ export function AssignStaffDialog({
   const teleStaff = getStaffByRoles(["tele_lead", "telesale"]);
 
   const handleSave = async () => {
+    if (!saleId && !teleId) {
+      toast.error("Vui lòng chọn nhân viên phụ trách.");
+      return;
+    }
     setSaving(true);
     try {
       const updates: any = {
@@ -190,6 +194,7 @@ export function AssignStaffDialog({
               Phân tuyến Khách hàng
             </DialogTitle>
             <DialogDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+              <span className="sr-only">Chọn nhân viên để phân công phụ trách khách hàng. </span>
               {customer?.business_name || customer?.name}
             </DialogDescription>
           </div>
@@ -285,7 +290,7 @@ export function AssignStaffDialog({
           <Button
             onClick={handleSave}
             className="rounded-xl bg-slate-900 hover:bg-black font-black uppercase text-[10px] tracking-widest px-8 shadow-lg shadow-slate-200"
-            disabled={saving || loading}
+            disabled={saving || loading || (!saleId && !teleId)}
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Lưu Thay Đổi"}
           </Button>

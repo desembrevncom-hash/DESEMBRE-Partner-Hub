@@ -71,6 +71,7 @@ import {
   Camera,
   CheckCircle2,
   Trash2,
+  Banknote,
 } from "lucide-react";
 import {
   getCustomerChannelLabel,
@@ -1490,6 +1491,35 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                           locale: vi,
                         })
                       : "Chưa có"}
+                  </div>
+                </div>
+              </div>
+            </CRMCard>
+
+            {/* SECTION: DOANH SỐ & LTV */}
+            <CRMCard className="p-4 shadow-sm space-y-4">
+              <h3 className="text-[12px] font-black text-slate-800 uppercase flex items-center gap-2 border-b border-slate-100 pb-2">
+                <Banknote className="w-4 h-4 text-slate-500" /> Doanh thu & LTV
+              </h3>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Doanh số hệ thống</span>
+                  <div className="text-[11px] font-bold text-slate-900">
+                    {new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(customer.total_order_amount || 0)}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Doanh số lịch sử</span>
+                  <div className="text-[11px] font-bold text-slate-900">
+                    {new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(customer.historical_revenue_total || 0)}
+                  </div>
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <span className="text-[10px] font-bold text-emerald-600 uppercase">Tổng LTV CRM</span>
+                  <div className="text-[14px] font-black text-emerald-600">
+                    {new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
+                      (customer.total_order_amount || 0) + (customer.historical_revenue_total || 0)
+                    )}
                   </div>
                 </div>
               </div>

@@ -1,6 +1,7 @@
 import { getCustomerDataHealth } from "@/lib/customers/dataHealth";
 import { getCustomerConversationState } from "@/lib/customerConversationState";
 import { differenceInDays } from "date-fns";
+import { getCustomerLifetimeValue } from "@/lib/customers/ltv";
 
 export interface NormalizedBadge {
   id: string;
@@ -16,7 +17,7 @@ export function getCustomerCardBadges(customer: any): NormalizedBadge[] {
 
   const health = getCustomerDataHealth(customer);
   const convState = getCustomerConversationState(customer);
-  const totalValue = customer.orders?.reduce((sum: number, o: any) => sum + (o.total || 0), 0) || 0;
+  const totalValue = getCustomerLifetimeValue(customer);
   const isVip = totalValue >= 50000000;
 
   // 1. Contact warnings

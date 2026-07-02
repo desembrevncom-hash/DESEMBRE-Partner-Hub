@@ -39,6 +39,7 @@ import {
   AlertTriangle,
   Clock,
   Play,
+  UploadCloud,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,6 +57,7 @@ import { customerRiskLabels } from "@/lib/workspaceFilterMapping";
 import { classifyCustomerLifecycle } from "@/lib/customerOwnership";
 import { getCustomerVisualState } from "@/lib/customerVisualState";
 import { getCustomerConversationState } from "@/lib/customerConversationState";
+import { getCustomerLifetimeValue, getCustomerSystemRevenue, getCustomerHistoricalRevenue } from "@/lib/customers/ltv";
 import { getCustomerCardBadges } from "@/lib/customers/cardBadges";
 import { getPriorityScore, getStaleSignals, getSuggestedNextAction } from "@/lib/operationalRules";
 import { buildStaffMap, getStaffDisplayName, getStaffInitials, StaffMap } from "@/lib/staffDisplay";
@@ -706,14 +708,15 @@ function CustomersPage() {
   // Executive Admin & SubAdmin Stats
   const adminStats = useMemo(() => {
     if (!isManager) return null;
-    const totalRevenue = customers.reduce((sum, c) => {
-      const cValue = c.orders?.reduce((s: number, o: any) => s + (o.total || 0), 0) || 0;
-      return sum + cValue;
-    }, 0);
+    let totalRevenue = 0;
+    let historicalRevenue = 0;
+    customers.forEach(c => {
+      totalRevenue += getCustomerSystemRevenue(c);
+      historicalRevenue += getCustomerHistoricalRevenue(c);
+    });
     const unassignedLeads = customers.filter((c) => !c.owner_sale_id && !c.owner_tele_id).length;
     const vipCount = customers.filter((c) => {
-      const cValue = c.orders?.reduce((s: number, o: any) => s + (o.total || 0), 0) || 0;
-      return cValue >= 50000000;
+      return getCustomerLifetimeValue(c) >= 50000000;
     }).length;
 
     let hasPhone = 0,
@@ -739,6 +742,7 @@ function CustomersPage() {
 
     return {
       totalRevenue,
+      historicalRevenue,
       unassignedLeads,
       vipCount,
       totalCustomers: customers.length,
@@ -824,13 +828,22 @@ function CustomersPage() {
                   </Button>
                 )}
                 {isAdmin ? (
-                  /* Admin: Tạo Lead → vào Intake Queue ở CRM Ops */
-                  <Button
-                    className="rounded-xl bg-indigo-600 hover:bg-indigo-700 font-black text-xs h-10 px-5 shadow-lg shadow-indigo-200 transition-all hover:scale-105 text-white flex items-center gap-1.5"
-                    onClick={() => setIsAddDialogOpen(true)}
-                  >
-                    <Plus className="w-4 h-4" /> Tạo Lead mới
-                  </Button>
+                  /* Admin: Tạo Lead mới & Nhập hàng loạt */
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      className="rounded-xl border-slate-200 font-black text-xs h-10 px-5 shadow-3xs bg-white hover:bg-slate-50 transition-all flex items-center gap-1.5"
+                      onClick={() => navigate({ to: "/customers/import" })}
+                    >
+                      <UploadCloud className="w-4 h-4 text-slate-500" /> Nhập hàng loạt
+                    </Button>
+                    <Button
+                      className="rounded-xl bg-indigo-600 hover:bg-indigo-700 font-black text-xs h-10 px-5 shadow-lg shadow-indigo-200 transition-all hover:scale-105 text-white flex items-center gap-1.5"
+                      onClick={() => setIsAddDialogOpen(true)}
+                    >
+                      <Plus className="w-4 h-4" /> Tạo Lead mới
+                    </Button>
+                  </div>
                 ) : (
                   /* Sale: nút Thêm nhanh giữ nguyên */
                   <Button
@@ -942,12 +955,24 @@ function CustomersPage() {
                 </div>
               </div>
               <div>
-                <h3 className="text-xl font-black leading-none">
-                  {adminStats.totalRevenue.toLocaleString("vi-VN")} đ
-                </h3>
-                <p className="text-[9px] font-bold text-white/60 mt-1 uppercase">
-                  Tổng giá trị đơn hàng đã chốt
-                </p>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <h3 className="text-lg font-black leading-none">
+                      {adminStats.totalRevenue.toLocaleString("vi-VN")} đ
+                    </h3>
+                    <p className="text-[9px] font-bold text-white/60 uppercase">
+                      Hệ thống
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <h3 className="text-sm font-bold leading-none text-white/90">
+                      + {adminStats.historicalRevenue.toLocaleString("vi-VN")} đ
+                    </h3>
+                    <p className="text-[9px] font-bold text-white/50 uppercase mt-0.5">
+                      Lịch sử đã nhập
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1800,7 +1825,7 @@ const SalesCustomerCard = React.memo(function SalesCustomerCard({
   onPreview,
   isSaving,
 }: any) {
-  const totalValue = customer.orders?.reduce((sum: number, o: any) => sum + (o.total || 0), 0) || 0;
+  const totalValue = getCustomerLifetimeValue(customer);
   const isVip = totalValue >= 50000000;
   const isAtRisk = customer.ownership_status === "at_risk";
   const hasSocial =
@@ -2061,7 +2086,7 @@ const ManagerCustomerCard = React.memo(function ManagerCustomerCard({
   onDragStart,
   isSaving,
 }: any) {
-  const totalValue = customer.orders?.reduce((sum: number, o: any) => sum + (o.total || 0), 0) || 0;
+  const totalValue = getCustomerLifetimeValue(customer);
   const isVip = totalValue >= 50000000;
   const isAtRisk = customer.ownership_status === "at_risk";
   const hasSocial =
@@ -2229,7 +2254,7 @@ function CustomerIntelligenceRow({
   onQuickDispatch,
 }: any) {
   const channelIntel = customer.channel_summary || {};
-  const totalValue = customer.orders?.reduce((sum: number, o: any) => sum + (o.total || 0), 0) || 0;
+  const totalValue = getCustomerLifetimeValue(customer);
   const isVip = totalValue >= 50000000;
   const isAtRisk = customer.ownership_status === "at_risk";
   const hasSocial = channelIntel.has_facebook || channelIntel.has_zalo || channelIntel.has_tiktok;

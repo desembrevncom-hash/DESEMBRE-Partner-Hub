@@ -200,7 +200,8 @@ export function getCustomerContactSummary(customer: any): CustomerContactSummary
   if (!customer) return summary;
 
   // Process Phone field
-  const phoneClass = classifyContactValue(customer.phone);
+  const phoneToClassify = customer.normalized_phone || customer.phone;
+  const phoneClass = classifyContactValue(phoneToClassify);
   if (phoneClass.type !== "empty") {
     summary.primaryPhone = phoneClass.rawValue;
     if (phoneClass.isCallable) {
