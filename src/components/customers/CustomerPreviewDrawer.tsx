@@ -17,9 +17,11 @@ import { generateSuggestions } from "@/lib/aiSuggestionEngine";
 import { AdminCustomerInsights } from "./AdminCustomerInsights";
 import { SaleCustomerInsights } from "./SaleCustomerInsights";
 import { AssignStaffDialog } from "./AssignStaffDialog";
+import { CustomerEditForm } from "./CustomerEditForm";
+import { canEditCustomer } from "@/lib/customers/customerPermissions";
 import { DataHealthBadge } from "@/components/customers/DataHealthBadge";
 import { getCustomerDataHealth } from "@/lib/customers/dataHealth";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useCheckInFlow } from "@/hooks/useCheckInFlow";
 import { CheckInFlow } from "./checkin/CheckInFlow";
 import { Badge } from "@/components/ui/badge";
@@ -71,7 +73,6 @@ import {
   Camera,
   CheckCircle2,
   Trash2,
-  Banknote,
 } from "lucide-react";
 import {
   getCustomerChannelLabel,
@@ -122,10 +123,8 @@ import { getDistanceTypeFromMeters, getRecommendedRoutingByDistance } from "@/li
 import { isFeatureEnabledForUser } from "@/lib/pilotMode";
 import { CommunicationLaunchers } from "./CommunicationLaunchers";
 import { FocusInteractionPanel } from "./FocusInteractionPanel";
-import { useCopilotContext } from "../chat/ProductCopilotContext";
+import { ProductCopilotContext } from "../chat/ProductCopilotContext";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
-import { getCustomerPersonDisplayName, getCustomerCardTitle } from "@/lib/customers/customerDisplayName";
-import { getCustomerContactSummary } from "../../lib/customers/contactChannelClassifier";
 
 const drawerCache: Record<string, { data: any; timestamp: number }> = {};
 
@@ -136,6 +135,7 @@ interface CustomerPreviewDrawerProps {
   initialQuickAction?: "note" | "task" | "followup" | null;
   staffMap?: StaffMap;
   onNextCustomer?: () => void;
+  onUpdated?: (updatedCustomer: any) => void;
 }
 
 export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
@@ -145,13 +145,16 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   initialQuickAction,
   staffMap,
   onNextCustomer,
+  onUpdated,
 }) => {
-  const { user, isAdmin, isSubAdmin } = useAuth();
+  const { user, isAdmin, isSubAdmin, isSale, isTeleLead, isTelesale } = useAuth();
   const [activeCustomer, setActiveCustomer] = useState<any | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const customer = activeCustomer || customerProp || {};
   const settings = useSystemSettings();
   const navigate = useNavigate();
-  const { setCustomerContext } = useCopilotContext();
+  const copilotContext = React.useContext(ProductCopilotContext);
+  const setCustomerContext = copilotContext?.setCustomerContext;
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [pinning, setPinning] = useState(false);
@@ -222,7 +225,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
             }));
           }
         } catch (err) {
-          console.warn("Error fetching missing profiles in drawer:", err);
+          console.error("Error fetching missing profiles in drawer:", err);
         }
       };
       fetchProfiles();
@@ -282,15 +285,6 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   useEffect(() => {
     if (open && customerProp?.id) {
       setActiveCustomer(null);
-      setActivities([]);
-      setOrders([]);
-      setEvents([]);
-      setTasks([]);
-      setAppointments([]);
-      setUserCommAccounts([]);
-      setCustomerChannels([]);
-      setInteractionSummary(null);
-      setOrderItems([]);
       setQuickAction(initialQuickAction || null);
       setTimelineFilter("all");
       setCurrentGps(null);
@@ -299,31 +293,21 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       fetchCustomerDetails();
 
       // Set copilot context
-      setCustomerContext({
+      setCustomerContext?.({
         currentCustomerId: customerProp.id,
         customerName:
-          getCustomerCardTitle(customerProp),
+          customerProp.contact_name || customerProp.name || customerProp.full_name || "Khách hàng",
         city: customerProp.city || customerProp.province,
         stage: customerProp.lifecycle_stage || customerProp.status,
       });
     } else {
       setActiveCustomer(null);
-      setCustomerContext(null);
+      setCustomerContext?.(null);
     }
-
-    const handleCustomerUpdated = (e: any) => {
-      if (e.detail?.id === customerProp?.id) {
-        // Clear cache so it fetches fresh
-        delete drawerCache[customerProp.id];
-        fetchCustomerDetails();
-      }
-    };
-    window.addEventListener("customer_updated", handleCustomerUpdated);
 
     // Clear on unmount
     return () => {
-      window.removeEventListener("customer_updated", handleCustomerUpdated);
-      setCustomerContext(null);
+      setCustomerContext?.(null);
     };
   }, [open, customerProp?.id, initialQuickAction]);
 
@@ -373,7 +357,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
         setActiveCustomer({ ...customerProp, ...data });
       }
     } catch (err) {
-      console.warn("Error loading customer base profile:", err);
+      console.error("Error loading customer base profile:", err);
     }
 
     const fetchActivities = async () => {
@@ -385,7 +369,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           .order("created_at", { ascending: false });
         if (!error && data) setActivities(data);
       } catch (err) {
-        console.warn("Error fetching activities:", err);
+        console.error("Error fetching activities:", err);
       }
     };
 
@@ -399,7 +383,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           .limit(5);
         if (!error && data) setOrders(data);
       } catch (err) {
-        console.warn("Error fetching orders:", err);
+        console.error("Error fetching orders:", err);
       }
     };
 
@@ -413,7 +397,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           .limit(5);
         if (!error && data) setEvents(data);
       } catch (err) {
-        console.warn("Error fetching events:", err);
+        console.error("Error fetching events:", err);
       }
     };
 
@@ -439,7 +423,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
         });
         if (summary) setInteractionSummary(summary);
       } catch (err) {
-        console.warn("Error fetching comm data:", err);
+        console.error("Error fetching comm data:", err);
       }
     };
 
@@ -453,7 +437,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           .limit(5);
         if (!error && data) setTasks(data || []);
       } catch (err) {
-        console.warn("Error fetching tasks:", err);
+        console.error("Error fetching tasks:", err);
       }
     };
 
@@ -467,7 +451,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           .limit(5);
         if (!error && data) setAppointments(data || []);
       } catch (err) {
-        console.warn("Error fetching appointments:", err);
+        console.error("Error fetching appointments:", err);
       }
     };
 
@@ -491,7 +475,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           setOrderItems([]);
         }
       } catch (err) {
-        console.warn("Error fetching order items:", err);
+        console.error("Error fetching order items:", err);
       }
     };
 
@@ -509,7 +493,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           setCompanyLocation(data);
         }
       } catch (err) {
-        console.warn("Error fetching company location:", err);
+        console.error("Error fetching company location:", err);
       } finally {
         setCompanyLocationLoading(false);
       }
@@ -721,7 +705,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   };
 
   const handleCopyMessage = () => {
-    const text = `Kính gửi anh/chị ${getCustomerPersonDisplayName(customer)}, Desembre xin phép gửi thông tin hỗ trợ...`;
+    const text = `Kính gửi anh/chị ${customer.contact_name || customer.name || "chủ Spa"}, Desembre xin phép gửi thông tin hỗ trợ...`;
     navigator.clipboard.writeText(text);
     toast.success("Đã copy tin nhắn mẫu!");
   };
@@ -1131,9 +1115,6 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
     return map;
   }, [mergedTimeline]);
 
-  // Move hook above early return to fix React Error 310 hook order violation
-  const contactSummary = useMemo(() => getCustomerContactSummary(customer), [customer]);
-
   if (!customer.id) return null;
 
   const warning = getCareModelWarning();
@@ -1181,13 +1162,22 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
 
   const suggestedAction = getSuggestedNextAction(customer);
 
+  const permissionContext = {
+    isAdmin: isAdmin || isSubAdmin,
+    isSale,
+    isTele: isTeleLead || isTelesale,
+    userId: user?.id || "",
+  };
+
+  const hasEditPermission =
+    Boolean(customer?.id && permissionContext.userId) &&
+    canEditCustomer(customer, permissionContext);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent 
-        className="sm:max-w-xl w-full p-0 flex flex-col h-[100dvh] lg:h-full border-l border-slate-200 shadow-2xl"
-        aria-describedby={undefined}
-      >
-        <SheetTitle className="sr-only">Hồ sơ khách hàng chi tiết</SheetTitle>
+      <SheetContent className="sm:max-w-xl w-full p-0 flex flex-col h-[100dvh] lg:h-full border-l border-slate-200 shadow-2xl">
+        <SheetTitle className="sr-only">Customer Preview Drawer</SheetTitle>
+        <SheetDescription className="sr-only">Detailed view of customer information and history.</SheetDescription>
         {/* HEADER SECTION (UPGRADED TO QUICK AXIS CENTER) */}
         <div className="bg-slate-900 text-white p-6 relative overflow-hidden shrink-0">
           <div className="absolute top-0 right-0 p-8 opacity-10">
@@ -1224,27 +1214,11 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 )}
               </div>
 
-              {contactSummary.callablePhone && (
+              {customer.phone && (
                 <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-1 rounded-lg">
                   <Phone className="w-3.5 h-3.5 shrink-0" />
-                  {contactSummary.callablePhone}
+                  {customer.phone}
                 </div>
-              )}
-              {contactSummary.warnings.includes("FB UID KHÔNG PHẢI SĐT") && (
-                <CRMStatusBadge
-                  variant="danger"
-                  className="border-none rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase bg-rose-500 text-white"
-                >
-                  FB UID KHÔNG PHẢI SĐT
-                </CRMStatusBadge>
-              )}
-              {contactSummary.warnings.includes("CÓ THỂ THIẾU SỐ 0") && (
-                <CRMStatusBadge
-                  variant="warning"
-                  className="border-none rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase"
-                >
-                  CÓ THỂ THIẾU SỐ 0
-                </CRMStatusBadge>
               )}
             </div>
 
@@ -1253,9 +1227,9 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
               <h2 className="text-xl font-black tracking-tight leading-snug flex items-center gap-2">
                 <span
                   className="truncate"
-                  title={getCustomerPersonDisplayName(customer)}
+                  title={customer.contact_name || customer.name || "Khách hàng mới"}
                 >
-                  {getCustomerPersonDisplayName(customer)}
+                  {customer.contact_name || customer.name || "Khách hàng mới"}
                 </span>
                 {suggestedAction && (
                   <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30 uppercase tracking-widest whitespace-nowrap shrink-0">
@@ -1314,11 +1288,51 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           </div>
         </div>
 
+        {/* Edit Button Bar */}
+        <div className="bg-slate-100 p-2 px-6 flex justify-between items-center shrink-0 border-b border-slate-200">
+          <div className="text-xs font-semibold text-slate-600">
+            {hasEditPermission ? "Bạn có quyền chỉnh sửa hồ sơ này" : "Chế độ Chỉ Xem (Không có quyền)"}
+          </div>
+          <Button 
+            variant={isEditing ? "default" : "secondary"}
+            size="sm"
+            onClick={() => setIsEditing(!isEditing)}
+            disabled={!hasEditPermission}
+            className="h-8"
+          >
+            {isEditing ? "Hủy chỉnh sửa" : "Chỉnh sửa hồ sơ"}
+          </Button>
+        </div>
+
         {/* CONTENT AREA */}
         <div className="flex-1 overflow-y-auto">
           <div className="p-6 space-y-8 pb-12">
-            {/* FOCUS INTERACTION PANEL */}
-            <FocusInteractionPanel customer={customer} onNextCustomer={onNextCustomer} />
+            {isEditing ? (
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 className="text-lg font-semibold text-slate-800 mb-6 flex items-center gap-2">
+                  <UserCircle className="w-5 h-5 text-indigo-500" />
+                  Cập nhật hồ sơ khách hàng
+                </h3>
+                <CustomerEditForm 
+                  customer={customer} 
+                  permissionCtx={permissionContext}
+                  onSuccess={(updatedCustomer) => {
+                    setActiveCustomer(updatedCustomer);
+                    setIsEditing(false);
+                    // trigger refresh of list
+                    if (onUpdated) {
+                      onUpdated(updatedCustomer);
+                    } else {
+                      window.dispatchEvent(new Event("refresh_customers_list"));
+                    }
+                  }} 
+                  onCancel={() => setIsEditing(false)}
+                />
+              </div>
+            ) : (
+              <>
+                {/* FOCUS INTERACTION PANEL */}
+                <FocusInteractionPanel customer={customer} onNextCustomer={onNextCustomer} />
 
             {/* QUICK ACTIONS */}
             <div className="grid grid-cols-3 gap-2">
@@ -1388,7 +1402,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 <div className="space-y-1">
                   <span className="text-[10px] font-bold text-slate-500 uppercase">Khách hàng</span>
                   <div className="text-[11px] font-bold text-slate-900 break-words">
-                    {getCustomerPersonDisplayName(customer)}
+                    {customer.contact_name || customer.name || "Chưa có"}
                   </div>
                 </div>
                 <div className="space-y-1">
@@ -1402,10 +1416,10 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 <div className="space-y-1">
                   <span className="text-[10px] font-bold text-slate-500 uppercase">Điện thoại</span>
                   <div className="text-[11px] font-bold text-slate-900 flex items-center gap-1">
-                    {contactSummary.callablePhone ? (
+                    {customer.phone ? (
                       <>
                         <Phone className="w-3 h-3 text-emerald-500" />
-                        {contactSummary.callablePhone}
+                        {customer.phone}
                       </>
                     ) : (
                       "Chưa có"
@@ -1491,35 +1505,6 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                           locale: vi,
                         })
                       : "Chưa có"}
-                  </div>
-                </div>
-              </div>
-            </CRMCard>
-
-            {/* SECTION: DOANH SỐ & LTV */}
-            <CRMCard className="p-4 shadow-sm space-y-4">
-              <h3 className="text-[12px] font-black text-slate-800 uppercase flex items-center gap-2 border-b border-slate-100 pb-2">
-                <Banknote className="w-4 h-4 text-slate-500" /> Doanh thu & LTV
-              </h3>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                <div className="space-y-1">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase">Doanh số hệ thống</span>
-                  <div className="text-[11px] font-bold text-slate-900">
-                    {new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(customer.total_order_amount || 0)}
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase">Doanh số lịch sử</span>
-                  <div className="text-[11px] font-bold text-slate-900">
-                    {new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(customer.historical_revenue_total || 0)}
-                  </div>
-                </div>
-                <div className="space-y-1 col-span-2">
-                  <span className="text-[10px] font-bold text-emerald-600 uppercase">Tổng LTV CRM</span>
-                  <div className="text-[14px] font-black text-emerald-600">
-                    {new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
-                      (customer.total_order_amount || 0) + (customer.historical_revenue_total || 0)
-                    )}
                   </div>
                 </div>
               </div>
@@ -1859,7 +1844,6 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
               </summary>
               <div className="p-4 bg-white space-y-6 border-t border-slate-200">
                 <CustomerAutomationStatus customerId={customer.id} />
-                <CustomerContactChannels customerId={customer.id} customer={customer} />
 
                 <section className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -2091,7 +2075,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                   <Target className="w-4 h-4 text-primary" /> Kênh liên hệ & Remarketing
                 </div>
               </div>
-              <CustomerContactChannels customerId={customer.id} customer={customer} />
+              <CustomerContactChannels customerId={customer.id} />
             </section>
 
             {/* AI SUGGESTIONS SECTION */}
@@ -2118,7 +2102,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
 
               <CommunicationLaunchers
                 customerId={customer.id}
-                customerName={getCustomerCardTitle(customer)}
+                customerName={customer.name || customer.full_name}
                 customerPhone={customer.phone}
                 customerEmail={customer.email}
                 customerCity={customer.city || customer.province}
@@ -2188,7 +2172,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
             {/* AI CUSTOMER SUMMARY */}
             {isFeatureEnabledForUser("ai_summary", user?.id) && (
               <section className="space-y-4 pt-4 border-t border-slate-100">
-                <CustomerAISummary customerId={customer.id} customerName={getCustomerCardTitle(customer)} />
+                <CustomerAISummary customerId={customer.id} customerName={customer.name} />
               </section>
             )}
 
@@ -2402,6 +2386,8 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 <CRMEmptyState title="Chưa có sự kiện" className="py-8" />
               )}
             </section>
+              </>
+            )}
           </div>
         </div>
 
@@ -2452,7 +2438,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
       />
 
       <Dialog open={showEditLocationDialog} onOpenChange={setShowEditLocationDialog}>
-        <DialogContent aria-describedby={undefined} className="sm:max-w-md rounded-2xl p-5">
+        <DialogContent className="sm:max-w-md rounded-2xl p-5">
           <DialogHeader>
             <DialogTitle className="text-base font-black text-slate-900 flex items-center gap-2">
               <MapPin className="w-5 h-5 text-blue-600" />
