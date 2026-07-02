@@ -54,7 +54,7 @@ import {
   FacebookUrlClassification,
 } from "@/lib/customers/facebookUrlClassifier";
 import { checkCustomerDuplicate } from "@/lib/customers/customerDuplicateChecker";
-import { VIETNAM_PROVINCES, findProvinceByName } from "@/lib/vietnamProvinces";
+import { VIETNAM_PROVINCES_2025, findProvinceByName } from "@/lib/locations/vietnamProvinces";
 import { safeLower, safeStripAccents } from "@/lib/utils/safeString";
 
 interface AddCustomerDialogProps {
@@ -343,7 +343,7 @@ export function AddCustomerDialog({
     // city
     if (t) {
       const tLow = safeStripAccents(safeLower(t));
-      for (const p of VIETNAM_PROVINCES) {
+      for (const p of VIETNAM_PROVINCES_2025) {
         const pLow = safeStripAccents(safeLower(p));
         const alias = safeStripAccents(safeLower(findProvinceByName(pLow) || ""));
         if (tLow.includes(pLow)) {
@@ -1051,7 +1051,7 @@ export function AddCustomerDialog({
                     <div className="max-h-52 overflow-y-auto">
                       {(() => {
                         const q = safeStripAccents(safeLower(citySearch));
-                        const matched = VIETNAM_PROVINCES.filter((p) => {
+                        const matched = VIETNAM_PROVINCES_2025.filter((p) => {
                           if (!q) return true;
                           const pAlias = safeStripAccents(safeLower(findProvinceByName(p) || ""));
                           const pName = safeStripAccents(safeLower(p));

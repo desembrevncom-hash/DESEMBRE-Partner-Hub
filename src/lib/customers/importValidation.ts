@@ -1,4 +1,5 @@
 import { normalizePhone as libNormalizePhone } from "../phone";
+import { normalizeProvinceName, detectDistrictOrLocality, isValidProvince } from "@/lib/locations/vietnamProvinces";
 
 export interface ParsedImportRow {
   row_number: number;
@@ -236,7 +237,7 @@ export function mapImportRow(row: any, index: number): ParsedImportRow {
     normalized_phone: nPhone,
     email: email,
     normalized_email: normalizeEmail(email),
-    city: city || province, // fallback
+    city: city,
     address,
     source: source,
     customer_channel: source,
@@ -254,7 +255,6 @@ export function mapImportRow(row: any, index: number): ParsedImportRow {
     duplicate_reason: null,
     // extra mapped fields
     ...mappedData,
-    province,
   };
 }
 
@@ -266,7 +266,6 @@ export function validateImportRow(row: ParsedImportRow): ParsedImportRow {
   const textsToCheck = [
     row.business_name,
     row.contact_name,
-    (row as any).province,
     row.city,
     row.address,
     row.note,
@@ -394,15 +393,38 @@ export function adaptMappedRow(mappedData: any, rawData: any, index: number): Pa
   // Normalize texts
   const business_name = normalizeText(mappedData.business_name);
   const contact_name = normalizeText(mappedData.contact_name);
-  const city = normalizeText(mappedData.city);
-  const province = normalizeText(mappedData.province);
-  const address = normalizeText(mappedData.address);
+  let city = normalizeText(mappedData.city);
+  let address = normalizeText(mappedData.address);
   const source = normalizeText(mappedData.source);
   const note = normalizeText(mappedData.note);
   const historical_revenue_total = parseHistoricalRevenue(mappedData.historical_revenue_total);
   const historical_order_count = mappedData.historical_order_count ? parseInt(mappedData.historical_order_count, 10) : null;
   const historical_last_purchase_at = parseHistoricalDate(mappedData.historical_last_purchase_at);
   const historical_revenue_note = normalizeText(mappedData.historical_revenue_note);
+
+  let warning_messages: string[] = [];
+  
+  let rawLocality = city;
+  let finalProvince: string | null = null;
+  let finalAddress: string | null = address || null;
+
+  if (rawLocality) {
+    if (detectDistrictOrLocality(rawLocality)) {
+      warning_messages.push("Cột tỉnh/thành có vẻ là quận/huyện, đã chuyển sang địa chỉ chi tiết.");
+      finalAddress = finalAddress ? `${finalAddress}, ${rawLocality}` : rawLocality;
+      finalProvince = null;
+    } else {
+      const norm = normalizeProvinceName(rawLocality);
+      if (isValidProvince(norm)) {
+        finalProvince = norm;
+      } else {
+        warning_messages.push("Tỉnh/thành chưa chuẩn hóa");
+        finalProvince = null;
+      }
+    }
+  } else {
+    warning_messages.push("Chưa có tỉnh/thành");
+  }
 
   return {
     row_number: index + 1,
@@ -418,8 +440,8 @@ export function adaptMappedRow(mappedData: any, rawData: any, index: number): Pa
     normalized_phone: nPhone,
     email: email,
     normalized_email: nEmail,
-    address: address || null,
-    city: city || province || null,
+    address: finalAddress,
+    city: finalProvince,
     source: source,
     customer_channel: mappedData.source || null,
     status: null,
@@ -430,6 +452,7 @@ export function adaptMappedRow(mappedData: any, rawData: any, index: number): Pa
     validation_status: "pending",
     validation_errors: [],
     warning_message: null,
+    warning_messages,
     error_message: null,
     import_action: "skip",
     matched_customer_id: null,
