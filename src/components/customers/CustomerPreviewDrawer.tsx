@@ -133,6 +133,7 @@ interface CustomerPreviewDrawerProps {
   initialQuickAction?: "note" | "task" | "followup" | null;
   staffMap?: StaffMap;
   onNextCustomer?: () => void;
+  onUpdated?: (updatedCustomer: any) => void;
 }
 
 export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
@@ -142,9 +143,11 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
   initialQuickAction,
   staffMap,
   onNextCustomer,
+  onUpdated,
 }) => {
-  const { user, isAdmin, isSubAdmin } = useAuth();
+  const { user, isAdmin, isSubAdmin, isSale, isTeleLead, isTelesale } = useAuth();
   const [activeCustomer, setActiveCustomer] = useState<any | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const customer = activeCustomer || customerProp || {};
   const settings = useSystemSettings();
   const navigate = useNavigate();
@@ -1272,11 +1275,51 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
           </div>
         </div>
 
+        {/* Edit Button Bar */}
+        <div className="bg-slate-100 p-2 px-6 flex justify-between items-center shrink-0 border-b border-slate-200">
+          <div className="text-xs font-semibold text-slate-600">
+            {hasEditPermission ? "Bạn có quyền chỉnh sửa hồ sơ này" : "Chế độ Chỉ Xem (Không có quyền)"}
+          </div>
+          <Button 
+            variant={isEditing ? "default" : "secondary"}
+            size="sm"
+            onClick={() => setIsEditing(!isEditing)}
+            disabled={!hasEditPermission}
+            className="h-8"
+          >
+            {isEditing ? "Hủy chỉnh sửa" : "Chỉnh sửa hồ sơ"}
+          </Button>
+        </div>
+
         {/* CONTENT AREA */}
         <div className="flex-1 overflow-y-auto">
           <div className="p-6 space-y-8 pb-12">
-            {/* FOCUS INTERACTION PANEL */}
-            <FocusInteractionPanel customer={customer} onNextCustomer={onNextCustomer} />
+            {isEditing ? (
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 className="text-lg font-semibold text-slate-800 mb-6 flex items-center gap-2">
+                  <UserCircle className="w-5 h-5 text-indigo-500" />
+                  Cập nhật hồ sơ khách hàng
+                </h3>
+                <CustomerEditForm 
+                  customer={customer} 
+                  permissionCtx={permissionCtx} 
+                  onSuccess={(updatedCustomer) => {
+                    setActiveCustomer(updatedCustomer);
+                    setIsEditing(false);
+                    // trigger refresh of list
+                    if (onUpdated) {
+                      onUpdated(updatedCustomer);
+                    } else {
+                      window.dispatchEvent(new Event("refresh_customers_list"));
+                    }
+                  }} 
+                  onCancel={() => setIsEditing(false)}
+                />
+              </div>
+            ) : (
+              <>
+                {/* FOCUS INTERACTION PANEL */}
+                <FocusInteractionPanel customer={customer} onNextCustomer={onNextCustomer} />
 
             {/* QUICK ACTIONS */}
             <div className="grid grid-cols-3 gap-2">
@@ -2330,6 +2373,8 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 <CRMEmptyState title="Chưa có sự kiện" className="py-8" />
               )}
             </section>
+              </>
+            )}
           </div>
         </div>
 
