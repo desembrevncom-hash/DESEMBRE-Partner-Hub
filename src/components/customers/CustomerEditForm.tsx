@@ -199,7 +199,7 @@ export function CustomerEditForm({
     <>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {canEdit("business_name") && (
               <FormField
                 control={form.control}
@@ -503,7 +503,7 @@ export function CustomerEditForm({
           {(canEdit("historical_revenue_total") || canEdit("historical_order_count")) && (
             <div className="border p-4 rounded-md space-y-4 bg-slate-50">
               <h4 className="font-semibold text-slate-800">Dữ liệu Lịch sử (Admin)</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 {canEdit("historical_revenue_total") && (
                   <FormField
                     control={form.control}
