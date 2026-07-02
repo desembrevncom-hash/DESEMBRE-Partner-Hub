@@ -217,7 +217,7 @@ export function CustomerImportPage() {
         Object.keys(columnMap).forEach((header) => {
           const target = columnMap[header];
           if (target) {
-            mappedData[target] = row[header] !== undefined && row[header] !== "" ? String(row[header]).trim() : null;
+            mappedData[target] = row[header] !== undefined && row[header] !== null && row[header] !== "" ? String(row[header]).trim() : null;
           }
         });
         return adaptMappedRow(mappedData, row, idx);
