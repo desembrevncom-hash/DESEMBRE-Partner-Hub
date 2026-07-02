@@ -68,17 +68,19 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+interface CustomerEditFormProps {
+  customer: Customer;
+  permissionCtx: CustomerPermissionContext;
+  onSaved?: (updatedCustomer: Customer) => void;
+  onCancel?: () => void;
+}
+
 export function CustomerEditForm({
   customer,
   permissionCtx,
-  onSuccess,
+  onSaved,
   onCancel,
-}: {
-  customer: Customer;
-  permissionCtx: CustomerPermissionContext;
-  onSuccess: (updatedCustomer: Customer) => void;
-  onCancel: () => void;
-}) {
+}: CustomerEditFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
@@ -164,7 +166,7 @@ export function CustomerEditForm({
 
   const executeUpdate = async (values: FormValues, reason?: string) => {
     setIsSubmitting(true);
-    const { data, error } = await updateCustomerProfile({
+    const res = await updateCustomerProfile({
       customerId: customer.id,
       originalCustomer: customer,
       formValues: values,
@@ -173,14 +175,16 @@ export function CustomerEditForm({
     });
     setIsSubmitting(false);
 
-    if (error) {
-      toast.error(error);
+    if (res.error) {
+      toast.error(res.error);
       return;
     }
 
-    if (data) {
+    if (res.data) {
       toast.success("Cập nhật thông tin khách hàng thành công!");
-      onSuccess(data);
+      onSaved?.(res.data);
+    } else {
+      toast.error(res.error || "Có lỗi xảy ra khi cập nhật hồ sơ khách hàng.");
     }
   };
 
