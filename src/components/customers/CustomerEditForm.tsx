@@ -118,11 +118,11 @@ export function CustomerEditForm({
       zalo: customer.zalo || "",
       owner_sale_id: customer.owner_sale_id || "",
       owner_tele_id: customer.owner_tele_id || "",
-      historical_revenue_total: customer.historical_revenue_total?.toString() || "",
-      historical_order_count: customer.historical_order_count?.toString() || "",
-      historical_last_purchase_at: customer.historical_last_purchase_at || "",
-      historical_revenue_note: customer.historical_revenue_note || "",
-      historical_revenue_source: customer.historical_revenue_source || "",
+      historical_revenue_total: (customer as any).historical_revenue_total?.toString() || "",
+      historical_order_count: (customer as any).historical_order_count?.toString() || "",
+      historical_last_purchase_at: (customer as any).historical_last_purchase_at || "",
+      historical_revenue_note: (customer as any).historical_revenue_note || "",
+      historical_revenue_source: (customer as any).historical_revenue_source || "",
     },
   });
 
@@ -137,11 +137,11 @@ export function CustomerEditForm({
       if (
         values.owner_sale_id !== (customer.owner_sale_id || "") ||
         values.owner_tele_id !== (customer.owner_tele_id || "") ||
-        values.historical_revenue_total !== (customer.historical_revenue_total?.toString() || "") ||
-        values.historical_order_count !== (customer.historical_order_count?.toString() || "") ||
-        values.historical_last_purchase_at !== (customer.historical_last_purchase_at || "") ||
-        values.historical_revenue_note !== (customer.historical_revenue_note || "") ||
-        values.historical_revenue_source !== (customer.historical_revenue_source || "")
+        values.historical_revenue_total !== ((customer as any).historical_revenue_total?.toString() || "") ||
+        values.historical_order_count !== ((customer as any).historical_order_count?.toString() || "") ||
+        values.historical_last_purchase_at !== ((customer as any).historical_last_purchase_at || "") ||
+        values.historical_revenue_note !== ((customer as any).historical_revenue_note || "") ||
+        values.historical_revenue_source !== ((customer as any).historical_revenue_source || "")
       ) {
         reasonNeeded = true;
       }

@@ -17,6 +17,7 @@ import { generateSuggestions } from "@/lib/aiSuggestionEngine";
 import { AdminCustomerInsights } from "./AdminCustomerInsights";
 import { SaleCustomerInsights } from "./SaleCustomerInsights";
 import { AssignStaffDialog } from "./AssignStaffDialog";
+import { CustomerEditForm } from "./CustomerEditForm";
 import { canEditCustomer } from "@/lib/customers/customerPermissions";
 import { DataHealthBadge } from "@/components/customers/DataHealthBadge";
 import { getCustomerDataHealth } from "@/lib/customers/dataHealth";
