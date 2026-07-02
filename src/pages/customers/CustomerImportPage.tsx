@@ -31,6 +31,7 @@ import {
   validateImportRow,
   detectDuplicateInFile,
   buildImportSummary,
+  parseHistoricalDate,
 } from "@/lib/customers/importValidation";
 import { Badge } from "@/components/ui/badge";
 
@@ -339,51 +340,51 @@ export function CustomerImportPage() {
 
     for (let i = 0; i < totalChunks; i++) {
       const chunk = validRows.slice(i * chunkSize, (i + 1) * chunkSize);
-      const payload = chunk.map((r: any) => {
-        const extraNote = [];
-        if (r.province) extraNote.push(`Tỉnh/Thành: ${r.province}`);
-        if (r.parsed_data?.website) extraNote.push(`Website: ${r.parsed_data.website}`);
-        if (r.parsed_data?.tiktok) extraNote.push(`TikTok: ${r.parsed_data.tiktok}`);
-        
-        let finalNote = r.note || "";
-        if (extraNote.length > 0) {
-          finalNote = finalNote ? `${finalNote}\n${extraNote.join(" | ")}` : extraNote.join(" | ");
-        }
-
-        return {
-          name: r.name || r.contact_name || r.business_name || r.phone,
-          facility_name: r.business_name || null,
-          business_name: r.business_name || null,
-          contact_name: r.contact_name || null,
-          phone: r.phone || null,
-          normalized_phone: r.normalized_phone || null,
-          email: r.email || null,
-          normalized_email: r.normalized_email || null,
-          city: r.city || null,
-          source: r.source || null,
-          facebook: r.parsed_data?.facebook || null,
-          zalo: r.parsed_data?.zalo || null,
-          note: finalNote || null,
-          owner_sale_id: r.owner_sale_id || null,
-          status: "new",
-          lifecycle_stage: "new_lead",
-          historical_revenue_total: r.historical_revenue_total ?? 0,
-          historical_order_count: r.historical_order_count ?? 0,
-          historical_last_purchase_at: toNullableHistoricalDate(r.historical_last_purchase_at),
-          historical_revenue_note: r.historical_revenue_note || null,
-        };
-      });
-
-      // Final guard check
-      for (const p of payload) {
-        if (p.historical_last_purchase_at === "null" || p.historical_last_purchase_at === "undefined") {
-          setIsProcessing(false);
-          toast.error("Ngày mua cuối lịch sử không hợp lệ (lỗi hệ thống gửi raw string).");
-          return;
-        }
-      }
-
+      let payload: any[] = [];
       try {
+        payload = chunk.map((r: any) => {
+          const extraNote = [];
+          if (r.province) extraNote.push(`Tỉnh/Thành: ${r.province}`);
+          if (r.parsed_data?.website) extraNote.push(`Website: ${r.parsed_data.website}`);
+          if (r.parsed_data?.tiktok) extraNote.push(`TikTok: ${r.parsed_data.tiktok}`);
+          
+          let finalNote = r.note || "";
+          if (extraNote.length > 0) {
+            finalNote = finalNote ? `${finalNote}\n${extraNote.join(" | ")}` : extraNote.join(" | ");
+          }
+
+          return {
+            name: r.name || r.contact_name || r.business_name || r.phone,
+            facility_name: r.business_name || null,
+            business_name: r.business_name || null,
+            contact_name: r.contact_name || null,
+            phone: r.phone || null,
+            normalized_phone: r.normalized_phone || null,
+            email: r.email || null,
+            normalized_email: r.normalized_email || null,
+            city: r.city || null,
+            source: r.source || null,
+            facebook: r.parsed_data?.facebook || null,
+            zalo: r.parsed_data?.zalo || null,
+            note: finalNote || null,
+            owner_sale_id: r.owner_sale_id || null,
+            status: "new",
+            lifecycle_stage: "new_lead",
+            historical_revenue_total: r.historical_revenue_total ?? 0,
+            historical_order_count: r.historical_order_count ?? 0,
+            historical_last_purchase_at: toNullableHistoricalDate(r.historical_last_purchase_at),
+            historical_revenue_note: r.historical_revenue_note || null,
+          };
+        });
+
+        // Final guard check
+        for (const p of payload) {
+          if (p.historical_last_purchase_at === "null" || p.historical_last_purchase_at === "undefined") {
+            setIsProcessing(false);
+            toast.error("Ngày mua cuối lịch sử không hợp lệ (lỗi hệ thống gửi raw string).");
+            return;
+          }
+        }
         const { error } = await supabase.from("customers").insert(payload);
         if (error) {
           if (error.code === "PGRST204" || error.code === "400" || (error.message && error.message.includes("column") && error.message.includes("historical_"))) {
