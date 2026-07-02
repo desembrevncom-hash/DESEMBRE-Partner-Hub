@@ -32,6 +32,7 @@ import {
   detectDuplicateInFile,
   buildImportSummary,
   parseHistoricalDate,
+  parseHistoricalRevenue,
 } from "@/lib/customers/importValidation";
 import { Badge } from "@/components/ui/badge";
 
@@ -321,6 +322,39 @@ export function CustomerImportPage() {
       return;
     }
 
+    const isNullLike = (value: unknown) => {
+      if (value === null || value === undefined) return true;
+      const text = String(value).trim().toLowerCase();
+      return text === "" || text === "null" || text === "undefined" || text === "-" || text === "n/a" || text === "na";
+    };
+
+    const toHistoricalOrderCount = (value: unknown): number => {
+      if (isNullLike(value)) return 0;
+    
+      const text = String(value).trim().replace(/[,.]/g, "");
+      if (!/^\d+$/.test(text)) {
+        throw new Error("Số đơn lịch sử không hợp lệ");
+      }
+    
+      const count = Number(text);
+      if (!Number.isSafeInteger(count) || count < 0) {
+        throw new Error("Số đơn lịch sử không hợp lệ");
+      }
+    
+      return count;
+    };
+    
+    const toHistoricalRevenueTotal = (value: unknown): number => {
+      if (isNullLike(value)) return 0;
+    
+      const parsed = parseHistoricalRevenue(value);
+      if (parsed === null || parsed === "INVALID_NUMBER" || parsed < 0) {
+        throw new Error("Doanh số lịch sử không hợp lệ");
+      }
+    
+      return parsed;
+    };
+
     const toNullableHistoricalDate = (value: any) => {
       const parsed = parseHistoricalDate(value);
       if (parsed === "INVALID_DATE") {
@@ -370,8 +404,8 @@ export function CustomerImportPage() {
             owner_sale_id: r.owner_sale_id || null,
             status: "new",
             lifecycle_stage: "new_lead",
-            historical_revenue_total: r.historical_revenue_total ?? 0,
-            historical_order_count: r.historical_order_count ?? 0,
+            historical_revenue_total: toHistoricalRevenueTotal(r.historical_revenue_total),
+            historical_order_count: toHistoricalOrderCount(r.historical_order_count),
             historical_last_purchase_at: toNullableHistoricalDate(r.historical_last_purchase_at),
             historical_revenue_note: r.historical_revenue_note || null,
           };
@@ -379,10 +413,12 @@ export function CustomerImportPage() {
 
         // Final guard check
         for (const p of payload) {
-          if (p.historical_last_purchase_at === "null" || p.historical_last_purchase_at === "undefined") {
-            setIsProcessing(false);
-            toast.error("Ngày mua cuối lịch sử không hợp lệ (lỗi hệ thống gửi raw string).");
-            return;
+          for (const [key, value] of Object.entries(p)) {
+            if (value === "null" || value === "undefined") {
+              setIsProcessing(false);
+              toast.error(`Payload contains invalid string null at ${key}`);
+              return;
+            }
           }
         }
         const { error } = await supabase.from("customers").insert(payload);

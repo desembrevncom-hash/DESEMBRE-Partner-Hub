@@ -406,6 +406,8 @@ export function adaptMappedRow(mappedData: any, rawData: any, index: number): Pa
     row_number: index + 1,
     raw_data: rawData,
     parsed_data: mappedData,
+    // extra mapped fields for customers table
+    ...mappedData,
     name: contact_name || business_name || null,
     contact_name: contact_name,
     business_name: business_name,
@@ -434,7 +436,5 @@ export function adaptMappedRow(mappedData: any, rawData: any, index: number): Pa
     historical_order_count: Number.isNaN(historical_order_count as any) ? "INVALID_NUMBER" : historical_order_count,
     historical_last_purchase_at,
     historical_revenue_note,
-    // extra mapped fields for customers table
-    ...mappedData
   };
 }
