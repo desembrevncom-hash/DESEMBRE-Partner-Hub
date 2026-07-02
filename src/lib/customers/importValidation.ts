@@ -163,7 +163,9 @@ export function detectMojibake(text: unknown): boolean {
 
 export function normalizeEmail(email: string | null | undefined): string | null {
   if (!email) return null;
-  return email.toString().trim().toLowerCase();
+  const str = email.toString().trim().toLowerCase();
+  if (!str || str === "null" || str === "undefined" || str === "-" || str === "n/a") return null;
+  return str;
 }
 
 export function validateEmail(email: string | null | undefined): boolean {

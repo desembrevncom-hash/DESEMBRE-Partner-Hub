@@ -234,7 +234,9 @@ export function CustomerImportPage() {
       const emailSet = new Set(rows.map((r) => r.normalized_email).filter(Boolean) as string[]);
       const ownerEmailSet = new Set(rows.map((r) => r.owner_sale_email).filter(Boolean) as string[]);
 
-      const phoneArray = Array.from(phoneSet);
+      const rawPhoneSet = new Set(rows.map((r) => r.phone).filter(Boolean) as string[]);
+      const phoneArray = Array.from(rawPhoneSet);
+      const normPhoneArray = Array.from(phoneSet);
       const emailArray = Array.from(emailSet);
       const ownerEmailArray = Array.from(ownerEmailSet);
 
@@ -242,8 +244,8 @@ export function CustomerImportPage() {
         phoneArray.length > 0
           ? supabase.from("customers").select("id, phone, normalized_phone").in("phone", phoneArray)
           : { data: [] },
-        phoneArray.length > 0
-          ? supabase.from("customers").select("id, phone, normalized_phone").in("normalized_phone", phoneArray)
+        normPhoneArray.length > 0
+          ? supabase.from("customers").select("id, phone, normalized_phone").in("normalized_phone", normPhoneArray)
           : { data: [] },
         emailArray.length > 0
           ? supabase.from("customers").select("email, id").in("email", emailArray)
@@ -275,7 +277,8 @@ export function CustomerImportPage() {
 
         if (row.normalized_phone && existingPhones.has(row.normalized_phone)) {
           row.validation_status = "duplicate";
-          row.validation_errors.push(`Số điện thoại ${row.normalized_phone} đã tồn tại trong hệ thống.`);
+          row.validation_errors.push(`SĐT ${row.normalized_phone} đã tồn tại trong hệ thống.`);
+          row.error_message = row.validation_errors.join(" | ");
           row.import_action = "skip";
           return row;
         }
@@ -283,6 +286,7 @@ export function CustomerImportPage() {
         if (row.normalized_email && existingEmails.has(row.normalized_email)) {
           row.validation_status = "duplicate";
           row.validation_errors.push(`Email ${row.normalized_email} đã tồn tại trong hệ thống.`);
+          row.error_message = row.validation_errors.join(" | ");
           row.import_action = "skip";
           return row;
         }
@@ -683,6 +687,11 @@ export function CustomerImportPage() {
                       <ArrowLeft className="w-4 h-4 mr-2" /> Chọn lại cột
                     </Button>
                     <div className="flex items-center gap-4">
+                      {summary?.valid_rows === 0 && summary?.duplicate_rows > 0 && (
+                        <div className="text-sm font-medium text-amber-600">
+                          0 dòng sẵn sàng import vì tất cả đã trùng SĐT/Email.
+                        </div>
+                      )}
                       {isProcessing && (
                         <div className="text-sm font-medium text-slate-600 flex items-center gap-2">
                           <Loader2 className="w-4 h-4 animate-spin" /> {progress}%
