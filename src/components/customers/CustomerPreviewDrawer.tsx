@@ -17,6 +17,7 @@ import { generateSuggestions } from "@/lib/aiSuggestionEngine";
 import { AdminCustomerInsights } from "./AdminCustomerInsights";
 import { SaleCustomerInsights } from "./SaleCustomerInsights";
 import { AssignStaffDialog } from "./AssignStaffDialog";
+import { canEditCustomer } from "@/lib/customers/customerPermissions";
 import { DataHealthBadge } from "@/components/customers/DataHealthBadge";
 import { getCustomerDataHealth } from "@/lib/customers/dataHealth";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -1160,6 +1161,17 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
 
   const suggestedAction = getSuggestedNextAction(customer);
 
+  const permissionContext = {
+    isAdmin: isAdmin || isSubAdmin,
+    isSale,
+    isTele: isTeleLead || isTelesale,
+    userId: user?.id || "",
+  };
+
+  const hasEditPermission =
+    Boolean(customer?.id && permissionContext.userId) &&
+    canEditCustomer(customer, permissionContext);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-xl w-full p-0 flex flex-col h-[100dvh] lg:h-full border-l border-slate-200 shadow-2xl">
@@ -1302,7 +1314,7 @@ export const CustomerPreviewDrawer: React.FC<CustomerPreviewDrawerProps> = ({
                 </h3>
                 <CustomerEditForm 
                   customer={customer} 
-                  permissionCtx={permissionCtx} 
+                  permissionCtx={permissionContext}
                   onSuccess={(updatedCustomer) => {
                     setActiveCustomer(updatedCustomer);
                     setIsEditing(false);
