@@ -41,8 +41,8 @@ const TARGET_FIELDS = [
   { id: "contact_name", label: "Người liên hệ" },
   { id: "phone", label: "Số điện thoại (*)", required: true },
   { id: "email", label: "Email" },
-  { id: "province", label: "Tỉnh" },
-  { id: "city", label: "Thành phố / Quận huyện" },
+  { id: "city", label: "Tỉnh / Thành phố" },
+  { id: "address", label: "Địa chỉ chi tiết" },
   { id: "source", label: "Nguồn khách" },
   { id: "facebook", label: "Facebook" },
   { id: "zalo", label: "Zalo" },
@@ -66,8 +66,8 @@ function guessTargetField(csvHeader: string): string | null {
     return "business_name";
   if (h.includes("contact") || h.includes("người liên hệ") || h.includes("tên khách"))
     return "contact_name";
-  if (h.includes("province") || h.includes("tỉnh")) return "province";
-  if (h.includes("city") || h.includes("thành phố") || h.includes("quận")) return "city";
+  if (h.includes("tỉnh") || h.includes("thành phố") || h.includes("province") || h.includes("city")) return "city";
+  if (h.includes("địa chỉ") || h.includes("address") || h.includes("quận") || h.includes("huyện") || h.includes("district") || h.includes("phường") || h.includes("xã") || h.includes("ward")) return "address";
   if (h.includes("source") || h.includes("nguồn")) return "source";
   if (h.includes("facebook") || h.includes("fb")) return "facebook";
   if (h.includes("zalo")) return "zalo";
@@ -498,9 +498,14 @@ export function CustomerImportPage() {
               <p className="text-sm text-slate-500 max-w-md mb-2">
                 Hỗ trợ định dạng CSV và Excel (.xlsx). Chắc chắn rằng file của bạn có dòng tiêu đề (header row).
               </p>
-              <p className="text-xs text-amber-600 bg-amber-50 px-3 py-1.5 rounded-md border border-amber-200 mb-6">
-                💡 Khuyến nghị dùng CSV UTF-8. Nếu dùng Excel bị lỗi font tiếng Việt, hãy lưu bằng: Save As → CSV UTF-8.
-              </p>
+              <div className="text-left text-xs text-amber-700 bg-amber-50 px-4 py-3 rounded-md border border-amber-200 mb-6 w-full max-w-2xl">
+                <p className="font-semibold mb-1">Lưu ý khi nhập Tỉnh/Thành & Địa chỉ:</p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li><strong>Cột Tỉnh/Thành phố (city)</strong>: CHỈ nhập tên Tỉnh hoặc Thành phố trực thuộc TƯ (vd: <span className="font-medium text-slate-900">TP Hồ Chí Minh, Hà Nội, TP Hải Phòng</span>). KHÔNG nhập Quận/Huyện/Phường vào đây.</li>
+                  <li><strong>Cột Địa chỉ chi tiết (address)</strong>: Nhập Quận/Huyện/Phường/Đường/Số nhà (vd: <span className="font-medium text-slate-900">Tân Bình, 123 Cộng Hòa</span>).</li>
+                  <li>💡 Khuyến nghị dùng CSV UTF-8. Nếu dùng Excel bị lỗi font tiếng Việt, hãy lưu bằng: Save As → CSV UTF-8.</li>
+                </ul>
+              </div>
               <input
                 type="file"
                 accept=".csv,.xlsx,.xls"
@@ -513,7 +518,7 @@ export function CustomerImportPage() {
                   <UploadCloud className="w-4 h-4 mr-2" /> Chọn file từ máy tính
                 </Button>
                 <Button variant="outline" onClick={() => {
-                  const csvContent = "phone,business_name,contact_name,email,province,city,address,source,facebook,zalo,website,tiktok,note,owner_sale_email,owner_sale_id,historical_revenue_total,historical_order_count,historical_last_purchase_at\n0961234567,Thu Hà Spa,Chị Phương,phuong@example.com,Hải Phòng,Hồng Bàng,\"12 Lạch Tray\",Facebook,,,,,\"Khách quan tâm chăm sóc da\",,,55000000,10,2023-12-01";
+                  const csvContent = "phone,business_name,contact_name,email,city,address,source,facebook,zalo,website,tiktok,note,owner_sale_id,historical_revenue_total,historical_order_count,historical_last_purchase_at,historical_revenue_note\n0967000101,Thư Hà Spa,Chị Hà,thuha.demo@example.com,TP Hồ Chí Minh,\"Tân Bình, 123 Cộng Hòa\",Facebook,,,,,,\"\",55000000,3,2025-12-20,\n0967000102,Hải Phòng Beauty,Anh Dũng,haiphong.demo@example.com,TP Hải Phòng,\"Hồng Bàng, 12 Lạch Tray\",Zalo,,,,,,\"\",25000000,1,,\n0967000103,Hà Nội Clinic,Chị Lan,hanoi.demo@example.com,Hà Nội,\"Cầu Giấy, 88 Xuân Thủy\",Google,,,,,,\"\",,,,";
                   const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
@@ -526,8 +531,10 @@ export function CustomerImportPage() {
                 </Button>
                 <Button variant="outline" onClick={() => {
                   const wsData = [
-                    ["phone", "business_name", "contact_name", "email", "province", "city", "address", "source", "facebook", "zalo", "website", "tiktok", "note", "owner_sale_email", "owner_sale_id", "historical_revenue_total", "historical_order_count", "historical_last_purchase_at"],
-                    ["0961234567", "Thu Hà Spa", "Chị Phương", "phuong@example.com", "Hải Phòng", "Hồng Bàng", "12 Lạch Tray", "Facebook", "", "", "", "", "Khách quan tâm chăm sóc da", "", "", "55000000", "10", "2023-12-01"]
+                    ["phone", "business_name", "contact_name", "email", "city", "address", "source", "facebook", "zalo", "website", "tiktok", "note", "owner_sale_id", "historical_revenue_total", "historical_order_count", "historical_last_purchase_at", "historical_revenue_note"],
+                    ["0967000101", "Thư Hà Spa", "Chị Hà", "thuha.demo@example.com", "TP Hồ Chí Minh", "Tân Bình, 123 Cộng Hòa", "Facebook", "", "", "", "", "", "", "55 triệu", "3", "2025-12-20", ""],
+                    ["0967000102", "Hải Phòng Beauty", "Anh Dũng", "haiphong.demo@example.com", "TP Hải Phòng", "Hồng Bàng, 12 Lạch Tray", "Zalo", "", "", "", "", "", "", "25.000.000", "1", "", ""],
+                    ["0967000103", "Hà Nội Clinic", "Chị Lan", "hanoi.demo@example.com", "Hà Nội", "Cầu Giấy, 88 Xuân Thủy", "Google", "", "", "", "", "", "", "", "", "", ""]
                   ];
                   const ws = XLSX.utils.aoa_to_sheet(wsData);
                   const wb = XLSX.utils.book_new();
