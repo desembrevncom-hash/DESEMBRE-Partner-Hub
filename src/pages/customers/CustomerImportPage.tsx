@@ -41,8 +41,8 @@ const TARGET_FIELDS = [
   { id: "contact_name", label: "Người liên hệ" },
   { id: "phone", label: "Số điện thoại (*)", required: true },
   { id: "email", label: "Email" },
-  { id: "province", label: "Tỉnh" },
-  { id: "city", label: "Thành phố / Quận huyện" },
+  { id: "city", label: "Tỉnh / Thành phố" },
+  { id: "address", label: "Địa chỉ chi tiết" },
   { id: "source", label: "Nguồn khách" },
   { id: "facebook", label: "Facebook" },
   { id: "zalo", label: "Zalo" },
@@ -66,9 +66,9 @@ function guessTargetField(csvHeader: string): string | null {
     return "business_name";
   if (h.includes("contact") || h.includes("người liên hệ") || h.includes("tên khách"))
     return "contact_name";
-  if (h.includes("province") || h.includes("tỉnh")) return "province";
-  if (h.includes("city") || h.includes("thành phố") || h.includes("quận")) return "city";
-  if (h.includes("source") || h.includes("nguồn")) return "source";
+  if (h.includes("tỉnh") || h.includes("thành phố") || h.includes("province") || h.includes("quận") || h.includes("huyện") || h.includes("district") || h.includes("city")) return "city";
+  if (h.includes("địa chỉ") || h.includes("address")) return "address";
+  if (h.includes("nguồn") || h.includes("source")) return "source";
   if (h.includes("facebook") || h.includes("fb")) return "facebook";
   if (h.includes("zalo")) return "zalo";
   if (h.includes("website") || h.includes("web")) return "website";
