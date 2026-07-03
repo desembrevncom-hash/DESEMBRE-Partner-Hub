@@ -2,8 +2,17 @@
 -- M3 Sender Accounts Readiness v1
 -- =================================================================================
 
+-- [clean-replay compatibility repair]
+-- Forward-declare columns added in 20260625000001_sender_governance.sql to prevent 'column does not exist' during local clean reset
+-- Note: Remote databases that have already applied this version will not be affected by this repair.
+-- Fresh/local environments will run this repaired logic. Migration history must be checked before future deployments.
+
 -- 1. ADDITIVE COLUMNS ONLY (Do not touch legacy status or is_active)
 ALTER TABLE public.sender_accounts
+  ADD COLUMN IF NOT EXISTS channel text DEFAULT 'email',
+  ADD COLUMN IF NOT EXISTS status text DEFAULT 'active',
+  ADD COLUMN IF NOT EXISTS health_status text DEFAULT 'unknown',
+  ADD COLUMN IF NOT EXISTS last_checked_at timestamptz,
   ADD COLUMN IF NOT EXISTS readiness_status text,
   ADD COLUMN IF NOT EXISTS readiness_note text,
   ADD COLUMN IF NOT EXISTS readiness_last_reviewed_at timestamptz,
@@ -12,10 +21,11 @@ ALTER TABLE public.sender_accounts
 ALTER TABLE public.sender_accounts ALTER COLUMN readiness_status SET DEFAULT 'needs_review';
 
 -- 2. SAFE BACKFILL
+-- Using is_active as the true source of truth. Do not use the newly added 'status' column which defaults to 'active'.
 UPDATE public.sender_accounts
 SET readiness_status = CASE
-  WHEN status = 'active' THEN 'ready'
-  WHEN status = 'inactive' THEN 'disabled'
+  WHEN is_active IS TRUE THEN 'ready'
+  WHEN is_active IS FALSE THEN 'disabled'
   ELSE 'needs_review'
 END
 WHERE readiness_status IS NULL
