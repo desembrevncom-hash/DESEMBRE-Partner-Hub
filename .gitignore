@@ -49,3 +49,7 @@ scratch/backups/
 .env.*.backup
 .env.staging
 .env.staging
+
+# Supabase local environment
+supabase/.temp/
+supabase/.branches/
