@@ -18,7 +18,7 @@ INSERT INTO auth.users (id, email) VALUES
 ON CONFLICT DO NOTHING;
 
 -- Ensure the user is a sale
-UPDATE public.user_roles SET role = 'sale' WHERE user_id = '22222222-2222-2222-2222-222222222222';
+INSERT INTO public.user_roles (user_id, role) VALUES ('22222222-2222-2222-2222-222222222222', 'sale') ON CONFLICT (user_id, role) DO NOTHING;
 
 -- Get variables
 SELECT set_config('role', 'postgres', true);
