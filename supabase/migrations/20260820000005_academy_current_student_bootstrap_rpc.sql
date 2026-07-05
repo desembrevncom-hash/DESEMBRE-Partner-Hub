@@ -4,7 +4,7 @@ CREATE OR REPLACE FUNCTION public.get_current_student_bootstrap()
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = ''
 AS $$
 DECLARE
   v_user_id uuid;
