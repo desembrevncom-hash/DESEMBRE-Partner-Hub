@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(25);
+SELECT plan(31);
 
 -- Setup test roles
 -- We need users: Silver, Diamond, Unenrolled, Anon
@@ -161,6 +161,33 @@ SELECT is(
   null,
   'Locator denies non-media'
 );
+
+-- Test 26. matching article/article succeeds
+RESET ROLE;
+INSERT INTO public.lessons (id, module_id, title, type, position, status) VALUES ('d9000000-0000-0000-0000-000000000001'::uuid, 'c1000000-0000-0000-0000-000000000000'::uuid, 'A1', 'article', 10, 'published');
+PREPARE insert_matching_article AS INSERT INTO private.lesson_contents (lesson_id, content_type, content_markdown) VALUES ('d9000000-0000-0000-0000-000000000001'::uuid, 'article', 'foo');
+SELECT lives_ok('insert_matching_article', 'matching article/article succeeds');
+
+-- Test 27. matching video/video succeeds
+INSERT INTO public.lessons (id, module_id, title, type, position, status) VALUES ('d9000000-0000-0000-0000-000000000002'::uuid, 'c1000000-0000-0000-0000-000000000000'::uuid, 'V1', 'video', 11, 'published');
+PREPARE insert_matching_video AS INSERT INTO private.lesson_contents (lesson_id, content_type, provider, storage_bucket, storage_path) VALUES ('d9000000-0000-0000-0000-000000000002'::uuid, 'video', 'supabase_storage', 'academy-content', 'v1.mp4');
+SELECT lives_ok('insert_matching_video', 'matching video/video succeeds');
+
+-- Test 28. article content for video lesson fails
+PREPARE insert_article_for_video AS INSERT INTO private.lesson_contents (lesson_id, content_type, content_markdown) VALUES ('d9000000-0000-0000-0000-000000000002'::uuid, 'article', 'foo');
+SELECT throws_ok('insert_article_for_video', null, null, 'article content for video lesson fails');
+
+-- Test 29. video content for article lesson fails
+PREPARE insert_video_for_article AS INSERT INTO private.lesson_contents (lesson_id, content_type, provider, storage_bucket, storage_path) VALUES ('d9000000-0000-0000-0000-000000000001'::uuid, 'video', 'supabase_storage', 'academy-content', 'v2.mp4');
+SELECT throws_ok('insert_video_for_article', null, null, 'video content for article lesson fails');
+
+-- Test 30. updating lesson_id to a mismatched lesson fails
+PREPARE update_lesson_id_mismatch AS UPDATE private.lesson_contents SET lesson_id = 'd9000000-0000-0000-0000-000000000002'::uuid WHERE lesson_id = 'd9000000-0000-0000-0000-000000000001'::uuid;
+SELECT throws_ok('update_lesson_id_mismatch', null, null, 'updating lesson_id to a mismatched lesson fails');
+
+-- Test 31. changing public.lessons.type while content exists cannot leave an inconsistent pair
+PREPARE update_lessons_type_mismatch AS UPDATE public.lessons SET type = 'video' WHERE id = 'd9000000-0000-0000-0000-000000000001'::uuid;
+SELECT throws_ok('update_lessons_type_mismatch', null, null, 'changing public.lessons.type while content exists cannot leave an inconsistent pair');
 
 SELECT * FROM finish();
 ROLLBACK;

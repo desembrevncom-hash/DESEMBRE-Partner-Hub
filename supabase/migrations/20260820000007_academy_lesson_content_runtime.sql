@@ -51,17 +51,42 @@ CREATE TABLE private.lesson_contents (
 
 CREATE OR REPLACE FUNCTION private.check_lesson_content_type_match()
 RETURNS trigger AS $$
+DECLARE
+  v_lesson_type text;
 BEGIN
-  IF NEW.content_type != (SELECT type FROM public.lessons WHERE id = NEW.lesson_id) THEN
+  SELECT type INTO v_lesson_type FROM public.lessons WHERE id = NEW.lesson_id;
+  IF v_lesson_type IS NULL THEN
+    RAISE EXCEPTION 'Lesson not found';
+  END IF;
+  IF NEW.content_type != v_lesson_type THEN
     RAISE EXCEPTION 'private.lesson_contents.content_type must match public.lessons.type';
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
 CREATE TRIGGER trg_check_lesson_content_type_match
   BEFORE INSERT OR UPDATE ON private.lesson_contents
   FOR EACH ROW EXECUTE FUNCTION private.check_lesson_content_type_match();
+
+CREATE OR REPLACE FUNCTION public.check_lesson_type_update()
+RETURNS trigger AS $$
+DECLARE
+  v_content_type text;
+BEGIN
+  IF OLD.type != NEW.type THEN
+    SELECT content_type INTO v_content_type FROM private.lesson_contents WHERE lesson_id = NEW.id;
+    IF v_content_type IS NOT NULL AND v_content_type != NEW.type THEN
+      RAISE EXCEPTION 'Cannot change public.lessons.type while inconsistent content exists';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
+
+CREATE TRIGGER trg_check_lesson_type_update
+  BEFORE UPDATE ON public.lessons
+  FOR EACH ROW EXECUTE FUNCTION public.check_lesson_type_update();
 
 -- 3. Storage Bucket
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)

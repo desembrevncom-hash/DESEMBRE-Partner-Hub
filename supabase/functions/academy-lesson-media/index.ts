@@ -1,38 +1,48 @@
 import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
 
-const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") || "http://localhost:8080,http://localhost:3000").split(",");
+export interface AppEnv {
+  getEnv: (key: string) => string | undefined;
+  createClient: (url: string, key: string, options?: any) => any;
+}
 
-const corsHeaders = (origin: string | null) => {
-  const allowOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    "Access-Control-Allow-Origin": allowOrigin,
+export const handleRequest = async (req: Request, env: AppEnv): Promise<Response> => {
+  const origin = req.headers.get("origin") || "";
+
+  const rawOrigins = env.getEnv("ACADEMY_ALLOWED_ORIGINS");
+  const ALLOWED_ORIGINS = rawOrigins ? rawOrigins.split(",").map(o => o.trim()) : [];
+
+  let corsHeaders: Record<string, string> = {
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   };
-};
 
-serve(async (req) => {
-  const origin = req.headers.get("origin");
+  const isAllowedOrigin = ALLOWED_ORIGINS.includes(origin);
+  if (isAllowedOrigin) {
+    corsHeaders["Access-Control-Allow-Origin"] = origin;
+  }
 
   // Preflight
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders(origin) });
+    if (!isAllowedOrigin) {
+      return new Response("forbidden", { status: 403 });
+    }
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing Authorization header" }), {
+    if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) {
+      return new Response(JSON.stringify({ error: "Missing or malformed Authorization header" }), {
         status: 401,
-        headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
     if (req.method !== "POST") {
       return new Response(JSON.stringify({ error: "Method not allowed" }), {
         status: 405,
-        headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
@@ -42,7 +52,7 @@ serve(async (req) => {
     } catch {
       return new Response(JSON.stringify({ error: "Malformed JSON body" }), {
         status: 400,
-        headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
@@ -51,23 +61,23 @@ serve(async (req) => {
     if (!courseSlug || typeof courseSlug !== "string") {
       return new Response(JSON.stringify({ error: "Invalid courseSlug" }), {
         status: 400,
-        headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
     if (!lessonId || typeof lessonId !== "string" || !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(lessonId)) {
       return new Response(JSON.stringify({ error: "Invalid or malformed lessonId" }), {
         status: 400,
-        headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = env.getEnv("SUPABASE_URL")!;
+    const supabaseAnonKey = env.getEnv("SUPABASE_ANON_KEY")!;
+    const supabaseServiceRoleKey = env.getEnv("SUPABASE_SERVICE_ROLE_KEY")!;
 
     // 2. User-scoped client
-    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
+    const supabaseUser = env.createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
@@ -79,10 +89,10 @@ serve(async (req) => {
 
     if (contentError) {
       // Sanitize db error
-      console.error("Database error during content check:", contentError.message);
+      console.error("Database error during content check");
       return new Response(JSON.stringify({ error: "Internal server error during authorization" }), {
         status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
@@ -90,7 +100,7 @@ serve(async (req) => {
     if (!contentData || contentData.state !== "AVAILABLE") {
       return new Response(JSON.stringify({ error: "Access denied or content unavailable" }), {
         status: 403,
-        headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
@@ -98,12 +108,12 @@ serve(async (req) => {
     if (!content || (content.kind !== "video" && content.kind !== "document") || !content.media_ref) {
       return new Response(JSON.stringify({ error: "Lesson does not have protected media content" }), {
         status: 400,
-        headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
     // 5. Service-role client
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
+    const supabaseAdmin = env.createClient(supabaseUrl, supabaseServiceRoleKey);
 
     // 6. Call locator
     const { data: locatorData, error: locatorError } = await supabaseAdmin.rpc("get_academy_lesson_media_locator", {
@@ -111,17 +121,17 @@ serve(async (req) => {
     });
 
     if (locatorError) {
-      console.error("Database error during media locator:", locatorError.message);
+      console.error("Database error during media locator");
       return new Response(JSON.stringify({ error: "Internal server error fetching media" }), {
         status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
     if (!locatorData || !locatorData.bucket || !locatorData.path) {
       return new Response(JSON.stringify({ error: "Media locator missing or invalid" }), {
         status: 404,
-        headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
@@ -133,10 +143,10 @@ serve(async (req) => {
       .createSignedUrl(locatorData.path, expiresIn);
 
     if (signError) {
-      console.error("Storage signing error:", signError.message);
+      console.error("Storage signing error");
       return new Response(JSON.stringify({ error: "Internal server error signing media" }), {
         status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
@@ -150,14 +160,24 @@ serve(async (req) => {
       }),
       {
         status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       }
     );
   } catch (err) {
-    console.error("Unhandled exception:", err instanceof Error ? err.message : String(err));
+    console.error("Unhandled exception");
     return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
-      headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+      headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   }
-});
+};
+
+// Start server if not running in test mode
+if (import.meta.main) {
+  serve(async (req) => {
+    return handleRequest(req, {
+      getEnv: (key) => Deno.env.get(key),
+      createClient,
+    });
+  });
+}
