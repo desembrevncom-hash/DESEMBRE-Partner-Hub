@@ -11,13 +11,8 @@ DECLARE
   v_reason text := 'COURSE_UNAVAILABLE';
   v_required_tier jsonb := null;
   
-  v_course_status text;
   v_catalog_vis text;
-  v_cat_opens timestamptz;
-  v_cat_closes timestamptz;
   v_enroll_policy text;
-  v_enroll_opens timestamptz;
-  v_enroll_closes timestamptz;
   v_pricing text;
   
   v_active_count int;
@@ -34,10 +29,8 @@ BEGIN
   v_can_enroll := private.can_access_course(p_course_id, 'enroll');
   v_can_learn := private.can_access_course(p_course_id, 'full');
   
-  SELECT status, catalog_visibility, catalog_opens_at, catalog_closes_at,
-         enrollment_policy, enrollment_opens_at, enrollment_closes_at, pricing_model
-  INTO v_course_status, v_catalog_vis, v_cat_opens, v_cat_closes,
-       v_enroll_policy, v_enroll_opens, v_enroll_closes, v_pricing
+  SELECT catalog_visibility, enrollment_policy, pricing_model
+  INTO v_catalog_vis, v_enroll_policy, v_pricing
   FROM public.courses WHERE id = p_course_id;
   
   IF v_student_id IS NULL THEN
