@@ -239,6 +239,10 @@ BEGIN
   IF v_course IS NULL THEN RETURN null; END IF;
   
   v_decision := private.get_course_access_decision(v_course.id);
+  IF NOT (v_decision->>'can_view')::boolean THEN
+    RETURN null;
+  END IF;
+  
   v_can_learn := (v_decision->>'can_learn')::boolean;
   
   SELECT e.id INTO v_enrollment_id
