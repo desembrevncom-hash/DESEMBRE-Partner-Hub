@@ -77,3 +77,14 @@ verify_jwt = true
 
 [functions.admin-mock-dispatch]
 verify_jwt = false
+
+[functions.academy-admin-media-upload]
+enabled = true
+verify_jwt = false
+import_map = "./functions/academy-admin-media-upload/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/academy-admin-media-upload/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/academy-admin-media-upload/*.html" ]
