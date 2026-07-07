@@ -4,7 +4,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ACADEMY_ALLOWED_ORIGINS") || "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
 
 interface RequestPayload {
@@ -33,10 +34,13 @@ export const handler = async (req: Request): Promise<Response> => {
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing Authorization header" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Missing Authorization header" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // 1. Dual Security Context
@@ -45,7 +49,8 @@ export const handler = async (req: Request): Promise<Response> => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const { data: { user }, error: authError } = await supabaseUserClient.auth.getUser();
+    const { data: { user }, error: authError } = await supabaseUserClient.auth
+      .getUser();
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -56,7 +61,10 @@ export const handler = async (req: Request): Promise<Response> => {
     const actorId = user.id;
 
     // B. Internal service-role client
-    const supabaseAdminClient = createClient(supabaseUrl, supabaseServiceRoleKey);
+    const supabaseAdminClient = createClient(
+      supabaseUrl,
+      supabaseServiceRoleKey,
+    );
 
     let payload: RequestPayload;
     try {
@@ -71,33 +79,46 @@ export const handler = async (req: Request): Promise<Response> => {
     const { action } = payload;
 
     if (action === "request_upload") {
-      const { lessonId, contentType, mimeType, sizeBytes, originalFilename } = payload;
-      if (!lessonId || !contentType || !mimeType || !sizeBytes || !originalFilename) {
-        return new Response(JSON.stringify({ error: "Missing required fields for request_upload" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      const { lessonId, contentType, mimeType, sizeBytes, originalFilename } =
+        payload;
+      if (
+        !lessonId || !contentType || !mimeType || !sizeBytes ||
+        !originalFilename
+      ) {
+        return new Response(
+          JSON.stringify({
+            error: "Missing required fields for request_upload",
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
 
       // Call internal RPC via service_role to validate admin and generate session
-      const { data: sessionData, error: sessionError } = await supabaseAdminClient.rpc(
-        "admin_create_academy_media_upload_session",
-        {
-          p_actor_user_id: actorId,
-          p_lesson_id: lessonId,
-          p_content_type: contentType,
-          p_mime_type: mimeType,
-          p_size_bytes: sizeBytes,
-          p_original_filename: originalFilename,
-        }
-      );
+      const { data: sessionData, error: sessionError } =
+        await supabaseAdminClient.rpc(
+          "admin_create_academy_media_upload_session",
+          {
+            p_actor_user_id: actorId,
+            p_lesson_id: lessonId,
+            p_content_type: contentType,
+            p_mime_type: mimeType,
+            p_size_bytes: sizeBytes,
+            p_original_filename: originalFilename,
+          },
+        );
 
       if (sessionError) {
         const msg = sessionError.message || "Unknown DB error";
-        return new Response(JSON.stringify({ error: "Failed to create upload session: " + msg }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ error: "Failed to create upload session: " + msg }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
 
       const { uploadSessionId, objectPath, expiresIn } = sessionData as {
@@ -113,78 +134,94 @@ export const handler = async (req: Request): Promise<Response> => {
         .createSignedUploadUrl(objectPath);
 
       if (signedError || !signedData) {
-        return new Response(JSON.stringify({ error: "Failed to generate upload URL" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ error: "Failed to generate upload URL" }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
 
-      return new Response(JSON.stringify({
-        uploadSessionId,
-        uploadUrl: signedData.signedUrl,
-        expiresIn,
-        mimeType,
-        maxSizeBytes: contentType === 'video' ? 1048576000 : 52428800
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    } 
-    
-    else if (action === "finalize_upload") {
+      return new Response(
+        JSON.stringify({
+          uploadSessionId,
+          uploadUrl: signedData.signedUrl,
+          expiresIn,
+          mimeType,
+          maxSizeBytes: contentType === "video" ? 1048576000 : 52428800,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    } else if (action === "finalize_upload") {
       const { uploadSessionId } = payload;
       if (!uploadSessionId) {
-        return new Response(JSON.stringify({ error: "Missing uploadSessionId" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ error: "Missing uploadSessionId" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
 
-      const { data: finalData, error: finalError } = await supabaseAdminClient.rpc(
-        "admin_finalize_academy_media_upload_session",
-        {
-          p_actor_user_id: actorId,
-          p_upload_session_id: uploadSessionId,
-        }
-      );
+      const { data: finalData, error: finalError } = await supabaseAdminClient
+        .rpc(
+          "admin_finalize_academy_media_upload_session",
+          {
+            p_actor_user_id: actorId,
+            p_upload_session_id: uploadSessionId,
+          },
+        );
 
       if (finalError) {
         const msg = finalError.message || "Unknown DB error";
-        return new Response(JSON.stringify({ error: "Failed to finalize: " + msg }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ error: "Failed to finalize: " + msg }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
 
       return new Response(JSON.stringify(finalData), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    } 
-    
-    else if (action === "cancel_upload") {
+    } else if (action === "cancel_upload") {
       const { uploadSessionId } = payload;
       if (!uploadSessionId) {
-        return new Response(JSON.stringify({ error: "Missing uploadSessionId" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ error: "Missing uploadSessionId" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
 
-      const { data: cancelData, error: cancelError } = await supabaseAdminClient.rpc(
-        "admin_cancel_academy_media_upload_session",
-        {
-          p_actor_user_id: actorId,
-          p_upload_session_id: uploadSessionId,
-        }
-      );
+      const { data: cancelData, error: cancelError } = await supabaseAdminClient
+        .rpc(
+          "admin_cancel_academy_media_upload_session",
+          {
+            p_actor_user_id: actorId,
+            p_upload_session_id: uploadSessionId,
+          },
+        );
 
       if (cancelError) {
         const msg = cancelError.message || "Unknown DB error";
-        return new Response(JSON.stringify({ error: "Failed to cancel: " + msg }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ error: "Failed to cancel: " + msg }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
 
       return new Response(JSON.stringify(cancelData), {
@@ -197,7 +234,6 @@ export const handler = async (req: Request): Promise<Response> => {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-
   } catch (err: any) {
     return new Response(JSON.stringify({ error: "Internal Server Error" }), {
       status: 500,
