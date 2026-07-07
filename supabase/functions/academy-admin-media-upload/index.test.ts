@@ -1,36 +1,94 @@
-import { assertEquals, assertStringIncludes } from "https://deno.land/std@0.168.0/testing/asserts.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { assertEquals } from "https://deno.land/std@0.168.0/testing/asserts.ts";
+import { handler } from "./index.ts";
 
-// Note: Deno edge function tests with mocked Supabase client
 Deno.test("Edge Function Tests: academy-admin-media-upload", async (t) => {
-  // Mock handler for testing
-  const handler = async (req: Request) => {
-    if (req.method === "OPTIONS") {
-      return new Response("ok", { headers: { "Access-Control-Allow-Origin": "*" } });
-    }
-    const auth = req.headers.get("Authorization");
-    if (!auth) {
-      return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401 });
-    }
-    
-    let payload;
-    try {
-      payload = await req.json();
-    } catch {
-      return new Response(JSON.stringify({ error: "Malformed JSON" }), { status: 400 });
+  // Set up mock env
+  const origEnv = Deno.env.toObject();
+  Deno.env.set("SUPABASE_URL", "https://mock.supabase.co");
+  Deno.env.set("SUPABASE_ANON_KEY", "mock-anon-key");
+  Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "mock-service-key");
+  Deno.env.set("ACADEMY_ALLOWED_ORIGINS", "*");
+
+  const origFetch = globalThis.fetch;
+
+  // Create a mock fetch that handles auth.getUser, rpc, and storage
+  globalThis.fetch = async (
+    req: Request | URL | string,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    let url = "";
+    let method = "GET";
+    let body = "";
+
+    if (req instanceof Request) {
+      url = req.url;
+      method = req.method;
+    } else if (req instanceof URL) {
+      url = req.toString();
+    } else {
+      url = req;
     }
 
-    if (payload.action === "request_upload") {
-      if (!payload.lessonId) return new Response(JSON.stringify({ error: "Missing required fields for request_upload" }), { status: 400 });
-      return new Response(JSON.stringify({ uploadSessionId: "uuid", uploadUrl: "signed_url", expiresIn: 600, mimeType: payload.mimeType, maxSizeBytes: 1048576000 }), { status: 200 });
+    if (init && init.method) method = init.method;
+    if (init && init.body) {
+      body = typeof init.body === "string" ? init.body : String(init.body);
     }
 
-    if (payload.action === "finalize_upload" || payload.action === "cancel_upload") {
-      if (!payload.uploadSessionId) return new Response(JSON.stringify({ error: "Missing uploadSessionId" }), { status: 400 });
-      return new Response(JSON.stringify({ success: true, status: payload.action === "cancel_upload" ? "cancelled" : "finalized" }), { status: 200 });
+    if (url.includes("/auth/v1/user")) {
+      return new Response(
+        JSON.stringify({
+          id: "mock-user-id",
+          aud: "authenticated",
+          role: "authenticated",
+          email: "test@example.com",
+          app_metadata: {},
+          user_metadata: {},
+          created_at: "2023-01-01T00:00:00Z",
+          updated_at: "2023-01-01T00:00:00Z",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
     }
 
-    return new Response(JSON.stringify({ error: "Invalid action" }), { status: 400 });
+    if (
+      url.includes("/rest/v1/rpc/admin_create_academy_media_upload_session")
+    ) {
+      return new Response(
+        JSON.stringify({
+          uploadSessionId: "mock-session-id",
+          objectPath: "courses/c/lessons/l/uploads/u.mp4",
+          expiresIn: 600,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    if (url.includes("/storage/v1/object/sign/academy-content")) {
+      return new Response(
+        JSON.stringify({
+          signedUrl:
+            "https://mock.supabase.co/storage/v1/object/sign/academy-content/mock-path?token=mock-token",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    if (
+      url.includes(
+        "/rest/v1/rpc/admin_finalize_academy_media_upload_session",
+      ) ||
+      url.includes("/rest/v1/rpc/admin_cancel_academy_media_upload_session")
+    ) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          status: url.includes("finalize") ? "finalized" : "cancelled",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    return origFetch(req, init);
   };
 
   await t.step("OPTIONS request", async () => {
@@ -46,24 +104,46 @@ Deno.test("Edge Function Tests: academy-admin-media-upload", async (t) => {
   });
 
   await t.step("malformed JSON", async () => {
-    const req = new Request("http://localhost/upload", { 
-      method: "POST", 
+    const req = new Request("http://localhost/upload", {
+      method: "POST",
       headers: { "Authorization": "Bearer token" },
-      body: "invalid json" 
+      body: "invalid json",
     });
     const res = await handler(req);
+    if (res.status !== 400) {
+      console.log(await res.text());
+    }
     assertEquals(res.status, 400);
   });
 
   await t.step("request_upload success", async () => {
-    const req = new Request("http://localhost/upload", { 
-      method: "POST", 
+    const req = new Request("http://localhost/upload", {
+      method: "POST",
       headers: { "Authorization": "Bearer token" },
-      body: JSON.stringify({ action: "request_upload", lessonId: "uuid", contentType: "video", mimeType: "video/mp4", sizeBytes: 100, originalFilename: "file.mp4" }) 
+      body: JSON.stringify({
+        action: "request_upload",
+        lessonId: "uuid",
+        contentType: "video",
+        mimeType: "video/mp4",
+        sizeBytes: 100,
+        originalFilename: "file.mp4",
+      }),
     });
     const res = await handler(req);
+    if (res.status !== 200) {
+      console.log(await res.text());
+    }
     assertEquals(res.status, 200);
     const body = await res.json();
-    assertEquals(body.uploadSessionId, "uuid");
+    assertEquals(body.uploadSessionId, "mock-session-id");
   });
+
+  // Restore everything
+  globalThis.fetch = origFetch;
+  for (const key of Object.keys(Deno.env.toObject())) {
+    Deno.env.delete(key);
+  }
+  for (const [key, val] of Object.entries(origEnv)) {
+    Deno.env.set(key, val);
+  }
 });

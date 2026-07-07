@@ -17,7 +17,7 @@ interface RequestPayload {
   uploadSessionId?: string;
 }
 
-serve(async (req) => {
+export const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -93,7 +93,6 @@ serve(async (req) => {
       );
 
       if (sessionError) {
-        // Sanitize error
         const msg = sessionError.message || "Unknown DB error";
         return new Response(JSON.stringify({ error: "Failed to create upload session: " + msg }), {
           status: 400,
@@ -111,7 +110,7 @@ serve(async (req) => {
       const { data: signedData, error: signedError } = await supabaseAdminClient
         .storage
         .from("academy-content")
-        .createSignedUploadUrl(objectPath, expiresIn);
+        .createSignedUploadUrl(objectPath);
 
       if (signedError || !signedData) {
         return new Response(JSON.stringify({ error: "Failed to generate upload URL" }), {
@@ -120,7 +119,6 @@ serve(async (req) => {
         });
       }
 
-      // Return EXACT safe metadata payload (no objectPath, no bucket)
       return new Response(JSON.stringify({
         uploadSessionId,
         uploadUrl: signedData.signedUrl,
@@ -206,4 +204,8 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-});
+};
+
+if (import.meta.main) {
+  serve(handler);
+}

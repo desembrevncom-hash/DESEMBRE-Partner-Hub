@@ -243,20 +243,20 @@ BEGIN
                 'type', l.type,
                 'position', l.position,
                 'is_preview', l.is_preview,
-                'content_status', CASE 
+                'content_status', CASE
                   WHEN lc.id IS NULL THEN 'missing'
                   WHEN l.type IN ('video', 'document') THEN
-                    CASE 
+                    CASE
                       WHEN lc.storage_path IS NOT NULL THEN 'ready'
                       ELSE 'configured'
                     END
                   ELSE 'ready'
                 END,
-                'content', CASE 
+                'content', CASE
                   WHEN l.type = 'article' AND lc.content_markdown IS NOT NULL THEN jsonb_build_object('markdown', lc.content_markdown)
                   WHEN l.type = 'external_link' AND lc.external_url IS NOT NULL THEN jsonb_build_object('url', lc.external_url)
                   WHEN l.type IN ('video', 'document') AND lc.id IS NOT NULL THEN jsonb_build_object('original_filename', lc.original_filename)
-                  ELSE NULL 
+                  ELSE NULL
                 END
               ) ORDER BY l.position ASC
             )
@@ -451,7 +451,7 @@ BEGIN
   SELECT actor_id, actor_role INTO v_actor_id, v_actor_role FROM private.require_current_academy_content_admin();
 
   SELECT array_agg(id) INTO v_existing_ids FROM public.course_modules WHERE course_id = p_course_id;
-  
+
   IF v_existing_ids IS NULL THEN
     v_existing_ids := ARRAY[]::uuid[];
   END IF;
@@ -573,7 +573,7 @@ BEGIN
   SELECT actor_id, actor_role INTO v_actor_id, v_actor_role FROM private.require_current_academy_content_admin();
 
   SELECT array_agg(id) INTO v_existing_ids FROM public.lessons WHERE module_id = p_module_id;
-  
+
   IF v_existing_ids IS NULL THEN
     v_existing_ids := ARRAY[]::uuid[];
   END IF;
@@ -730,7 +730,7 @@ BEGIN
   IF trim(v_course.title) = '' THEN
     v_validation_errors := v_validation_errors || jsonb_build_object('code', 'MISSING_TITLE', 'message', 'Course title is empty');
   END IF;
-  
+
   IF trim(v_course.slug) = '' THEN
     v_validation_errors := v_validation_errors || jsonb_build_object('code', 'MISSING_SLUG', 'message', 'Course slug is empty');
   END IF;
@@ -740,11 +740,11 @@ BEGIN
     v_validation_errors := v_validation_errors || jsonb_build_object('code', 'NO_MODULES', 'message', 'Course has no modules');
   END IF;
 
-  SELECT count(*) INTO v_les_count 
-  FROM public.lessons l 
-  JOIN public.course_modules m ON l.module_id = m.id 
+  SELECT count(*) INTO v_les_count
+  FROM public.lessons l
+  JOIN public.course_modules m ON l.module_id = m.id
   WHERE m.course_id = p_course_id;
-  
+
   IF v_les_count = 0 THEN
     v_validation_errors := v_validation_errors || jsonb_build_object('code', 'NO_LESSONS', 'message', 'Course has no lessons');
   END IF;
@@ -752,20 +752,20 @@ BEGIN
   -- Contiguous checks
   SELECT bool_or(position <> row_num) INTO v_invalid_modules
   FROM (
-    SELECT position, row_number() over (order by position) as row_num 
+    SELECT position, row_number() over (order by position) as row_num
     FROM public.course_modules WHERE course_id = p_course_id
   ) t;
-  
+
   IF COALESCE(v_invalid_modules, false) THEN
     v_validation_errors := v_validation_errors || jsonb_build_object('code', 'NON_CONTIGUOUS_MODULES', 'message', 'Module positions are not contiguous starting at 1');
   END IF;
 
   SELECT bool_or(position <> row_num) INTO v_invalid_lessons
   FROM (
-    SELECT l.position, row_number() over (partition by l.module_id order by l.position) as row_num 
+    SELECT l.position, row_number() over (partition by l.module_id order by l.position) as row_num
     FROM public.lessons l JOIN public.course_modules m ON l.module_id = m.id WHERE m.course_id = p_course_id
   ) t;
-  
+
   IF COALESCE(v_invalid_lessons, false) THEN
     v_validation_errors := v_validation_errors || jsonb_build_object('code', 'NON_CONTIGUOUS_LESSONS', 'message', 'Lesson positions are not contiguous starting at 1');
   END IF;
@@ -879,7 +879,7 @@ DECLARE
   v_expires_in integer := 600; -- 10 minutes
 BEGIN
   -- Authenticate via internal helper
-  SELECT actor_id, actor_role INTO v_actor_id, v_actor_role 
+  SELECT actor_id, actor_role INTO v_actor_id, v_actor_role
   FROM private.require_academy_content_admin_actor(p_actor_user_id);
 
   IF p_content_type NOT IN ('video', 'document') THEN
@@ -889,7 +889,7 @@ BEGIN
   IF p_content_type = 'video' AND p_mime_type NOT IN ('video/mp4', 'video/webm') THEN
     RAISE EXCEPTION 'INVALID_MIME_TYPE';
   END IF;
-  
+
   IF p_content_type = 'document' AND p_mime_type <> 'application/pdf' THEN
     RAISE EXCEPTION 'INVALID_MIME_TYPE';
   END IF;
@@ -927,6 +927,7 @@ BEGIN
 END;
 $$;
 REVOKE ALL ON FUNCTION public.admin_create_academy_media_upload_session(uuid, uuid, text, text, bigint, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_create_academy_media_upload_session(uuid, uuid, text, text, bigint, text) TO service_role;
 -- No explicit GRANT means only service_role (and superuser) can execute
 
 CREATE OR REPLACE FUNCTION public.admin_finalize_academy_media_upload_session(
@@ -941,7 +942,7 @@ DECLARE
   v_session record;
   v_content_id uuid;
 BEGIN
-  SELECT actor_id, actor_role INTO v_actor_id, v_actor_role 
+  SELECT actor_id, actor_role INTO v_actor_id, v_actor_role
   FROM private.require_academy_content_admin_actor(p_actor_user_id);
 
   SELECT * INTO v_session FROM private.academy_media_upload_sessions WHERE id = p_upload_session_id;
@@ -952,6 +953,10 @@ BEGIN
 
   IF v_session.status IN ('finalized', 'cancelled', 'expired', 'failed') THEN
     RAISE EXCEPTION 'INVALID_STATE_TRANSITION';
+  END IF;
+
+  IF v_session.status = 'pending' THEN
+    UPDATE private.academy_media_upload_sessions SET status = 'uploaded', updated_at = now() WHERE id = p_upload_session_id;
   END IF;
 
   IF v_session.expires_at < now() THEN
@@ -995,6 +1000,7 @@ BEGIN
 END;
 $$;
 REVOKE ALL ON FUNCTION public.admin_finalize_academy_media_upload_session(uuid, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_finalize_academy_media_upload_session(uuid, uuid) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.admin_cancel_academy_media_upload_session(
   p_actor_user_id uuid,
@@ -1007,7 +1013,7 @@ DECLARE
   v_actor_role public.app_role;
   v_session record;
 BEGIN
-  SELECT actor_id, actor_role INTO v_actor_id, v_actor_role 
+  SELECT actor_id, actor_role INTO v_actor_id, v_actor_role
   FROM private.require_academy_content_admin_actor(p_actor_user_id);
 
   SELECT * INTO v_session FROM private.academy_media_upload_sessions WHERE id = p_upload_session_id;
@@ -1034,3 +1040,32 @@ BEGIN
 END;
 $$;
 REVOKE ALL ON FUNCTION public.admin_cancel_academy_media_upload_session(uuid, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_cancel_academy_media_upload_session(uuid, uuid) TO service_role;
+
+REVOKE ALL ON FUNCTION private.write_academy_admin_audit(uuid, public.app_role, text, text, uuid, jsonb, jsonb, uuid) FROM PUBLIC, anon, authenticated;
+
+-- ==========================================
+-- STATE MACHINE TRIGGER
+-- ==========================================
+CREATE OR REPLACE FUNCTION private.enforce_academy_media_upload_session_transition()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF OLD.status = 'pending' AND NEW.status NOT IN ('uploaded', 'cancelled', 'expired', 'failed') THEN
+    RAISE EXCEPTION 'INVALID_STATE_TRANSITION';
+  END IF;
+  IF OLD.status = 'uploaded' AND NEW.status NOT IN ('finalized', 'cancelled', 'failed') THEN
+    RAISE EXCEPTION 'INVALID_STATE_TRANSITION';
+  END IF;
+  IF OLD.status IN ('finalized', 'cancelled', 'expired', 'failed') AND NEW.status != OLD.status THEN
+    RAISE EXCEPTION 'INVALID_STATE_TRANSITION';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_academy_media_upload_session_transition ON private.academy_media_upload_sessions;
+CREATE TRIGGER trg_academy_media_upload_session_transition
+  BEFORE UPDATE OF status ON private.academy_media_upload_sessions
+  FOR EACH ROW EXECUTE FUNCTION private.enforce_academy_media_upload_session_transition();
