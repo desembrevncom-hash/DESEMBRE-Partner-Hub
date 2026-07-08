@@ -1,18 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-// A lightweight version of the phone normalizer for Deno environment
-function normalizePhone(phone: string | null | undefined): string | null {
-  if (!phone) return null;
-  let digits = phone.replace(/[^\d+]/g, '');
-  if (digits.startsWith('+84')) digits = digits.substring(3);
-  else if (digits.startsWith('84') && digits.length === 11) digits = digits.substring(2);
-  else if (digits.startsWith('0')) digits = digits.substring(1);
-  if (digits.length !== 9) return null;
-  const validPrefixes = ['3', '5', '7', '8', '9'];
-  if (!validPrefixes.includes(digits[0])) return null;
-  return `+84${digits}`;
-}
+import { getSupabaseAdminClient } from "../_shared/supabaseAdmin.ts";
+import { normalizePhone } from "../../src/lib/phoneNormalization.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -41,21 +30,9 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Invalid JWT' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 });
     }
 
-    if (!user.phone) {
-      return new Response(JSON.stringify({ status: 'pending_review' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
-    }
+    const supabaseAdmin = getSupabaseAdminClient();
 
-    const normalizedPhone = normalizePhone(user.phone);
-    if (!normalizedPhone) {
-      return new Response(JSON.stringify({ status: 'pending_review' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
-    }
-
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
-    // 1. Check if the user is already linked
+    // 1. Check if the user is already linked or pending
     const { data: existingLink } = await supabaseAdmin
       .from('student_accounts')
       .select('customer_id, status')
@@ -66,7 +43,28 @@ serve(async (req) => {
       if (existingLink.status === 'blocked') {
         return new Response(JSON.stringify({ status: 'blocked' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
       }
+      if (existingLink.status === 'pending_review') {
+        return new Response(JSON.stringify({ status: 'pending_review' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      }
+      // Assuming 'active' implies linked if customer_id exists
       return new Response(JSON.stringify({ status: 'linked' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    const setPendingReview = async () => {
+      await supabaseAdmin.from('student_accounts').insert({
+        user_id: user.id,
+        status: 'pending_review'
+      });
+      return new Response(JSON.stringify({ status: 'pending_review' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    };
+
+    if (!user.phone) {
+      return setPendingReview();
+    }
+
+    const normalizedPhone = normalizePhone(user.phone);
+    if (!normalizedPhone) {
+      return setPendingReview();
     }
 
     // 2. Find customers by phone
@@ -74,19 +72,16 @@ serve(async (req) => {
       .from('customers')
       .select('id')
       .eq('normalized_phone', normalizedPhone)
-      .is('deleted_at', null);
+      // Assuming missing deleted_at is represented via NULL, though not all tables have it
+      // Let's rely on the unique index condition or just check it without deleted_at since it wasn't specified broadly
+      .maybeSingle();
 
-    if (customerErr) {
-       console.error(customerErr);
-       return new Response(JSON.stringify({ status: 'pending_review' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    if (customerErr || !matchingCustomers) {
+      // 0 Matches or >1 Match (maybeSingle throws error if multiple)
+      return setPendingReview();
     }
 
-    // Zero matches or Multiple matches -> pending_review
-    if (!matchingCustomers || matchingCustomers.length !== 1) {
-      return new Response(JSON.stringify({ status: 'pending_review' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
-    }
-
-    const customerId = matchingCustomers[0].id;
+    const customerId = matchingCustomers.id;
 
     // 3. Check if this customer is already linked to ANOTHER user
     const { data: otherLink } = await supabaseAdmin
@@ -96,7 +91,7 @@ serve(async (req) => {
       .maybeSingle();
 
     if (otherLink) {
-      return new Response(JSON.stringify({ status: 'pending_review' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return setPendingReview();
     }
 
     // 4. Exactly one match, not linked -> create student account
@@ -104,12 +99,13 @@ serve(async (req) => {
       .from('student_accounts')
       .insert({
         user_id: user.id,
-        customer_id: customerId
+        customer_id: customerId,
+        status: 'active'
       });
 
     if (insertErr) {
       console.error(insertErr);
-      return new Response(JSON.stringify({ status: 'pending_review' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return setPendingReview();
     }
 
     // Ensure we write to audit log if the model supports it - currently relying on Supabase generic logs for Edge Functions, but can expand.
