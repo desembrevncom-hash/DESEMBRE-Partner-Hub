@@ -58,3 +58,11 @@ jobs:
 
       - name: Test — Vitest unit suite
         run: npm run test
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Test — Deno Edge Functions
+        run: deno test --allow-env supabase/functions/academy-admin-media-upload/index.test.ts supabase/functions/academy-lesson-media/index.test.ts

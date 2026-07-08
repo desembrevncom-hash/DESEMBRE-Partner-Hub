@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import { configDefaults } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
 import tailwindcss from "@tailwindcss/vite";
@@ -6,6 +7,12 @@ import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 
 export default defineConfig({
   plugins: [TanStackRouterVite(), react(), tsconfigPaths(), tailwindcss()],
+  test: {
+    exclude: [
+      ...configDefaults.exclude,
+      "supabase/functions/**/*.test.ts",
+    ],
+  },
   build: {
     outDir: "dist",
     // Keep Vite's default 500KB warning threshold
