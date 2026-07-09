@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { getSupabaseAdminClient } from "../_shared/supabaseAdmin.ts";
-import { normalizePhone } from "../../src/lib/phoneNormalization.ts";
+import { normalizePhone } from "../_shared/phoneNormalization.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
