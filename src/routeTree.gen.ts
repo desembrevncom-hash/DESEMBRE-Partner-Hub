@@ -72,6 +72,8 @@ import { Route as AdminAutomationGovernanceRouteImport } from './routes/admin/au
 import { Route as AdminAutomationRouteImport } from './routes/admin/automation'
 import { Route as AdminAiSettingsRouteImport } from './routes/admin/ai-settings'
 import { Route as AdminAiDebugRouteImport } from './routes/admin/ai-debug'
+import { Route as AdminAcademyStudentsRouteImport } from './routes/admin/academy-students'
+import { Route as AdminAcademyEnrollmentsRouteImport } from './routes/admin/academy-enrollments'
 import { Route as MarketingTemplatesIndexRouteImport } from './routes/marketing/templates/index'
 import { Route as MarketingSendersIndexRouteImport } from './routes/marketing/senders/index'
 import { Route as MarketingSendControlIndexRouteImport } from './routes/marketing/send-control/index'
@@ -413,6 +415,16 @@ const AdminAiDebugRoute = AdminAiDebugRouteImport.update({
   path: '/admin/ai-debug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAcademyStudentsRoute = AdminAcademyStudentsRouteImport.update({
+  id: '/admin/academy-students',
+  path: '/admin/academy-students',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAcademyEnrollmentsRoute = AdminAcademyEnrollmentsRouteImport.update({
+  id: '/admin/academy-enrollments',
+  path: '/admin/academy-enrollments',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MarketingTemplatesIndexRoute = MarketingTemplatesIndexRouteImport.update({
   id: '/marketing/templates/',
   path: '/marketing/templates/',
@@ -531,6 +543,8 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
   '/workspace': typeof WorkspaceRoute
+  '/admin/academy-enrollments': typeof AdminAcademyEnrollmentsRoute
+  '/admin/academy-students': typeof AdminAcademyStudentsRoute
   '/admin/ai-debug': typeof AdminAiDebugRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
   '/admin/automation': typeof AdminAutomationRoute
@@ -615,6 +629,8 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
   '/workspace': typeof WorkspaceRoute
+  '/admin/academy-enrollments': typeof AdminAcademyEnrollmentsRoute
+  '/admin/academy-students': typeof AdminAcademyStudentsRoute
   '/admin/ai-debug': typeof AdminAiDebugRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
   '/admin/automation': typeof AdminAutomationRoute
@@ -701,6 +717,8 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
   '/workspace': typeof WorkspaceRoute
+  '/admin/academy-enrollments': typeof AdminAcademyEnrollmentsRoute
+  '/admin/academy-students': typeof AdminAcademyStudentsRoute
   '/admin/ai-debug': typeof AdminAiDebugRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
   '/admin/automation': typeof AdminAutomationRoute
@@ -788,6 +806,8 @@ export interface FileRouteTypes {
     | '/signup'
     | '/tasks'
     | '/workspace'
+    | '/admin/academy-enrollments'
+    | '/admin/academy-students'
     | '/admin/ai-debug'
     | '/admin/ai-settings'
     | '/admin/automation'
@@ -872,6 +892,8 @@ export interface FileRouteTypes {
     | '/signup'
     | '/tasks'
     | '/workspace'
+    | '/admin/academy-enrollments'
+    | '/admin/academy-students'
     | '/admin/ai-debug'
     | '/admin/ai-settings'
     | '/admin/automation'
@@ -957,6 +979,8 @@ export interface FileRouteTypes {
     | '/signup'
     | '/tasks'
     | '/workspace'
+    | '/admin/academy-enrollments'
+    | '/admin/academy-students'
     | '/admin/ai-debug'
     | '/admin/ai-settings'
     | '/admin/automation'
@@ -1043,6 +1067,8 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   TasksRoute: typeof TasksRoute
   WorkspaceRoute: typeof WorkspaceRoute
+  AdminAcademyEnrollmentsRoute: typeof AdminAcademyEnrollmentsRoute
+  AdminAcademyStudentsRoute: typeof AdminAcademyStudentsRoute
   AdminAiDebugRoute: typeof AdminAiDebugRoute
   AdminAiSettingsRoute: typeof AdminAiSettingsRoute
   AdminAutomationRoute: typeof AdminAutomationRoute
@@ -1558,6 +1584,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAiDebugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/academy-students': {
+      id: '/admin/academy-students'
+      path: '/admin/academy-students'
+      fullPath: '/admin/academy-students'
+      preLoaderRoute: typeof AdminAcademyStudentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/academy-enrollments': {
+      id: '/admin/academy-enrollments'
+      path: '/admin/academy-enrollments'
+      fullPath: '/admin/academy-enrollments'
+      preLoaderRoute: typeof AdminAcademyEnrollmentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/marketing/templates/': {
       id: '/marketing/templates/'
       path: '/marketing/templates'
@@ -1729,6 +1769,8 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   TasksRoute: TasksRoute,
   WorkspaceRoute: WorkspaceRoute,
+  AdminAcademyEnrollmentsRoute: AdminAcademyEnrollmentsRoute,
+  AdminAcademyStudentsRoute: AdminAcademyStudentsRoute,
   AdminAiDebugRoute: AdminAiDebugRoute,
   AdminAiSettingsRoute: AdminAiSettingsRoute,
   AdminAutomationRoute: AdminAutomationRoute,
