@@ -67,12 +67,12 @@ npx supabase functions deploy send-otp-zalo-zns --project-ref <PRODUCTION_PROJEC
 ```
 
 > [!IMPORTANT]
-> `send-otp-zalo-zns` uses `verify_jwt=false` (`--no-verify-jwt`) because it is invoked securely by the Supabase Auth Custom SMS Webhook using `SUPABASE_SMS_HOOK_SECRET`, not a standard user JWT.
+> `send-otp-zalo-zns` uses `verify_jwt=false` (`--no-verify-jwt`) because it is invoked securely by the Supabase Auth Custom SMS Webhook using `ACADEMY_SMS_HOOK_SECRET`, not a standard user JWT.
 
 ### Required Secrets Deployment
 
 ```bash
-npx supabase secrets set --project-ref <PRODUCTION_PROJECT_REF> SUPABASE_SMS_HOOK_SECRET=value
+npx supabase secrets set --project-ref <PRODUCTION_PROJECT_REF> ACADEMY_SMS_HOOK_SECRET=value
 npx supabase secrets set --project-ref <PRODUCTION_PROJECT_REF> ZALO_ZNS_ACCESS_TOKEN=value
 npx supabase secrets set --project-ref <PRODUCTION_PROJECT_REF> ZALO_ZNS_OTP_TEMPLATE_ID=value
 ```

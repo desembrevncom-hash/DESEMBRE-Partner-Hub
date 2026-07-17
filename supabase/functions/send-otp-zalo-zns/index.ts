@@ -6,7 +6,7 @@ export const ZALO_ZNS_URL = "https://business.openapi.zalo.me/message/template";
 // Export the handler for testing
 export const handler = async (req: Request): Promise<Response> => {
   // 1. Verify Hook Secret (if configured)
-  const hookSecret = Deno.env.get("SUPABASE_SMS_HOOK_SECRET");
+  const hookSecret = Deno.env.get("ACADEMY_SMS_HOOK_SECRET");
   if (hookSecret) {
     const authHeader = req.headers.get("Authorization");
     // Standard Supabase hooks typically send "Bearer <secret>" or we check X-Supabase-Hook-Secret.

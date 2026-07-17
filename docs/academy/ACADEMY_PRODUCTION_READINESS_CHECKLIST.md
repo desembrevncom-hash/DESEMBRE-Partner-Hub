@@ -19,7 +19,7 @@ This checklist tracks the external configurations and blockers that must be reso
 
 The following secrets must be securely provided to the production environment. **Never hardcode or log these values.**
 
-- `SUPABASE_SMS_HOOK_SECRET`
+- `ACADEMY_SMS_HOOK_SECRET`
 - `ZALO_ZNS_ACCESS_TOKEN`
 - `ZALO_ZNS_OTP_TEMPLATE_ID`
 - `ZALO_ZNS_API_BASE_URL` *(optional)*
@@ -30,7 +30,7 @@ Edge Function Secret Requirements:
 - `academy-admin-media-upload`: None (relies on Auth context)
 - `academy-lesson-media`: None (relies on Auth context)
 - `link-student-account`: None (relies on Auth context)
-- `send-otp-zalo-zns`: `SUPABASE_SMS_HOOK_SECRET`, `ZALO_ZNS_ACCESS_TOKEN`, `ZALO_ZNS_OTP_TEMPLATE_ID`
+- `send-otp-zalo-zns`: `ACADEMY_SMS_HOOK_SECRET`, `ZALO_ZNS_ACCESS_TOKEN`, `ZALO_ZNS_OTP_TEMPLATE_ID`
 
 ## 3. Supabase Production Checklist
 
@@ -41,7 +41,7 @@ Do not assume Dashboard state. Verify each item manually against the exact produ
 - [ ] **Database Dry-Run**: `npx supabase db push --dry-run --linked` succeeds with only expected pending migrations.
 - [ ] **Auth Phone Enabled**: Phone provider is active.
 - [ ] **Send SMS Hook Configured**: Custom SMS webhook URL matches the deployed `send-otp-zalo-zns` Edge Function.
-- [ ] **Hook Secret**: `SUPABASE_SMS_HOOK_SECRET` matches between Supabase Auth settings and Edge Function secrets.
+- [ ] **Hook Secret**: `ACADEMY_SMS_HOOK_SECRET` matches between Supabase Auth settings and Edge Function secrets.
 - [ ] **Rate Limits**: Supabase Auth rate limits are reviewed and adequate for launch volume.
 - [ ] **CAPTCHA**: CAPTCHA status is reviewed and disabled for API-only OTP flows if applicable.
 - [ ] **Redirect URLs**: Production domain and redirect URLs configured in Supabase Auth.
