@@ -3,7 +3,7 @@ import { stub } from "https://deno.land/std@0.192.0/testing/mock.ts";
 import { handler, ZALO_ZNS_URL } from "./index.ts";
 
 const MOCK_ENV = {
-  SUPABASE_SMS_HOOK_SECRET: "my-secret",
+  ACADEMY_SMS_HOOK_SECRET: "my-secret",
   ZALO_ZNS_ACCESS_TOKEN: "zalo-token-123",
   ZALO_ZNS_OTP_TEMPLATE_ID: "template-456",
 };
