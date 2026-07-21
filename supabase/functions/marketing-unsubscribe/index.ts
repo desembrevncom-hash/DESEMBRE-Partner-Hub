@@ -107,6 +107,7 @@ serve(async (req) => {
     if (req.method === "GET") {
       const token = url.searchParams.get("token");
       if (!token) {
+        console.log("[marketing-unsubscribe] html response", { method: req.method, status: 400, contentType: "text/html" });
         return new Response(HTML_TEMPLATE("Lỗi", "Liên kết không hợp lệ hoặc đã hết hạn.", false), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
@@ -115,12 +116,14 @@ serve(async (req) => {
 
       const payload = await verifyUnsubscribeToken(token, encKey);
       if (!payload) {
+        console.log("[marketing-unsubscribe] html response", { method: req.method, status: 400, contentType: "text/html" });
         return new Response(HTML_TEMPLATE("Lỗi", "Liên kết không hợp lệ hoặc đã hết hạn.", false), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
         });
       }
 
+      console.log("[marketing-unsubscribe] html response", { method: req.method, status: 200, contentType: "text/html" });
       return new Response(
         HTML_TEMPLATE(
           "Xác nhận hủy đăng ký",
@@ -147,6 +150,7 @@ serve(async (req) => {
       }
 
       if (!token) {
+        console.log("[marketing-unsubscribe] html response", { method: req.method, status: 400, contentType: "text/html" });
         return new Response(HTML_TEMPLATE("Lỗi", "Không tìm thấy token.", false), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
@@ -155,6 +159,7 @@ serve(async (req) => {
 
       const payload = await verifyUnsubscribeToken(token, encKey);
       if (!payload) {
+        console.log("[marketing-unsubscribe] html response", { method: req.method, status: 400, contentType: "text/html" });
         return new Response(HTML_TEMPLATE("Lỗi", "Liên kết không hợp lệ hoặc đã hết hạn.", false), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
@@ -211,9 +216,7 @@ serve(async (req) => {
         }
       }
 
-      // Write Audit log if possible or delivery log update?
-      // For now, consent and suppression list are enough.
-
+      console.log("[marketing-unsubscribe] html response", { method: req.method, status: 200, contentType: "text/html" });
       return new Response(
         HTML_TEMPLATE(
           "Hủy đăng ký thành công",
@@ -237,6 +240,7 @@ serve(async (req) => {
       name: error instanceof Error ? error.name : "Unknown",
       message: error instanceof Error ? error.message : String(error),
     });
+    console.log("[marketing-unsubscribe] html response", { method: req.method, status: 500, contentType: "text/html" });
     return new Response(HTML_TEMPLATE("Lỗi hệ thống", "Đã có lỗi xảy ra. Vui lòng thử lại sau.", false), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
