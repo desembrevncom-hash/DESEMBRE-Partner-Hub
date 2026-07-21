@@ -396,13 +396,12 @@ serve(async (req) => {
       const unsubscribeUrl = `${publicAppUrl}/marketing/unsubscribe?token=${unsubscribeToken}`;
       
       const unsubscribeHtml = `
-        <br/><br/>
-        <hr style="border:0;border-top:1px solid #eee;margin:20px 0;"/>
-        <div style="text-align:center;font-size:12px;color:#999;font-family:sans-serif;">
-          Bạn nhận được email này vì đã đăng ký nhận thông tin từ DESEMBRE.<br/>
-          <a href="${unsubscribeUrl}" style="color:#666;text-decoration:underline;">Nhấn vào đây để hủy đăng ký (Unsubscribe)</a>
-        </div>
-      `;
+          <br/><br/>
+          <div style="font-size:12px;color:#666;margin-top:20px;padding-top:20px;border-top:1px solid #eee;">
+            <p>Bạn nhận được email này vì đã đăng ký nhận thông tin từ DESEMBRE.</p>
+            <p><a href="${unsubscribeUrl}" target="_blank" style="color:#666;text-decoration:underline;">Nhấn vào đây để hủy đăng ký (Unsubscribe)</a></p>
+          </div>
+        `;
       
       const finalHtmlBody = finalBody + unsubscribeHtml;
 
