@@ -204,7 +204,8 @@ export const handler = async (req: Request): Promise<Response> => {
     }
 
     // Success
-    return new Response(JSON.stringify({ success: true, message: "OTP sent successfully" }), {
+    // Supabase Auth SMS Hook expects an empty JSON object on success
+    return new Response(JSON.stringify({}), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
