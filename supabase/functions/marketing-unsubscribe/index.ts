@@ -109,7 +109,7 @@ serve(async (req) => {
       if (!token) {
         return new Response(HTML_TEMPLATE("Lỗi", "Liên kết không hợp lệ hoặc đã hết hạn.", false), {
           status: 400,
-          headers: { "Content-Type": "text/html" },
+          headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
         });
       }
 
@@ -117,7 +117,7 @@ serve(async (req) => {
       if (!payload) {
         return new Response(HTML_TEMPLATE("Lỗi", "Liên kết không hợp lệ hoặc đã hết hạn.", false), {
           status: 400,
-          headers: { "Content-Type": "text/html" },
+          headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
         });
       }
 
@@ -129,7 +129,8 @@ serve(async (req) => {
           token
         ),
         {
-          headers: { "Content-Type": "text/html" },
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
         }
       );
     }
@@ -148,7 +149,7 @@ serve(async (req) => {
       if (!token) {
         return new Response(HTML_TEMPLATE("Lỗi", "Không tìm thấy token.", false), {
           status: 400,
-          headers: { "Content-Type": "text/html" },
+          headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
         });
       }
 
@@ -156,29 +157,26 @@ serve(async (req) => {
       if (!payload) {
         return new Response(HTML_TEMPLATE("Lỗi", "Liên kết không hợp lệ hoặc đã hết hạn.", false), {
           status: 400,
-          headers: { "Content-Type": "text/html" },
+          headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
         });
       }
 
-      // Update customer_consents
-      const { error: consentErr } = await adminClient
-        .from("customer_consents")
-        .update({
-          is_opt_in: false,
-          opt_out_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("customer_id", payload.customerId)
-        .eq("channel", "email");
+      if (payload.customerId && payload.customerId !== "test-sandbox-customer") {
+        const { error: consentErr } = await adminClient
+          .from("customer_consents")
+          .update({
+            is_opt_in: false,
+            opt_out_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("customer_id", payload.customerId)
+          .eq("channel", "email");
 
-      if (consentErr) {
-        console.error("[marketing-unsubscribe] Failed to update consent for masked email", maskEmail(payload.email));
+        if (consentErr) {
+          console.error("[marketing-unsubscribe] Failed to update consent for masked email", maskEmail(payload.email));
+        }
       }
 
-      // Insert into marketing_suppression_list
-      // We use upsert on (channel, normalized_contact_value) if the unique index handles it.
-      // Or we simply check if it exists first.
-      
       const normalizedEmail = payload.email.trim().toLowerCase();
       
       const { data: existingSuppression } = await adminClient
@@ -191,7 +189,7 @@ serve(async (req) => {
 
       if (!existingSuppression) {
         const metadata = {
-          customer_id: payload.customerId,
+          customer_id: payload.customerId === "test-sandbox-customer" ? null : payload.customerId,
           campaign_id: payload.campaignId,
           delivery_log_id: payload.deliveryLogId,
         };
@@ -203,7 +201,7 @@ serve(async (req) => {
             contact_value: payload.email,
             normalized_contact_value: normalizedEmail,
             reason: "unsubscribe",
-            source: "email_unsubscribe",
+            source: "marketing_unsubscribe",
             is_active: true,
             metadata: metadata,
           });
@@ -223,7 +221,8 @@ serve(async (req) => {
           false
         ),
         {
-          headers: { "Content-Type": "text/html" },
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
         }
       );
     }
@@ -240,7 +239,7 @@ serve(async (req) => {
     });
     return new Response(HTML_TEMPLATE("Lỗi hệ thống", "Đã có lỗi xảy ra. Vui lòng thử lại sau.", false), {
       status: 500,
-      headers: { "Content-Type": "text/html" },
+      headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
     });
   }
 });
