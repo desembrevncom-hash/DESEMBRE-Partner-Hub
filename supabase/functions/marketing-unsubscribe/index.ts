@@ -7,8 +7,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function htmlResponse(html: string, status = 200) {
+  const headers = new Headers(corsHeaders);
+  headers.set("Content-Type", "text/html; charset=utf-8");
+  headers.set("Cache-Control", "no-store, max-age=0");
+  return new Response(html, { status, headers });
+}
+
 function maskEmail(email: string): string {
-  if (!email || !email.includes("@")) return "email của bạn";
+  if (!email || !email.includes("@")) return "email cua ban";
   const [name, domain] = email.split("@");
   if (name.length <= 2) return `${name[0]}***@${domain}`;
   return `${name.slice(0, 2)}***@${domain}`;
@@ -16,11 +23,11 @@ function maskEmail(email: string): string {
 
 const HTML_TEMPLATE = (title: string, message: string, showButton: boolean, token?: string) => `
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hủy đăng ký nhận Email</title>
+  <title>Huy dang ky nhan Email</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -81,7 +88,7 @@ const HTML_TEMPLATE = (title: string, message: string, showButton: boolean, toke
         ? `
       <form method="POST">
         <input type="hidden" name="token" value="${token}" />
-        <button type="submit" class="btn" id="submitBtn" onclick="this.disabled=true; this.form.submit();">Xác nhận Hủy Đăng Ký</button>
+        <button type="submit" class="btn" id="submitBtn" onclick="this.disabled=true; this.form.submit();">Xac nhan Huy Dang Ky</button>
       </form>
     `
         : ""
@@ -108,33 +115,23 @@ serve(async (req) => {
       const token = url.searchParams.get("token");
       if (!token) {
         console.log("[marketing-unsubscribe] html response", { method: req.method, status: 400, contentType: "text/html" });
-        return new Response(HTML_TEMPLATE("Lỗi", "Liên kết không hợp lệ hoặc đã hết hạn.", false), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
-        });
+        return htmlResponse(HTML_TEMPLATE("Loi", "Lien ket khong hop le hoac da het han.", false), 400);
       }
 
       const payload = await verifyUnsubscribeToken(token, encKey);
       if (!payload) {
         console.log("[marketing-unsubscribe] html response", { method: req.method, status: 400, contentType: "text/html" });
-        return new Response(HTML_TEMPLATE("Lỗi", "Liên kết không hợp lệ hoặc đã hết hạn.", false), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
-        });
+        return htmlResponse(HTML_TEMPLATE("Loi", "Lien ket khong hop le hoac da het han.", false), 400);
       }
 
       console.log("[marketing-unsubscribe] html response", { method: req.method, status: 200, contentType: "text/html" });
-      return new Response(
+      return htmlResponse(
         HTML_TEMPLATE(
-          "Xác nhận hủy đăng ký",
-          `Bạn có chắc chắn muốn ngừng nhận email quảng cáo tới <strong>${maskEmail(payload.email)}</strong> không? Bạn có thể bỏ qua trang này nếu không muốn thay đổi.`,
+          "Xac nhan huy dang ky",
+          `Ban co chac chan muon ngung nhan email quang cao toi <strong>${maskEmail(payload.email)}</strong> khong? Ban co the bo qua trang nay neu khong muon thay doi.`,
           true,
           token
-        ),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
-        }
+        )
       );
     }
 
@@ -151,19 +148,13 @@ serve(async (req) => {
 
       if (!token) {
         console.log("[marketing-unsubscribe] html response", { method: req.method, status: 400, contentType: "text/html" });
-        return new Response(HTML_TEMPLATE("Lỗi", "Không tìm thấy token.", false), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
-        });
+        return htmlResponse(HTML_TEMPLATE("Loi", "Khong tim thay token.", false), 400);
       }
 
       const payload = await verifyUnsubscribeToken(token, encKey);
       if (!payload) {
         console.log("[marketing-unsubscribe] html response", { method: req.method, status: 400, contentType: "text/html" });
-        return new Response(HTML_TEMPLATE("Lỗi", "Liên kết không hợp lệ hoặc đã hết hạn.", false), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
-        });
+        return htmlResponse(HTML_TEMPLATE("Loi", "Lien ket khong hop le hoac da het han.", false), 400);
       }
 
       if (payload.customerId && payload.customerId !== "test-sandbox-customer") {
@@ -217,23 +208,16 @@ serve(async (req) => {
       }
 
       console.log("[marketing-unsubscribe] html response", { method: req.method, status: 200, contentType: "text/html" });
-      return new Response(
+      return htmlResponse(
         HTML_TEMPLATE(
-          "Hủy đăng ký thành công",
-          "Bạn đã được xóa khỏi danh sách nhận email quảng cáo. Xin cảm ơn!",
+          "Da huy dang ky thanh cong",
+          "Ban da duoc xoa khoi danh sach nhan email quang cao. Xin cam on!",
           false
-        ),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
-        }
+        )
       );
     }
 
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return htmlResponse(HTML_TEMPLATE("Loi", "Method not allowed.", false), 405);
 
   } catch (error: any) {
     console.error("[marketing-unsubscribe] error", {
@@ -241,9 +225,6 @@ serve(async (req) => {
       message: error instanceof Error ? error.message : String(error),
     });
     console.log("[marketing-unsubscribe] html response", { method: req.method, status: 500, contentType: "text/html" });
-    return new Response(HTML_TEMPLATE("Lỗi hệ thống", "Đã có lỗi xảy ra. Vui lòng thử lại sau.", false), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
-    });
+    return htmlResponse(HTML_TEMPLATE("Loi he thong", "Da co loi xay ra. Vui long thu lai sau.", false), 500);
   }
 });
