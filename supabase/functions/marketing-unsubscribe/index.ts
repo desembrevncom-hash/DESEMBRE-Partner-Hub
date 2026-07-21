@@ -3,11 +3,18 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import { verifyUnsubscribeToken } from "../_shared/marketing-token.ts";
 
 function htmlResponse(html: string, status = 200) {
-  const headers = new Headers();
-  headers.set("Content-Type", "text/html; charset=utf-8");
-  headers.set("Cache-Control", "no-store, max-age=0");
-  headers.set("X-Unsubscribe-Version", "html-v3");
-  return new Response(html, { status, headers });
+  const body = new Blob([html], {
+    type: "text/html; charset=utf-8",
+  });
+
+  return new Response(body, {
+    status,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-store, max-age=0",
+      "x-unsubscribe-version": "html-v4",
+    },
+  });
 }
 
 function maskEmail(email: string): string {
