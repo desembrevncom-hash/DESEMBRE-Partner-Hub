@@ -2,15 +2,11 @@ import { serve } from "https://deno.land/std@0.182.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import { verifyUnsubscribeToken } from "../_shared/marketing-token.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
 function htmlResponse(html: string, status = 200) {
-  const headers = new Headers(corsHeaders);
+  const headers = new Headers();
   headers.set("Content-Type", "text/html; charset=utf-8");
   headers.set("Cache-Control", "no-store, max-age=0");
+  headers.set("X-Unsubscribe-Version", "html-v3");
   return new Response(html, { status, headers });
 }
 
@@ -100,7 +96,13 @@ const HTML_TEMPLATE = (title: string, message: string, showButton: boolean, toke
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    // Basic CORS preflight
+    return new Response("ok", {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+      }
+    });
   }
 
   const url = new URL(req.url);
@@ -114,24 +116,22 @@ serve(async (req) => {
     if (req.method === "GET") {
       const token = url.searchParams.get("token");
       if (!token) {
-        console.log("[marketing-unsubscribe] html response", { method: req.method, status: 400, contentType: "text/html" });
         return htmlResponse(HTML_TEMPLATE("Loi", "Lien ket khong hop le hoac da het han.", false), 400);
       }
 
       const payload = await verifyUnsubscribeToken(token, encKey);
       if (!payload) {
-        console.log("[marketing-unsubscribe] html response", { method: req.method, status: 400, contentType: "text/html" });
         return htmlResponse(HTML_TEMPLATE("Loi", "Lien ket khong hop le hoac da het han.", false), 400);
       }
 
-      console.log("[marketing-unsubscribe] html response", { method: req.method, status: 200, contentType: "text/html" });
       return htmlResponse(
         HTML_TEMPLATE(
           "Xac nhan huy dang ky",
           `Ban co chac chan muon ngung nhan email quang cao toi <strong>${maskEmail(payload.email)}</strong> khong? Ban co the bo qua trang nay neu khong muon thay doi.`,
           true,
           token
-        )
+        ),
+        200
       );
     }
 
@@ -139,7 +139,6 @@ serve(async (req) => {
       let token: string | null = url.searchParams.get("token");
 
       if (!token) {
-        // Try parsing form data
         const formData = await req.formData().catch(() => null);
         if (formData) {
           token = formData.get("token") as string | null;
@@ -147,13 +146,11 @@ serve(async (req) => {
       }
 
       if (!token) {
-        console.log("[marketing-unsubscribe] html response", { method: req.method, status: 400, contentType: "text/html" });
         return htmlResponse(HTML_TEMPLATE("Loi", "Khong tim thay token.", false), 400);
       }
 
       const payload = await verifyUnsubscribeToken(token, encKey);
       if (!payload) {
-        console.log("[marketing-unsubscribe] html response", { method: req.method, status: 400, contentType: "text/html" });
         return htmlResponse(HTML_TEMPLATE("Loi", "Lien ket khong hop le hoac da het han.", false), 400);
       }
 
@@ -169,7 +166,7 @@ serve(async (req) => {
           .eq("channel", "email");
 
         if (consentErr) {
-          console.error("[marketing-unsubscribe] Failed to update consent for masked email", maskEmail(payload.email));
+          console.error("[marketing-unsubscribe] Failed to update consent");
         }
       }
 
@@ -203,17 +200,17 @@ serve(async (req) => {
           });
 
         if (supErr) {
-          console.error("[marketing-unsubscribe] Failed to insert suppression list for masked email", maskEmail(payload.email));
+          console.error("[marketing-unsubscribe] Failed to insert suppression list");
         }
       }
 
-      console.log("[marketing-unsubscribe] html response", { method: req.method, status: 200, contentType: "text/html" });
       return htmlResponse(
         HTML_TEMPLATE(
           "Da huy dang ky thanh cong",
           "Ban da duoc xoa khoi danh sach nhan email quang cao. Xin cam on!",
           false
-        )
+        ),
+        200
       );
     }
 
@@ -224,7 +221,6 @@ serve(async (req) => {
       name: error instanceof Error ? error.name : "Unknown",
       message: error instanceof Error ? error.message : String(error),
     });
-    console.log("[marketing-unsubscribe] html response", { method: req.method, status: 500, contentType: "text/html" });
     return htmlResponse(HTML_TEMPLATE("Loi he thong", "Da co loi xay ra. Vui long thu lai sau.", false), 500);
   }
 });
