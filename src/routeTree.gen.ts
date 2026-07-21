@@ -31,6 +31,7 @@ import { Route as ReportsAutomationRouteImport } from './routes/reports/automati
 import { Route as ProductsKnowledgeRouteImport } from './routes/products/knowledge'
 import { Route as OrdersNewRouteImport } from './routes/orders/new'
 import { Route as OrdersIdRouteImport } from './routes/orders/$id'
+import { Route as MarketingUnsubscribeRouteImport } from './routes/marketing/unsubscribe'
 import { Route as MarketingSendGatewayRouteImport } from './routes/marketing/send-gateway'
 import { Route as MarketingSafetyRouteImport } from './routes/marketing/safety'
 import { Route as MarketingReportsRouteImport } from './routes/marketing/reports'
@@ -204,6 +205,11 @@ const OrdersNewRoute = OrdersNewRouteImport.update({
 const OrdersIdRoute = OrdersIdRouteImport.update({
   id: '/orders/$id',
   path: '/orders/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketingUnsubscribeRoute = MarketingUnsubscribeRouteImport.update({
+  id: '/marketing/unsubscribe',
+  path: '/marketing/unsubscribe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MarketingSendGatewayRoute = MarketingSendGatewayRouteImport.update({
@@ -586,6 +592,7 @@ export interface FileRoutesByFullPath {
   '/marketing/reports': typeof MarketingReportsRoute
   '/marketing/safety': typeof MarketingSafetyRoute
   '/marketing/send-gateway': typeof MarketingSendGatewayRoute
+  '/marketing/unsubscribe': typeof MarketingUnsubscribeRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
   '/products/knowledge': typeof ProductsKnowledgeRoute
@@ -672,6 +679,7 @@ export interface FileRoutesByTo {
   '/marketing/reports': typeof MarketingReportsRoute
   '/marketing/safety': typeof MarketingSafetyRoute
   '/marketing/send-gateway': typeof MarketingSendGatewayRoute
+  '/marketing/unsubscribe': typeof MarketingUnsubscribeRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
   '/products/knowledge': typeof ProductsKnowledgeRoute
@@ -760,6 +768,7 @@ export interface FileRoutesById {
   '/marketing/reports': typeof MarketingReportsRoute
   '/marketing/safety': typeof MarketingSafetyRoute
   '/marketing/send-gateway': typeof MarketingSendGatewayRoute
+  '/marketing/unsubscribe': typeof MarketingUnsubscribeRoute
   '/orders/$id': typeof OrdersIdRoute
   '/orders/new': typeof OrdersNewRoute
   '/products/knowledge': typeof ProductsKnowledgeRoute
@@ -849,6 +858,7 @@ export interface FileRouteTypes {
     | '/marketing/reports'
     | '/marketing/safety'
     | '/marketing/send-gateway'
+    | '/marketing/unsubscribe'
     | '/orders/$id'
     | '/orders/new'
     | '/products/knowledge'
@@ -935,6 +945,7 @@ export interface FileRouteTypes {
     | '/marketing/reports'
     | '/marketing/safety'
     | '/marketing/send-gateway'
+    | '/marketing/unsubscribe'
     | '/orders/$id'
     | '/orders/new'
     | '/products/knowledge'
@@ -1022,6 +1033,7 @@ export interface FileRouteTypes {
     | '/marketing/reports'
     | '/marketing/safety'
     | '/marketing/send-gateway'
+    | '/marketing/unsubscribe'
     | '/orders/$id'
     | '/orders/new'
     | '/products/knowledge'
@@ -1107,6 +1119,7 @@ export interface RootRouteChildren {
   MarketingReportsRoute: typeof MarketingReportsRoute
   MarketingSafetyRoute: typeof MarketingSafetyRoute
   MarketingSendGatewayRoute: typeof MarketingSendGatewayRoute
+  MarketingUnsubscribeRoute: typeof MarketingUnsubscribeRoute
   OrdersIdRoute: typeof OrdersIdRoute
   OrdersNewRoute: typeof OrdersNewRoute
   ProductsKnowledgeRoute: typeof ProductsKnowledgeRoute
@@ -1295,6 +1308,13 @@ declare module '@tanstack/react-router' {
       path: '/orders/$id'
       fullPath: '/orders/$id'
       preLoaderRoute: typeof OrdersIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketing/unsubscribe': {
+      id: '/marketing/unsubscribe'
+      path: '/marketing/unsubscribe'
+      fullPath: '/marketing/unsubscribe'
+      preLoaderRoute: typeof MarketingUnsubscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/marketing/send-gateway': {
@@ -1809,6 +1829,7 @@ const rootRouteChildren: RootRouteChildren = {
   MarketingReportsRoute: MarketingReportsRoute,
   MarketingSafetyRoute: MarketingSafetyRoute,
   MarketingSendGatewayRoute: MarketingSendGatewayRoute,
+  MarketingUnsubscribeRoute: MarketingUnsubscribeRoute,
   OrdersIdRoute: OrdersIdRoute,
   OrdersNewRoute: OrdersNewRoute,
   ProductsKnowledgeRoute: ProductsKnowledgeRoute,

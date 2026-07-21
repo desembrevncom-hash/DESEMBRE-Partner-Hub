@@ -385,7 +385,7 @@ serve(async (req) => {
         );
       }
 
-      const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+      const publicAppUrl = Deno.env.get("PUBLIC_APP_URL") || "https://hub.desembre-vn.com";
       const unsubscribePayload = {
         customerId: "test-sandbox-customer",
         email: test_recipient,
@@ -393,7 +393,7 @@ serve(async (req) => {
       };
       const tokenEncKey = Deno.env.get("TOKEN_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
       const unsubscribeToken = await generateUnsubscribeToken(unsubscribePayload, tokenEncKey);
-      const unsubscribeUrl = `${supabaseUrl}/functions/v1/marketing-unsubscribe?token=${unsubscribeToken}`;
+      const unsubscribeUrl = `${publicAppUrl}/marketing/unsubscribe?token=${unsubscribeToken}`;
       
       const unsubscribeHtml = `
         <br/><br/>
