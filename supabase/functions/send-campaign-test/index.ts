@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.182.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import { resolveResendCredential } from "../_shared/sender-credentials.ts";
+import { generateUnsubscribeToken } from "../_shared/marketing-token.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -384,6 +385,27 @@ serve(async (req) => {
         );
       }
 
+      const publicAppUrl = Deno.env.get("PUBLIC_APP_URL") || "https://partner-hub.desembre.vn";
+      const unsubscribePayload = {
+        customerId: "test-sandbox-customer",
+        email: test_recipient,
+        campaignId: campaign.id
+      };
+      const tokenEncKey = Deno.env.get("TOKEN_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+      const unsubscribeToken = await generateUnsubscribeToken(unsubscribePayload, tokenEncKey);
+      const unsubscribeUrl = `${publicAppUrl}/marketing/unsubscribe?token=${unsubscribeToken}`;
+      
+      const unsubscribeHtml = `
+        <br/><br/>
+        <hr style="border:0;border-top:1px solid #eee;margin:20px 0;"/>
+        <div style="text-align:center;font-size:12px;color:#999;font-family:sans-serif;">
+          Bạn nhận được email này vì đã đăng ký nhận thông tin từ DESEMBRE.<br/>
+          <a href="${unsubscribeUrl}" style="color:#666;text-decoration:underline;">Nhấn vào đây để hủy đăng ký (Unsubscribe)</a>
+        </div>
+      `;
+      
+      const finalHtmlBody = finalBody + unsubscribeHtml;
+
       const resendResp = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -394,7 +416,7 @@ serve(async (req) => {
           from: `DESEMBRE Sandbox <${fromEmail}>`,
           to: [test_recipient],
           subject: finalSubject,
-          html: finalBody,
+          html: finalHtmlBody,
         }),
       });
 

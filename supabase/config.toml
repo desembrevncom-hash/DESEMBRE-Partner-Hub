@@ -91,3 +91,14 @@ entrypoint = "./functions/academy-admin-media-upload/index.ts"
 
 [functions.send-otp-zalo-zns]
 verify_jwt = false
+
+[functions.resolve-zalo-token]
+verify_jwt = false
+
+[functions.marketing-unsubscribe]
+verify_jwt = false
+
+
+[functions.resend-webhook]
+verify_jwt = false
+

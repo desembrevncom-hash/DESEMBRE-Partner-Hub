@@ -197,7 +197,7 @@ serve(async (req) => {
             // ── Live probe: gọi Zalo OA info endpoint ─────────────────────
             if (accessToken && !lastError) {
               try {
-                const oaRes = await fetch("https://openapi.zalo.me/v3.0/oa/getoa", {
+                const oaRes = await fetch("https://openapi.zalo.me/v2.0/oa/getoa", {
                   headers: { access_token: accessToken },
                 });
                 const oaData = (await oaRes.json()) as {

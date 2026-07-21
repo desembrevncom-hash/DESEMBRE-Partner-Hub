@@ -27,6 +27,8 @@ import { toast } from "sonner";
 import { CampaignExecutionTracker } from "@/components/marketing/CampaignExecutionTracker";
 import { CampaignApprovalPanel } from "@/components/marketing/CampaignApprovalPanel";
 import { ApprovalStatusBadge } from "@/components/marketing/ApprovalStatusBadge";
+import { CampaignTestSendDialog } from "@/components/marketing/CampaignTestSendDialog";
+import { Send } from "lucide-react";
 
 export const Route = createFileRoute("/marketing/campaigns/$id")({
   beforeLoad: ({ context }) => {
@@ -44,6 +46,7 @@ function CampaignDetailPage() {
   const { user, isSale, isTele, isTeleLead } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
+  const [testDialogOpen, setTestDialogOpen] = useState(false);
 
   const { data: campaign, isLoading, refetch } = useQuery({
     queryKey: ["marketing-campaign", id],
@@ -207,6 +210,21 @@ function CampaignDetailPage() {
                 Lưu trữ
               </Button>
             )}
+            
+            {campaign.approval_status !== "rejected" && (
+              campaign.channel?.includes("email") || campaign.intended_channel?.includes("email") ||
+              campaign.channel?.includes("zalo") || campaign.intended_channel?.includes("zalo")
+            ) && (
+              <Button
+                variant="outline"
+                onClick={() => setTestDialogOpen(true)}
+                className="rounded-xl border-slate-200 font-bold text-xs hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200"
+              >
+                <Send className="w-4 h-4 mr-2" />
+                Gửi Test
+              </Button>
+            )}
+
             <Button
               onClick={handleExport}
               disabled={isExporting}
@@ -359,6 +377,13 @@ function CampaignDetailPage() {
         )}
 
       </main>
+
+      <CampaignTestSendDialog
+        open={testDialogOpen}
+        onOpenChange={setTestDialogOpen}
+        campaignId={campaign.id}
+        channel={campaign.channel || campaign.intended_channel || "email"}
+      />
     </div>
   );
 }

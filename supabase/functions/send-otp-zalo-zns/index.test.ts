@@ -3,7 +3,7 @@ import { stub } from "https://deno.land/std@0.192.0/testing/mock.ts";
 import { handler, ZALO_ZNS_URL } from "./index.ts";
 
 const MOCK_ENV = {
-  ACADEMY_SMS_HOOK_SECRET: "my-secret",
+  ACADEMY_SMS_HOOK_SECRET: "v1,whsec_dGVzdC1zZWNyZXQtYmFzZTY0LWZvci10ZXN0aW5nLTM=",
   ZALO_ZNS_ACCESS_TOKEN: "zalo-token-123",
   ZALO_ZNS_OTP_TEMPLATE_ID: "template-456",
 };
@@ -39,32 +39,45 @@ Deno.test("send-otp-zalo-zns hook tests", async (t) => {
     });
   });
 
-  const createReq = (payload: any, secret: string = "my-secret") => {
-    return new Request("http://localhost/send-otp", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${secret}`,
-      },
-      body: JSON.stringify(payload),
-    });
+  const validPayload = {
+    user: { id: "user-123", phone: "+84987654321" },
+    sms: { otp: "123456" }
   };
 
-  const validPayload = {
-    user: {
-      id: "user-123",
-      phone: "+84987654321"
-    },
-    sms: {
-      otp: "123456"
+  const createReq = async (payload: any, secret: string = "v1,whsec_dGVzdC1zZWNyZXQtYmFzZTY0LWZvci10ZXN0aW5nLTM=") => {
+    // We dynamically import Webhook inside the test to use it to sign
+    const { Webhook } = await import("https://esm.sh/standardwebhooks@1.0.0");
+    const rawBody = JSON.stringify(payload);
+    
+    // Valid standardwebhooks signature if secret is correct
+    let headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (secret) {
+        try {
+            const wh = new Webhook(secret.replace("v1,whsec_", ""));
+            const signature = wh.sign("msg_123", new Date(), rawBody);
+            headers["webhook-id"] = "msg_123";
+            headers["webhook-timestamp"] = Math.floor(Date.now() / 1000).toString();
+            headers["webhook-signature"] = signature;
+        } catch (e) {
+            // Invalid secret provided in test, just send dummy headers to trigger 401
+            headers["webhook-id"] = "msg_123";
+            headers["webhook-timestamp"] = "1234567890";
+            headers["webhook-signature"] = "v1,bad-signature";
+        }
     }
+    
+    return new Request("http://localhost/send-otp", {
+      method: "POST",
+      headers,
+      body: rawBody,
+    });
   };
 
   await t.step("valid hook payload sends ZNS request", async () => {
     fetchCallCount = 0;
     fetchResult = { error: 0, message: "Success" };
     
-    const res = await handler(createReq(validPayload));
+    const res = await handler(await createReq(validPayload));
     assertEquals(res.status, 200);
     
     const body = await res.json();
@@ -81,14 +94,14 @@ Deno.test("send-otp-zalo-zns hook tests", async (t) => {
 
   await t.step("invalid hook secret rejected", async () => {
     fetchCallCount = 0;
-    const res = await handler(createReq(validPayload, "wrong-secret"));
+    const res = await handler(await createReq(validPayload, "wrong-secret"));
     assertEquals(res.status, 401);
     assertEquals(fetchCallCount, 0);
   });
 
   await t.step("invalid phone rejected", async () => {
     fetchCallCount = 0;
-    const res = await handler(createReq({
+    const res = await handler(await createReq({
       user: { id: "123", phone: "+123456" }, // Not Vietnamese
       sms: { otp: "123456" }
     }));
@@ -98,7 +111,7 @@ Deno.test("send-otp-zalo-zns hook tests", async (t) => {
 
   await t.step("malformed payload rejected", async () => {
     fetchCallCount = 0;
-    const res = await handler(createReq({ user: {} }));
+    const res = await handler(await createReq({ user: {} }));
     assertEquals(res.status, 400);
     assertEquals(fetchCallCount, 0);
   });
@@ -107,7 +120,7 @@ Deno.test("send-otp-zalo-zns hook tests", async (t) => {
     fetchCallCount = 0;
     fetchResult = { error: -144, message: "Quota exceeded" };
     
-    const res = await handler(createReq(validPayload));
+    const res = await handler(await createReq(validPayload));
     assertEquals(res.status, 429);
   });
 
@@ -115,7 +128,7 @@ Deno.test("send-otp-zalo-zns hook tests", async (t) => {
     fetchCallCount = 0;
     fetchResult = { error: -124, message: "access token invalid" };
     
-    const res = await handler(createReq(validPayload));
+    const res = await handler(await createReq(validPayload));
     assertEquals(res.status, 503);
   });
 
@@ -123,7 +136,7 @@ Deno.test("send-otp-zalo-zns hook tests", async (t) => {
     fetchCallCount = 0;
     fetchResult = { error: 999, message: "Timeout" };
     
-    const res = await handler(createReq(validPayload));
+    const res = await handler(await createReq(validPayload));
     assertEquals(res.status, 504);
   });
 

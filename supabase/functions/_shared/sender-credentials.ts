@@ -1,5 +1,6 @@
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import { decode } from "https://deno.land/std@0.182.0/encoding/base64.ts";
+import { decryptZaloToken } from "./zalo-token-refresh.ts";
 
 export interface SenderCredential {
   api_key?: string | null;
@@ -86,9 +87,24 @@ export async function resolveResendCredential(
       .maybeSingle();
 
     if (tokenData?.access_token_enc) {
-      const tokenEncKey =
-        Deno.env.get("TOKEN_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-      const decrypted = await decryptSenderToken(tokenData.access_token_enc, tokenEncKey);
+      const tokenEncKey = Deno.env.get("TOKEN_ENCRYPTION_KEY") || "";
+      let decrypted = null;
+      try {
+        if (tokenEncKey) decrypted = await decryptSenderToken(tokenData.access_token_enc, tokenEncKey);
+      } catch (e) {
+        console.warn("[Credential Resolver] Failed to decrypt with TOKEN_ENCRYPTION_KEY, attempting fallback.");
+      }
+      
+      // Permanent fix: If TOKEN_ENCRYPTION_KEY fails or is empty, try SUPABASE_SERVICE_ROLE_KEY
+      if (!decrypted) {
+        const fallbackKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+        try {
+          if (fallbackKey) decrypted = await decryptSenderToken(tokenData.access_token_enc, fallbackKey);
+        } catch (e) {
+          console.error("[Credential Resolver] Decryption failed with both keys.");
+        }
+      }
+
       if (decrypted) {
         console.log(
           `[Credential Resolver] Using sender credential source: api_key sender_account_id=${sender_account_id}`,
@@ -103,7 +119,7 @@ export async function resolveResendCredential(
   } else {
     // auth_type === "platform_secret" hoặc thiếu sender_account_id -> dùng env fallback
     console.warn(
-      `[Credential Resolver] No api_key configured or sender_account_id provided for provider '${provider}'. Using platform secret fallback from Deno.env.`,
+      `[Credential Resolver] No api_key configured or sender_account_id provided for provider 'resend'. Using platform secret fallback from Deno.env.`,
     );
     api_key = Deno.env.get("RESEND_API_KEY") || null;
     if (!api_key) {
@@ -121,6 +137,7 @@ export async function resolveResendCredential(
 export async function resolveZaloCredential(
   supabase: SupabaseClient,
   sender_account_id?: string,
+  options?: { tokenEncryptionKey?: string; supabaseUrl?: string; internalFunctionKey?: string }
 ): Promise<SenderCredential> {
   let auth_type = "platform_secret";
   let access_token: string | null = null;
@@ -162,13 +179,44 @@ export async function resolveZaloCredential(
         console.log(
           `[Credential Resolver] Zalo token expired or expiring soon for sender_account_id=${sender_account_id}. Refreshing...`,
         );
-        const { refreshZaloToken } = await import("./zalo-token-refresh.ts");
-        access_token = await refreshZaloToken(supabase, sender_account_id);
-        credential_source = "sender_token_refreshed";
+        // Instead of calling the local file which relies on ZALO_APP_SECRET, we call the Partner Hub Edge Function if URL is provided
+        if (options?.supabaseUrl && options?.internalFunctionKey) {
+            const refreshRes = await fetch(`${options.supabaseUrl}/functions/v1/refresh-zalo-token`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-Internal-Key": options.internalFunctionKey,
+              },
+              body: JSON.stringify({ sender_account_id }),
+            });
+            const refreshData = await refreshRes.json();
+            if (!refreshData.success) {
+                throw new Error("ZALO_TOKEN_REFRESH_API_FAILED");
+            }
+            // Re-fetch token from DB
+            const { data: newTokenData } = await supabase
+              .from("sender_account_tokens")
+              .select("access_token_enc")
+              .eq("sender_account_id", sender_account_id)
+              .maybeSingle();
+            
+            if (!newTokenData?.access_token_enc) throw new Error("ZALO_TOKEN_MISSING_AFTER_REFRESH");
+            
+            const tokenEncKey = options.tokenEncryptionKey || Deno.env.get("TOKEN_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+            const decrypted = await decryptZaloToken(newTokenData.access_token_enc, tokenEncKey);
+            if (!decrypted) throw new Error("ZALO_TOKEN_DECRYPT_FAILED_AFTER_REFRESH");
+            access_token = decrypted;
+            credential_source = "sender_token_refreshed_via_api";
+        } else {
+            // Fallback to local refresh (requires local env secrets)
+            const { refreshZaloToken } = await import("./zalo-token-refresh.ts");
+            access_token = await refreshZaloToken(supabase, sender_account_id);
+            credential_source = "sender_token_refreshed";
+        }
       } else {
         const tokenEncKey =
-          Deno.env.get("TOKEN_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-        const decrypted = await decryptSenderToken(tokenData.access_token_enc, tokenEncKey);
+          options?.tokenEncryptionKey || Deno.env.get("TOKEN_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+        const decrypted = await decryptZaloToken(tokenData.access_token_enc, tokenEncKey);
         if (decrypted) {
           console.log(
             `[Credential Resolver] Using Zalo credential source: sender_token sender_account_id=${sender_account_id}`,
@@ -205,13 +253,14 @@ export async function getSenderCredential(
   supabase: SupabaseClient,
   provider: string,
   sender_account_id?: string,
+  options?: { tokenEncryptionKey?: string; supabaseUrl?: string; internalFunctionKey?: string }
 ): Promise<SenderCredential> {
   if (provider === "resend" || provider === "email") {
     return await resolveResendCredential(supabase, sender_account_id);
   }
 
   if (provider === "zalo_oa" || provider === "zalo") {
-    return await resolveZaloCredential(supabase, sender_account_id);
+    return await resolveZaloCredential(supabase, sender_account_id, options);
   }
 
   throw new Error(`Credential resolution for provider '${provider}' is not implemented yet.`);
