@@ -27,7 +27,10 @@ import { Card, CardContent } from "@/components/ui/card";
 export const Route = createFileRoute("/marketing/campaigns/new")({
   beforeLoad: ({ context }) => {
     const { auth } = context as any;
-    if (auth && (auth.isSale || auth.isTele || auth.isTeleLead)) {
+    if (!auth?.user) {
+      throw redirect({ to: "/login" });
+    }
+    if (auth.isSale || auth.isTele || auth.isTeleLead) {
       throw redirect({ to: "/marketing" });
     }
   },

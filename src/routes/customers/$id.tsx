@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { ConsentCaptureDialog } from "@/components/marketing/ConsentCaptureDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect, useMemo } from "react";
@@ -900,9 +901,17 @@ function CustomerDetailPage() {
                       </p>
                     </div>
                     {customer.email && (
-                      <div className="space-y-1.5">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Email</p>
-                        <p className="text-sm font-black text-slate-800">{customer.email}</p>
+                      <div className="space-y-1.5 flex items-center justify-between col-span-1">
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">Email</p>
+                          <p className="text-sm font-black text-slate-800">{customer.email}</p>
+                        </div>
+                        <ConsentCaptureDialog 
+                          customerId={customer.id} 
+                          customerEmail={customer.email} 
+                          currentStatus={customer.marketing_opt_in}
+                          onSuccess={() => window.location.reload()}
+                        />
                       </div>
                     )}
                     <div className="space-y-1.5 sm:col-span-2">

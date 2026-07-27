@@ -1,0 +1,6 @@
+﻿{
+  "campaign_id": "240009e1-48e9-4be8-9bef-d8d28f413990",
+  "provider_mode": "resend_limited_pilot",
+  "confirm": "CONFIRM_LIMITED_PILOT",
+  "dry_run": true
+}

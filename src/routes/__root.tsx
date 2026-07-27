@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { createRootRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { createRootRouteWithContext, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -36,7 +36,9 @@ import { CommandPalette } from "@/components/crm/CommandPalette";
 import { ProductCopilot } from "@/components/chat/ProductCopilot";
 import { ProductCopilotProvider } from "@/components/chat/ProductCopilotContext";
 
-export const Route = createRootRoute({
+import type { RouterContext } from "@/router";
+
+export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootLayout,
 });
 

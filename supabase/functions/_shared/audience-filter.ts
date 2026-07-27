@@ -24,7 +24,11 @@ export function isValidPhone(phone: string): boolean {
 }
 
 export function isBlockedOrInactive(customer: any): boolean {
-  return customer.is_active === false;
+  if (customer.is_active === false) return true;
+  if (customer.status && ['inactive', 'blocked', 'archived', 'deleted', 'disabled'].includes(customer.status)) {
+    return true;
+  }
+  return false;
 }
 
 export function buildSuppressionSet(suppressions: any[] | null): Set<string> {
@@ -44,6 +48,7 @@ export function evaluateEmailEligibility(
   customer: any,
   suppressionSet: Set<string>,
   seenContacts: Set<string>,
+  consentsMap: Map<string, any>,
 ): {
   isValidContact: boolean;
   isDuplicate: boolean;
@@ -52,7 +57,8 @@ export function evaluateEmailEligibility(
   contactValForPreview: string;
 } {
   let isValidContact = false;
-  const hasConsent = customer.marketing_opt_in === true;
+  // Require both the true explicit record in customer_consents and not false in cache
+  const hasConsent = customer.marketing_opt_in !== false && consentsMap.has(customer.id);
   let isDuplicate = false;
   let isSuppressed = false;
   let contactValForPreview = "";
@@ -83,6 +89,7 @@ export function evaluateZaloEligibility(
   zProfile: any,
   suppressionSet: Set<string>,
   seenContacts: Set<string>,
+  consentsMap: Map<string, any>,
 ): {
   isValidContact: boolean;
   isDuplicate: boolean;
@@ -91,7 +98,8 @@ export function evaluateZaloEligibility(
   contactValForPreview: string;
 } {
   let isValidContact = false;
-  const hasConsent = customer.marketing_opt_in === true; // Hoặc logic consent riêng của Zalo OA
+  // Zalo OA has consent logic depending on OA following, but if strictly enforcing marketing consents:
+  const hasConsent = customer.marketing_opt_in !== false && consentsMap.has(customer.id);
   let isDuplicate = false;
   let isSuppressed = false;
   let contactValForPreview = "";
@@ -138,11 +146,13 @@ export function buildEligibleAudience(
   campaignChannel: string,
   zaloProfilesMap: Map<string, any>,
   suppressionSet: Set<string>,
+  consentsMap: Map<string, any>,
   previewLimit: number = 10,
 ) {
   let eligible_count = 0;
   const excluded_counts = {
     no_consent: 0,
+    consent_missing_count: 0,
     opt_out: 0,
     blocked_or_inactive: 0,
     duplicate: 0,
@@ -178,10 +188,10 @@ export function buildEligibleAudience(
     };
 
     if (isEmail) {
-      checkResult = evaluateEmailEligibility(c, suppressionSet, seenContacts);
+      checkResult = evaluateEmailEligibility(c, suppressionSet, seenContacts, consentsMap);
     } else if (isZalo) {
       const zProfile = zaloProfilesMap.get(c.id);
-      checkResult = evaluateZaloEligibility(c, zProfile, suppressionSet, seenContacts);
+      checkResult = evaluateZaloEligibility(c, zProfile, suppressionSet, seenContacts, consentsMap);
     }
 
     if (!checkResult.isValidContact) {
@@ -200,7 +210,7 @@ export function buildEligibleAudience(
     }
 
     if (!checkResult.hasConsent) {
-      excluded_counts.no_consent++;
+      excluded_counts.consent_missing_count++;
       continue;
     }
 

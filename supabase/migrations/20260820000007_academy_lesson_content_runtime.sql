@@ -145,7 +145,7 @@ BEGIN
 
   v_decision := private.get_course_access_decision(v_course.id);
   
-  IF NOT (v_decision->>'can_view')::boolean THEN
+  IF NOT (v_decision->>'can_view')::boolean OR v_decision->>'reason' = 'ACCESS_BLOCKED' THEN
     RETURN jsonb_build_object('state', 'ACCESS_DENIED');
   END IF;
 
@@ -334,8 +334,12 @@ BEGIN
   INSERT INTO public.lesson_progress (enrollment_id, lesson_id, status, progress_percent, last_position_seconds)
   VALUES (v_enrollment_id, p_lesson_id, p_status, p_progress_percent, p_last_position_seconds)
   ON CONFLICT (enrollment_id, lesson_id) DO UPDATE
-  SET status = EXCLUDED.status,
-      progress_percent = EXCLUDED.progress_percent,
+  SET status = CASE 
+        WHEN lesson_progress.status = 'completed' THEN 'completed'
+        WHEN EXCLUDED.status = 'completed' THEN 'completed'
+        ELSE EXCLUDED.status
+      END,
+      progress_percent = GREATEST(lesson_progress.progress_percent, EXCLUDED.progress_percent),
       last_position_seconds = EXCLUDED.last_position_seconds,
       updated_at = now()
   RETURNING row_to_json(lesson_progress.*) INTO v_updated;

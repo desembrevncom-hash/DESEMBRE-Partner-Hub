@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +27,12 @@ import { CRMTableWrapper } from "@/components/crm/CRMTableWrapper";
 import { CRMStatusBadge } from "@/components/crm/CRMStatusBadge";
 
 export const Route = createFileRoute("/marketing/logs")({
+  beforeLoad: ({ context }) => {
+    const { auth } = context as any;
+    if (!auth?.user) {
+      throw redirect({ to: "/login" });
+    }
+  },
   validateSearch: (search: Record<string, unknown>) => {
     return {
       campaign_id: (search.campaign_id as string) || undefined,

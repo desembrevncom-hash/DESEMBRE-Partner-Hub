@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +29,12 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/marketing/reports")({
+  beforeLoad: ({ context }) => {
+    const { auth } = context as any;
+    if (!auth?.user) {
+      throw redirect({ to: "/login" });
+    }
+  },
   component: MarketingReportsPage,
 });
 

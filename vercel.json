@@ -1,11 +1,21 @@
 {
+  "crons": [
+    {
+      "path": "/api/zalo/outbox/cron",
+      "schedule": "*/5 * * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/zalo-webhook",
       "destination": "https://xhfqjupiidexvlltstal.supabase.co/functions/v1/zalo-webhook"
     },
     {
-      "source": "/((?!assets/.*).*)",
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]

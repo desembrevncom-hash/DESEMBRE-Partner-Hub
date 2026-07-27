@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -58,6 +58,12 @@ import { Badge } from "@/components/ui/badge";
 import { isProductionEnv } from "@/lib/marketing/envGuard";
 
 export const Route = createFileRoute("/marketing/")({
+  beforeLoad: ({ context }) => {
+    const { auth } = context;
+    if (!auth?.user) {
+      throw redirect({ to: "/login" });
+    }
+  },
   component: MarketingDashboardPage,
 });
 

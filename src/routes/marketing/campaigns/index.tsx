@@ -17,8 +17,11 @@ import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/marketing/campaigns/")({
   beforeLoad: ({ context }) => {
-    const { auth } = context as any;
-    if (auth && (auth.isSale || auth.isTele || auth.isTeleLead)) {
+    const { auth } = context;
+    if (!auth?.user) {
+      throw redirect({ to: "/login" });
+    }
+    if (auth.isSale || auth.isTele || auth.isTeleLead) {
       throw redirect({ to: "/marketing" });
     }
   },

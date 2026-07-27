@@ -102,3 +102,6 @@ verify_jwt = false
 [functions.resend-webhook]
 verify_jwt = false
 
+
+[functions.academy-lesson-media]
+verify_jwt = false

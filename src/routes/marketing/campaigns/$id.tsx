@@ -29,11 +29,15 @@ import { CampaignApprovalPanel } from "@/components/marketing/CampaignApprovalPa
 import { ApprovalStatusBadge } from "@/components/marketing/ApprovalStatusBadge";
 import { CampaignTestSendDialog } from "@/components/marketing/CampaignTestSendDialog";
 import { Send } from "lucide-react";
+import { LimitedPilotPreparation } from "@/components/marketing/LimitedPilotPreparation";
 
 export const Route = createFileRoute("/marketing/campaigns/$id")({
   beforeLoad: ({ context }) => {
-    const { auth } = context as any;
-    if (auth && (auth.isSale || auth.isTele || auth.isTeleLead)) {
+    const { auth } = context;
+    if (!auth?.user) {
+      throw redirect({ to: "/login" });
+    }
+    if (auth.isSale || auth.isTele || auth.isTeleLead) {
       throw redirect({ to: "/marketing" });
     }
   },
@@ -46,6 +50,7 @@ function CampaignDetailPage() {
   const { user, isSale, isTele, isTeleLead } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [testDialogOpen, setTestDialogOpen] = useState(false);
 
   const { data: campaign, isLoading, refetch } = useQuery({
@@ -165,6 +170,37 @@ function CampaignDetailPage() {
     }
   };
 
+  const handleFinalConfirm = async () => {
+    if (!campaign) return;
+    if (campaign.final_confirmed_at) {
+      toast.info("Chiến dịch này đã được xác nhận gửi cuối cùng.");
+      return;
+    }
+    
+    const input = window.prompt("Để khóa sổ và cấp phép gửi thật, gõ chính xác: CONFIRM_FINAL_SEND\n\nHành động này không gửi mail ngay, nhưng mở khóa bảo vệ để lệnh gửi có thể được thực thi.");
+    if (input !== "CONFIRM_FINAL_SEND") {
+      toast.error("Lỗi xác nhận. Đã hủy thao tác mở khóa gửi.");
+      return;
+    }
+
+    try {
+      setIsConfirming(true);
+      const { error } = await supabase
+        .from("marketing_campaigns")
+        .update({ final_confirmed_at: new Date().toISOString() })
+        .eq("id", campaign.id);
+      
+      if (error) throw error;
+      toast.success("Đã mở khóa gửi cuối cùng (Final Confirmed)!");
+      refetch();
+    } catch (e: any) {
+      console.error(e);
+      toast.error("Lỗi khi mở khóa: " + e.message);
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-20">
@@ -223,6 +259,24 @@ function CampaignDetailPage() {
                 <Send className="w-4 h-4 mr-2" />
                 Gửi Test
               </Button>
+            )}
+            
+            {campaign.approval_status === "approved" && !campaign.final_confirmed_at && (
+              <Button
+                onClick={handleFinalConfirm}
+                disabled={isConfirming}
+                className="rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs shadow-lg shadow-red-200 transition-all hover:scale-105"
+              >
+                {isConfirming ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ShieldAlert className="w-4 h-4 mr-2" />}
+                Duyệt gửi (Final)
+              </Button>
+            )}
+
+            {campaign.final_confirmed_at && (
+              <Badge variant="outline" className="rounded-xl border-green-500 text-green-700 bg-green-50 px-3 py-1 flex items-center">
+                <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                Đã Final Confirm
+              </Badge>
             )}
 
             <Button
@@ -370,6 +424,11 @@ function CampaignDetailPage() {
             </Card>
           </div>
         </div>
+
+        {/* Limited Pilot Preparation */}
+        {campaign.approval_status === "approved" && campaign.final_confirmed_at && (
+          <LimitedPilotPreparation campaignId={campaign.id} onSuccess={refetch} />
+        )}
 
         {/* Campaign Execution Tracker */}
         {campaign.approval_status === "approved" && (

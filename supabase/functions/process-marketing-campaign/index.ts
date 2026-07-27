@@ -75,7 +75,19 @@ serve(async (req) => {
     }
 
     // 2. Body
-    const { campaign_id } = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch (err) {
+      return new Response(
+        JSON.stringify({ success: false, error: "invalid_json_body", step: "validation" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { campaign_id, confirm, dry_run } = body;
+    const providerMode = body.provider_mode || body.providerMode;
+
     if (!campaign_id) {
       return new Response(
         JSON.stringify({ success: false, error: "Missing campaign_id", step: "validation" }),
@@ -90,7 +102,7 @@ serve(async (req) => {
     const { data: campaign, error: campErr } = await adminClient
       .from("marketing_campaigns")
       .select(
-        "id, channel, approval_status, segment_id, draft_subject, draft_body, sender_account_id",
+        "id, channel, approval_status, segment_id, draft_subject, draft_body, sender_account_id, audience_count",
       )
       .eq("id", campaign_id)
       .single();
@@ -119,22 +131,49 @@ serve(async (req) => {
       );
     }
 
-    // 4. Global Kill Switch
-    const productionSendingEnabled =
-      Deno.env.get("MARKETING_PRODUCTION_SENDING_ENABLED") === "true";
-    if (!productionSendingEnabled) {
+    // 4. Global Kill Switch & Mode Validation
+    if (!providerMode) {
+      return new Response(
+        JSON.stringify({ success: false, error: "missing_provider_mode", step: "provider_mode_check" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (providerMode !== "mock" && providerMode !== "resend_pilot" && providerMode !== "resend_limited_pilot") {
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Production sending is disabled",
-          step: "global_kill_switch",
+          error: "Only mock, resend_pilot, or resend_limited_pilot mode is allowed.",
+          step: "provider_mode_check",
         }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    if (providerMode === "resend_limited_pilot") {
+      if (confirm !== "CONFIRM_LIMITED_PILOT") {
+        return new Response(
+          JSON.stringify({ success: false, error: "missing_limited_pilot_confirm", step: "confirm_check" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    const productionSendingEnabled = Deno.env.get("MARKETING_PRODUCTION_SENDING_ENABLED") === "true";
+    if (dry_run !== true) {
+      if (!productionSendingEnabled) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: providerMode === "resend_limited_pilot" ? "production_sending_disabled" : "Production sending is disabled",
+            step: "global_kill_switch",
+          }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+    
+    const effectiveChannel = campaign.channel ?? "email";
 
     // 5. Load Suppression List
     const { data: suppressions } = await adminClient
@@ -146,16 +185,19 @@ serve(async (req) => {
 
     // 6. Query Customers (Max 10000)
     let customers: any[] = [];
+    let static_audience_count = 0;
+    
     if (campaign.segment_id) {
       const { data: mapData } = await adminClient
         .from("customer_segments_map")
         .select("customer_id")
         .eq("segment_id", campaign.segment_id);
       if (mapData && mapData.length > 0) {
+        static_audience_count = mapData.length;
         const cIds = mapData.map((m: any) => m.customer_id);
-        const { data: cData } = await adminClient
+        const { data: cData, error: cErr } = await adminClient
           .from("customers")
-          .select("id, name, email, phone, marketing_opt_in, marketing_opt_out_at, is_active")
+          .select("id, name, email, phone, marketing_opt_in, marketing_opt_out_at, status")
           .in("id", cIds)
           .limit(10000);
         if (cData) customers = cData;
@@ -163,19 +205,46 @@ serve(async (req) => {
     } else {
       const { data: cData } = await adminClient
         .from("customers")
-        .select("id, name, email, phone, marketing_opt_in, marketing_opt_out_at, is_active")
+        .select("id, name, email, phone, marketing_opt_in, marketing_opt_out_at, status")
         .limit(10000);
       if (cData) customers = cData;
+    }
+    
+    const raw_audience_count = customers.length;
+    
+    if (raw_audience_count === 0 && campaign.audience_count > 0) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "static_audience_not_loaded",
+          step: "audience_loading",
+          raw_audience_count,
+          campaign_audience_count: campaign.audience_count
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Load Zalo Profiles if needed
     const customerIds = customers.map((c) => c.id);
     const zaloProfilesMap = new Map<string, any>();
 
+    // 6.5 Idempotency Check (Prevent duplicate sending to same customer in same campaign)
+    const { data: existingLogs } = await adminClient
+      .from("marketing_delivery_logs")
+      .select("customer_id")
+      .eq("campaign_id", campaign_id)
+      .in("status", ["sent", "queued", "provider_sent", "delivered"]);
+
+    const sentCustomerIds = new Set(existingLogs?.map((l: any) => l.customer_id) || []);
+    
+    // Remove customers who already received this campaign
+    customers = customers.filter(c => !sentCustomerIds.has(c.id));
+
     if (
-      campaign.channel === "zalo" ||
-      campaign.channel === "zalo_oa" ||
-      campaign.channel === "zalo_zns"
+      effectiveChannel === "zalo" ||
+      effectiveChannel === "zalo_oa" ||
+      effectiveChannel === "zalo_zns"
     ) {
       // Chunking if too many
       for (let i = 0; i < customerIds.length; i += 1000) {
@@ -192,25 +261,55 @@ serve(async (req) => {
       }
     }
 
+    // 6.6 Query Customer Consents (Source of Truth)
+    const consentsMap = new Map<string, any>();
+    if (customers.length > 0) {
+      const remainingCustomerIds = customers.map(c => c.id);
+      for (let i = 0; i < remainingCustomerIds.length; i += 1000) {
+        const chunk = remainingCustomerIds.slice(i, i + 1000);
+        const { data: consentsData } = await adminClient
+          .from("customer_consents")
+          .select("customer_id, channel, is_opt_in, opt_out_at")
+          .in("customer_id", chunk)
+          .eq("is_opt_in", true)
+          .is("opt_out_at", null);
+        
+        if (consentsData) {
+          for (const consent of consentsData) {
+             const isMatch = (effectiveChannel.includes("email") && consent.channel.includes("email")) || 
+                             (effectiveChannel.includes("zalo") && consent.channel.includes("zalo"));
+             if (isMatch) {
+               consentsMap.set(consent.customer_id, consent);
+             }
+          }
+        }
+      }
+    }
+
     // 7. Filtering (Shared Audience Filter)
-    const { eligible_count, excluded_counts, preview_recipients, eligible_recipients } =
+    let { eligible_count, excluded_counts, preview_recipients, eligible_recipients } =
       buildEligibleAudience(
         customers,
-        campaign.channel,
+        effectiveChannel,
         zaloProfilesMap,
         suppressionSet,
+        consentsMap,
         10000, // Get all eligible
       );
 
     // 8. Rate Limit Logic
-    const max_batch_size =
-      campaign.channel === "email" || campaign.channel === "email_campaign" ? 100 : 10;
+    const max_batch_size = providerMode === "resend_limited_pilot" 
+      ? 10 
+      : (effectiveChannel === "email" || effectiveChannel === "email_campaign" ? 100 : 10);
 
     if (eligible_count > max_batch_size) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Audience vượt quá giới hạn an toàn. Giới hạn: ${max_batch_size}, Số lượng hợp lệ: ${eligible_count}`,
+          error: providerMode === "resend_limited_pilot" 
+            ? "limited_pilot_batch_too_large" 
+            : `Audience vượt quá giới hạn an toàn. Giới hạn: ${max_batch_size}, Số lượng hợp lệ: ${eligible_count}`,
+          eligible_count,
           step: "rate_limit",
         }),
         {
@@ -250,25 +349,32 @@ serve(async (req) => {
       );
     }
 
-    // 10. Provider Mode Check
-    const providerMode = Deno.env.get("MARKETING_PROVIDER_MODE");
-    if (providerMode !== "mock" && providerMode !== "resend_pilot") {
+    // 10. Execute Send
+    if (dry_run) {
       return new Response(
         JSON.stringify({
-          success: false,
-          error: "Only mock or resend_pilot mode is allowed.",
-          step: "provider_mode_check",
+          success: true,
+          campaign_id: campaign.id,
+          channel: effectiveChannel,
+          step: "dry_run_success",
+          raw_audience_count,
+          static_audience_count,
+          eligible_count: eligible_recipients.length,
+          suppressed_count: excluded_counts.suppressed,
+          consent_blocked_count: excluded_counts.no_consent, // Fallback opt_out
+          consent_missing_count: excluded_counts.consent_missing_count, // Missing explicit proof
+          duplicate_blocked_count: excluded_counts.duplicate,
+          invalid_contact_count: excluded_counts.invalid_contact,
+          blocked_or_inactive_count: excluded_counts.blocked_or_inactive,
+          message: "Dry run completed successfully.",
         }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    if (providerMode === "resend_pilot") {
+    if (providerMode === "resend_pilot" || providerMode === "resend_limited_pilot") {
       // 10a. Validate Channel
-      if (campaign.channel !== "email" && campaign.channel !== "email_campaign") {
+      if (effectiveChannel !== "email" && effectiveChannel !== "email_campaign") {
         return new Response(
           JSON.stringify({
             success: false,
@@ -279,47 +385,36 @@ serve(async (req) => {
         );
       }
 
-      // 10b. Filter Audience by Whitelist
-      const whitelistStr =
-        Deno.env.get("INTERNAL_PILOT_RECIPIENTS") || Deno.env.get("TEST_RECIPIENT_WHITELIST") || "";
-      const whitelist = whitelistStr.split(",").map((e) => e.trim().toLowerCase());
+      // 10b. Filter Audience by Whitelist ONLY if resend_pilot
+      if (providerMode === "resend_pilot") {
+        const whitelistStr = Deno.env.get("INTERNAL_PILOT_RECIPIENTS") || Deno.env.get("TEST_RECIPIENT_WHITELIST") || "";
+        const whitelist = whitelistStr.split(",").map((e) => e.trim().toLowerCase());
 
-      if (whitelist.length === 0 || whitelistStr === "") {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: "Whitelist rỗng, không thể chạy Pilot.",
-            step: "pilot_whitelist",
-          }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        if (whitelist.length === 0 || whitelistStr === "") {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "Whitelist rỗng, không thể chạy Pilot.",
+              step: "pilot_whitelist",
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+
+        eligible_recipients = eligible_recipients.filter(
+          (r) => r.email && whitelist.includes(r.email.toLowerCase()),
         );
-      }
 
-      eligible_recipients = eligible_recipients.filter(
-        (r) => r.email && whitelist.includes(r.email.toLowerCase()),
-      );
-
-      if (eligible_recipients.length === 0) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error:
-              "Không tìm thấy khách hàng nào trong audience có email trùng với whitelist nội bộ. (no_internal_pilot_recipient)",
-            step: "pilot_filter",
-          }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-
-      if (eligible_recipients.length > 5) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: "Số lượng pilot recipients vượt quá 5. (pilot_limit_exceeded)",
-            step: "pilot_filter",
-          }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
+        if (eligible_recipients.length === 0) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "Không tìm thấy khách hàng nào trong audience có email trùng với whitelist nội bộ. (no_internal_pilot_recipient)",
+              step: "pilot_filter",
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
       }
 
       // 10c. Resend API Call
@@ -394,13 +489,13 @@ serve(async (req) => {
 
         logInserts.push({
           campaign_id: campaign.id,
-          channel: campaign.channel,
+          channel: effectiveChannel,
           customer_id: rec.customer_id,
           status: isOk ? "sent" : "failed",
           provider_message_id: isOk ? resendData.id : null,
           reason: isOk ? null : resendData.message || "Resend API Error",
           delivery_metadata: {
-            mode: "production_pilot",
+            mode: providerMode,
             provider: "resend",
             safety_checks: {
               suppression_checked: true,
@@ -425,7 +520,7 @@ serve(async (req) => {
         JSON.stringify({
           success: true,
           campaign_id: campaign.id,
-          channel: campaign.channel,
+          channel: effectiveChannel,
           step: "production_pilot_success",
           sent_count: successCount,
           failed_count: logInserts.length - successCount,
@@ -475,7 +570,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         campaign_id: campaign.id,
-        channel: campaign.channel,
+        channel: effectiveChannel,
         step: "mock_provider_success",
         eligible_count,
         skipped_count:
@@ -488,14 +583,12 @@ serve(async (req) => {
         production_sending_enabled: productionSendingEnabled,
         message: "Mock production send completed successfully.",
       }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
-  } catch (err: any) {
-    return new Response(JSON.stringify({ success: false, error: err.message, step: "fatal" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  } catch (error: any) {
+    return new Response(
+      JSON.stringify({ success: false, error: error.message, step: "unexpected_error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 });

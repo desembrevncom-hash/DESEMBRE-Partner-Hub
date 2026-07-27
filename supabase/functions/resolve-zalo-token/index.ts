@@ -21,12 +21,15 @@ serve(async (req) => {
     });
   }
 
-  const internalKey = req.headers.get("X-Internal-Key");
-  const expectedKey = Deno.env.get("INTERNAL_FUNCTION_KEY");
+  const internalKey = req.headers.get("x-internal-key") || req.headers.get("X-Internal-Key");
+  const expectedKey = Deno.env.get("HUB_INTERNAL_FUNCTION_KEY") || Deno.env.get("INTERNAL_FUNCTION_KEY");
 
   if (!internalKey || !expectedKey || internalKey !== expectedKey) {
-    console.warn("[resolve-zalo-token] auth failed");
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+    console.warn("[resolve-zalo-token] auth failed", {
+      hasInternalKey: Boolean(internalKey),
+      hasExpectedKey: Boolean(expectedKey),
+    });
+    return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -42,18 +45,23 @@ serve(async (req) => {
   });
 
   try {
+    const reqData = await req.json().catch(() => ({}));
+    const senderKey = reqData.sender_key;
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log("[resolve-zalo-token] selecting sender");
-    // Prefer "OA Desembre", fallback to first active zalo_oa sender
-    const { data: senders, error: dbErr } = await adminClient
+    console.log("[resolve-zalo-token] selecting sender", { senderKey });
+    
+    let query = adminClient
       .from("sender_accounts")
       .select("id, name, provider")
       .in("provider", ["zalo", "zalo_oa"])
       .eq("is_active", true)
       .order("created_at", { ascending: false });
+
+    const { data: senders, error: dbErr } = await query;
 
     if (dbErr || !senders || senders.length === 0) {
       console.warn("[resolve-zalo-token] error { message: 'No active Zalo OA sender found' }");
@@ -63,8 +71,13 @@ serve(async (req) => {
       });
     }
 
-    // Try to find "OA Desembre"
-    let sender = senders.find((s) => s.name === "OA Desembre") || senders[0];
+    let sender = senders[0];
+    if (senderKey === 'oa_desembre' || !senderKey) {
+      sender = senders.find((s) => s.name === "OA Desembre") || senders[0];
+    } else {
+      // If a specific sender_key (like ID or exact name) is requested
+      sender = senders.find((s) => s.id === senderKey || s.name === senderKey) || senders[0];
+    }
 
     console.log("[resolve-zalo-token] selected sender", {
       senderId: sender.id,

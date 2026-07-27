@@ -7,32 +7,25 @@ export interface AppEnv {
 }
 
 export const handleRequest = async (req: Request, env: AppEnv): Promise<Response> => {
-  const origin = req.headers.get("origin") || "";
-
-  const rawOrigins = env.getEnv("ACADEMY_ALLOWED_ORIGINS");
-  const ALLOWED_ORIGINS = rawOrigins ? rawOrigins.split(",").map(o => o.trim()) : [];
+  const origin = req.headers.get("origin") || "*";
 
   let corsHeaders: Record<string, string> = {
+    "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   };
 
-  const isAllowedOrigin = ALLOWED_ORIGINS.includes(origin);
-  if (isAllowedOrigin) {
-    corsHeaders["Access-Control-Allow-Origin"] = origin;
-  }
-
   // Preflight
   if (req.method === "OPTIONS") {
-    if (!isAllowedOrigin) {
-      return new Response("forbidden", { status: 403 });
-    }
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) {
+    const hasAuthHeader = !!authHeader && authHeader.toLowerCase().startsWith("bearer ");
+    console.log(`[academy-lesson-media] Diagnostic: hasAuthHeader=${hasAuthHeader}`);
+
+    if (!hasAuthHeader) {
       return new Response(JSON.stringify({ error: "Missing or malformed Authorization header" }), {
         status: 401,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -72,6 +65,9 @@ export const handleRequest = async (req: Request, env: AppEnv): Promise<Response
       });
     }
 
+    const shortLessonId = lessonId.substring(0, 8);
+    console.log(`[academy-lesson-media] Diagnostic: lessonId=${shortLessonId}`);
+
     const supabaseUrl = env.getEnv("SUPABASE_URL")!;
     const supabaseAnonKey = env.getEnv("SUPABASE_ANON_KEY")!;
     const supabaseServiceRoleKey = env.getEnv("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -97,7 +93,10 @@ export const handleRequest = async (req: Request, env: AppEnv): Promise<Response
     }
 
     // 4. Require conditions
-    if (!contentData || contentData.state !== "AVAILABLE") {
+    const accessCheck = contentData?.state === "AVAILABLE";
+    console.log(`[academy-lesson-media] Diagnostic: accessCheck=${accessCheck}`);
+
+    if (!accessCheck) {
       return new Response(JSON.stringify({ error: "Access denied or content unavailable" }), {
         status: 403,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -105,9 +104,12 @@ export const handleRequest = async (req: Request, env: AppEnv): Promise<Response
     }
 
     const content = contentData.content;
-    if (!content || (content.kind !== "video" && content.kind !== "document") || !content.media_ref) {
+    const mediaFound = !!(content && (content.kind === "video" || content.kind === "document") && content.media_ref);
+    console.log(`[academy-lesson-media] Diagnostic: mediaFound=${mediaFound}`);
+
+    if (!mediaFound) {
       return new Response(JSON.stringify({ error: "Lesson does not have protected media content" }), {
-        status: 400,
+        status: 404,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
@@ -135,12 +137,43 @@ export const handleRequest = async (req: Request, env: AppEnv): Promise<Response
       });
     }
 
-    // 7. Sign exact bucket/path
+    // 7. Check if object exists in storage.objects
+    const { data: objects, error: objectError } = await supabaseAdmin.schema("storage").from("objects")
+      .select("id")
+      .eq("bucket_id", locatorData.bucket)
+      .eq("name", locatorData.path)
+      .limit(1);
+
+    const hasObject = !!(objects && objects.length > 0);
+
     // 8. Fixed TTL 300s
     const expiresIn = 300;
-    const { data: signedData, error: signError } = await supabaseAdmin.storage
-      .from(locatorData.bucket)
-      .createSignedUrl(locatorData.path, expiresIn);
+    
+    let signedData, signError;
+    if (hasObject) {
+      const result = await supabaseAdmin.storage
+        .from(locatorData.bucket)
+        .createSignedUrl(locatorData.path, expiresIn);
+      signedData = result.data;
+      signError = result.error;
+    }
+
+    // Safe diagnostics
+    console.log(`[academy-lesson-media] Diagnostic info:`, {
+      lessonId: shortLessonId,
+      mediaRef: content.media_ref.substring(0, 8),
+      bucket: locatorData.bucket,
+      storage_path: locatorData.path,
+      hasObject,
+      signError: signError ? { name: signError.name, message: signError.message } : null
+    });
+
+    if (!hasObject) {
+      return new Response(JSON.stringify({ error: "MEDIA_FILE_NOT_FOUND" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
 
     if (signError) {
       console.error("Storage signing error");
