@@ -18,9 +18,11 @@ const vercelApiDevPlugin = () => ({
   configureServer(server: any) {
     server.middlewares.use(async (req: any, res: any, next: any) => {
       if (req.url.startsWith("/api/")) {
+        console.log("vercelApiDevPlugin matched URL:", req.url);
         try {
           const apiPath = req.url.split("?")[0];
-          const filePath = path.resolve(__dirname, "." + apiPath + ".ts");
+          const filePath = path.resolve(process.cwd(), "." + apiPath + ".ts");
+          console.log("Resolved filePath:", filePath, "exists:", fs.existsSync(filePath));
           if (fs.existsSync(filePath)) {
             // Read body for POST requests
             if (req.method === "POST" || req.method === "PUT") {
@@ -68,7 +70,7 @@ const vercelApiDevPlugin = () => ({
 });
 
 export default defineConfig({
-  plugins: [TanStackRouterVite(), react(), tsconfigPaths(), tailwindcss(), vercelApiDevPlugin()],
+  plugins: [vercelApiDevPlugin(), TanStackRouterVite(), react(), tsconfigPaths(), tailwindcss()],
   test: {
     exclude: [
       ...configDefaults.exclude,
