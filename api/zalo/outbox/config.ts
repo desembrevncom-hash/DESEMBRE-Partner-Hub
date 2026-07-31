@@ -42,6 +42,37 @@ export function resolveZnsTemplateConfig(senderKey: string, templateCode: string
   const templateId = senderMapping[templateCode];
   const envKey = TEMPLATE_ENV_KEYS[templateCode] || `ZALO_ZNS_TEMPLATE_${templateCode.toUpperCase()}`;
 
+  if (templateCode === 'class_reminder') {
+    const regRecValue = senderMapping['registration_received'];
+    
+    if (!templateId) {
+      return {
+        ok: false,
+        errorCode: 'CLASS_REMINDER_TEMPLATE_NOT_CONFIGURED',
+        message: 'Class Reminder ZNS Template is not configured in environment (ZALO_ZNS_TEMPLATE_CLASS_REMINDER)',
+        expectedEnvKey: envKey
+      };
+    }
+
+    if (!isValidTemplateId(templateId)) {
+      return {
+        ok: false,
+        errorCode: 'CLASS_REMINDER_TEMPLATE_NOT_CONFIGURED',
+        message: 'Class Reminder ZNS Template (ZALO_ZNS_TEMPLATE_CLASS_REMINDER) has an invalid value',
+        expectedEnvKey: envKey
+      };
+    }
+
+    if (regRecValue && isValidTemplateId(regRecValue) && templateId.trim() === regRecValue.trim()) {
+      return {
+        ok: false,
+        errorCode: 'CLASS_REMINDER_TEMPLATE_ID_MUST_BE_SEPARATE',
+        message: 'ZALO_ZNS_TEMPLATE_CLASS_REMINDER cannot be identical to ZALO_ZNS_TEMPLATE_REGISTRATION_RECEIVED (must be a separate ZNS template)',
+        expectedEnvKey: envKey
+      };
+    }
+  }
+
   if (!templateId) {
     return {
       ok: false,

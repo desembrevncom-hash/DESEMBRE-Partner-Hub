@@ -2,7 +2,8 @@ import { ZNS_TEMPLATE_MAPPING, isValidTemplateId } from './config.js';
 
 const TEMPLATE_ENV_KEYS: Record<string, string> = {
   'registration_received': 'ZALO_ZNS_TEMPLATE_REGISTRATION_RECEIVED',
-  'registration_confirmed': 'ZALO_ZNS_TEMPLATE_REGISTRATION_CONFIRMED'
+  'registration_confirmed': 'ZALO_ZNS_TEMPLATE_REGISTRATION_CONFIRMED',
+  'class_reminder': 'ZALO_ZNS_TEMPLATE_CLASS_REMINDER'
 };
 
 export default async function handler(req: any, res: any) {
@@ -17,16 +18,31 @@ export default async function handler(req: any, res: any) {
     const templates: Record<string, any> = {};
     let allValid = true;
 
+    const regRecValue = (mapping['registration_received'] || '').trim();
+
     for (const [templateCode, envKey] of Object.entries(TEMPLATE_ENV_KEYS)) {
-      const value = mapping[templateCode] || '';
+      const value = (mapping[templateCode] || '').trim();
       const configured = Boolean(value);
-      const valid = isValidTemplateId(value);
+      let valid = isValidTemplateId(value);
+      let warning: string | null = null;
+
+      if (templateCode === 'class_reminder') {
+        if (!configured || !valid) {
+          warning = 'CLASS_REMINDER_TEMPLATE_NOT_CONFIGURED';
+          valid = false;
+        } else if (regRecValue && isValidTemplateId(regRecValue) && value === regRecValue) {
+          warning = 'CLASS_REMINDER_TEMPLATE_ID_MUST_BE_SEPARATE';
+          valid = false;
+        }
+      }
+
       if (!valid) allValid = false;
 
       templates[templateCode] = {
         envKey,
         configured,
         valid,
+        warning,
         length: value.length,
         preview: valid ? value.substring(0, 2) + '...' : null
       };
