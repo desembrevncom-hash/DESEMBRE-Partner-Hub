@@ -155,6 +155,18 @@ export async function processOutbox(mode: string, limit: number, triggeredBy: st
   const workerId = `hub-zns-worker-${mode}`;
   const startedAt = new Date().toISOString();
 
+  // Trigger 8AM Class Reminder RPC before claiming jobs
+  try {
+    const { data: remData, error: remErr } = await supabase.rpc('queue_class_reminder_zns');
+    if (remErr) {
+      console.log(`[ZNS Worker] queue_class_reminder_zns warning: ${remErr.message}`);
+    } else {
+      console.log(`[ZNS Worker] queue_class_reminder_zns result:`, JSON.stringify(remData));
+    }
+  } catch (remEx: any) {
+    console.log(`[ZNS Worker] queue_class_reminder_zns exception: ${remEx.message}`);
+  }
+
   const { data: claimData, error: claimErr } = await supabase.rpc('worker_claim_notification_jobs', {
     p_worker_id: workerId,
     p_limit: limit

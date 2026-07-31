@@ -1,7 +1,8 @@
 // Template ID ENV key mapping per template_code
 const TEMPLATE_ENV_KEYS: Record<string, string> = {
   'registration_received': 'ZALO_ZNS_TEMPLATE_REGISTRATION_RECEIVED',
-  'registration_confirmed': 'ZALO_ZNS_TEMPLATE_REGISTRATION_CONFIRMED'
+  'registration_confirmed': 'ZALO_ZNS_TEMPLATE_REGISTRATION_CONFIRMED',
+  'class_reminder': 'ZALO_ZNS_TEMPLATE_CLASS_REMINDER'
 };
 
 export function isValidTemplateId(value: unknown): boolean {
@@ -15,7 +16,8 @@ export function isValidTemplateId(value: unknown): boolean {
 export const ZNS_TEMPLATE_MAPPING: Record<string, Record<string, string>> = {
   'oa_desembre': {
     'registration_received': process.env['ZALO_ZNS_TEMPLATE_REGISTRATION_RECEIVED'] || '',
-    'registration_confirmed': process.env['ZALO_ZNS_TEMPLATE_REGISTRATION_CONFIRMED'] || ''
+    'registration_confirmed': process.env['ZALO_ZNS_TEMPLATE_REGISTRATION_CONFIRMED'] || '',
+    'class_reminder': process.env['ZALO_ZNS_TEMPLATE_CLASS_REMINDER'] || ''
   }
 };
 
