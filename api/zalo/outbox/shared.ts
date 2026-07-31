@@ -273,20 +273,34 @@ export async function processOutbox(mode: string, limit: number, triggeredBy: st
 
         console.log(`[ZNS Worker] phone normalized: prefix=${znsPhone.substring(0, 4)} len=${znsPhone.length}`);
 
-        // Build clean template_data for ZNS/ZBS API (Zalo expects clean keys without < > or {{ }})
+        // Extract payload values if available
+        const payloadObj = (job.payload && typeof job.payload === 'object') ? job.payload : {};
+
+        const customerName = payloadObj.customer_name || payloadObj.full_name || recipientName;
+        const courseName = payloadObj.course_name || job.course_title || job.course_name || 'Khóa học Đào tạo';
+        const trainingFormat = payloadObj.training_format || payloadObj.training_format_label || payloadObj.participation_format || 'Lớp đào tạo';
+        const batchName = payloadObj.batch_name || payloadObj.batch_title || job.batch_title || job.batch_name || 'Đang cập nhật';
+        const regIdStr = job.registration_id || job.id;
+        const registrationCode = payloadObj.registration_code || regIdStr.replace(/-/g, '').substring(0, 8).toUpperCase();
+
+        // Build clean template_data for ZNS API
         const templateData: Record<string, any> = {
-          customer_name: recipientName,
-          course_name: job.course_title || job.course_name || 'Khóa học Đào tạo',
-          batch_name: job.batch_title || job.batch_name || 'Đang cập nhật',
-          registration_code: job.registration_code || job.id.substring(0, 8).toUpperCase(),
-          support_phone: job.support_phone || '0983392810',
-          name: recipientName // fallback for older simple templates
+          customer_name: customerName,
+          full_name: customerName,
+          course_name: courseName,
+          training_format: trainingFormat,
+          training_format_label: trainingFormat,
+          participation_format: trainingFormat,
+          batch_name: batchName,
+          registration_code: registrationCode,
+          support_phone: payloadObj.support_phone || job.support_phone || '0983392810',
+          name: customerName
         };
 
-        // If job has a payload field with custom data, merge it with clean keys
-        if (job.payload && typeof job.payload === 'object') {
-          for (const [k, v] of Object.entries(job.payload)) {
-            const cleanKey = k.replace(/[<>{}]/g, '').trim();
+        // Merge any remaining keys from payload
+        for (const [k, v] of Object.entries(payloadObj)) {
+          const cleanKey = k.replace(/[<>{}]/g, '').trim();
+          if (v !== undefined && v !== null && v !== '' && !templateData[cleanKey]) {
             templateData[cleanKey] = v;
           }
         }

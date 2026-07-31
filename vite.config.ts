@@ -68,6 +68,10 @@ const vercelApiDevPlugin = () => ({
 });
 
 export default defineConfig({
+  server: {
+    port: 5174,
+    host: true,
+  },
   plugins: [vercelApiDevPlugin(), TanStackRouterVite(), react(), tsconfigPaths(), tailwindcss()],
   test: {
     exclude: [
