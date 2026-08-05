@@ -324,14 +324,13 @@ export async function processOutbox(mode: string, limit: number, triggeredBy: st
         let templateData: Record<string, any> = {};
 
         if (job.template_code === 'student_login_otp') {
-          const customerName = payloadObj.customer_name || payloadObj.full_name || recipientName;
+          const otpValue = String(payloadObj.otp || payloadObj.otp_code || '').trim();
+          if (!otpValue || !/^\d{4,8}$/.test(otpValue)) {
+            throw new Error(`Invalid OTP code in payload for student_login_otp: ${otpValue ? 'format_invalid' : 'missing'}`);
+          }
           templateData = {
-            customer_name: customerName,
-            otp_code: payloadObj.otp_code || '',
-            expire_minutes: String(payloadObj.expire_minutes || '5')
+            otp: otpValue
           };
-          if (payloadObj.full_name) templateData['full_name'] = payloadObj.full_name;
-          if (payloadObj.phone) templateData['phone'] = payloadObj.phone;
         } else {
           const customerName = payloadObj.customer_name || payloadObj.full_name || recipientName;
           const courseName = payloadObj.course_name || job.course_title || job.course_name || 'Khóa học Đào tạo';
