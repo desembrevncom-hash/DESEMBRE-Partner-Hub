@@ -47,15 +47,10 @@ export default async function handler(req: any, res: any) {
     const qsLimit = urlObj.searchParams.get('limit');
     const dryRun = urlObj.searchParams.get('dryRun') === '1' || urlObj.searchParams.get('dryRun') === 'true';
 
-    if (dryRun) {
-      return res.status(200).json({ ok: true, dryRun: true, mode: qsMode || 'simulate', auth: true });
-    }
-
-    // Default to 'simulate' for local dev if specified, otherwise 'real'
-    const mode = qsMode === 'simulate' ? 'simulate' : 'real';
+    const modeParam = qsMode === 'dry' || dryRun ? 'dry' : (qsMode === 'simulate' ? 'simulate' : 'real');
     const limit = qsLimit && !isNaN(parseInt(qsLimit, 10)) ? parseInt(qsLimit, 10) : 10;
 
-    const result = await processOutbox(mode, limit, 'cron');
+    const result = await processOutbox(modeParam, limit, 'cron');
     
     // Return standard JSON for Vercel Cron logging
     return res.status(200).json({

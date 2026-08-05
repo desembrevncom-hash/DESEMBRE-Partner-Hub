@@ -3,7 +3,8 @@ import { ZNS_TEMPLATE_MAPPING, isValidTemplateId } from './config.js';
 const TEMPLATE_ENV_KEYS: Record<string, string> = {
   'registration_received': 'ZALO_ZNS_TEMPLATE_REGISTRATION_RECEIVED',
   'registration_confirmed': 'ZALO_ZNS_TEMPLATE_REGISTRATION_CONFIRMED',
-  'class_reminder': 'ZALO_ZNS_TEMPLATE_CLASS_REMINDER'
+  'class_reminder': 'ZALO_ZNS_TEMPLATE_CLASS_REMINDER',
+  'student_login_otp': 'ZALO_ZNS_TEMPLATE_STUDENT_LOGIN_OTP'
 };
 
 export default async function handler(req: any, res: any) {
@@ -19,6 +20,7 @@ export default async function handler(req: any, res: any) {
     let allValid = true;
 
     const regRecValue = (mapping['registration_received'] || '').trim();
+    const classRemValue = (mapping['class_reminder'] || '').trim();
 
     for (const [templateCode, envKey] of Object.entries(TEMPLATE_ENV_KEYS)) {
       const value = (mapping[templateCode] || '').trim();
@@ -32,6 +34,17 @@ export default async function handler(req: any, res: any) {
           valid = false;
         } else if (regRecValue && isValidTemplateId(regRecValue) && value === regRecValue) {
           warning = 'CLASS_REMINDER_TEMPLATE_ID_MUST_BE_SEPARATE';
+          valid = false;
+        }
+      }
+
+      if (templateCode === 'student_login_otp') {
+        if (!configured || !valid) {
+          warning = 'STUDENT_LOGIN_OTP_TEMPLATE_NOT_CONFIGURED';
+          valid = false;
+        } else if ((regRecValue && isValidTemplateId(regRecValue) && value === regRecValue) ||
+                   (classRemValue && isValidTemplateId(classRemValue) && value === classRemValue)) {
+          warning = 'STUDENT_LOGIN_OTP_TEMPLATE_ID_MUST_BE_SEPARATE';
           valid = false;
         }
       }

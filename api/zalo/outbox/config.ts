@@ -2,7 +2,8 @@
 const TEMPLATE_ENV_KEYS: Record<string, string> = {
   'registration_received': 'ZALO_ZNS_TEMPLATE_REGISTRATION_RECEIVED',
   'registration_confirmed': 'ZALO_ZNS_TEMPLATE_REGISTRATION_CONFIRMED',
-  'class_reminder': 'ZALO_ZNS_TEMPLATE_CLASS_REMINDER'
+  'class_reminder': 'ZALO_ZNS_TEMPLATE_CLASS_REMINDER',
+  'student_login_otp': 'ZALO_ZNS_TEMPLATE_STUDENT_LOGIN_OTP'
 };
 
 export function isValidTemplateId(value: unknown): boolean {
@@ -17,7 +18,8 @@ export const ZNS_TEMPLATE_MAPPING: Record<string, Record<string, string>> = {
   'oa_desembre': {
     'registration_received': process.env['ZALO_ZNS_TEMPLATE_REGISTRATION_RECEIVED'] || '',
     'registration_confirmed': process.env['ZALO_ZNS_TEMPLATE_REGISTRATION_CONFIRMED'] || '',
-    'class_reminder': process.env['ZALO_ZNS_TEMPLATE_CLASS_REMINDER'] || ''
+    'class_reminder': process.env['ZALO_ZNS_TEMPLATE_CLASS_REMINDER'] || '',
+    'student_login_otp': process.env['ZALO_ZNS_TEMPLATE_STUDENT_LOGIN_OTP'] || ''
   }
 };
 
@@ -68,6 +70,39 @@ export function resolveZnsTemplateConfig(senderKey: string, templateCode: string
         ok: false,
         errorCode: 'CLASS_REMINDER_TEMPLATE_ID_MUST_BE_SEPARATE',
         message: 'ZALO_ZNS_TEMPLATE_CLASS_REMINDER cannot be identical to ZALO_ZNS_TEMPLATE_REGISTRATION_RECEIVED (must be a separate ZNS template)',
+        expectedEnvKey: envKey
+      };
+    }
+  }
+
+  if (templateCode === 'student_login_otp') {
+    const regRecValue = senderMapping['registration_received'];
+    const classRemValue = senderMapping['class_reminder'];
+
+    if (!templateId) {
+      return {
+        ok: false,
+        errorCode: 'STUDENT_LOGIN_OTP_TEMPLATE_NOT_CONFIGURED',
+        message: 'Student Login OTP ZNS Template is not configured in environment (ZALO_ZNS_TEMPLATE_STUDENT_LOGIN_OTP)',
+        expectedEnvKey: envKey
+      };
+    }
+
+    if (!isValidTemplateId(templateId)) {
+      return {
+        ok: false,
+        errorCode: 'STUDENT_LOGIN_OTP_TEMPLATE_NOT_CONFIGURED',
+        message: 'Student Login OTP ZNS Template (ZALO_ZNS_TEMPLATE_STUDENT_LOGIN_OTP) has an invalid value',
+        expectedEnvKey: envKey
+      };
+    }
+
+    if ((regRecValue && isValidTemplateId(regRecValue) && templateId.trim() === regRecValue.trim()) ||
+        (classRemValue && isValidTemplateId(classRemValue) && templateId.trim() === classRemValue.trim())) {
+      return {
+        ok: false,
+        errorCode: 'STUDENT_LOGIN_OTP_TEMPLATE_ID_MUST_BE_SEPARATE',
+        message: 'ZALO_ZNS_TEMPLATE_STUDENT_LOGIN_OTP cannot be identical to registration_received or class_reminder template IDs',
         expectedEnvKey: envKey
       };
     }

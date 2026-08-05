@@ -202,10 +202,28 @@ export async function processOutbox(mode: string, limit: number, triggeredBy: st
   let skippedCount = 0;
 
   for (const job of jobs) {
-    if (mode === 'simulate') {
+    if (mode === 'dry') {
+      try {
+        const payloadObj = (job.payload && typeof job.payload === 'object') ? job.payload : {};
+        const rawPhone: string | null = payloadObj.phone_e164 || payloadObj.phone || job.lead_phone || job.phone || null;
+        const znsPhone = normalizeVietnamPhoneForZns(rawPhone);
+        const templateConfig = resolveZnsTemplateConfig(job.sender_key || 'oa_desembre', job.template_code);
+
+        results.push({
+          id: job.id,
+          status: 'dry_run',
+          template_code: job.template_code,
+          phone_valid: Boolean(znsPhone),
+          template_config: templateConfig
+        });
+      } catch (e: any) {
+        results.push({ id: job.id, status: 'dry_run_error', error: e.message });
+      }
+    } else if (mode === 'simulate') {
       try {
         await new Promise(r => setTimeout(r, 500));
         const isSuccess = Math.random() > 0.15;
+        const payloadObj = (job.payload && typeof job.payload === 'object') ? job.payload : {};
 
         if (isSuccess) {
           const mockMsgId = 'ZNS-SIM-' + Math.random().toString(36).substring(2, 9).toUpperCase();
@@ -214,6 +232,17 @@ export async function processOutbox(mode: string, limit: number, triggeredBy: st
             p_provider_message_id: mockMsgId,
             p_provider_response: { note: 'Simulation success', phone: job.phone }
           });
+
+          if (payloadObj.otp_id) {
+            try {
+              await supabase.from('student_login_otps').update({
+                delivery_status: 'sent',
+                delivered_at: new Date().toISOString(),
+                provider_message_id: mockMsgId
+              }).eq('id', payloadObj.otp_id);
+            } catch (e) {}
+          }
+
           results.push({ id: job.id, status: 'sent', msgId: mockMsgId });
           sentCount++;
         } else {
@@ -222,6 +251,16 @@ export async function processOutbox(mode: string, limit: number, triggeredBy: st
             p_error_message: 'Simulation random failure',
             p_provider_response: { error: 'simulated_error' }
           });
+
+          if (payloadObj.otp_id) {
+            try {
+              await supabase.from('student_login_otps').update({
+                delivery_status: 'failed',
+                error_message: 'Simulation random failure'
+              }).eq('id', payloadObj.otp_id);
+            } catch (e) {}
+          }
+
           results.push({ id: job.id, status: 'failed', error: 'Simulation random failure' });
           failedCount++;
         }
@@ -231,6 +270,7 @@ export async function processOutbox(mode: string, limit: number, triggeredBy: st
       }
     } else {
       // Real mode
+      const payloadObj = (job.payload && typeof job.payload === 'object') ? job.payload : {};
       try {
         const normalizedChannel = normalizeNotificationChannel(job.channel);
         console.log(`[ZNS Worker] Processing job ${job.id} - original channel: ${job.channel}, normalized: ${normalizedChannel}`);
@@ -249,12 +289,8 @@ export async function processOutbox(mode: string, limit: number, triggeredBy: st
         const templateId = templateConfig.templateId!;
         console.log(`[ZNS Worker] template resolved: code=${job.template_code} idLen=${templateId.length} idPrefix=${templateId.substring(0, 2)}`);
 
-        // Phone resolution: RPC may return 'lead_phone', 'phone', or nothing depending on deployed version
-        // Always log all available fields for debugging
-        console.log(`[ZNS Worker] job fields: id=${job.id} registration_id=${job.registration_id} lead_phone_exists=${Boolean(job.lead_phone)} phone_exists=${Boolean(job.phone)} lead_name_exists=${Boolean(job.lead_name)} full_name_exists=${Boolean(job.full_name)}`);
-
-        let rawPhone: string | null = job.lead_phone || job.phone || null;
-        let recipientName: string = job.lead_name || job.full_name || 'Học viên';
+        let rawPhone: string | null = payloadObj.phone_e164 || payloadObj.phone || job.lead_phone || job.phone || null;
+        let recipientName: string = payloadObj.customer_name || payloadObj.full_name || job.lead_name || job.full_name || 'Học viên DESEMBRE';
 
         // Fallback: if phone not in RPC response, query course_registrations directly
         if (!rawPhone && job.registration_id) {
@@ -285,35 +321,44 @@ export async function processOutbox(mode: string, limit: number, triggeredBy: st
 
         console.log(`[ZNS Worker] phone normalized: prefix=${znsPhone.substring(0, 4)} len=${znsPhone.length}`);
 
-        // Extract payload values if available
-        const payloadObj = (job.payload && typeof job.payload === 'object') ? job.payload : {};
+        let templateData: Record<string, any> = {};
 
-        const customerName = payloadObj.customer_name || payloadObj.full_name || recipientName;
-        const courseName = payloadObj.course_name || job.course_title || job.course_name || 'Khóa học Đào tạo';
-        const trainingFormat = payloadObj.training_format || payloadObj.training_format_label || payloadObj.participation_format || 'Lớp đào tạo';
-        const batchName = payloadObj.batch_name || payloadObj.batch_title || job.batch_title || job.batch_name || 'Đang cập nhật';
-        const regIdStr = job.registration_id || job.id;
-        const registrationCode = payloadObj.registration_code || regIdStr.replace(/-/g, '').substring(0, 8).toUpperCase();
+        if (job.template_code === 'student_login_otp') {
+          const customerName = payloadObj.customer_name || payloadObj.full_name || recipientName;
+          templateData = {
+            customer_name: customerName,
+            otp_code: payloadObj.otp_code || '',
+            expire_minutes: String(payloadObj.expire_minutes || '5')
+          };
+          if (payloadObj.full_name) templateData['full_name'] = payloadObj.full_name;
+          if (payloadObj.phone) templateData['phone'] = payloadObj.phone;
+        } else {
+          const customerName = payloadObj.customer_name || payloadObj.full_name || recipientName;
+          const courseName = payloadObj.course_name || job.course_title || job.course_name || 'Khóa học Đào tạo';
+          const trainingFormat = payloadObj.training_format || payloadObj.training_format_label || payloadObj.participation_format || 'Lớp đào tạo';
+          const batchName = payloadObj.batch_name || payloadObj.batch_title || job.batch_title || job.batch_name || 'Đang cập nhật';
+          const regIdStr = job.registration_id || job.id;
+          const registrationCode = payloadObj.registration_code || regIdStr.replace(/-/g, '').substring(0, 8).toUpperCase();
 
-        // Build clean template_data for ZNS API
-        const templateData: Record<string, any> = {
-          customer_name: customerName,
-          full_name: customerName,
-          course_name: courseName,
-          training_format: trainingFormat,
-          training_format_label: trainingFormat,
-          participation_format: trainingFormat,
-          batch_name: batchName,
-          registration_code: registrationCode,
-          support_phone: payloadObj.support_phone || job.support_phone || '0983392810',
-          name: customerName
-        };
+          templateData = {
+            customer_name: customerName,
+            full_name: customerName,
+            course_name: courseName,
+            training_format: trainingFormat,
+            training_format_label: trainingFormat,
+            participation_format: trainingFormat,
+            batch_name: batchName,
+            registration_code: registrationCode,
+            support_phone: payloadObj.support_phone || job.support_phone || '0983392810',
+            name: customerName
+          };
 
-        // Merge any remaining keys from payload
-        for (const [k, v] of Object.entries(payloadObj)) {
-          const cleanKey = k.replace(/[<>{}]/g, '').trim();
-          if (v !== undefined && v !== null && v !== '' && !templateData[cleanKey]) {
-            templateData[cleanKey] = v;
+          // Merge remaining non-empty keys
+          for (const [k, v] of Object.entries(payloadObj)) {
+            const cleanKey = k.replace(/[<>{}]/g, '').trim();
+            if (v !== undefined && v !== null && v !== '' && !templateData[cleanKey]) {
+              templateData[cleanKey] = v;
+            }
           }
         }
 
@@ -323,7 +368,11 @@ export async function processOutbox(mode: string, limit: number, triggeredBy: st
           template_data: templateData
         };
 
-        console.log(`[ZNS Worker] payload pre-send: template_id_len=${templateId.length} template_code=${job.template_code} template_keys=${Object.keys(templateData).join(',')} phone_prefix=${znsPhone.substring(0, 4)} phone_len=${znsPhone.length}`);
+        // Mask OTP code in logs for safety
+        const safeLogData = { ...templateData };
+        if (safeLogData.otp_code) safeLogData.otp_code = '******';
+
+        console.log(`[ZNS Worker] payload pre-send: template_id_len=${templateId.length} template_code=${job.template_code} template_keys=${Object.keys(templateData).join(',')} phone_prefix=${znsPhone.substring(0, 4)} safeData=${JSON.stringify(safeLogData)}`);
 
         const endpoint = `${zaloApiBaseUrl}/message/template`;
         
@@ -368,6 +417,17 @@ export async function processOutbox(mode: string, limit: number, triggeredBy: st
             p_provider_message_id: msgId,
             p_provider_response: znsData,
           });
+
+          if (payloadObj.otp_id) {
+            try {
+              await supabase.from('student_login_otps').update({
+                delivery_status: 'sent',
+                delivered_at: new Date().toISOString(),
+                provider_message_id: msgId
+              }).eq('id', payloadObj.otp_id);
+            } catch (e) {}
+          }
+
           results.push({ id: job.id, status: 'sent', msgId: msgId });
           sentCount++;
         } else {
@@ -377,6 +437,16 @@ export async function processOutbox(mode: string, limit: number, triggeredBy: st
             p_error_message: errorMsg,
             p_provider_response: znsData,
           });
+
+          if (payloadObj.otp_id) {
+            try {
+              await supabase.from('student_login_otps').update({
+                delivery_status: 'failed',
+                error_message: errorMsg
+              }).eq('id', payloadObj.otp_id);
+            } catch (e) {}
+          }
+
           results.push({ id: job.id, status: 'failed', error: znsData.message });
           failedCount++;
         }
@@ -387,6 +457,13 @@ export async function processOutbox(mode: string, limit: number, triggeredBy: st
             p_error_message: `ZNS Exception: ${err.message}`,
             p_provider_response: null,
           });
+
+          if (payloadObj.otp_id) {
+            await supabase.from('student_login_otps').update({
+              delivery_status: 'failed',
+              error_message: `ZNS Exception: ${err.message}`
+            }).eq('id', payloadObj.otp_id);
+          }
         } catch (e) {}
         results.push({ id: job.id, status: 'failed', error: err.message });
         failedCount++;
