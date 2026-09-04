@@ -1,44 +1,10 @@
-/* eslint-disable */
-// @ts-nocheck
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect, useMemo } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { CATEGORIES, PRODUCTS } from "@/data/products";
-import type { Product, Category, ProductVariant } from "@/types/product";
-import {
-  Search,
-  Filter,
-  Plus,
-  Download,
-  FileText,
-  MoreVertical,
-  ArrowLeft,
-  Sparkles,
-  Zap,
-  ShieldCheck,
-  ExternalLink,
-  RotateCcw,
-  Loader2,
-  Trash2,
-  Edit2,
-  LayoutGrid,
-  List,
-  ShoppingCart,
-  AlertTriangle,
-  Printer,
-} from "lucide-react";
+import { createFileRoute } from "@tanstack/react-router";
+import { Search, Plus, Download, Zap, Loader2, LayoutGrid, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
-import ProductImageCell from "@/components/ProductImageCell";
-import ProductLinkCell from "@/components/ProductLinkCell";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { FullCatalogPDF } from "@/components/FullCatalogPDF";
 import { EditUnlockProvider } from "@/hooks/useEditUnlock";
-import { getDisplayPrice, UserRole } from "@/lib/pricing";
-import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { ProductKnowledgeDialog } from "@/components/ProductKnowledgeDialog";
 import { ProductSalesSheetDialog } from "@/components/admin/templates/ProductSalesSheetDialog";
 import { CRMPageContainer } from "@/components/crm/CRMPageContainer";
@@ -46,7 +12,6 @@ import { CRMPageHeader } from "@/components/crm/CRMPageHeader";
 import { CRMCard } from "@/components/crm/CRMCard";
 import { CRMTableWrapper } from "@/components/crm/CRMTableWrapper";
 import { CRMEmptyState } from "@/components/crm/CRMEmptyState";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BrandCategoryManagement } from "@/components/admin/BrandCategoryManagement";
 import {
   Select,
@@ -55,404 +20,78 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  fetchActiveDBCatalog,
-  mapDbCatalogToProduct,
-  checkLegacyOrderability,
-} from "@/lib/catalogDb";
-import { validateDbCartItem } from "@/lib/orders";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+// Feature sub-components
+import { useProductCatalog } from "@/features/products/useProductCatalog";
+import { CategoryDisplay } from "@/features/products/CategoryDisplay";
+import { ProductRow } from "@/features/products/ProductRow";
+import { ProductMobileCard } from "@/features/products/ProductMobileCard";
+import { CartDrawer } from "@/features/products/CartDrawer";
+import { ProductPagination } from "@/features/products/ProductPagination";
+import { ProductCatalogDebugConsole } from "@/features/products/ProductCatalogDebugConsole";
 
 export const Route = createFileRoute("/admin/products")({
   component: ProductCatalogPage,
 });
 
 function ProductCatalogPage() {
-  const { user, isAdmin, roles } = useAuth();
-  const { vatRate } = useSystemSettings();
-  const userRole = roles[0] || "user";
-  const [loading, setLoading] = useState(true);
-  const [overrides, setOverrides] = useState<Record<number, any>>({});
-  const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [isCategoryExpanded, setIsCategoryExpanded] = useState(false);
-  const [vatOn, setVatOn] = useState(false);
-  const [saleViewMode, setSaleViewMode] = useState(false);
-  const [cart, setCart] = useState<any[]>([]);
-  const [selectedKnowledgeProductId, setSelectedKnowledgeProductId] = useState<number | null>(null);
-  const [salesSheetsMap, setSalesSheetsMap] = useState<
-    Record<string, { id: string; status: "draft" | "approved" | "archived" }>
-  >({});
-  const [salesSheetDialogOpen, setSalesSheetDialogOpen] = useState(false);
-  const [selectedSalesSheetProduct, setSelectedSalesSheetProduct] = useState<any | null>(null);
-  const navigate = useNavigate();
-  const isManager = isAdmin || roles.some((r) => ["admin", "sub_admin"].includes(r));
-
-  const isProduction = window.location.hostname === "hub.desembre-vn.com";
-
-  const parseEnvFlag = (val: any, defaultNonProd: boolean): boolean => {
-    if (val === undefined || val === null) {
-      return !isProduction ? defaultNonProd : false;
-    }
-    const clean = String(val).trim().toLowerCase();
-    if (clean === "true") return true;
-    if (clean === "false") return false;
-    if (clean.includes("vite_product_")) {
-      return !isProduction ? defaultNonProd : false;
-    }
-    return !isProduction ? defaultNonProd : false;
-  };
-
-  const isDbAdminEnabled = parseEnvFlag(import.meta.env.VITE_PRODUCT_DB_ADMIN_ENABLED, true);
-  const isCatalogDbReadEnabled = parseEnvFlag(
-    import.meta.env.VITE_PRODUCT_CATALOG_DB_READ_ENABLED,
-    true,
-  );
-  const isProductDbOrderEnabled = parseEnvFlag(import.meta.env.VITE_PRODUCT_DB_ORDER_ENABLED, true);
-
-  // DB Catalog States
-  const [dbProducts, setDbProducts] = useState<Product[]>([]);
-  const [dbBrands, setDbBrands] = useState<any[]>([]);
-  const [dbCategories, setDbCategories] = useState<any[]>([]);
-  const [selectedBrandFilter, setSelectedBrandFilter] = useState("all");
-  const [dbError, setDbError] = useState(false);
-  const [dbErrorMessage, setDbErrorMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("catalog");
-
-  const isUsingDbCatalogData = isCatalogDbReadEnabled && !dbError;
-
-  const primaryFieldRole = useMemo(() => {
-    if (roles.includes("sale")) return "sale";
-    if (roles.includes("telesale")) return "telesale";
-    return null;
-  }, [roles]);
-
-  useEffect(() => {
-    if (isCatalogDbReadEnabled) {
-      loadDBCatalog();
-    } else {
-      fetchOverrides();
-    }
-    loadSalesSheets();
-  }, [isCatalogDbReadEnabled]);
-
-  const loadSalesSheets = async (shouldThrow = false) => {
-    try {
-      const { data, error } = await supabase.from("product_sales_sheets").select("*");
-      if (error) {
-        if (shouldThrow) throw error;
-        else console.error("Error loading sales sheets map:", error);
-      }
-      if (data) {
-        const map: Record<string, { id: string; status: "draft" | "approved" | "archived" }> = {};
-
-        // Group by catalog_product_id
-        const groups: Record<string, any[]> = {};
-        data.forEach((row: any) => {
-          if (!groups[row.catalog_product_id]) {
-            groups[row.catalog_product_id] = [];
-          }
-          groups[row.catalog_product_id].push(row);
-        });
-
-        // Resolve current/latest version for each product group client-side
-        Object.keys(groups).forEach((prodId) => {
-          const rows = groups[prodId];
-          // 1. Try to find the row with is_current = true
-          let selected = rows.find((r) => r.is_current === true);
-
-          if (!selected) {
-            // 2. Fallback: Sort by version desc, then created_at desc
-            selected = [...rows].sort((a, b) => {
-              const versionA = typeof a.version === "number" ? a.version : 1;
-              const versionB = typeof b.version === "number" ? b.version : 1;
-              if (versionA !== versionB) {
-                return versionB - versionA; // desc
-              }
-              const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
-              const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
-              return dateB - dateA; // desc
-            })[0];
-          }
-
-          if (selected) {
-            map[prodId] = { id: selected.id, status: selected.status };
-          }
-        });
-
-        setSalesSheetsMap(map);
-      }
-    } catch (err) {
-      if (shouldThrow) throw err;
-      console.error("Error loading sales sheets map:", err);
-    }
-  };
-
-  const loadDBCatalog = async () => {
-    setLoading(true);
-    setDbError(false);
-    setDbErrorMessage(null);
-    try {
-      const dbCatalog = await fetchActiveDBCatalog();
-      if (!dbCatalog || dbCatalog.length === 0) {
-        throw new Error("No active products returned from DB");
-      }
-
-      const mapped = dbCatalog.map(mapDbCatalogToProduct);
-      setDbProducts(mapped);
-
-      const { data: brandsData, error: brandsError } = await supabase
-        .from("product_brands")
-        .select("id, name, code, slug")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true });
-
-      if (brandsError) throw brandsError;
-
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from("product_categories")
-        .select("id, name, slug, brand_id")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true })
-        .order("name", { ascending: true });
-
-      if (categoriesError) throw categoriesError;
-
-      setDbBrands(brandsData || []);
-      setDbCategories(categoriesData || []);
-      await loadSalesSheets();
-    } catch (e) {
-      console.error("[products] DB Catalog fetch error, falling back:", e);
-      setDbError(true);
-      setDbErrorMessage(e instanceof Error ? e.message : String(e));
-      toast.error("Không thể kết nối Catalog DB, sử dụng dữ liệu mặc định");
-      fetchOverrides();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchOverrides = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.from("product_overrides").select("*");
-      if (error) throw error;
-
-      const map: Record<number, any> = {};
-      (data || []).forEach((r) => {
-        map[r.no] = r;
-      });
-      setOverrides(map);
-    } catch (e) {
-      console.warn("Using local overrides fallback", e);
-      const local = localStorage.getItem("mock_overrides");
-      if (local) {
-        const data = JSON.parse(local);
-        const map: Record<number, any> = {};
-        data.forEach((r: any) => {
-          map[r.no] = r;
-        });
-        setOverrides(map);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const mergedProducts = useMemo(() => {
-    const list: any[] = [];
-
-    // Add static products with overrides
-    PRODUCTS.forEach((p) => {
-      const o = overrides[p.id];
-      const variants = p.variants.map((v) => {
-        let price = v.price;
-        let size = v.size;
-        if (o) {
-          if (v.type === "retail") {
-            if (o.retail_price != null) price = o.retail_price;
-            if (o.retail_size != null) size = o.retail_size;
-          } else {
-            if (o.salon_price != null) price = o.salon_price;
-            if (o.salon_size != null) size = o.salon_size;
-          }
-        }
-        return { ...v, price, size };
-      });
-
-      list.push({
-        ...p,
-        name: o?.name || p.name,
-        imageUrl: o?.image_url || p.imageUrl,
-        pdfUrl: o?.link_url || p.pdfUrl,
-        variants,
-      });
-    });
-
-    return list;
-  }, [overrides]);
-
-  const productsToFilter = useMemo(() => {
-    if (isUsingDbCatalogData) {
-      return dbProducts;
-    }
-    return mergedProducts;
-  }, [isUsingDbCatalogData, dbProducts, mergedProducts]);
-
-  const filteredProducts = useMemo(() => {
-    return productsToFilter.filter((p) => {
-      const matchSearch =
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.description?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchBrand =
-        !isUsingDbCatalogData ||
-        selectedBrandFilter === "all" ||
-        p.brand_id === selectedBrandFilter;
-      const matchCategory = categoryFilter === "all" || p.categoryId === categoryFilter;
-      return matchSearch && matchBrand && matchCategory;
-    });
-  }, [productsToFilter, searchQuery, selectedBrandFilter, categoryFilter, isUsingDbCatalogData]);
-
-  const activeCategoriesToDisplay = useMemo(() => {
-    if (isUsingDbCatalogData) {
-      if (selectedBrandFilter === "all") {
-        return [];
-      }
-      return dbCategories.filter((c) => c.brand_id === selectedBrandFilter);
-    }
-    return selectedBrandFilter === "all" ? [] : CATEGORIES;
-  }, [isUsingDbCatalogData, dbCategories, selectedBrandFilter]);
-
-  const fmt = (n: number) => {
-    const effectiveRole = isAdmin && saleViewMode ? "sale" : primaryFieldRole || userRole;
-    const price = getDisplayPrice(n, vatOn ? "with" : "without", effectiveRole as UserRole);
-    return new Intl.NumberFormat("vi-VN").format(Math.round(price || 0)) + "đ";
-  };
-
-  const handleBrandChange = (val: string) => {
-    setSelectedBrandFilter(val);
-    setCategoryFilter("all");
-    setIsCategoryExpanded(false);
-  };
-
-  const handleUpdate = (id: number, field: string, value: any) => {
-    setOverrides((prev) => ({
-      ...prev,
-      [id]: { ...prev[id], [field]: value, no: id },
-    }));
-  };
-
-  const handlePick = (p: Product, sizeType: "retail" | "salon") => {
-    if (isUsingDbCatalogData && isProductDbOrderEnabled) {
-      const variant = p.variants.find((v) => v.type === sizeType);
-      if (!variant) {
-        toast.error("Không tìm thấy biến thể sản phẩm trong DB");
-        return;
-      }
-      const dbItem = {
-        source: "db_catalog",
-        catalog_product_id: p.dbId,
-        variant_id: variant.id,
-        brand_id: p.brand_id,
-        brand_name: p.brand_name,
-        brand_code: p.brand_code,
-        product_code: p.product_code || null,
-        sku: variant.sku,
-        product_name: p.name,
-        category_name: p.categoryName || null,
-        channel: sizeType,
-        size_label: variant.size || null,
-        unit_price: variant.price,
-        currency: "VND",
-        image_url: p.imageUrl || null,
-        catalog_url: p.pdfUrl || null,
-        inventory_tracking_enabled: false,
-        stock_policy: "untracked",
-        added_at: new Date().toISOString(),
-      };
-
-      const check = validateDbCartItem(dbItem);
-      if (!check.ok) {
-        toast.error(`Dữ liệu sản phẩm DB không hợp lệ: ${check.reason}`);
-        return;
-      }
-      setCart((prev) => [...prev, dbItem]);
-    } else {
-      setCart((prev) => [...prev, { no: p.id, sizeType }]);
-    }
-    toast.success("Đã thêm vào giỏ nháp");
-  };
-
-  const renderSalesSheetCell = (p: any) => {
-    if (p.isDbProduct && p.dbId) {
-      const sheetInfo = salesSheetsMap[p.dbId];
-      if (isManager) {
-        if (!sheetInfo) {
-          return (
-            <Button
-              onClick={() => {
-                setSelectedSalesSheetProduct(p);
-                setSalesSheetDialogOpen(true);
-              }}
-              variant="outline"
-              className="h-8 px-2.5 rounded-lg border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 text-[10px] font-bold"
-            >
-              <Sparkles className="w-3 h-3 mr-1" />
-              Tạo AI Sheet
-            </Button>
-          );
-        }
-        return (
-          <Button
-            onClick={() => {
-              setSelectedSalesSheetProduct(p);
-              setSalesSheetDialogOpen(true);
-            }}
-            variant="outline"
-            className={`h-8 px-2.5 rounded-lg text-[10px] font-bold ${
-              sheetInfo.status === "approved"
-                ? "border-green-200 text-green-700 bg-green-50 hover:bg-green-100"
-                : "border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100"
-            }`}
-          >
-            <FileText className="w-3 h-3 mr-1" />
-            Sheet ({sheetInfo.status === "approved" ? "Duyệt" : "Nháp"})
-          </Button>
-        );
-      } else {
-        if (!sheetInfo || sheetInfo.status !== "approved") {
-          return <span className="text-xs text-slate-400 font-medium">Chưa có tài liệu</span>;
-        }
-        return (
-          <Button
-            onClick={() => {
-              setSelectedSalesSheetProduct(p);
-              setSalesSheetDialogOpen(true);
-            }}
-            variant="outline"
-            className="h-8 px-3 rounded-lg border-green-200 text-green-700 bg-green-50 hover:bg-green-100 text-[10px] font-bold"
-          >
-            <Printer className="w-3.5 h-3.5 mr-1" />
-            Sales Sheet
-          </Button>
-        );
-      }
-    }
-
-    // Fallback for legacy static products
-    return (
-      <ProductLinkCell
-        productNo={p.id}
-        href={p.pdfUrl}
-        onChange={(url) => handleUpdate(p.id, "link_url", url)}
-        isReadOnly={!isManager}
-      />
-    );
-  };
-
-  const handleCreateOrder = () => {
-    sessionStorage.setItem("pickupCart", JSON.stringify(cart));
-    navigate({ to: "/orders/new" });
-  };
+  const {
+    user,
+    isAdmin,
+    roles,
+    isManager,
+    vatRate,
+    isDbAdminEnabled,
+    isCatalogDbReadEnabled,
+    isProductDbOrderEnabled,
+    isUsingDbCatalogData,
+    loading,
+    dbError,
+    dbErrorMessage,
+    activeTab,
+    setActiveTab,
+    productsToFilter,
+    filteredProducts,
+    paginatedProducts,
+    dbBrands,
+    activeCategoriesToDisplay,
+    searchQuery,
+    setSearchQuery,
+    categoryFilter,
+    setCategoryFilter,
+    selectedBrandFilter,
+    isCategoryExpanded,
+    setIsCategoryExpanded,
+    handleBrandChange,
+    vatOn,
+    setVatOn,
+    saleViewMode,
+    fmt,
+    cart,
+    cartDrawerOpen,
+    setCartDrawerOpen,
+    removeCartItem,
+    clearCart,
+    handleCreateOrder,
+    selectedKnowledgeProductId,
+    setSelectedKnowledgeProductId,
+    salesSheetsMap,
+    salesSheetDialogOpen,
+    setSalesSheetDialogOpen,
+    selectedSalesSheetProduct,
+    setSelectedSalesSheetProduct,
+    loadSalesSheets,
+    handleUpdate,
+    handlePick,
+    getProductGuard,
+    currentPage,
+    totalPages,
+    goToPrev,
+    goToNext,
+    goToPage,
+    PAGE_SIZE,
+  } = useProductCatalog();
 
   return (
     <EditUnlockProvider>
@@ -486,16 +125,36 @@ function ProductCatalogPage() {
                   </Button>
                 )}
               </PDFDownloadLink>
+
+              {/* Task 12: THÊM SẢN PHẨM — disabled with tooltip until create flow exists */}
               {isManager && (
-                <Button className="h-10 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm shadow-indigo-200 transition-all shrink-0">
-                  <Plus className="w-4 h-4 mr-2 shrink-0" /> THÊM SẢN PHẨM
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-block">
+                        <Button
+                          disabled
+                          className="h-10 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm shadow-indigo-200 transition-all shrink-0 cursor-not-allowed opacity-60"
+                        >
+                          <Plus className="w-4 h-4 mr-2 shrink-0" /> THÊM SẢN PHẨM
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p className="text-xs">
+                        Tính năng đang phát triển — sử dụng tab Quản lý Brand &amp; Danh mục để thêm
+                        sản phẩm qua DB.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </>
           }
         />
 
         <main className="container mx-auto px-6 py-8 max-w-7xl space-y-8 animate-fade-in">
+          {/* Feature flag warning */}
           {!isCatalogDbReadEnabled && (
             <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl text-xs font-semibold flex flex-col gap-1.5 shadow-sm">
               <div className="flex items-center gap-2">
@@ -517,6 +176,7 @@ function ProductCatalogPage() {
             </div>
           )}
 
+          {/* DB error banner */}
           {isCatalogDbReadEnabled && dbError && (
             <div className="bg-rose-50 border border-rose-200 text-rose-800 px-4 py-3 rounded-xl text-xs font-semibold flex flex-col gap-1.5 shadow-sm">
               <div className="flex items-center gap-2">
@@ -533,6 +193,7 @@ function ProductCatalogPage() {
             </div>
           )}
 
+          {/* Tab switcher */}
           {isDbAdminEnabled && isManager && (
             <div className="flex border-b border-slate-200 pb-1">
               <div className="bg-slate-100/80 p-1 rounded-xl flex gap-1">
@@ -548,7 +209,7 @@ function ProductCatalogPage() {
                   className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all
                     ${activeTab === "mgmt" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
                 >
-                  Quản lý Brand & Danh mục
+                  Quản lý Brand &amp; Danh mục
                 </button>
               </div>
             </div>
@@ -564,6 +225,7 @@ function ProductCatalogPage() {
                   khai phase Category Management riêng.
                 </div>
               )}
+
               {/* FILTERS & SEARCH */}
               <div className="flex flex-col lg:flex-row gap-3 items-center bg-white p-3 lg:p-2 rounded-2xl border border-slate-200 shadow-sm sticky top-16 lg:static z-30">
                 <div className="relative group w-full lg:w-1/3 shrink-0">
@@ -600,7 +262,7 @@ function ProductCatalogPage() {
                   </div>
                 )}
 
-                <div className="flex-1"></div>
+                <div className="flex-1" />
 
                 <div className="flex items-center justify-between lg:justify-end px-1 lg:px-2 shrink-0 w-full lg:w-auto border-t lg:border-t-0 lg:border-l border-slate-100 pt-3 lg:pt-0">
                   <div className="text-[10px] font-bold text-slate-400 lg:hidden">
@@ -634,66 +296,19 @@ function ProductCatalogPage() {
                 </div>
               </div>
 
-              {/* CATEGORY CARD */}
-              <CRMCard className="p-4 lg:p-5 border-slate-200 bg-white">
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-2">
-                    <Filter className="w-4 h-4 text-slate-400" />
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-900">Danh mục sản phẩm</h4>
-                      <p className="text-[11px] font-medium text-slate-500">
-                        {selectedBrandFilter === "all"
-                          ? "Chọn một thương hiệu để lọc theo danh mục."
-                          : `Danh mục của ${dbBrands.find((b) => b.id === selectedBrandFilter)?.name || "thương hiệu"}`}
-                      </p>
-                    </div>
-                  </div>
+              {/* CATEGORY DISPLAY */}
+              <CategoryDisplay
+                isUsingDbCatalogData={isUsingDbCatalogData}
+                selectedBrandFilter={selectedBrandFilter}
+                dbBrands={dbBrands}
+                activeCategoriesToDisplay={activeCategoriesToDisplay}
+                categoryFilter={categoryFilter}
+                setCategoryFilter={setCategoryFilter}
+                isCategoryExpanded={isCategoryExpanded}
+                setIsCategoryExpanded={setIsCategoryExpanded}
+              />
 
-                  {selectedBrandFilter !== "all" && activeCategoriesToDisplay.length === 0 ? (
-                    <div className="text-xs text-slate-500 italic mt-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                      Thương hiệu này chưa có danh mục.
-                    </div>
-                  ) : selectedBrandFilter !== "all" ? (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      <button
-                        onClick={() => setCategoryFilter("all")}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm border
-                            ${categoryFilter === "all" ? "bg-indigo-600 text-white border-transparent" : "bg-white border-slate-200 text-slate-600 hover:border-indigo-200 hover:bg-indigo-50"}`}
-                      >
-                        Tất cả sản phẩm
-                      </button>
-                      {(isCategoryExpanded
-                        ? activeCategoriesToDisplay
-                        : activeCategoriesToDisplay.slice(0, 10)
-                      ).map((cat) => {
-                        const filterValue = isUsingDbCatalogData ? cat.slug : cat.id;
-                        return (
-                          <button
-                            key={cat.id}
-                            onClick={() => setCategoryFilter(filterValue)}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm border
-                                ${categoryFilter === filterValue ? "bg-indigo-600 text-white border-transparent" : "bg-white border-slate-200 text-slate-600 hover:border-indigo-200 hover:bg-indigo-50"}`}
-                          >
-                            {cat.name}
-                          </button>
-                        );
-                      })}
-                      {activeCategoriesToDisplay.length > 10 && (
-                        <button
-                          onClick={() => setIsCategoryExpanded(!isCategoryExpanded)}
-                          className="px-4 py-2 rounded-xl text-xs font-bold text-indigo-600 hover:bg-indigo-50 transition-colors"
-                        >
-                          {isCategoryExpanded
-                            ? "Thu gọn"
-                            : `Xem thêm danh mục (+${activeCategoriesToDisplay.length - 10})`}
-                        </button>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              </CRMCard>
-
-              {/* Product Layout */}
+              {/* PRODUCT TABLE */}
               <CRMCard className="p-0 overflow-hidden border-slate-200 bg-white">
                 {/* Desktop view */}
                 <div className="hidden lg:block">
@@ -723,7 +338,7 @@ function ProductCatalogPage() {
                               </div>
                             </td>
                           </tr>
-                        ) : filteredProducts.length === 0 ? (
+                        ) : paginatedProducts.length === 0 ? (
                           <tr>
                             <td colSpan={8} className="py-32 text-center">
                               <div className="flex flex-col items-center gap-4 opacity-30">
@@ -735,158 +350,30 @@ function ProductCatalogPage() {
                             </td>
                           </tr>
                         ) : (
-                          filteredProducts.map((p, idx) => {
-                            const retail = p.variants.find((v: any) => v.type === "retail");
-                            const salon = p.variants.find((v: any) => v.type === "salon");
-
-                            const guard =
-                              isCatalogDbReadEnabled && !dbError
-                                ? isProductDbOrderEnabled
-                                  ? { retailOrderable: !!retail, salonOrderable: !!salon }
-                                  : checkLegacyOrderability(p)
-                                : { retailOrderable: true, salonOrderable: true };
-
+                          paginatedProducts.map((p, idx) => {
+                            const globalIdx = (currentPage - 1) * PAGE_SIZE + idx;
+                            const guard = getProductGuard(p);
+                            const salesSheetInfo =
+                              p.isDbProduct && p.dbId ? salesSheetsMap[p.dbId] : undefined;
                             return (
-                              <tr
-                                key={p.id}
-                                className={`group transition-all duration-300 ${idx % 2 === 0 ? "bg-slate-50/60" : "bg-white"} hover:bg-blue-50/60`}
-                              >
-                                <td className="px-3 py-5 text-center">
-                                  <span className="text-xs font-mono font-bold text-slate-400 group-hover:text-blue-600 transition-colors">
-                                    {String(idx + 1).padStart(2, "0")}
-                                  </span>
-                                </td>
-                                <td className="px-3 py-5">
-                                  <ProductImageCell
-                                    productNo={p.id}
-                                    src={p.imageUrl}
-                                    onChange={(src) => handleUpdate(p.id, "image_url", src)}
-                                    isReadOnly={!isManager}
-                                    isDbMode={isUsingDbCatalogData}
-                                  />
-                                </td>
-                                <td className="px-3 py-5 max-w-md">
-                                  <div className="space-y-1.5">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <h3 className="text-[15px] font-black text-slate-900 group-hover:text-blue-700 transition-colors leading-snug">
-                                        {p.name}
-                                      </h3>
-                                      {isUsingDbCatalogData && p.brand_name && (
-                                        <Badge className="bg-indigo-50 text-indigo-600 border-none text-[8px] font-black shrink-0 uppercase">
-                                          {p.brand_name}
-                                        </Badge>
-                                      )}
-                                      {p.isCustom && (
-                                        <Badge className="bg-amber-50 text-amber-600 border-none text-[8px] font-black shrink-0">
-                                          CUSTOM
-                                        </Badge>
-                                      )}
-                                    </div>
-                                    <p className="text-sm text-slate-500 line-clamp-2 leading-relaxed">
-                                      {p.description || "Chưa có mô tả kỹ thuật cho sản phẩm này."}
-                                    </p>
-                                    <div className="flex items-center gap-2 mt-2">
-                                      <Badge
-                                        variant="outline"
-                                        className="text-[9px] font-bold text-slate-400 border-slate-200 py-0 uppercase bg-white"
-                                      >
-                                        {CATEGORIES.find((c) => c.id === p.categoryId)?.name ||
-                                          "N/A"}
-                                      </Badge>
-                                      <span className="text-[10px] text-slate-400 font-mono font-medium">
-                                        SKU: {retail?.sku || salon?.sku || `DES-${p.id}`}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-3 py-5 text-center">
-                                  <div className="space-y-2">
-                                    {retail && (
-                                      <div className="px-2 py-1 rounded bg-blue-50/80 border border-blue-100 text-[10px] font-black text-blue-700 uppercase">
-                                        {retail.size} (R)
-                                      </div>
-                                    )}
-                                    {salon && (
-                                      <div className="px-2 py-1 rounded bg-violet-50/80 border border-violet-100 text-[10px] font-black text-violet-700 uppercase">
-                                        {salon.size} (S)
-                                      </div>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-5 text-right">
-                                  {retail ? (
-                                    <div className="flex flex-col items-end gap-1.5">
-                                      <div>
-                                        <p className="text-[15px] font-black text-blue-700 tracking-tight leading-none">
-                                          {fmt(retail.price)}
-                                        </p>
-                                        <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">
-                                          NIÊM YẾT LẺ {vatOn ? "(VAT)" : ""}
-                                        </p>
-                                      </div>
-                                      {guard.retailOrderable ? (
-                                        <button
-                                          onClick={() => handlePick(p, "retail")}
-                                          className="w-full h-8 flex items-center justify-center rounded-lg bg-white border border-blue-200 text-[10px] text-blue-600 font-bold uppercase hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-sm"
-                                        >
-                                          CHỌN LÊN ĐƠN
-                                        </button>
-                                      ) : (
-                                        <div className="w-full text-center text-[9px] font-bold text-rose-500 bg-rose-50 border border-rose-100 py-1.5 px-2 rounded-lg leading-snug">
-                                          {guard.retailMismatchReason || "Khóa lên đơn"}
-                                        </div>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <span className="text-slate-300">—</span>
-                                  )}
-                                </td>
-                                <td className="px-6 py-5 text-right">
-                                  {salon ? (
-                                    <div className="flex flex-col items-end gap-1.5">
-                                      <div>
-                                        <p className="text-[15px] font-black text-violet-700 tracking-tight leading-none">
-                                          {fmt(salon.price)}
-                                        </p>
-                                        <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">
-                                          CHUYÊN NGHIỆP {vatOn ? "(VAT)" : ""}
-                                        </p>
-                                      </div>
-                                      {guard.salonOrderable ? (
-                                        <button
-                                          onClick={() => handlePick(p, "salon")}
-                                          className="w-full h-8 flex items-center justify-center rounded-lg bg-white border border-violet-200 text-[10px] text-violet-600 font-bold uppercase hover:bg-violet-600 hover:text-white hover:border-violet-600 transition-all shadow-sm"
-                                        >
-                                          CHỌN LÊN ĐƠN
-                                        </button>
-                                      ) : (
-                                        <div className="w-full text-center text-[9px] font-bold text-rose-500 bg-rose-50 border border-rose-100 py-1.5 px-2 rounded-lg leading-snug">
-                                          {guard.salonMismatchReason || "Khóa lên đơn"}
-                                        </div>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <span className="text-slate-300">—</span>
-                                  )}
-                                </td>
-                                <td className="px-6 py-6 text-center">{renderSalesSheetCell(p)}</td>
-                                <td className="px-6 py-6 text-center">
-                                  <div className="flex items-center justify-end gap-2">
-                                    {isManager && (
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setSelectedKnowledgeProductId(p.id)}
-                                        className="h-9 px-3 text-[10px] font-black text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 uppercase tracking-wider rounded-xl transition-all whitespace-nowrap"
-                                      >
-                                        <Sparkles className="w-3.5 h-3.5 mr-1 animate-pulse" /> Tri
-                                        thức
-                                      </Button>
-                                    )}
-                                    {isManager && <DropdownAction />}
-                                  </div>
-                                </td>
-                              </tr>
+                              <ProductRow
+                                key={p.dbId || p.id}
+                                product={p}
+                                idx={globalIdx}
+                                isManager={isManager}
+                                isUsingDbCatalogData={isUsingDbCatalogData}
+                                vatOn={vatOn}
+                                fmt={fmt}
+                                guard={guard}
+                                salesSheetInfo={salesSheetInfo}
+                                onPick={(sizeType) => handlePick(p, sizeType)}
+                                onUpdate={(field, value) => handleUpdate(p.id, field, value)}
+                                onOpenKnowledge={() => setSelectedKnowledgeProductId(p.id)}
+                                onOpenSalesSheet={() => {
+                                  setSelectedSalesSheetProduct(p);
+                                  setSalesSheetDialogOpen(true);
+                                }}
+                              />
                             );
                           })
                         )}
@@ -895,8 +382,8 @@ function ProductCatalogPage() {
                   </CRMTableWrapper>
                 </div>
 
-                {/* Mobile Card View */}
-                <div className="block lg:hidden space-y-4">
+                {/* Mobile card view */}
+                <div className="block lg:hidden space-y-4 p-4">
                   {loading ? (
                     <div className="py-20 text-center bg-white rounded-2xl border border-slate-200">
                       <div className="flex flex-col items-center gap-4">
@@ -906,227 +393,65 @@ function ProductCatalogPage() {
                         </p>
                       </div>
                     </div>
-                  ) : filteredProducts.length === 0 ? (
+                  ) : paginatedProducts.length === 0 ? (
                     <div className="py-20 text-center bg-white rounded-2xl border border-slate-200">
                       <CRMEmptyState title="Không tìm thấy sản phẩm nào phù hợp" />
                     </div>
                   ) : (
-                    filteredProducts.map((p, idx) => {
-                      const retail = p.variants.find((v: any) => v.type === "retail");
-                      const salon = p.variants.find((v: any) => v.type === "salon");
-
-                      const guard =
-                        isCatalogDbReadEnabled && !dbError
-                          ? isProductDbOrderEnabled
-                            ? { retailOrderable: !!retail, salonOrderable: !!salon }
-                            : checkLegacyOrderability(p)
-                          : { retailOrderable: true, salonOrderable: true };
-
+                    paginatedProducts.map((p) => {
+                      const guard = getProductGuard(p);
+                      const salesSheetInfo =
+                        p.isDbProduct && p.dbId ? salesSheetsMap[p.dbId] : undefined;
                       return (
-                        <div
-                          key={p.id}
-                          className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col gap-4"
-                        >
-                          {/* Product Header */}
-                          <div className="flex items-start gap-4">
-                            <div className="w-20 h-20 shrink-0">
-                              <ProductImageCell
-                                productNo={p.id}
-                                src={p.imageUrl}
-                                onChange={(src) => handleUpdate(p.id, "image_url", src)}
-                                isReadOnly={!isManager}
-                                isDbMode={isUsingDbCatalogData}
-                              />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="text-[15px] font-black text-slate-900 leading-tight">
-                                  {p.name}
-                                </h3>
-                                {isUsingDbCatalogData && p.brand_name && (
-                                  <Badge className="bg-indigo-50 text-indigo-600 border-none text-[8px] font-black shrink-0 px-1.5 py-0.5 uppercase">
-                                    {p.brand_name}
-                                  </Badge>
-                                )}
-                                {p.isCustom && (
-                                  <Badge className="bg-amber-50 text-amber-600 border-none text-[8px] font-black shrink-0 px-1.5 py-0.5">
-                                    CUSTOM
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed mb-2">
-                                {p.description || "Chưa có mô tả kỹ thuật cho sản phẩm này."}
-                              </p>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Badge
-                                  variant="outline"
-                                  className="text-[9px] font-bold text-slate-400 border-slate-200 py-0 uppercase bg-white"
-                                >
-                                  {CATEGORIES.find((c) => c.id === p.categoryId)?.name || "N/A"}
-                                </Badge>
-                                <span className="text-[10px] text-slate-400 font-mono font-medium">
-                                  SKU: {retail?.sku || salon?.sku || `DES-${p.id}`}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Action Blocks */}
-                          <div className="grid grid-cols-2 gap-3 mt-1 border-t border-slate-100 pt-4">
-                            {/* Retail Block */}
-                            {retail ? (
-                              <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-blue-50/60 border border-blue-100/50 relative">
-                                <div className="absolute top-3 right-3">
-                                  <span className="px-1.5 py-0.5 rounded bg-blue-100/80 text-[9px] font-black text-blue-700 uppercase">
-                                    {retail.size} (R)
-                                  </span>
-                                </div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                  Retail
-                                </span>
-                                <div className="mt-0.5">
-                                  <p className="text-[15px] font-black text-blue-700 tracking-tight leading-none">
-                                    {fmt(retail.price)}
-                                  </p>
-                                  <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">
-                                    {vatOn ? "ĐÃ CÓ VAT" : "CHƯA VAT"}
-                                  </p>
-                                </div>
-                                {guard.retailOrderable ? (
-                                  <button
-                                    onClick={() => handlePick(p, "retail")}
-                                    className="w-full min-h-[44px] mt-2 flex items-center justify-center rounded-lg bg-white border border-blue-200 text-[11px] text-blue-600 font-bold uppercase hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-sm active:scale-95 touch-manipulation"
-                                  >
-                                    CHỌN
-                                  </button>
-                                ) : (
-                                  <div className="w-full min-h-[44px] mt-2 flex items-center justify-center rounded-lg bg-rose-50 border border-rose-100 text-[9px] text-rose-500 font-bold uppercase px-2 py-1 text-center leading-snug">
-                                    {guard.retailMismatchReason || "Khóa lên đơn"}
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl bg-slate-50 border border-slate-100 opacity-60 min-h-[120px]">
-                                <span className="text-slate-300">—</span>
-                                <span className="text-[9px] font-bold text-slate-400 uppercase">
-                                  Không có Retail
-                                </span>
-                              </div>
-                            )}
-
-                            {/* Salon Block */}
-                            {salon ? (
-                              <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-violet-50/60 border border-violet-100/50 relative">
-                                <div className="absolute top-3 right-3">
-                                  <span className="px-1.5 py-0.5 rounded bg-violet-100/80 text-[9px] font-black text-violet-700 uppercase">
-                                    {salon.size} (S)
-                                  </span>
-                                </div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                  Salon
-                                </span>
-                                <div className="mt-0.5">
-                                  <p className="text-[15px] font-black text-violet-700 tracking-tight leading-none">
-                                    {fmt(salon.price)}
-                                  </p>
-                                  <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">
-                                    {vatOn ? "ĐÃ CÓ VAT" : "CHƯA VAT"}
-                                  </p>
-                                </div>
-                                {guard.salonOrderable ? (
-                                  <button
-                                    onClick={() => handlePick(p, "salon")}
-                                    className="w-full min-h-[44px] mt-2 flex items-center justify-center rounded-lg bg-white border border-violet-200 text-[11px] text-violet-600 font-bold uppercase hover:bg-violet-600 hover:text-white hover:border-violet-600 transition-all shadow-sm active:scale-95 touch-manipulation"
-                                  >
-                                    CHỌN
-                                  </button>
-                                ) : (
-                                  <div className="w-full min-h-[44px] mt-2 flex items-center justify-center rounded-lg bg-rose-50 border border-rose-100 text-[9px] text-rose-500 font-bold uppercase px-2 py-1 text-center leading-snug">
-                                    {guard.salonMismatchReason || "Khóa lên đơn"}
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl bg-slate-50 border border-slate-100 opacity-60 min-h-[120px]">
-                                <span className="text-slate-300">—</span>
-                                <span className="text-[9px] font-bold text-slate-400 uppercase">
-                                  Không có Salon
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Footer Actions */}
-                          <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-1">
-                            <div className="flex items-center">{renderSalesSheetCell(p)}</div>
-                            <div className="flex items-center gap-2">
-                              {isManager && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setSelectedKnowledgeProductId(p.id)}
-                                  className="min-h-[44px] px-3 text-[10px] font-black text-blue-600 hover:bg-blue-50 uppercase tracking-wider rounded-xl transition-all whitespace-nowrap active:scale-95 touch-manipulation"
-                                >
-                                  <Sparkles className="w-3.5 h-3.5 mr-1" /> Tri thức
-                                </Button>
-                              )}
-                              {isManager && <DropdownAction />}
-                            </div>
-                          </div>
-                        </div>
+                        <ProductMobileCard
+                          key={p.dbId || p.id}
+                          product={p}
+                          isManager={isManager}
+                          isUsingDbCatalogData={isUsingDbCatalogData}
+                          vatOn={vatOn}
+                          fmt={fmt}
+                          guard={guard}
+                          salesSheetInfo={salesSheetInfo}
+                          onPick={(sizeType) => handlePick(p, sizeType)}
+                          onUpdate={(field, value) => handleUpdate(p.id, field, value)}
+                          onOpenKnowledge={() => setSelectedKnowledgeProductId(p.id)}
+                          onOpenSalesSheet={() => {
+                            setSelectedSalesSheetProduct(p);
+                            setSalesSheetDialogOpen(true);
+                          }}
+                        />
                       );
                     })
                   )}
                 </div>
 
-                {/* FOOTER PAGINATION PLACEHOLDER */}
-                <div className="px-6 py-4 border-t border-slate-50 bg-slate-50/50 flex items-center justify-between">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                    Hiển thị <span className="text-slate-900">{filteredProducts.length}</span> /{" "}
-                    {productsToFilter.length} sản phẩm
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      disabled
-                      className="text-[10px] font-black text-slate-400"
-                    >
-                      PREV
-                    </Button>
-                    <div className="flex items-center gap-1">
-                      <button className="w-8 h-8 rounded-lg bg-indigo-600 text-white text-xs font-black">
-                        1
-                      </button>
-                      <button className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 text-xs font-black hover:bg-slate-200 hover:text-slate-900 transition-all">
-                        2
-                      </button>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      className="text-[10px] font-black text-slate-500 hover:text-slate-900"
-                    >
-                      NEXT
-                    </Button>
-                  </div>
-                </div>
+                {/* Real pagination footer */}
+                <ProductPagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalItems={filteredProducts.length}
+                  pageSize={PAGE_SIZE}
+                  onPrev={goToPrev}
+                  onNext={goToNext}
+                  onPageChange={goToPage}
+                />
               </CRMCard>
             </>
           )}
         </main>
 
-        {/* FLOATING ACTION CART */}
-        {cart.length > 0 && (
-          <div className="fixed bottom-8 right-8 z-50 animate-fade-in">
-            <Button
-              onClick={handleCreateOrder}
-              className="h-14 px-6 rounded-xl shadow-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold hover:scale-105 transition-all group"
-            >
-              <ShoppingCart className="w-5 h-5 mr-2 group-hover:-rotate-12 transition-transform" />
-              TẠO ĐƠN NHÁP ({cart.length})
-            </Button>
-          </div>
-        )}
+        {/* Cart drawer (Task 9) */}
+        <CartDrawer
+          cart={cart}
+          isOpen={cartDrawerOpen}
+          onOpen={() => setCartDrawerOpen(true)}
+          onClose={() => setCartDrawerOpen(false)}
+          onRemove={removeCartItem}
+          onClear={clearCart}
+          onCreateOrder={handleCreateOrder}
+        />
 
+        {/* Knowledge dialog */}
         <ProductKnowledgeDialog
           productId={selectedKnowledgeProductId}
           productName={
@@ -1134,12 +459,10 @@ function ProductCatalogPage() {
           }
           productsList={productsToFilter.map((p) => ({ id: p.id, name: p.name }))}
           onClose={() => setSelectedKnowledgeProductId(null)}
-          onSaved={() => {
-            // Optional: Reload logic here if we were caching knowledge state in this parent component,
-            // but since dialog fetches on mount, it's already fresh next time it opens.
-          }}
+          onSaved={() => {}}
         />
 
+        {/* Sales sheet dialog */}
         {selectedSalesSheetProduct && (
           <ProductSalesSheetDialog
             isOpen={salesSheetDialogOpen}
@@ -1147,110 +470,32 @@ function ProductCatalogPage() {
               setSalesSheetDialogOpen(false);
               setSelectedSalesSheetProduct(null);
             }}
-            catalogProductId={selectedSalesSheetProduct.dbId}
+            catalogProductId={selectedSalesSheetProduct.dbId || ""}
             productName={selectedSalesSheetProduct.name}
-            brandId={selectedSalesSheetProduct.brand_id}
-            categoryName={selectedSalesSheetProduct.categoryName}
+            brandId={selectedSalesSheetProduct.brand_id || ""}
+            categoryName={selectedSalesSheetProduct.categoryName || undefined}
             imageUrl={selectedSalesSheetProduct.imageUrl}
-            productCode={selectedSalesSheetProduct.product_code}
+            productCode={selectedSalesSheetProduct.product_code || undefined}
             onSaved={loadSalesSheets}
           />
         )}
 
-        {window.location.hostname !== "hub.desembre-vn.com" && (
-          <div className="fixed bottom-4 left-4 z-[9999] bg-slate-900/95 text-slate-100 p-4 rounded-xl border border-slate-700 shadow-2xl text-[11px] font-mono space-y-1.5 max-w-sm backdrop-blur-md">
-            <div className="flex items-center justify-between border-b border-slate-700 pb-1 mb-2">
-              <span className="font-bold text-indigo-400">🔍 STAGING DEBUG CONSOLE</span>
-              <span className="text-[9px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">
-                47310e8
-              </span>
-            </div>
-            <div>
-              <span className="text-slate-400">catalogDbReadEnabled:</span>{" "}
-              <span
-                className={
-                  isCatalogDbReadEnabled ? "text-green-400 font-bold" : "text-rose-400 font-bold"
-                }
-              >
-                {isCatalogDbReadEnabled ? "true" : "false"}
-              </span>{" "}
-              <span className="text-slate-500 font-normal">
-                ({`raw: ${JSON.stringify(import.meta.env.VITE_PRODUCT_CATALOG_DB_READ_ENABLED)}`})
-              </span>
-            </div>
-            <div>
-              <span className="text-slate-400">productDbAdminEnabled:</span>{" "}
-              <span
-                className={
-                  isDbAdminEnabled ? "text-green-400 font-bold" : "text-rose-400 font-bold"
-                }
-              >
-                {isDbAdminEnabled ? "true" : "false"}
-              </span>{" "}
-              <span className="text-slate-500 font-normal">
-                ({`raw: ${JSON.stringify(import.meta.env.VITE_PRODUCT_DB_ADMIN_ENABLED)}`})
-              </span>
-            </div>
-            <div>
-              <span className="text-slate-400">productDbOrderEnabled:</span>{" "}
-              <span
-                className={
-                  isProductDbOrderEnabled ? "text-green-400 font-bold" : "text-rose-400 font-bold"
-                }
-              >
-                {isProductDbOrderEnabled ? "true" : "false"}
-              </span>{" "}
-              <span className="text-slate-500 font-normal">
-                ({`raw: ${JSON.stringify(import.meta.env.VITE_PRODUCT_DB_ORDER_ENABLED)}`})
-              </span>
-            </div>
-            <div>
-              <span className="text-slate-400">userEmail:</span>{" "}
-              <span className="text-blue-400">{user?.email || "none"}</span>
-            </div>
-            <div>
-              <span className="text-slate-400">userRoles:</span>{" "}
-              <span className="text-blue-400">{JSON.stringify(roles || [])}</span>
-            </div>
-            <div>
-              <span className="text-slate-400">isAdmin:</span>{" "}
-              <span className={isAdmin ? "text-green-400 font-bold" : "text-rose-400"}>
-                {isAdmin ? "true" : "false"}
-              </span>
-            </div>
-            <div>
-              <span className="text-slate-400">isManager:</span>{" "}
-              <span className={isManager ? "text-green-400 font-bold" : "text-rose-400"}>
-                {isManager ? "true" : "false"}
-              </span>
-            </div>
-            <div>
-              <span className="text-slate-400">usingCatalogDbMode:</span>{" "}
-              <span
-                className={
-                  isUsingDbCatalogData ? "text-green-400 font-bold" : "text-rose-400 font-bold"
-                }
-              >
-                {isUsingDbCatalogData ? "true" : "false"}
-              </span>
-            </div>
-            {dbError && (
-              <div className="text-rose-300 bg-rose-950/50 p-2 rounded border border-rose-900 mt-2 whitespace-pre-wrap max-h-32 overflow-y-auto font-mono text-[9px] leading-relaxed">
-                <span className="font-bold">Error:</span>{" "}
-                {dbErrorMessage || "Unknown DB fetch error"}
-              </div>
-            )}
-          </div>
+        {/* Task 11: Debug console — DEV + manager only */}
+        {import.meta.env.DEV && isManager && (
+          <ProductCatalogDebugConsole
+            isCatalogDbReadEnabled={isCatalogDbReadEnabled}
+            isDbAdminEnabled={isDbAdminEnabled}
+            isProductDbOrderEnabled={isProductDbOrderEnabled}
+            isUsingDbCatalogData={isUsingDbCatalogData}
+            userEmail={user?.email}
+            roles={roles}
+            isAdmin={isAdmin}
+            isManager={isManager}
+            dbError={dbError}
+            dbErrorMessage={dbErrorMessage}
+          />
         )}
       </CRMPageContainer>
     </EditUnlockProvider>
-  );
-}
-
-function DropdownAction() {
-  return (
-    <button className="w-10 h-10 rounded-xl hover:bg-slate-800 text-slate-500 hover:text-white transition-all flex items-center justify-center">
-      <MoreVertical className="w-4 h-4" />
-    </button>
   );
 }
