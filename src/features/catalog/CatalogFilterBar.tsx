@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
-import type { CatalogBrand, CatalogCategory, CatalogViewMode } from "./types";
+import type { CatalogBrand, CatalogCategory, CatalogViewMode, CatalogVatMode } from "./types";
 import { CatalogViewToggle } from "./CatalogViewToggle";
 
 interface Props {
@@ -22,6 +22,8 @@ interface Props {
   onToggleDrawer: (open: boolean) => void;
   viewMode: CatalogViewMode;
   onViewModeChange: (mode: CatalogViewMode) => void;
+  vatMode: CatalogVatMode;
+  onVatModeChange: (mode: CatalogVatMode) => void;
 }
 
 export function CatalogFilterBar({
@@ -40,6 +42,8 @@ export function CatalogFilterBar({
   onToggleDrawer,
   viewMode,
   onViewModeChange,
+  vatMode,
+  onVatModeChange,
 }: Props) {
   const activeCount =
     (searchQuery ? 1 : 0) +
@@ -94,6 +98,39 @@ export function CatalogFilterBar({
             Đặt lại
           </Button>
         )}
+
+        {/* VAT Toggle */}
+        <div
+          role="group"
+          aria-label="Hiển thị giá"
+          className="hidden sm:inline-flex items-center bg-slate-100/90 p-1 rounded-2xl border border-slate-200/80 shadow-3xs shrink-0"
+          title="Hiển thị giá"
+        >
+          <button
+            type="button"
+            onClick={() => onVatModeChange("without_vat")}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              vatMode === "without_vat"
+                ? "bg-white text-slate-800 shadow-sm font-black"
+                : "text-slate-500 hover:text-slate-900"
+            }`}
+            title="Giá chưa VAT"
+          >
+            Chưa VAT
+          </button>
+          <button
+            type="button"
+            onClick={() => onVatModeChange("with_vat")}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              vatMode === "with_vat"
+                ? "bg-white text-indigo-700 shadow-sm font-black"
+                : "text-slate-500 hover:text-slate-900"
+            }`}
+            title="Giá có VAT 8%"
+          >
+            Có VAT
+          </button>
+        </div>
 
         {/* View Mode Toggle: Grid vs Table */}
         <CatalogViewToggle viewMode={viewMode} onViewModeChange={onViewModeChange} />
@@ -181,6 +218,37 @@ export function CatalogFilterBar({
           </SheetHeader>
 
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+            {/* VAT Toggle (Mobile) */}
+            <div className="space-y-2.5">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">
+                Hiển thị giá
+              </h4>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onVatModeChange("without_vat")}
+                  className={`flex-1 p-3 rounded-xl text-xs font-bold text-center border flex items-center justify-center gap-1.5 ${
+                    vatMode === "without_vat"
+                      ? "bg-slate-900 text-white border-transparent"
+                      : "bg-slate-50 border-slate-200 text-slate-700"
+                  }`}
+                >
+                  {vatMode === "without_vat" && <Check className="w-3.5 h-3.5" />}
+                  Chưa VAT
+                </button>
+                <button
+                  onClick={() => onVatModeChange("with_vat")}
+                  className={`flex-1 p-3 rounded-xl text-xs font-bold text-center border flex items-center justify-center gap-1.5 ${
+                    vatMode === "with_vat"
+                      ? "bg-indigo-600 text-white border-transparent"
+                      : "bg-slate-50 border-slate-200 text-slate-700"
+                  }`}
+                >
+                  {vatMode === "with_vat" && <Check className="w-3.5 h-3.5" />}
+                  Có VAT 8%
+                </button>
+              </div>
+            </div>
+
             {/* Brand Filter (Mobile) */}
             {brands.length > 1 && (
               <div className="space-y-2.5">

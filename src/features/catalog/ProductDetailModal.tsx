@@ -3,6 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
 import { Sparkles, PhoneCall, LogIn, CheckCircle2, AlertCircle, BookOpen } from "lucide-react";
+import { formatCatalogPrice } from "@/lib/pricing";
+import type { CatalogVatMode } from "@/lib/pricing";
 import { CatalogProductImage } from "./CatalogProductImage";
 import type { PublicProduct } from "./types";
 
@@ -11,15 +13,14 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onOpenContact: () => void;
+  vatMode: CatalogVatMode;
 }
 
-export function ProductDetailModal({ product, isOpen, onClose, onOpenContact }: Props) {
+export function ProductDetailModal({ product, isOpen, onClose, onOpenContact, vatMode }: Props) {
   if (!product) return null;
 
-  const fmt = (n?: number) =>
-    n ? new Intl.NumberFormat("vi-VN").format(Math.round(n)) + "đ" : "Liên hệ báo giá";
-
   const altText = `${product.brandName} - ${product.name}${product.retailSize ? ` (${product.retailSize})` : ""}`;
+  const hasPricedItem = product.publicPriceItems.some((it) => !it.requiresContact);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -59,37 +60,95 @@ export function ProductDetailModal({ product, isOpen, onClose, onOpenContact }: 
                 </DialogTitle>
               </DialogHeader>
 
-              {/* Price & Size Card */}
-              <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-100/80 space-y-1.5">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    Giá niêm yết bán lẻ:
-                  </span>
-                  <span className="text-xl font-black text-indigo-700 tracking-tight">
-                    {fmt(product.retailPrice)}
-                  </span>
-                </div>
-                {product.publicSizes && product.publicSizes.length > 0 ? (
-                  <div className="flex items-center gap-1.5 text-xs text-slate-600 flex-wrap">
-                    <span className="font-bold text-slate-400">Quy cách:</span>
-                    {product.publicSizes.map((sz, idx) => (
-                      <span
-                        key={idx}
-                        className="font-extrabold text-slate-800 px-2 py-0.5 rounded bg-white border border-indigo-100 text-[10px]"
-                      >
-                        {sz}
-                      </span>
-                    ))}
-                  </div>
-                ) : product.retailSize ? (
-                  <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                    <span className="font-bold text-slate-400">Dung tích:</span>
-                    <span className="font-extrabold text-slate-800 px-2 py-0.5 rounded bg-white border border-indigo-100 text-[10px]">
-                      {product.retailSize}
+              {/* Per-size price table */}
+              {product.publicPriceItems.length > 0 ? (
+                <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-100/80 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      Quy cách &amp; Giá niêm yết:
+                    </span>
+                    <span className="text-[10px] font-semibold text-slate-500 bg-white/80 border border-indigo-100/80 px-2 py-0.5 rounded-md">
+                      {vatMode === "with_vat"
+                        ? "Giá đang hiển thị: Đã gồm VAT 8%"
+                        : "Giá đang hiển thị: Chưa VAT"}
                     </span>
                   </div>
-                ) : null}
-              </div>
+
+                  <div className="space-y-2 divide-y divide-indigo-100/60 pt-0.5">
+                    {product.publicPriceItems.map((item, i) => (
+                      <div
+                        key={i}
+                        className={`flex items-center justify-between gap-3 ${i > 0 ? "pt-2" : ""}`}
+                      >
+                        <span className="text-[11px] font-extrabold text-slate-700 bg-white border border-indigo-100 px-2.5 py-1 rounded-lg whitespace-nowrap shadow-3xs shrink-0">
+                          {item.sizeLabel}
+                        </span>
+                        {item.requiresContact ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs sm:text-sm font-bold text-amber-600 whitespace-nowrap text-right">
+                              Liên hệ báo giá
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onClose();
+                                onOpenContact();
+                              }}
+                              className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 hover:text-indigo-900 bg-white hover:bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-md transition-colors shadow-3xs cursor-pointer"
+                              title="Liên hệ tư vấn và báo giá quy cách này"
+                            >
+                              <PhoneCall className="w-2.5 h-2.5" />
+                              <span>Liên hệ</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-base sm:text-xl font-black text-indigo-700 tracking-tight whitespace-nowrap text-right">
+                            {formatCatalogPrice(item.retailPrice!, vatMode)}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {!hasPricedItem && (
+                    <p className="text-[10px] text-slate-400 font-medium pt-1">
+                      Liên hệ để được tư vấn và nhận báo giá phù hợp
+                    </p>
+                  )}
+                </div>
+              ) : (
+                /* Fallback for products with no publicPriceItems */
+                <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-100/80 space-y-2">
+                  <div className="flex items-baseline justify-between gap-2 flex-wrap">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      Giá niêm yết bán lẻ:
+                    </span>
+                    <span className="text-[10px] font-semibold text-slate-500 bg-white/80 border border-indigo-100/80 px-2 py-0.5 rounded-md">
+                      {vatMode === "with_vat"
+                        ? "Giá đang hiển thị: Đã gồm VAT 8%"
+                        : "Giá đang hiển thị: Chưa VAT"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xl font-black text-indigo-700 tracking-tight">
+                      {product.retailPrice ? (
+                        formatCatalogPrice(product.retailPrice, vatMode)
+                      ) : (
+                        <span className="text-amber-600 text-sm font-bold">Liên hệ báo giá</span>
+                      )}
+                    </span>
+                    {product.retailSize && (
+                      <div className="flex items-center gap-1 text-xs text-slate-600">
+                        <span className="font-bold text-slate-400">Dung tích:</span>
+                        <span className="font-extrabold text-slate-800 px-2 py-0.5 rounded bg-white border border-indigo-100 text-[10px]">
+                          {product.retailSize}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Description */}
               {product.description && (
@@ -129,6 +188,19 @@ export function ProductDetailModal({ product, isOpen, onClose, onOpenContact }: 
                 </div>
               )}
 
+              {/* Warnings if present */}
+              {product.warnings && (
+                <div className="space-y-1.5 p-3 rounded-2xl bg-rose-50/70 border border-rose-100">
+                  <h4 className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5 text-rose-700">
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+                    Lưu ý
+                  </h4>
+                  <p className="text-xs leading-relaxed font-medium text-rose-800">
+                    {product.warnings}
+                  </p>
+                </div>
+              )}
+
               {/* Skin concerns tags */}
               {product.skinConcerns && product.skinConcerns.length > 0 && (
                 <div className="space-y-1.5">
@@ -145,6 +217,14 @@ export function ProductDetailModal({ product, isOpen, onClose, onOpenContact }: 
                       </span>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Sparkles note */}
+              {hasPricedItem && (
+                <div className="flex items-start gap-1.5 text-[10px] text-slate-400 font-medium">
+                  <Sparkles className="w-3 h-3 mt-0.5 shrink-0 text-indigo-400" />
+                  <span>Đăng nhập Partner để xem giá Spa và lên đơn hàng</span>
                 </div>
               )}
             </div>

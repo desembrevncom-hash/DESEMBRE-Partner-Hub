@@ -91,3 +91,31 @@ export const getDisplayPrice = (
 
   return finalPrice;
 };
+
+// ---------------------------------------------------------------------------
+// Public Catalog price helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * VAT mode for the public-facing product catalog.
+ * "without_vat" — show base retail price.
+ * "with_vat"    — show retail price + 8% VAT.
+ * Prices are NEVER mutated in state; VAT is applied at render time only.
+ */
+export type CatalogVatMode = "without_vat" | "with_vat";
+
+/** Re-export so catalog components can reference the same constant. */
+export const CATALOG_VAT_RATE = VAT_RATE;
+
+/**
+ * Format a public catalog retail price string according to the active VAT mode.
+ * Does NOT apply any discount. Base price is never mutated.
+ *
+ * @param price   Base retail price (pre-VAT)
+ * @param vatMode "without_vat" | "with_vat"
+ * @returns       Formatted VND string, e.g. "650.000đ" or "702.000đ"
+ */
+export function formatCatalogPrice(price: number, vatMode: CatalogVatMode): string {
+  const display = vatMode === "with_vat" ? Math.round(price * (1 + VAT_RATE)) : Math.round(price);
+  return formatCurrencyVND(display) + "đ";
+}

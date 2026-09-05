@@ -1,21 +1,26 @@
 import { ChevronRight, PhoneCall } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatCatalogPrice } from "@/lib/pricing";
+import type { CatalogVatMode } from "@/lib/pricing";
 import { CatalogProductImage } from "./CatalogProductImage";
 import type { PublicProduct } from "./types";
+
+const MAX_VISIBLE_SIZES = 2;
 
 interface Props {
   product: PublicProduct;
   onSelect: (product: PublicProduct) => void;
   onOpenContact?: () => void;
+  vatMode: CatalogVatMode;
 }
 
-export function CatalogProductListRow({ product, onSelect, onOpenContact }: Props) {
-  const fmt = (n?: number) =>
-    n ? new Intl.NumberFormat("vi-VN").format(Math.round(n)) + "đ" : null;
-
-  const formattedPrice = fmt(product.retailPrice);
+export function CatalogProductListRow({ product, onSelect, onOpenContact, vatMode }: Props) {
   const altText = `${product.brandName} - ${product.name}${product.retailSize ? ` (${product.retailSize})` : ""}`;
+
+  const visibleItems = product.publicPriceItems.slice(0, MAX_VISIBLE_SIZES);
+  const overflowCount = product.publicPriceItems.length - MAX_VISIBLE_SIZES;
+  const hasPricedItem = product.publicPriceItems.some((it) => !it.requiresContact);
 
   return (
     <div
@@ -52,34 +57,47 @@ export function CatalogProductListRow({ product, onSelect, onOpenContact }: Prop
           {product.name}
         </h3>
 
-        {/* Size chips (Quy cách) */}
-        {product.publicSizes && product.publicSizes.length > 0 && (
-          <div className="flex items-center gap-1 flex-wrap pt-0.5">
-            {product.publicSizes.map((sz, i) => (
-              <span
-                key={i}
-                className="text-[9px] font-extrabold text-slate-700 bg-slate-100 border border-slate-200/70 px-1.5 py-0.2 rounded"
-              >
-                {sz}
-              </span>
+        {visibleItems.length > 0 ? (
+          <div className="space-y-0.5 pt-0.5">
+            {visibleItems.map((item, i) => (
+              <div key={i} className="flex items-center justify-between gap-2 max-w-[220px]">
+                <span className="text-[9px] font-extrabold text-slate-700 bg-slate-100 border border-slate-200/70 px-1.5 py-0.2 rounded whitespace-nowrap shrink-0">
+                  {item.sizeLabel}
+                </span>
+                {item.requiresContact ? (
+                  <span className="text-[9px] font-bold text-amber-600 whitespace-nowrap text-right">
+                    Liên hệ báo giá
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-black text-indigo-700 tracking-tight whitespace-nowrap text-right">
+                    {formatCatalogPrice(item.retailPrice!, vatMode)}
+                  </span>
+                )}
+              </div>
             ))}
+            {overflowCount > 0 && (
+              <p className="text-[9px] font-bold text-slate-400">+{overflowCount} quy cách khác</p>
+            )}
+          </div>
+        ) : (
+          /* Fallback single price */
+          <div className="pt-0.5">
+            {hasPricedItem || product.retailPrice ? (
+              <span className="text-xs sm:text-sm font-black text-indigo-700 tracking-tight">
+                {product.retailPrice
+                  ? formatCatalogPrice(product.retailPrice, vatMode)
+                  : "Liên hệ báo giá"}
+              </span>
+            ) : (
+              <span className="text-xs font-bold text-amber-600">Liên hệ báo giá</span>
+            )}
           </div>
         )}
-
-        <div className="flex items-center justify-between pt-0.5">
-          {formattedPrice ? (
-            <span className="text-xs sm:text-sm font-black text-indigo-700 tracking-tight">
-              {formattedPrice}
-            </span>
-          ) : (
-            <span className="text-xs font-bold text-amber-600">Liên hệ báo giá</span>
-          )}
-        </div>
       </div>
 
       {/* Action */}
       <div className="shrink-0 flex items-center">
-        {formattedPrice ? (
+        {hasPricedItem ? (
           <Button
             size="sm"
             variant="ghost"

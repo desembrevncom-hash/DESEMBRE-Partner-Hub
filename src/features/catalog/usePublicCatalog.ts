@@ -2,7 +2,14 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PRODUCTS, CATEGORIES } from "@/data/products";
 import { fetchActiveDBCatalog } from "@/lib/catalogDb";
-import type { PublicProduct, CatalogBrand, CatalogCategory, CatalogViewMode } from "./types";
+import type { CatalogVatMode } from "@/lib/pricing";
+import type {
+  PublicProduct,
+  PublicPriceItem,
+  CatalogBrand,
+  CatalogCategory,
+  CatalogViewMode,
+} from "./types";
 
 interface PkRow {
   product_id?: number | null;
@@ -24,6 +31,17 @@ const getInitialViewMode = (): CatalogViewMode => {
   return window.innerWidth >= 1024 ? "table" : "grid";
 };
 
+const getInitialVatMode = (): CatalogVatMode => {
+  if (typeof window === "undefined") return "without_vat";
+  try {
+    const saved = localStorage.getItem("catalogVatMode");
+    if (saved === "without_vat" || saved === "with_vat") return saved;
+  } catch (e) {
+    void e;
+  }
+  return "without_vat";
+};
+
 export interface ProductOverrideLike {
   no?: number | null;
   image_url?: string | null;
@@ -35,6 +53,111 @@ export interface ProductOverrideLike {
   // salon_price intentionally excluded — never fetched or mapped into public state
   salon_size?: string | null;
 }
+
+// ---------------------------------------------------------------------------
+// publicPriceItems builder helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * De-duplicate publicPriceItems by sizeLabel (first-seen wins).
+ * Salon/professional prices are NEVER included.
+ */
+function dedupeBySize(items: PublicPriceItem[]): PublicPriceItem[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (seen.has(item.sizeLabel)) return false;
+    seen.add(item.sizeLabel);
+    return true;
+  });
+}
+
+/**
+ * Build publicPriceItems from DB catalog variants + override.
+ * Retail variants get their price; salon variants get requiresContact = true.
+ * Salon prices are NEVER included.
+ */
+function buildPriceItemsFromVariants(
+  variants: Array<{ size_label?: string | null; channel?: string; price?: number | null }>,
+  override: ProductOverrideLike | undefined,
+): PublicPriceItem[] {
+  const items: PublicPriceItem[] = [];
+
+  for (const v of variants) {
+    const sizeLabel = v.size_label?.trim();
+    if (!sizeLabel) continue;
+
+    if (v.channel === "retail") {
+      const price = v.price != null && v.price > 0 ? v.price : undefined;
+      items.push({ sizeLabel, retailPrice: price, requiresContact: price == null });
+    } else {
+      // salon/professional channel — size label is public-safe, price is NOT
+      items.push({ sizeLabel, requiresContact: true });
+    }
+  }
+
+  // Merge override retail_size
+  if (override?.retail_size?.trim()) {
+    const sz = override.retail_size.trim();
+    const price =
+      override.retail_price != null && override.retail_price > 0
+        ? override.retail_price
+        : undefined;
+    items.push({ sizeLabel: sz, retailPrice: price, requiresContact: price == null });
+  }
+
+  // Merge override salon_size (no price — salon price intentionally excluded)
+  if (override?.salon_size?.trim()) {
+    items.push({ sizeLabel: override.salon_size.trim(), requiresContact: true });
+  }
+
+  return dedupeBySize(items);
+}
+
+/**
+ * Build publicPriceItems from static PRODUCTS variants + override.
+ * Static variants use { size, type, price }.
+ */
+function buildPriceItemsFromStaticVariants(
+  variants: Array<{ size?: string | null; type?: string; price?: number | null }>,
+  override: ProductOverrideLike | undefined,
+): PublicPriceItem[] {
+  const items: PublicPriceItem[] = [];
+
+  for (const v of variants) {
+    const sizeLabel = v.size?.trim();
+    if (!sizeLabel) continue;
+
+    if (v.type === "retail") {
+      const basePrice = override?.retail_price ?? v.price;
+      const price = basePrice != null && basePrice > 0 ? basePrice : undefined;
+      items.push({ sizeLabel, retailPrice: price, requiresContact: price == null });
+    } else {
+      // salon/other — size label only
+      items.push({ sizeLabel, requiresContact: true });
+    }
+  }
+
+  // Override retail_size
+  if (override?.retail_size?.trim()) {
+    const sz = override.retail_size.trim();
+    const price =
+      override.retail_price != null && override.retail_price > 0
+        ? override.retail_price
+        : undefined;
+    items.push({ sizeLabel: sz, retailPrice: price, requiresContact: price == null });
+  }
+
+  // Override salon_size (no price)
+  if (override?.salon_size?.trim()) {
+    items.push({ sizeLabel: override.salon_size.trim(), requiresContact: true });
+  }
+
+  return dedupeBySize(items);
+}
+
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
 
 export function usePublicCatalog() {
   const [loading, setLoading] = useState(true);
@@ -49,6 +172,18 @@ export function usePublicCatalog() {
     setViewModeState(mode);
     try {
       localStorage.setItem("catalogViewMode", mode);
+    } catch (e) {
+      void e;
+    }
+  }, []);
+
+  // VAT Mode: without_vat | with_vat
+  const [vatMode, setVatModeState] = useState<CatalogVatMode>(getInitialVatMode);
+
+  const setVatMode = useCallback((mode: CatalogVatMode) => {
+    setVatModeState(mode);
+    try {
+      localStorage.setItem("catalogVatMode", mode);
     } catch (e) {
       void e;
     }
@@ -177,6 +312,9 @@ export function usePublicCatalog() {
           }
           const publicSizes = Array.from(new Set(rawSizes));
 
+          // Build publicPriceItems — salon prices are NEVER included
+          const publicPriceItems = buildPriceItemsFromVariants(p.variants, o);
+
           // Image resolution priority: product.image_url -> override.image_url -> override.image_data_url -> fallback
           const resolvedImg = p.image_url || o?.image_url || o?.image_data_url || undefined;
           const resolvedRetailPrice = o?.retail_price ?? retail?.price;
@@ -199,6 +337,7 @@ export function usePublicCatalog() {
                 : undefined,
             retailSize: resolvedRetailSize,
             publicSizes,
+            publicPriceItems,
             variants: p.variants.map((v) => ({
               size: v.size_label || "Tiêu chuẩn",
               price: v.channel === "retail" ? v.price : undefined,
@@ -264,6 +403,9 @@ export function usePublicCatalog() {
         }
         const publicSizes = Array.from(new Set(rawSizes));
 
+        // Build publicPriceItems — salon prices NEVER included
+        const publicPriceItems = buildPriceItemsFromStaticVariants(p.variants, o);
+
         // Image resolution priority: product.imageUrl -> override.image_url -> override.image_data_url -> fallback
         const rawProdImg = p.imageUrl || (p as unknown as { image_url?: string }).image_url;
         const resolvedImg = rawProdImg || o?.image_url || o?.image_data_url || undefined;
@@ -284,6 +426,7 @@ export function usePublicCatalog() {
               : undefined,
           retailSize: resolvedRetailSize,
           publicSizes,
+          publicPriceItems,
           variants: p.variants.map((v) => ({
             size: v.size,
             price: v.type === "retail" ? (o?.retail_price ?? v.price) : undefined,
@@ -384,6 +527,9 @@ export function usePublicCatalog() {
     // View Mode
     viewMode,
     setViewMode,
+    // VAT Mode
+    vatMode,
+    setVatMode,
     // Filters
     searchQuery,
     setSearchQuery,

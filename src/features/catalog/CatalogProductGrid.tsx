@@ -1,5 +1,6 @@
 import { Loader2, PackageSearch, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { CatalogVatMode } from "@/lib/pricing";
 import { CatalogProductCard } from "./CatalogProductCard";
 import type { PublicProduct } from "./types";
 
@@ -8,9 +9,16 @@ interface Props {
   loading: boolean;
   onSelectProduct: (prod: PublicProduct) => void;
   onClearFilters: () => void;
+  vatMode: CatalogVatMode;
 }
 
-export function CatalogProductGrid({ products, loading, onSelectProduct, onClearFilters }: Props) {
+export function CatalogProductGrid({
+  products,
+  loading,
+  onSelectProduct,
+  onClearFilters,
+  vatMode,
+}: Props) {
   if (loading) {
     return (
       <div className="py-24 text-center">
@@ -50,7 +58,7 @@ export function CatalogProductGrid({ products, loading, onSelectProduct, onClear
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
       {products.map((p) => (
-        <CatalogProductCard key={p.id} product={p} onSelect={onSelectProduct} />
+        <CatalogProductCard key={p.id} product={p} onSelect={onSelectProduct} vatMode={vatMode} />
       ))}
     </div>
   );

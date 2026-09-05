@@ -10,9 +10,10 @@ describe("publicCatalog Image Resolution & Fallback Logic", () => {
     desc?: string | null;
     retail_price?: number | null;
     retail_size?: string | null;
-    salon_price?: number | null;
+    // salon_price removed — no longer fetched in public catalog queries
     salon_size?: string | null;
   }
+
 
   // Pure helper reflecting usePublicCatalog image resolution logic
   function resolveProductImage(

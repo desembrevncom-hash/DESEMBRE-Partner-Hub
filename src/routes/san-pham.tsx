@@ -29,6 +29,8 @@ export function PublicCatalogPage() {
     categories,
     viewMode,
     setViewMode,
+    vatMode,
+    setVatMode,
     searchQuery,
     setSearchQuery,
     selectedBrand,
@@ -128,6 +130,8 @@ export function PublicCatalogPage() {
             onToggleDrawer={setIsFilterDrawerOpen}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
+            vatMode={vatMode}
+            onVatModeChange={setVatMode}
           />
 
           {viewMode === "grid" ? (
@@ -136,6 +140,7 @@ export function PublicCatalogPage() {
               loading={loading}
               onSelectProduct={openProductDetail}
               onClearFilters={clearFilters}
+              vatMode={vatMode}
             />
           ) : (
             <CatalogProductTable
@@ -144,6 +149,7 @@ export function PublicCatalogPage() {
               onSelectProduct={openProductDetail}
               onOpenContact={openContact}
               onClearFilters={clearFilters}
+              vatMode={vatMode}
             />
           )}
 
@@ -165,6 +171,7 @@ export function PublicCatalogPage() {
         isOpen={isDetailOpen}
         onClose={closeProductDetail}
         onOpenContact={openContact}
+        vatMode={vatMode}
       />
 
       {/* Quick Contact Modal */}

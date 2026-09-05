@@ -1,6 +1,8 @@
 import { Eye, PhoneCall, PackageSearch, RotateCcw, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatCatalogPrice } from "@/lib/pricing";
+import type { CatalogVatMode } from "@/lib/pricing";
 import { CatalogProductListRow } from "./CatalogProductListRow";
 import { CatalogProductImage } from "./CatalogProductImage";
 import type { PublicProduct } from "./types";
@@ -11,6 +13,7 @@ interface Props {
   onSelectProduct: (prod: PublicProduct) => void;
   onOpenContact?: () => void;
   onClearFilters: () => void;
+  vatMode: CatalogVatMode;
 }
 
 export function CatalogProductTable({
@@ -19,10 +22,8 @@ export function CatalogProductTable({
   onSelectProduct,
   onOpenContact,
   onClearFilters,
+  vatMode,
 }: Props) {
-  const fmt = (n?: number) =>
-    n ? new Intl.NumberFormat("vi-VN").format(Math.round(n)) + "đ" : null;
-
   if (loading) {
     return (
       <div className="py-24 text-center">
@@ -69,37 +70,37 @@ export function CatalogProductTable({
             product={p}
             onSelect={onSelectProduct}
             onOpenContact={onOpenContact}
+            vatMode={vatMode}
           />
         ))}
       </div>
 
-      {/* Desktop view: Comparison table */}
+      {/* Desktop view: 4-column comparison table */}
       <div className="hidden md:block bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse table-auto">
             <thead>
               <tr className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200/80 text-[10px] font-black uppercase tracking-wider text-slate-500">
-                <th scope="col" className="py-3 px-3 text-center w-16">
+                <th scope="col" className="py-3 px-3 text-center w-16 shrink-0">
                   Ảnh
                 </th>
                 <th scope="col" className="py-3 px-3 min-w-[240px]">
                   Sản phẩm
                 </th>
-                <th scope="col" className="py-3 px-3 min-w-[140px] text-center">
-                  Quy cách
+                <th scope="col" className="py-3 px-3 w-[320px] min-w-[300px] max-w-[360px]">
+                  {vatMode === "with_vat" ? "Quy cách & Giá đã gồm VAT" : "Quy cách & Giá chưa VAT"}
                 </th>
-                <th scope="col" className="py-3 px-3 text-right w-36">
-                  Giá niêm yết
-                </th>
-                <th scope="col" className="py-3 px-3 text-center w-28">
+                <th scope="col" className="py-3 px-3 text-center w-28 shrink-0">
                   Thao tác
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
               {products.map((p, idx) => {
-                const formattedPrice = fmt(p.retailPrice);
                 const altText = `${p.brandName} - ${p.name}${p.retailSize ? ` (${p.retailSize})` : ""}`;
+                // Action logic: has at least one priced item → show "Chi tiết"; all contact-only → show "Liên hệ"
+                const hasPricedItem = p.publicPriceItems.some((it) => !it.requiresContact);
+
                 return (
                   <tr
                     key={p.id}
@@ -109,7 +110,7 @@ export function CatalogProductTable({
                     } hover:bg-indigo-50/50`}
                   >
                     {/* Ảnh */}
-                    <td className="py-2.5 px-3 text-center">
+                    <td className="py-2.5 px-3 text-center w-16">
                       <div className="w-11 h-11 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center p-0.5 mx-auto overflow-hidden">
                         <CatalogProductImage
                           src={p.imageUrl}
@@ -130,7 +131,7 @@ export function CatalogProductTable({
                           {p.description}
                         </p>
                       )}
-                      {/* Category badge and brand badge under product name/description */}
+                      {/* Category + brand badges */}
                       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                         <Badge
                           variant="outline"
@@ -146,17 +147,25 @@ export function CatalogProductTable({
                       </div>
                     </td>
 
-                    {/* Quy cách */}
-                    <td className="py-2.5 px-3 text-center">
-                      {p.publicSizes && p.publicSizes.length > 0 ? (
-                        <div className="flex flex-wrap items-center justify-center gap-1">
-                          {p.publicSizes.map((sz, i) => (
-                            <span
-                              key={i}
-                              className="text-[10px] font-extrabold text-slate-700 px-1.5 py-0.5 rounded-md bg-slate-100 border border-slate-200/70 inline-block whitespace-nowrap"
-                            >
-                              {sz}
-                            </span>
+                    {/* Quy cách & Giá */}
+                    <td className="py-2.5 px-3 w-[320px] min-w-[300px] max-w-[360px]">
+                      {p.publicPriceItems.length > 0 ? (
+                        <div className="space-y-1.5 w-full max-w-[320px]">
+                          {p.publicPriceItems.map((item, i) => (
+                            <div key={i} className="flex items-center justify-between gap-3">
+                              <span className="text-[10px] font-extrabold text-slate-600 bg-slate-100 border border-slate-200/70 px-1.5 py-0.5 rounded-md whitespace-nowrap shrink-0">
+                                {item.sizeLabel}
+                              </span>
+                              {item.requiresContact ? (
+                                <span className="text-[10px] font-bold text-amber-600 whitespace-nowrap text-right">
+                                  Liên hệ báo giá
+                                </span>
+                              ) : (
+                                <span className="text-[11px] font-black text-indigo-700 tracking-tight whitespace-nowrap text-right">
+                                  {formatCatalogPrice(item.retailPrice!, vatMode)}
+                                </span>
+                              )}
+                            </div>
                           ))}
                         </div>
                       ) : (
@@ -164,22 +173,9 @@ export function CatalogProductTable({
                       )}
                     </td>
 
-                    {/* Giá niêm yết */}
-                    <td className="py-2.5 px-3 text-right whitespace-nowrap">
-                      {formattedPrice ? (
-                        <span className="text-xs font-black text-indigo-700 tracking-tight">
-                          {formattedPrice}
-                        </span>
-                      ) : (
-                        <span className="text-[11px] font-bold text-amber-600">
-                          Liên hệ báo giá
-                        </span>
-                      )}
-                    </td>
-
                     {/* Thao tác */}
                     <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                      {formattedPrice ? (
+                      {hasPricedItem ? (
                         <Button
                           size="sm"
                           variant="outline"
