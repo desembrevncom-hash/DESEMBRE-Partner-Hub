@@ -3,13 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { PRODUCTS, CATEGORIES } from "@/data/products";
 import { fetchActiveDBCatalog } from "@/lib/catalogDb";
 import type { CatalogVatMode } from "@/lib/pricing";
-import type {
-  PublicProduct,
-  PublicPriceItem,
-  CatalogBrand,
-  CatalogCategory,
-  CatalogViewMode,
-} from "./types";
+import type { PublicProduct, CatalogBrand, CatalogCategory, CatalogViewMode } from "./types";
+import {
+  type ProductOverrideSafe,
+  buildOverrideIndex,
+  findMatchingOverride,
+  buildPublicProductData,
+  logCatalogParityDiagnostics,
+} from "./catalogParityUtils";
 
 interface PkRow {
   product_id?: number | null;
@@ -17,7 +18,6 @@ interface PkRow {
   benefits?: string | null;
   skin_concerns?: string[] | null;
   warnings?: string | null;
-  product?: { name?: string | null } | null;
 }
 
 const getInitialViewMode = (): CatalogViewMode => {
@@ -41,123 +41,6 @@ const getInitialVatMode = (): CatalogVatMode => {
   }
   return "without_vat";
 };
-
-export interface ProductOverrideLike {
-  no?: number | null;
-  image_url?: string | null;
-  image_data_url?: string | null;
-  name?: string | null;
-  desc?: string | null;
-  retail_price?: number | null;
-  retail_size?: string | null;
-  // salon_price intentionally excluded — never fetched or mapped into public state
-  salon_size?: string | null;
-}
-
-// ---------------------------------------------------------------------------
-// publicPriceItems builder helpers
-// ---------------------------------------------------------------------------
-
-/**
- * De-duplicate publicPriceItems by sizeLabel (first-seen wins).
- * Salon/professional prices are NEVER included.
- */
-function dedupeBySize(items: PublicPriceItem[]): PublicPriceItem[] {
-  const seen = new Set<string>();
-  return items.filter((item) => {
-    if (seen.has(item.sizeLabel)) return false;
-    seen.add(item.sizeLabel);
-    return true;
-  });
-}
-
-/**
- * Build publicPriceItems from DB catalog variants + override.
- * Retail variants get their price; salon variants get requiresContact = true.
- * Salon prices are NEVER included.
- */
-function buildPriceItemsFromVariants(
-  variants: Array<{ size_label?: string | null; channel?: string; price?: number | null }>,
-  override: ProductOverrideLike | undefined,
-): PublicPriceItem[] {
-  const items: PublicPriceItem[] = [];
-
-  for (const v of variants) {
-    const sizeLabel = v.size_label?.trim();
-    if (!sizeLabel) continue;
-
-    if (v.channel === "retail") {
-      const price = v.price != null && v.price > 0 ? v.price : undefined;
-      items.push({ sizeLabel, retailPrice: price, requiresContact: price == null });
-    } else {
-      // salon/professional channel — size label is public-safe, price is NOT
-      items.push({ sizeLabel, requiresContact: true });
-    }
-  }
-
-  // Merge override retail_size
-  if (override?.retail_size?.trim()) {
-    const sz = override.retail_size.trim();
-    const price =
-      override.retail_price != null && override.retail_price > 0
-        ? override.retail_price
-        : undefined;
-    items.push({ sizeLabel: sz, retailPrice: price, requiresContact: price == null });
-  }
-
-  // Merge override salon_size (no price — salon price intentionally excluded)
-  if (override?.salon_size?.trim()) {
-    items.push({ sizeLabel: override.salon_size.trim(), requiresContact: true });
-  }
-
-  return dedupeBySize(items);
-}
-
-/**
- * Build publicPriceItems from static PRODUCTS variants + override.
- * Static variants use { size, type, price }.
- */
-function buildPriceItemsFromStaticVariants(
-  variants: Array<{ size?: string | null; type?: string; price?: number | null }>,
-  override: ProductOverrideLike | undefined,
-): PublicPriceItem[] {
-  const items: PublicPriceItem[] = [];
-
-  for (const v of variants) {
-    const sizeLabel = v.size?.trim();
-    if (!sizeLabel) continue;
-
-    if (v.type === "retail") {
-      const basePrice = override?.retail_price ?? v.price;
-      const price = basePrice != null && basePrice > 0 ? basePrice : undefined;
-      items.push({ sizeLabel, retailPrice: price, requiresContact: price == null });
-    } else {
-      // salon/other — size label only
-      items.push({ sizeLabel, requiresContact: true });
-    }
-  }
-
-  // Override retail_size
-  if (override?.retail_size?.trim()) {
-    const sz = override.retail_size.trim();
-    const price =
-      override.retail_price != null && override.retail_price > 0
-        ? override.retail_price
-        : undefined;
-    items.push({ sizeLabel: sz, retailPrice: price, requiresContact: price == null });
-  }
-
-  // Override salon_size (no price)
-  if (override?.salon_size?.trim()) {
-    items.push({ sizeLabel: override.salon_size.trim(), requiresContact: true });
-  }
-
-  return dedupeBySize(items);
-}
-
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
 
 export function usePublicCatalog() {
   const [loading, setLoading] = useState(true);
@@ -207,40 +90,31 @@ export function usePublicCatalog() {
   const loadData = useCallback(async () => {
     setLoading(true);
 
-    // 1. Declare overridesMap before any try/catch and before any product mapping
-    const overridesMap = new Map<string, ProductOverrideLike>();
+    // 1. Fetch product overrides safely (explicit public-safe columns only)
+    const rawOverridesList: ProductOverrideSafe[] = [];
 
-    // Fetch product_overrides safely (no status filter)
     try {
       const { data: overridesData, error: overridesError } = await supabase
         .from("product_overrides")
-        // Only fetch public-safe fields — salon_price, deleted, is_custom, link_url, section
-        // and updated_at are intentionally excluded from the network payload
         .select("no, image_url, image_data_url, name, desc, retail_price, retail_size, salon_size");
+
       if (overridesError) {
         console.warn("[usePublicCatalog] product_overrides query warning:", overridesError);
       } else if (overridesData) {
-        (overridesData as ProductOverrideLike[]).forEach((row) => {
-          if (row.no != null) {
-            overridesMap.set(String(row.no), row);
-          }
-        });
+        rawOverridesList.push(...(overridesData as ProductOverrideSafe[]));
       }
     } catch (err) {
       console.warn("[usePublicCatalog] product_overrides fetch error:", err);
     }
 
-    if (overridesMap.size === 0 && typeof window !== "undefined") {
+    // Include localStorage mock_overrides if available in dev/browser
+    if (typeof window !== "undefined") {
       try {
         const local = localStorage.getItem("mock_overrides");
         if (local) {
           const parsed = JSON.parse(local);
           if (Array.isArray(parsed)) {
-            (parsed as ProductOverrideLike[]).forEach((r) => {
-              if (r.no != null) {
-                overridesMap.set(String(r.no), r);
-              }
-            });
+            rawOverridesList.push(...(parsed as ProductOverrideSafe[]));
           }
         }
       } catch (e) {
@@ -248,7 +122,10 @@ export function usePublicCatalog() {
       }
     }
 
-    // Fetch product_knowledge safely (no status filter)
+    // Build multi-key index for matching (by no, product_no, product_id, catalog_product_id, sku)
+    const overrideIndex = buildOverrideIndex(rawOverridesList);
+
+    // 2. Fetch product_knowledge safely (no status filter)
     const knowledgeMap = new Map<
       string,
       {
@@ -283,71 +160,42 @@ export function usePublicCatalog() {
       console.warn("[usePublicCatalog] product_knowledge query error:", err);
     }
 
-    // 2. Fetch active catalog products from DB or fallback to static
+    // 3. Fetch active catalog products from DB, fallback to static PRODUCTS if DB catalog is empty/fails
     try {
       const dbCatalog = await fetchActiveDBCatalog();
 
       if (dbCatalog && dbCatalog.length > 0) {
         const mappedProducts: PublicProduct[] = dbCatalog.map((p) => {
-          const retail = p.variants.find((v) => v.channel === "retail");
-          const codeKey = p.product_code ? String(p.product_code) : "";
-          const idKey = String(p.id);
-          const o = (codeKey && overridesMap.get(codeKey)) || overridesMap.get(idKey);
+          const matchedOverride = findMatchingOverride(p, overrideIndex);
+          const codeKey = p.product_code ? String(p.product_code).trim() : "";
+          const idKey = String(p.id).trim();
           const kn = (codeKey && knowledgeMap.get(codeKey)) || knowledgeMap.get(idKey);
 
-          // Extract all unique size labels from variants and overrides (retail & salon sizes safe to display)
-          const rawSizes: string[] = [];
-          if (Array.isArray(p.variants)) {
-            p.variants.forEach((v) => {
-              if (v.size_label && typeof v.size_label === "string" && v.size_label.trim()) {
-                rawSizes.push(v.size_label.trim());
-              }
-            });
-          }
-          if (o?.retail_size && typeof o.retail_size === "string" && o.retail_size.trim()) {
-            rawSizes.push(o.retail_size.trim());
-          }
-          if (o?.salon_size && typeof o.salon_size === "string" && o.salon_size.trim()) {
-            rawSizes.push(o.salon_size.trim());
-          }
-          const publicSizes = Array.from(new Set(rawSizes));
-
-          // Build publicPriceItems — salon prices are NEVER included
-          const publicPriceItems = buildPriceItemsFromVariants(p.variants, o);
-
-          // Image resolution priority: product.image_url -> override.image_url -> override.image_data_url -> fallback
-          const resolvedImg = p.image_url || o?.image_url || o?.image_data_url || undefined;
-          const resolvedRetailPrice = o?.retail_price ?? retail?.price;
-          const resolvedRetailSize = o?.retail_size ?? retail?.size_label ?? undefined;
-
-          return {
-            id: p.catalog_product_id || p.id,
-            dbId: p.catalog_product_id || p.id,
-            name: p.name,
-            brandName: p.brand_name || "Desembre",
-            brandCode: p.brand_code,
-            brandId: p.brand_id,
-            categoryName: p.category_name || "Mỹ phẩm",
-            categoryId: p.category_slug || undefined,
-            description: p.description || undefined,
-            imageUrl: resolvedImg,
-            retailPrice:
-              resolvedRetailPrice != null && resolvedRetailPrice > 0
-                ? resolvedRetailPrice
-                : undefined,
-            retailSize: resolvedRetailSize,
-            publicSizes,
-            publicPriceItems,
-            variants: p.variants.map((v) => ({
-              size: v.size_label || "Tiêu chuẩn",
-              price: v.channel === "retail" ? v.price : undefined,
-              type: v.channel,
-            })),
-            usageInstructions: kn?.usageInstructions,
-            benefits: kn?.benefits,
-            skinConcerns: kn?.skinConcerns,
-            warnings: kn?.warnings,
-          };
+          return buildPublicProductData(
+            {
+              id: p.catalog_product_id || p.id,
+              dbId: p.catalog_product_id || p.id,
+              product_code: p.product_code,
+              catalog_product_id: p.catalog_product_id,
+              name: p.name,
+              brandName: p.brand_name || "Desembre",
+              brandCode: p.brand_code,
+              brandId: p.brand_id,
+              categoryName: p.category_name || "Mỹ phẩm",
+              categoryId: p.category_slug || undefined,
+              description: p.description || undefined,
+              image_url: p.image_url,
+              variants: (p.variants || []).map((v) => ({
+                id: v.variant_id,
+                channel: v.channel,
+                size_label: v.size_label,
+                price: v.price,
+                sku: v.sku,
+              })),
+            },
+            matchedOverride,
+            kn,
+          );
         });
 
         // Brands
@@ -366,6 +214,8 @@ export function usePublicCatalog() {
           .order("name", { ascending: true });
 
         setProducts(mappedProducts);
+        logCatalogParityDiagnostics(mappedProducts);
+
         if (bData && bData.length > 0) setBrands(bData);
         if (cData && cData.length > 0) {
           setCategories(
@@ -380,62 +230,36 @@ export function usePublicCatalog() {
         throw new Error("No DB products returned");
       }
     } catch {
-      // Fallback to static PRODUCTS + overrides
+      // Fallback: Use static PRODUCTS + overrideIndex (exact parity with admin mergedProducts)
       const staticMapped: PublicProduct[] = PRODUCTS.map((p) => {
         const cat = CATEGORIES.find((c) => c.id === p.categoryId);
-        const o = overridesMap.get(String(p.id));
-        const retail = p.variants.find((v) => v.type === "retail");
+        const matchedOverride = findMatchingOverride(p, overrideIndex);
+        const kn = knowledgeMap.get(String(p.id));
 
-        // Extract all unique size labels from variants and overrides
-        const rawSizes: string[] = [];
-        if (Array.isArray(p.variants)) {
-          p.variants.forEach((v) => {
-            if (v.size && typeof v.size === "string" && v.size.trim()) {
-              rawSizes.push(v.size.trim());
-            }
-          });
-        }
-        if (o?.retail_size && typeof o.retail_size === "string" && o.retail_size.trim()) {
-          rawSizes.push(o.retail_size.trim());
-        }
-        if (o?.salon_size && typeof o.salon_size === "string" && o.salon_size.trim()) {
-          rawSizes.push(o.salon_size.trim());
-        }
-        const publicSizes = Array.from(new Set(rawSizes));
-
-        // Build publicPriceItems — salon prices NEVER included
-        const publicPriceItems = buildPriceItemsFromStaticVariants(p.variants, o);
-
-        // Image resolution priority: product.imageUrl -> override.image_url -> override.image_data_url -> fallback
-        const rawProdImg = p.imageUrl || (p as unknown as { image_url?: string }).image_url;
-        const resolvedImg = rawProdImg || o?.image_url || o?.image_data_url || undefined;
-        const resolvedRetailPrice = o?.retail_price ?? retail?.price;
-        const resolvedRetailSize = o?.retail_size ?? retail?.size;
-
-        return {
-          id: p.id,
-          name: o?.name || p.name,
-          brandName: "Desembre",
-          categoryName: cat?.nameVi || cat?.name || p.categoryId,
-          categoryId: p.categoryId,
-          description: o?.desc || p.description,
-          imageUrl: resolvedImg,
-          retailPrice:
-            resolvedRetailPrice != null && resolvedRetailPrice > 0
-              ? resolvedRetailPrice
-              : undefined,
-          retailSize: resolvedRetailSize,
-          publicSizes,
-          publicPriceItems,
-          variants: p.variants.map((v) => ({
-            size: v.size,
-            price: v.type === "retail" ? (o?.retail_price ?? v.price) : undefined,
-            type: v.type,
-          })),
-        };
+        return buildPublicProductData(
+          {
+            id: p.id,
+            name: p.name,
+            brandName: "Desembre",
+            categoryName: cat?.nameVi || cat?.name || p.categoryId,
+            categoryId: p.categoryId,
+            description: p.description,
+            imageUrl: p.imageUrl,
+            variants: p.variants.map((v) => ({
+              id: v.id,
+              type: v.type,
+              size: v.size,
+              price: v.price,
+            })),
+          },
+          matchedOverride,
+          kn,
+        );
       });
 
       setProducts(staticMapped);
+      logCatalogParityDiagnostics(staticMapped);
+
       setBrands([{ id: "desembre", name: "Desembre" }]);
       setCategories(
         CATEGORIES.map((c) => ({

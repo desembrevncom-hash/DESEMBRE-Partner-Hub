@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Package } from "lucide-react";
 
 interface Props {
@@ -19,6 +19,10 @@ export function CatalogProductImage({
   showWatermark = false,
 }: Props) {
   const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [src]);
 
   const isValidSrc = Boolean(src && src.trim().length > 0 && !hasError);
 
