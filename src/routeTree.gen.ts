@@ -12,13 +12,16 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WorkspaceRouteImport } from './routes/workspace'
 import { Route as TasksRouteImport } from './routes/tasks'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SanPhamRouteImport } from './routes/san-pham'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CustomersRouteImport } from './routes/customers'
+import { Route as CatalogRouteImport } from './routes/catalog'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ReportsIndexRouteImport } from './routes/reports/index'
+import { Route as ProductsIndexRouteImport } from './routes/products/index'
 import { Route as OrdersIndexRouteImport } from './routes/orders/index'
 import { Route as MarketingIndexRouteImport } from './routes/marketing/index'
 import { Route as CustomersIndexRouteImport } from './routes/customers/index'
@@ -111,6 +114,11 @@ const SignupRoute = SignupRouteImport.update({
   path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SanPhamRoute = SanPhamRouteImport.update({
+  id: '/san-pham',
+  path: '/san-pham',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -131,6 +139,11 @@ const CustomersRoute = CustomersRouteImport.update({
   path: '/customers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CatalogRoute = CatalogRouteImport.update({
+  id: '/catalog',
+  path: '/catalog',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CalendarRoute = CalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
@@ -144,6 +157,11 @@ const IndexRoute = IndexRouteImport.update({
 const ReportsIndexRoute = ReportsIndexRouteImport.update({
   id: '/reports/',
   path: '/reports/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProductsIndexRoute = ProductsIndexRouteImport.update({
+  id: '/products/',
+  path: '/products/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OrdersIndexRoute = OrdersIndexRouteImport.update({
@@ -542,10 +560,12 @@ const MarketingProvidersReadinessIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/calendar': typeof CalendarRoute
+  '/catalog': typeof CatalogRoute
   '/customers': typeof CustomersRouteWithChildren
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
+  '/san-pham': typeof SanPhamRoute
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
   '/workspace': typeof WorkspaceRoute
@@ -605,6 +625,7 @@ export interface FileRoutesByFullPath {
   '/customers/': typeof CustomersIndexRoute
   '/marketing/': typeof MarketingIndexRoute
   '/orders/': typeof OrdersIndexRoute
+  '/products/': typeof ProductsIndexRoute
   '/reports/': typeof ReportsIndexRoute
   '/marketing/audiences/$id': typeof MarketingAudiencesIdRoute
   '/marketing/audiences/new': typeof MarketingAudiencesNewRoute
@@ -630,9 +651,11 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/calendar': typeof CalendarRoute
+  '/catalog': typeof CatalogRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
+  '/san-pham': typeof SanPhamRoute
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
   '/workspace': typeof WorkspaceRoute
@@ -692,6 +715,7 @@ export interface FileRoutesByTo {
   '/customers': typeof CustomersIndexRoute
   '/marketing': typeof MarketingIndexRoute
   '/orders': typeof OrdersIndexRoute
+  '/products': typeof ProductsIndexRoute
   '/reports': typeof ReportsIndexRoute
   '/marketing/audiences/$id': typeof MarketingAudiencesIdRoute
   '/marketing/audiences/new': typeof MarketingAudiencesNewRoute
@@ -718,10 +742,12 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/calendar': typeof CalendarRoute
+  '/catalog': typeof CatalogRoute
   '/customers': typeof CustomersRouteWithChildren
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
+  '/san-pham': typeof SanPhamRoute
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
   '/workspace': typeof WorkspaceRoute
@@ -781,6 +807,7 @@ export interface FileRoutesById {
   '/customers/': typeof CustomersIndexRoute
   '/marketing/': typeof MarketingIndexRoute
   '/orders/': typeof OrdersIndexRoute
+  '/products/': typeof ProductsIndexRoute
   '/reports/': typeof ReportsIndexRoute
   '/marketing/audiences/$id': typeof MarketingAudiencesIdRoute
   '/marketing/audiences/new': typeof MarketingAudiencesNewRoute
@@ -808,10 +835,12 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/calendar'
+    | '/catalog'
     | '/customers'
     | '/login'
     | '/notifications'
     | '/profile'
+    | '/san-pham'
     | '/signup'
     | '/tasks'
     | '/workspace'
@@ -871,6 +900,7 @@ export interface FileRouteTypes {
     | '/customers/'
     | '/marketing/'
     | '/orders/'
+    | '/products/'
     | '/reports/'
     | '/marketing/audiences/$id'
     | '/marketing/audiences/new'
@@ -896,9 +926,11 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/calendar'
+    | '/catalog'
     | '/login'
     | '/notifications'
     | '/profile'
+    | '/san-pham'
     | '/signup'
     | '/tasks'
     | '/workspace'
@@ -958,6 +990,7 @@ export interface FileRouteTypes {
     | '/customers'
     | '/marketing'
     | '/orders'
+    | '/products'
     | '/reports'
     | '/marketing/audiences/$id'
     | '/marketing/audiences/new'
@@ -983,10 +1016,12 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/calendar'
+    | '/catalog'
     | '/customers'
     | '/login'
     | '/notifications'
     | '/profile'
+    | '/san-pham'
     | '/signup'
     | '/tasks'
     | '/workspace'
@@ -1046,6 +1081,7 @@ export interface FileRouteTypes {
     | '/customers/'
     | '/marketing/'
     | '/orders/'
+    | '/products/'
     | '/reports/'
     | '/marketing/audiences/$id'
     | '/marketing/audiences/new'
@@ -1072,10 +1108,12 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CalendarRoute: typeof CalendarRoute
+  CatalogRoute: typeof CatalogRoute
   CustomersRoute: typeof CustomersRouteWithChildren
   LoginRoute: typeof LoginRoute
   NotificationsRoute: typeof NotificationsRoute
   ProfileRoute: typeof ProfileRoute
+  SanPhamRoute: typeof SanPhamRoute
   SignupRoute: typeof SignupRoute
   TasksRoute: typeof TasksRoute
   WorkspaceRoute: typeof WorkspaceRoute
@@ -1131,6 +1169,7 @@ export interface RootRouteChildren {
   SettingsMessageTemplatesRoute: typeof SettingsMessageTemplatesRoute
   MarketingIndexRoute: typeof MarketingIndexRoute
   OrdersIndexRoute: typeof OrdersIndexRoute
+  ProductsIndexRoute: typeof ProductsIndexRoute
   ReportsIndexRoute: typeof ReportsIndexRoute
   MarketingAudiencesIdRoute: typeof MarketingAudiencesIdRoute
   MarketingAudiencesNewRoute: typeof MarketingAudiencesNewRoute
@@ -1177,6 +1216,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/san-pham': {
+      id: '/san-pham'
+      path: '/san-pham'
+      fullPath: '/san-pham'
+      preLoaderRoute: typeof SanPhamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile': {
       id: '/profile'
       path: '/profile'
@@ -1205,6 +1251,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CustomersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/catalog': {
+      id: '/catalog'
+      path: '/catalog'
+      fullPath: '/catalog'
+      preLoaderRoute: typeof CatalogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/calendar': {
       id: '/calendar'
       path: '/calendar'
@@ -1224,6 +1277,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports/'
       preLoaderRoute: typeof ReportsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/products/': {
+      id: '/products/'
+      path: '/products'
+      fullPath: '/products/'
+      preLoaderRoute: typeof ProductsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/orders/': {
@@ -1782,10 +1842,12 @@ const CustomersRouteWithChildren = CustomersRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CalendarRoute: CalendarRoute,
+  CatalogRoute: CatalogRoute,
   CustomersRoute: CustomersRouteWithChildren,
   LoginRoute: LoginRoute,
   NotificationsRoute: NotificationsRoute,
   ProfileRoute: ProfileRoute,
+  SanPhamRoute: SanPhamRoute,
   SignupRoute: SignupRoute,
   TasksRoute: TasksRoute,
   WorkspaceRoute: WorkspaceRoute,
@@ -1841,6 +1903,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsMessageTemplatesRoute: SettingsMessageTemplatesRoute,
   MarketingIndexRoute: MarketingIndexRoute,
   OrdersIndexRoute: OrdersIndexRoute,
+  ProductsIndexRoute: ProductsIndexRoute,
   ReportsIndexRoute: ReportsIndexRoute,
   MarketingAudiencesIdRoute: MarketingAudiencesIdRoute,
   MarketingAudiencesNewRoute: MarketingAudiencesNewRoute,

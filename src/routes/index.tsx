@@ -70,6 +70,13 @@ function LandingPage() {
               >
                 <a href="#features">Tính năng</a>
               </Button>
+              <Button
+                variant="ghost"
+                asChild
+                className="font-bold text-sm text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-xl px-5 transition-all"
+              >
+                <Link to="/san-pham">Catalog Sản Phẩm</Link>
+              </Button>
             </div>
             <Button
               asChild
@@ -113,7 +120,18 @@ function LandingPage() {
               asChild
               variant="outline"
               size="lg"
-              className="h-14 px-10 rounded-2xl border-slate-200 bg-white hover:bg-slate-50 font-black text-sm transition-all cursor-pointer"
+              className="h-14 px-8 rounded-2xl border-indigo-200 text-indigo-600 bg-indigo-50/50 hover:bg-indigo-100 font-black text-sm transition-all cursor-pointer"
+            >
+              <Link to="/san-pham">
+                <Package className="mr-2 w-4 h-4" />
+                Xem Catalog Sản Phẩm
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              size="lg"
+              className="h-14 px-8 rounded-2xl border-slate-200 bg-white hover:bg-slate-50 font-black text-sm transition-all cursor-pointer"
             >
               <a href="#features">Tìm hiểu Giải pháp</a>
             </Button>
@@ -229,7 +247,17 @@ function LandingPage() {
   );
 }
 
-function FeatureCard({ icon: Icon, title, desc, color }: any) {
+function FeatureCard({
+  icon: Icon,
+  title,
+  desc,
+  color,
+}: {
+  icon: React.ElementType;
+  title: string;
+  desc: string;
+  color: string;
+}) {
   return (
     <div className="p-8 rounded-[32px] bg-slate-50 border border-slate-100 hover:border-indigo-200 transition-all group hover:-translate-y-2">
       <div
@@ -501,7 +529,19 @@ function Dashboard() {
   );
 }
 
-function KpiCard({ title, value, trend, icon: Icon, color }: any) {
+function KpiCard({
+  title,
+  value,
+  trend,
+  icon: Icon,
+  color,
+}: {
+  title: string;
+  value: string;
+  trend: string;
+  icon: React.ElementType;
+  color: string;
+}) {
   return (
     <Card className="rounded-[32px] border-none shadow-sm hover:shadow-xl transition-all duration-200 bg-white group overflow-hidden">
       <CardContent className="p-8">
@@ -524,7 +564,17 @@ function KpiCard({ title, value, trend, icon: Icon, color }: any) {
   );
 }
 
-function QuickActionLink({ to, label, icon: Icon, color }: any) {
+function QuickActionLink({
+  to,
+  label,
+  icon: Icon,
+  color,
+}: {
+  to: string;
+  label: string;
+  icon: React.ElementType;
+  color: string;
+}) {
   return (
     <Link
       to={to}
@@ -537,7 +587,7 @@ function QuickActionLink({ to, label, icon: Icon, color }: any) {
   );
 }
 
-function PlusIcon(props: any) {
+function PlusIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
       {...props}
