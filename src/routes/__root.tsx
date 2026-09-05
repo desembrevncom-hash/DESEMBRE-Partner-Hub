@@ -71,7 +71,13 @@ function RootLayout() {
       });
   }, []);
 
-  if (!user) {
+  const isPublicStandalone =
+    currentPath === "/san-pham" ||
+    currentPath === "/catalog" ||
+    currentPath === "/products" ||
+    currentPath === "/products/";
+
+  if (!user || isPublicStandalone) {
     return (
       <AppErrorBoundary>
         <Outlet />
