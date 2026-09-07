@@ -114,7 +114,8 @@ export function CatalogProductTable({
                       <div className="w-11 h-11 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center p-0.5 mx-auto overflow-hidden">
                         <CatalogProductImage
                           src={p.imageUrl}
-                          alt={altText}
+                          fallbackSrc={p.fallbackImageUrl}
+                          alt={p.imageAlt ?? p.name}
                           className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
                           fallbackIconSize={20}
                         />
@@ -151,22 +152,34 @@ export function CatalogProductTable({
                     <td className="py-2.5 px-3 w-[320px] min-w-[300px] max-w-[360px]">
                       {p.publicPriceItems.length > 0 ? (
                         <div className="space-y-1.5 w-full max-w-[320px]">
-                          {p.publicPriceItems.map((item, i) => (
-                            <div key={i} className="flex items-center justify-between gap-3">
-                              <span className="text-[10px] font-extrabold text-slate-600 bg-slate-100 border border-slate-200/70 px-1.5 py-0.5 rounded-md whitespace-nowrap shrink-0">
-                                {item.sizeLabel}
-                              </span>
-                              {item.requiresContact ? (
-                                <span className="text-[10px] font-bold text-amber-600 whitespace-nowrap text-right">
-                                  Liên hệ báo giá
-                                </span>
-                              ) : (
-                                <span className="text-[11px] font-black text-indigo-700 tracking-tight whitespace-nowrap text-right">
-                                  {formatCatalogPrice(item.retailPrice!, vatMode)}
-                                </span>
-                              )}
-                            </div>
-                          ))}
+                          {p.publicPriceItems.map((item, i) => {
+                            const itemPrice = item.price ?? item.retailPrice;
+                            const isContact =
+                              item.requiresContact || itemPrice == null || itemPrice <= 0;
+                            const channelLabel =
+                              item.channel === "salon" ? "Chuyên nghiệp" : "Niêm yết";
+                            return (
+                              <div key={i} className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className="text-[10px] font-extrabold text-slate-600 bg-slate-100 border border-slate-200/70 px-1.5 py-0.5 rounded-md whitespace-nowrap">
+                                    {item.sizeLabel}
+                                  </span>
+                                  <span className="text-[9px] font-semibold text-slate-400 whitespace-nowrap">
+                                    · {channelLabel}
+                                  </span>
+                                </div>
+                                {isContact ? (
+                                  <span className="text-[10px] font-bold text-amber-600 whitespace-nowrap text-right">
+                                    Liên hệ báo giá
+                                  </span>
+                                ) : (
+                                  <span className="text-[11px] font-black text-indigo-700 tracking-tight whitespace-nowrap text-right">
+                                    {formatCatalogPrice(itemPrice, vatMode)}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       ) : (
                         <span className="text-slate-300">—</span>

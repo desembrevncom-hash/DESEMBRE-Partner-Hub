@@ -29,7 +29,8 @@ export function CatalogProductCard({ product, onSelect, vatMode }: Props) {
       <div className="relative aspect-[4/3] bg-slate-50 flex items-center justify-center p-4 overflow-hidden border-b border-slate-100">
         <CatalogProductImage
           src={product.imageUrl}
-          alt={altText}
+          fallbackSrc={product.fallbackImageUrl}
+          alt={product.imageAlt ?? product.name}
           className="h-full w-full object-contain group-hover:scale-105 transition-transform duration-500 ease-out"
           fallbackIconSize={48}
           showWatermark
@@ -83,22 +84,32 @@ export function CatalogProductCard({ product, onSelect, vatMode }: Props) {
           {/* Up to 2 size-price rows */}
           {visibleItems.length > 0 ? (
             <div className="space-y-1">
-              {visibleItems.map((item, i) => (
-                <div key={i} className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-extrabold text-slate-600 bg-slate-100 border border-slate-200/70 px-1.5 py-0.5 rounded-md whitespace-nowrap shrink-0">
-                    {item.sizeLabel}
-                  </span>
-                  {item.requiresContact ? (
-                    <span className="text-[10px] font-bold text-amber-600 whitespace-nowrap text-right">
-                      Liên hệ báo giá
-                    </span>
-                  ) : (
-                    <span className="text-xs font-black text-indigo-700 tracking-tight whitespace-nowrap text-right">
-                      {formatCatalogPrice(item.retailPrice!, vatMode)}
-                    </span>
-                  )}
-                </div>
-              ))}
+              {visibleItems.map((item, i) => {
+                const itemPrice = item.price ?? item.retailPrice;
+                const isContact = item.requiresContact || itemPrice == null || itemPrice <= 0;
+                const channelLabel = item.channel === "salon" ? "Chuyên nghiệp" : "Niêm yết";
+                return (
+                  <div key={i} className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className="text-[10px] font-extrabold text-slate-600 bg-slate-100 border border-slate-200/70 px-1.5 py-0.5 rounded-md whitespace-nowrap">
+                        {item.sizeLabel}
+                      </span>
+                      <span className="text-[9px] font-semibold text-slate-400 whitespace-nowrap">
+                        · {channelLabel}
+                      </span>
+                    </div>
+                    {isContact ? (
+                      <span className="text-[10px] font-bold text-amber-600 whitespace-nowrap text-right">
+                        Liên hệ báo giá
+                      </span>
+                    ) : (
+                      <span className="text-xs font-black text-indigo-700 tracking-tight whitespace-nowrap text-right">
+                        {formatCatalogPrice(itemPrice, vatMode)}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
               {overflowCount > 0 && (
                 <p className="text-[10px] font-bold text-slate-400 mt-0.5">
                   +{overflowCount} quy cách khác

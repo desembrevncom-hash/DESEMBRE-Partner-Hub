@@ -1,14 +1,16 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useOptionalAuth } from "@/hooks/useAuth";
 import { PRODUCTS, CATEGORIES } from "@/data/products";
-import { fetchActiveDBCatalog } from "@/lib/catalogDb";
+import { fetchPublicCatalogSafe } from "@/lib/publicCatalogDb";
 import type { CatalogVatMode } from "@/lib/pricing";
 import type { PublicProduct, CatalogBrand, CatalogCategory, CatalogViewMode } from "./types";
 import {
   type ProductOverrideSafe,
-  buildOverrideIndex,
-  findMatchingOverride,
-  buildPublicProductData,
+  type DiagItem,
+  buildOverrideMapByNo,
+  mapDbProductToPublic,
+  mapStaticProductToPublic,
   logCatalogParityDiagnostics,
 } from "./catalogParityUtils";
 
@@ -16,7 +18,7 @@ interface PkRow {
   product_id?: number | null;
   usage_instructions?: string | null;
   benefits?: string | null;
-  skin_concerns?: string[] | null;
+  skinConcerns?: string[];
   warnings?: string | null;
 }
 
@@ -42,7 +44,14 @@ const getInitialVatMode = (): CatalogVatMode => {
   return "without_vat";
 };
 
-export function usePublicCatalog() {
+export interface UsePublicCatalogOptions {
+  canViewPartnerPrices?: boolean;
+}
+
+export function usePublicCatalog(options?: UsePublicCatalogOptions) {
+  // Public catalog displays full prices (retail & salon/professional) for all visitors
+  const canViewPartnerPrices = options?.canViewPartnerPrices ?? true;
+
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<PublicProduct[]>([]);
   const [brands, setBrands] = useState<CatalogBrand[]>([]);
@@ -90,13 +99,16 @@ export function usePublicCatalog() {
   const loadData = useCallback(async () => {
     setLoading(true);
 
-    // 1. Fetch product overrides safely (explicit public-safe columns only)
+    // 1. Fetch product_overrides safely (explicit public-safe columns only, including salon_price)
     const rawOverridesList: ProductOverrideSafe[] = [];
 
     try {
+      const overrideColumns =
+        "no, image_url, name, desc, retail_price, retail_size, salon_price, salon_size";
+
       const { data: overridesData, error: overridesError } = await supabase
         .from("product_overrides")
-        .select("no, image_url, image_data_url, name, desc, retail_price, retail_size, salon_size");
+        .select(overrideColumns);
 
       if (overridesError) {
         console.warn("[usePublicCatalog] product_overrides query warning:", overridesError);
@@ -107,7 +119,7 @@ export function usePublicCatalog() {
       console.warn("[usePublicCatalog] product_overrides fetch error:", err);
     }
 
-    // Include localStorage mock_overrides if available in dev/browser
+    // Include localStorage mock_overrides in dev/client fallback
     if (typeof window !== "undefined") {
       try {
         const local = localStorage.getItem("mock_overrides");
@@ -122,10 +134,10 @@ export function usePublicCatalog() {
       }
     }
 
-    // Build multi-key index for matching (by no, product_no, product_id, catalog_product_id, sku)
-    const overrideIndex = buildOverrideIndex(rawOverridesList);
+    // Index overrides by numeric no
+    const overrideByNo = buildOverrideMapByNo(rawOverridesList);
 
-    // 2. Fetch product_knowledge safely (no status filter)
+    // 2. Fetch product_knowledge safely
     const knowledgeMap = new Map<
       string,
       {
@@ -160,66 +172,31 @@ export function usePublicCatalog() {
       console.warn("[usePublicCatalog] product_knowledge query error:", err);
     }
 
-    // 3. Fetch active catalog products from DB, fallback to static PRODUCTS if DB catalog is empty/fails
+    // 3. Dedicated public-safe catalog DB query
     try {
-      const dbCatalog = await fetchActiveDBCatalog();
+      const dbResult = await fetchPublicCatalogSafe({ canViewPartnerPrices });
 
-      if (dbCatalog && dbCatalog.length > 0) {
-        const mappedProducts: PublicProduct[] = dbCatalog.map((p) => {
-          const matchedOverride = findMatchingOverride(p, overrideIndex);
+      if (dbResult.products && dbResult.products.length > 0) {
+        const mappedProducts: PublicProduct[] = [];
+        const diagList: DiagItem[] = [];
+
+        dbResult.products.forEach((p) => {
           const codeKey = p.product_code ? String(p.product_code).trim() : "";
           const idKey = String(p.id).trim();
           const kn = (codeKey && knowledgeMap.get(codeKey)) || knowledgeMap.get(idKey);
 
-          return buildPublicProductData(
-            {
-              id: p.catalog_product_id || p.id,
-              dbId: p.catalog_product_id || p.id,
-              product_code: p.product_code,
-              catalog_product_id: p.catalog_product_id,
-              name: p.name,
-              brandName: p.brand_name || "Desembre",
-              brandCode: p.brand_code,
-              brandId: p.brand_id,
-              categoryName: p.category_name || "Mỹ phẩm",
-              categoryId: p.category_slug || undefined,
-              description: p.description || undefined,
-              image_url: p.image_url,
-              variants: (p.variants || []).map((v) => ({
-                id: v.variant_id,
-                channel: v.channel,
-                size_label: v.size_label,
-                price: v.price,
-                sku: v.sku,
-              })),
-            },
-            matchedOverride,
-            kn,
-          );
+          const { product, diag } = mapDbProductToPublic(p, overrideByNo, kn, canViewPartnerPrices);
+          mappedProducts.push(product);
+          diagList.push(diag);
         });
 
-        // Brands
-        const { data: bData } = await supabase
-          .from("product_brands")
-          .select("id, name, code")
-          .eq("is_active", true)
-          .order("sort_order", { ascending: true });
-
-        // Categories
-        const { data: cData } = await supabase
-          .from("product_categories")
-          .select("id, name, brand_id")
-          .eq("is_active", true)
-          .order("sort_order", { ascending: true })
-          .order("name", { ascending: true });
-
         setProducts(mappedProducts);
-        logCatalogParityDiagnostics(mappedProducts);
+        logCatalogParityDiagnostics(diagList);
 
-        if (bData && bData.length > 0) setBrands(bData);
-        if (cData && cData.length > 0) {
+        if (dbResult.brands.length > 0) setBrands(dbResult.brands);
+        if (dbResult.categories.length > 0) {
           setCategories(
-            cData.map((c) => ({
+            dbResult.categories.map((c) => ({
               id: c.id,
               name: c.name,
               brandId: c.brand_id,
@@ -227,38 +204,28 @@ export function usePublicCatalog() {
           );
         }
       } else {
-        throw new Error("No DB products returned");
+        throw new Error("No DB products returned from public catalog DB");
       }
     } catch {
-      // Fallback: Use static PRODUCTS + overrideIndex (exact parity with admin mergedProducts)
-      const staticMapped: PublicProduct[] = PRODUCTS.map((p) => {
-        const cat = CATEGORIES.find((c) => c.id === p.categoryId);
-        const matchedOverride = findMatchingOverride(p, overrideIndex);
-        const kn = knowledgeMap.get(String(p.id));
+      // Fallback to static PRODUCTS + overrideByNo (matching Admin mergedProducts)
+      const mappedProducts: PublicProduct[] = [];
+      const diagList: DiagItem[] = [];
 
-        return buildPublicProductData(
-          {
-            id: p.id,
-            name: p.name,
-            brandName: "Desembre",
-            categoryName: cat?.nameVi || cat?.name || p.categoryId,
-            categoryId: p.categoryId,
-            description: p.description,
-            imageUrl: p.imageUrl,
-            variants: p.variants.map((v) => ({
-              id: v.id,
-              type: v.type,
-              size: v.size,
-              price: v.price,
-            })),
-          },
-          matchedOverride,
+      PRODUCTS.forEach((p) => {
+        const kn = knowledgeMap.get(String(p.id));
+        const { product, diag } = mapStaticProductToPublic(
+          p,
+          overrideByNo,
+          CATEGORIES,
           kn,
+          canViewPartnerPrices,
         );
+        mappedProducts.push(product);
+        diagList.push(diag);
       });
 
-      setProducts(staticMapped);
-      logCatalogParityDiagnostics(staticMapped);
+      setProducts(mappedProducts);
+      logCatalogParityDiagnostics(diagList);
 
       setBrands([{ id: "desembre", name: "Desembre" }]);
       setCategories(
@@ -270,7 +237,7 @@ export function usePublicCatalog() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [canViewPartnerPrices]);
 
   useEffect(() => {
     loadData();
@@ -344,6 +311,7 @@ export function usePublicCatalog() {
 
   return {
     loading,
+    canViewPartnerPrices,
     products,
     filteredProducts,
     brands,

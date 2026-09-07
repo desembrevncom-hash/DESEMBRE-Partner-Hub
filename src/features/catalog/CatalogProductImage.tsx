@@ -3,6 +3,7 @@ import { Package } from "lucide-react";
 
 interface Props {
   src?: string | null;
+  fallbackSrc?: string | null;
   alt: string;
   className?: string;
   containerClassName?: string;
@@ -12,19 +13,42 @@ interface Props {
 
 export function CatalogProductImage({
   src,
+  fallbackSrc,
   alt,
   className = "w-full h-full object-contain",
   containerClassName = "w-full h-full flex items-center justify-center bg-slate-50",
   fallbackIconSize = 24,
   showWatermark = false,
 }: Props) {
+  const [useFallback, setUseFallback] = useState(false);
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
+    setUseFallback(false);
     setHasError(false);
-  }, [src]);
+  }, [src, fallbackSrc]);
 
-  const isValidSrc = Boolean(src && src.trim().length > 0 && !hasError);
+  const activeSrc = (!useFallback ? src : fallbackSrc) || undefined;
+  const isValidSrc = Boolean(activeSrc && activeSrc.trim().length > 0 && !hasError);
+
+  if (import.meta.env.DEV) {
+    console.log("[CatalogProductImage]", { alt, src, fallbackSrc, activeSrc, hasError });
+  }
+
+  const handleError = () => {
+    if (import.meta.env.DEV) {
+      console.warn("[CatalogProductImage] Image load failed for src:", activeSrc, {
+        originalSrc: src,
+        fallbackSrc,
+        usedFallback: useFallback,
+      });
+    }
+    if (!useFallback && fallbackSrc && fallbackSrc.trim().length > 0) {
+      setUseFallback(true);
+    } else {
+      setHasError(true);
+    }
+  };
 
   if (!isValidSrc) {
     return (
@@ -45,12 +69,6 @@ export function CatalogProductImage({
   }
 
   return (
-    <img
-      src={src!}
-      alt={alt}
-      loading="lazy"
-      onError={() => setHasError(true)}
-      className={className}
-    />
+    <img src={activeSrc} alt={alt} loading="lazy" onError={handleError} className={className} />
   );
 }

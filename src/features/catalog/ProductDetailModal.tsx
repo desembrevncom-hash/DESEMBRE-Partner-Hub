@@ -30,7 +30,8 @@ export function ProductDetailModal({ product, isOpen, onClose, onOpenContact, va
           <div className="bg-slate-50 flex items-center justify-center p-6 border-b md:border-b-0 md:border-r border-slate-100 relative min-h-[280px]">
             <CatalogProductImage
               src={product.imageUrl}
-              alt={altText}
+              fallbackSrc={product.fallbackImageUrl}
+              alt={product.imageAlt ?? product.name}
               className="max-h-72 w-auto object-contain rounded-2xl shadow-sm hover:scale-105 transition-transform duration-300"
               fallbackIconSize={64}
               showWatermark
@@ -65,7 +66,7 @@ export function ProductDetailModal({ product, isOpen, onClose, onOpenContact, va
                 <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-100/80 space-y-2.5">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                      Quy cách &amp; Giá niêm yết:
+                      Quy cách &amp; Giá:
                     </span>
                     <span className="text-[10px] font-semibold text-slate-500 bg-white/80 border border-indigo-100/80 px-2 py-0.5 rounded-md">
                       {vatMode === "with_vat"
@@ -75,40 +76,50 @@ export function ProductDetailModal({ product, isOpen, onClose, onOpenContact, va
                   </div>
 
                   <div className="space-y-2 divide-y divide-indigo-100/60 pt-0.5">
-                    {product.publicPriceItems.map((item, i) => (
-                      <div
-                        key={i}
-                        className={`flex items-center justify-between gap-3 ${i > 0 ? "pt-2" : ""}`}
-                      >
-                        <span className="text-[11px] font-extrabold text-slate-700 bg-white border border-indigo-100 px-2.5 py-1 rounded-lg whitespace-nowrap shadow-3xs shrink-0">
-                          {item.sizeLabel}
-                        </span>
-                        {item.requiresContact ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs sm:text-sm font-bold text-amber-600 whitespace-nowrap text-right">
-                              Liên hệ báo giá
+                    {product.publicPriceItems.map((item, i) => {
+                      const itemPrice = item.price ?? item.retailPrice;
+                      const isContact = item.requiresContact || itemPrice == null || itemPrice <= 0;
+                      const channelLabel = item.channel === "salon" ? "Chuyên nghiệp" : "Niêm yết";
+                      return (
+                        <div
+                          key={i}
+                          className={`flex items-center justify-between gap-3 ${i > 0 ? "pt-2" : ""}`}
+                        >
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[11px] font-extrabold text-slate-700 bg-white border border-indigo-100 px-2.5 py-1 rounded-lg whitespace-nowrap shadow-3xs">
+                              {item.sizeLabel}
                             </span>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onClose();
-                                onOpenContact();
-                              }}
-                              className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 hover:text-indigo-900 bg-white hover:bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-md transition-colors shadow-3xs cursor-pointer"
-                              title="Liên hệ tư vấn và báo giá quy cách này"
-                            >
-                              <PhoneCall className="w-2.5 h-2.5" />
-                              <span>Liên hệ</span>
-                            </button>
+                            <span className="text-[10px] font-semibold text-slate-400 whitespace-nowrap">
+                              · {channelLabel}
+                            </span>
                           </div>
-                        ) : (
-                          <span className="text-base sm:text-xl font-black text-indigo-700 tracking-tight whitespace-nowrap text-right">
-                            {formatCatalogPrice(item.retailPrice!, vatMode)}
-                          </span>
-                        )}
-                      </div>
-                    ))}
+                          {isContact ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs sm:text-sm font-bold text-amber-600 whitespace-nowrap text-right">
+                                Liên hệ báo giá
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onClose();
+                                  onOpenContact();
+                                }}
+                                className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 hover:text-indigo-900 bg-white hover:bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-md transition-colors shadow-3xs cursor-pointer"
+                                title="Liên hệ tư vấn và báo giá quy cách này"
+                              >
+                                <PhoneCall className="w-2.5 h-2.5" />
+                                <span>Liên hệ</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-base sm:text-xl font-black text-indigo-700 tracking-tight whitespace-nowrap text-right">
+                              {formatCatalogPrice(itemPrice!, vatMode)}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {!hasPricedItem && (

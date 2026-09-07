@@ -250,6 +250,13 @@ export function useAuth() {
   return ctx;
 }
 
+/**
+ * Safe optional version of useAuth that returns null when outside AuthProvider instead of throwing.
+ */
+export function useOptionalAuth() {
+  return useContext(Ctx);
+}
+
 export function getRoleLabel(role: AppRole): string {
   switch (role) {
     case "admin":

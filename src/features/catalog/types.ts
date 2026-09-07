@@ -11,16 +11,17 @@ export interface PublicProductVariant {
 }
 
 /**
- * A single size+price row for the public catalog.
- * retailPrice stores the BASE price (pre-VAT) — never mutated.
+ * A single size+price row for the catalog.
+ * price stores the BASE price (pre-VAT) — never mutated.
  * VAT is applied at render time via formatCatalogPrice().
- * Salon/professional prices are NEVER present here.
  */
 export interface PublicPriceItem {
   sizeLabel: string;
-  /** Base retail price (pre-VAT). Undefined when no public retail price exists. */
+  channel: "retail" | "salon";
+  /** Base price (pre-VAT). Undefined when hidden or contact required. */
+  price?: number;
+  /** Backwards compatibility alias for retailPrice */
   retailPrice?: number;
-  /** True when this size has no public retail price — display "Liên hệ báo giá" */
   requiresContact: boolean;
 }
 
@@ -35,15 +36,17 @@ export interface PublicProduct {
   categoryId?: string;
   description?: string;
   imageUrl?: string;
+  /** Optional fallback image URL (e.g. image_data_url) if primary imageUrl fails (403/404) */
+  fallbackImageUrl?: string;
+  imageAlt?: string;
   /** Base retail price for single-size products. Use publicPriceItems for multi-size display. */
   retailPrice?: number;
   retailSize?: string;
-  /** All public-safe size labels (retail + salon labels — but never salon prices). */
+  /** All public size labels (retail + salon). */
   publicSizes: string[];
   /**
    * Per-size price rows for display.
-   * Each item has a sizeLabel and either a base retailPrice or requiresContact = true.
-   * Salon/professional prices are NEVER included.
+   * Each item has a sizeLabel, channel ("retail" | "salon"), and price (or requiresContact = true).
    */
   publicPriceItems: PublicPriceItem[];
   variants?: PublicProductVariant[];
