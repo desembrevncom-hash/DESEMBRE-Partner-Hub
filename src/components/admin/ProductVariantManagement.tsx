@@ -20,6 +20,7 @@ import {
   PlusCircle,
   Eye,
   Info,
+  Upload,
 } from "lucide-react";
 import { CRMCard } from "@/components/crm/CRMCard";
 import { CRMStatusBadge } from "@/components/crm/CRMStatusBadge";
@@ -55,6 +56,9 @@ import {
   isValidHttpUrl,
   normalizeSku,
   hasDuplicateVariant,
+  validateProductImageFile,
+  uploadProductImage,
+  uploadAndSaveProductImage,
 } from "@/lib/catalogAdminDb";
 import { stableProductSort, computeNextProductSortOrder } from "@/lib/catalogSort";
 
@@ -104,11 +108,15 @@ interface Product {
 interface ProductVariantManagementProps {
   brands: Brand[];
   categories: Category[];
+  autoOpenAddProduct?: boolean;
+  onAddProductHandled?: () => void;
 }
 
 export const ProductVariantManagement: React.FC<ProductVariantManagementProps> = ({
   brands,
   categories,
+  autoOpenAddProduct,
+  onAddProductHandled,
 }) => {
   const [selectedBrandId, setSelectedBrandId] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -126,6 +134,11 @@ export const ProductVariantManagement: React.FC<ProductVariantManagementProps> =
 
   const [panelImageUrl, setPanelImageUrl] = useState("");
   const [panelImageSaving, setPanelImageSaving] = useState(false);
+  const [panelImageUploading, setPanelImageUploading] = useState(false);
+  const panelFileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const [dialogImageUploading, setDialogImageUploading] = useState(false);
+  const dialogFileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (selectedProduct) {
@@ -305,15 +318,33 @@ export const ProductVariantManagement: React.FC<ProductVariantManagementProps> =
 
     setPanelImageSaving(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("catalog_products")
         .update({ image_url: cleanUrl || null })
-        .eq("id", selectedProduct.id);
+        .eq("id", selectedProduct.id)
+        .select("id, product_code, name, image_url");
 
       if (error) {
         toast.error("Không thể cập nhật ảnh: " + error.message);
+        if (import.meta.env.DEV) {
+          console.error("[handlePanelImageSave] Update error:", {
+            productId: selectedProduct.id,
+            product_code: selectedProduct.product_code,
+            cleanUrl,
+            error: error.message,
+          });
+        }
+      } else if (!data || data.length === 0) {
+        toast.error(
+          "Không tìm thấy sản phẩm trong cơ sở dữ liệu để cập nhật ảnh (0 hàng được cập nhật).",
+        );
       } else {
         toast.success("Cập nhật ảnh sản phẩm thành công!");
+        const updatedUrl = cleanUrl || null;
+        setSelectedProduct((prev) => (prev ? { ...prev, image_url: updatedUrl } : null));
+        setProducts((prev) =>
+          prev.map((p) => (p.id === selectedProduct.id ? { ...p, image_url: updatedUrl } : p)),
+        );
         await loadProductsAndVariants(selectedBrandId);
       }
     } catch (err: unknown) {
@@ -328,16 +359,32 @@ export const ProductVariantManagement: React.FC<ProductVariantManagementProps> =
     if (!selectedProduct) return;
     setPanelImageSaving(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("catalog_products")
         .update({ image_url: null })
-        .eq("id", selectedProduct.id);
+        .eq("id", selectedProduct.id)
+        .select("id, product_code, name, image_url");
 
       if (error) {
         toast.error("Không thể xóa ảnh: " + error.message);
+        if (import.meta.env.DEV) {
+          console.error("[handlePanelImageClear] Delete error:", {
+            productId: selectedProduct.id,
+            product_code: selectedProduct.product_code,
+            error: error.message,
+          });
+        }
+      } else if (!data || data.length === 0) {
+        toast.error(
+          "Không tìm thấy sản phẩm trong cơ sở dữ liệu để xóa ảnh (0 hàng được cập nhật).",
+        );
       } else {
         toast.success("Đã xóa ảnh sản phẩm.");
         setPanelImageUrl("");
+        setSelectedProduct((prev) => (prev ? { ...prev, image_url: null } : null));
+        setProducts((prev) =>
+          prev.map((p) => (p.id === selectedProduct.id ? { ...p, image_url: null } : p)),
+        );
         await loadProductsAndVariants(selectedBrandId);
       }
     } catch (err: unknown) {
@@ -345,6 +392,86 @@ export const ProductVariantManagement: React.FC<ProductVariantManagementProps> =
       toast.error("Có lỗi xảy ra: " + msg);
     } finally {
       setPanelImageSaving(false);
+    }
+  };
+
+  const handlePanelImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedProduct) return;
+
+    const validation = validateProductImageFile(file);
+    if (!validation.valid) {
+      toast.error(validation.error || "File ảnh không hợp lệ.");
+      if (panelFileInputRef.current) panelFileInputRef.current.value = "";
+      return;
+    }
+
+    setPanelImageUploading(true);
+    try {
+      const res = await uploadAndSaveProductImage(
+        selectedProduct.id,
+        file,
+        selectedProduct.product_code,
+      );
+      if (res.error || !res.publicUrl) {
+        toast.error(res.error || "Tải ảnh lên thất bại.");
+        if (import.meta.env.DEV) {
+          console.error("[handlePanelImageUpload] Error:", {
+            productId: selectedProduct.id,
+            product_code: selectedProduct.product_code,
+            uploadedUrl: res.publicUrl,
+            updateError: res.error,
+          });
+        }
+      } else {
+        toast.success("Tải lên và cập nhật ảnh sản phẩm thành công!");
+        const newUrl = res.publicUrl;
+        setPanelImageUrl(newUrl);
+        // 1. Update local selected product state
+        setSelectedProduct((prev) => (prev ? { ...prev, image_url: newUrl } : null));
+        // 2. Patch the row in products list state immediately
+        setProducts((prev) =>
+          prev.map((p) => (p.id === selectedProduct.id ? { ...p, image_url: newUrl } : p)),
+        );
+        // 3. Reload from DB to verify persistence
+        await loadProductsAndVariants(selectedBrandId);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error("Có lỗi xảy ra khi tải ảnh: " + msg);
+    } finally {
+      setPanelImageUploading(false);
+      if (panelFileInputRef.current) panelFileInputRef.current.value = "";
+    }
+  };
+
+  const handleDialogImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validation = validateProductImageFile(file);
+    if (!validation.valid) {
+      toast.error(validation.error || "File ảnh không hợp lệ.");
+      if (dialogFileInputRef.current) dialogFileInputRef.current.value = "";
+      return;
+    }
+
+    setDialogImageUploading(true);
+    try {
+      const targetId = editingProduct?.id || `new-${Date.now()}`;
+      const res = await uploadProductImage(targetId, file);
+      if (res.error || !res.publicUrl) {
+        toast.error(res.error || "Tải ảnh lên thất bại.");
+      } else {
+        toast.success("Tải ảnh lên thành công!");
+        setProductForm((prev) => ({ ...prev, image_url: res.publicUrl! }));
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error("Có lỗi xảy ra khi tải ảnh: " + msg);
+    } finally {
+      setDialogImageUploading(false);
+      if (dialogFileInputRef.current) dialogFileInputRef.current.value = "";
     }
   };
 
@@ -370,6 +497,15 @@ export const ProductVariantManagement: React.FC<ProductVariantManagementProps> =
     });
     setProductDialogOpen(true);
   };
+
+  // Auto-open add product when requested by header button
+  useEffect(() => {
+    if (autoOpenAddProduct && selectedBrandId) {
+      openAddProduct();
+      onAddProductHandled?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenAddProduct, selectedBrandId]);
 
   const openEditProduct = (prod: Product) => {
     setEditingProduct(prod);
@@ -1008,18 +1144,77 @@ export const ProductVariantManagement: React.FC<ProductVariantManagementProps> =
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="p-img" className="text-xs font-bold text-slate-500">
-                  Link ảnh sản phẩm (http/https URL hoặc đường dẫn storage)
-                </Label>
-                <Input
-                  id="p-img"
-                  value={productForm.image_url}
-                  onChange={(e) =>
-                    setProductForm((prev) => ({ ...prev, image_url: e.target.value }))
-                  }
-                  className="h-10 rounded-xl border-slate-200 text-sm"
-                  placeholder="https://example.com/image.png hoặc /assets/img.jpg"
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="p-img" className="text-xs font-bold text-slate-500">
+                    Ảnh sản phẩm (URL hoặc tải tệp lên)
+                  </Label>
+                  {dialogImageUploading && (
+                    <span className="text-[10px] font-bold text-blue-600 flex items-center gap-1">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Đang tải ảnh...
+                    </span>
+                  )}
+                </div>
+                <input
+                  type="file"
+                  ref={dialogFileInputRef}
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={handleDialogImageUpload}
+                  className="hidden"
                 />
+                <div className="flex gap-2">
+                  <Input
+                    id="p-img"
+                    value={productForm.image_url}
+                    onChange={(e) =>
+                      setProductForm((prev) => ({ ...prev, image_url: e.target.value }))
+                    }
+                    className="h-10 rounded-xl border-slate-200 text-sm"
+                    placeholder="https://... hoặc tải ảnh từ máy"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => dialogFileInputRef.current?.click()}
+                    disabled={dialogImageUploading}
+                    className="h-10 px-3.5 rounded-xl border-slate-200 hover:bg-slate-50 text-xs font-bold shrink-0 min-h-[40px]"
+                  >
+                    {dialogImageUploading ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                    ) : (
+                      <>
+                        <Upload className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
+                        Tải ảnh
+                      </>
+                    )}
+                  </Button>
+                </div>
+                {productForm.image_url && (
+                  <div className="flex items-center gap-3 pt-1">
+                    <img
+                      src={getImageUrlDisplay(productForm.image_url)}
+                      alt="Preview"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.onerror = null;
+                        target.src = "/logo.svg";
+                      }}
+                      className="w-10 h-10 object-cover rounded-lg border border-slate-200 bg-white shadow-2xs shrink-0"
+                    />
+                    <span className="text-[11px] text-slate-500 truncate max-w-[260px] font-mono">
+                      {productForm.image_url}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setProductForm((prev) => ({ ...prev, image_url: "" }))}
+                      className="text-[11px] text-rose-500 hover:text-rose-700 font-bold ml-auto shrink-0"
+                    >
+                      Bỏ ảnh
+                    </button>
+                  </div>
+                )}
+                <div className="text-[10px] text-slate-400">
+                  Hỗ trợ JPG, PNG, WEBP (tối đa 5MB). Ảnh tải lên sẽ lưu vào kho lưu trữ an toàn.
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -1425,31 +1620,76 @@ export const ProductVariantManagement: React.FC<ProductVariantManagementProps> =
 
               {/* Product Image Editing block */}
               <div className="space-y-3 p-4 bg-slate-50 rounded-xl border border-slate-200/60 shadow-sm">
-                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  Ảnh sản phẩm
+                <div className="flex items-center justify-between">
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    Ảnh sản phẩm
+                  </div>
+                  {panelImageUploading && (
+                    <span className="text-[10px] font-bold text-blue-600 flex items-center gap-1">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Đang tải ảnh...
+                    </span>
+                  )}
                 </div>
+
+                <input
+                  type="file"
+                  ref={panelFileInputRef}
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={handlePanelImageUpload}
+                  className="hidden"
+                />
+
                 <div className="flex gap-4 items-start">
-                  <img
-                    src={getImageUrlDisplay(selectedProduct.image_url)}
-                    alt={selectedProduct.name}
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.onerror = null;
-                      target.src = "/logo.svg";
-                    }}
-                    className="w-16 h-16 object-cover rounded-xl border border-slate-200 shrink-0 shadow-sm"
-                  />
+                  <div className="relative group shrink-0">
+                    <img
+                      src={getImageUrlDisplay(selectedProduct.image_url)}
+                      alt={selectedProduct.name}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.onerror = null;
+                        target.src = "/logo.svg";
+                      }}
+                      className="w-16 h-16 object-cover rounded-xl border border-slate-200 shadow-sm bg-white"
+                    />
+                    {panelImageUploading && (
+                      <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center">
+                        <Loader2 className="w-5 h-5 animate-spin text-white" />
+                      </div>
+                    )}
+                  </div>
+
                   <div className="flex-1 space-y-2">
                     <Input
                       value={panelImageUrl}
                       onChange={(e) => setPanelImageUrl(e.target.value)}
                       placeholder="Nhập URL ảnh (http/https hoặc storage path)..."
                       className="h-9 rounded-lg border-slate-200 text-xs"
+                      disabled={panelImageUploading || panelImageSaving}
                     />
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button
                         size="sm"
-                        disabled={panelImageSaving}
+                        type="button"
+                        variant="outline"
+                        disabled={panelImageUploading || panelImageSaving}
+                        onClick={() => panelFileInputRef.current?.click()}
+                        className="h-8 text-[10px] px-3 font-bold border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg min-h-[32px]"
+                      >
+                        {panelImageUploading ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin mr-1" /> Đang tải...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-3 h-3 mr-1 text-slate-500" />
+                            {selectedProduct.image_url ? "Thay ảnh" : "Tải ảnh lên"}
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        type="button"
+                        disabled={panelImageSaving || panelImageUploading}
                         onClick={handlePanelImageSave}
                         className="h-8 text-[10px] px-3 font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg min-h-[32px]"
                       >
@@ -1458,20 +1698,24 @@ export const ProductVariantManagement: React.FC<ProductVariantManagementProps> =
                             <Loader2 className="w-3 h-3 animate-spin mr-1" /> Đang lưu
                           </>
                         ) : (
-                          "Lưu ảnh"
+                          "Lưu URL ảnh"
                         )}
                       </Button>
                       {selectedProduct.image_url && (
                         <Button
                           size="sm"
+                          type="button"
                           variant="ghost"
-                          disabled={panelImageSaving}
+                          disabled={panelImageSaving || panelImageUploading}
                           onClick={handlePanelImageClear}
                           className="h-8 text-[10px] px-3 font-bold text-rose-600 hover:bg-rose-50 rounded-lg min-h-[32px]"
                         >
                           Xóa ảnh
                         </Button>
                       )}
+                    </div>
+                    <div className="text-[10px] text-slate-400">
+                      Chấp nhận JPG, PNG, WEBP (tối đa 5MB) hoặc nhập trực tiếp URL.
                     </div>
                   </div>
                 </div>

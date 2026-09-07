@@ -28,6 +28,7 @@ export interface PublicPriceItem {
 export interface PublicProduct {
   id: string | number;
   dbId?: string;
+  product_code?: string;
   name: string;
   brandName: string;
   brandCode?: string;

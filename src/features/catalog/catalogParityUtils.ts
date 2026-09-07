@@ -213,6 +213,7 @@ export function mapDbProductToPublic(
   const product: PublicProduct = {
     id: dbProd.id,
     dbId: dbProd.id,
+    product_code: dbProd.product_code || undefined,
     name,
     brandName: dbProd.brand_name || "Desembre",
     brandCode: dbProd.brand_code,
@@ -335,6 +336,7 @@ export function mapStaticProductToPublic(
 
   const product: PublicProduct = {
     id: prod.id,
+    product_code: String(prod.id),
     name,
     brandName: "Desembre",
     categoryName,

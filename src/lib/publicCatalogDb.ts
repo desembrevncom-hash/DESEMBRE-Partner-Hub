@@ -49,62 +49,122 @@ export interface FetchPublicCatalogOptions {
  * - salon variants: id, product_id, sku, channel, size_label, price, is_active (channel = salon)
  */
 export async function fetchPublicCatalogSafe(
-  options?: FetchPublicCatalogOptions,
+  _options?: FetchPublicCatalogOptions,
 ): Promise<PublicCatalogDbResult> {
-  const canViewPartnerPrices = Boolean(options?.canViewPartnerPrices);
+  // A. Fetch brands (from public_product_brands view, fallback to product_brands table)
+  let brands: Array<{ id: string; name: string; code: string; slug: string }> | null = null;
+  let brandsError: unknown = null;
 
-  // A. Fetch brands
-  const { data: brands, error: brandsError } = await supabase
-    .from("product_brands")
-    .select("id, name, code, slug")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true });
+  try {
+    const res = await supabase
+      .from("public_product_brands")
+      .select("id, name, code, slug")
+      .order("sort_order", { ascending: true });
+    if (res.data && !res.error) {
+      brands = res.data;
+    } else {
+      brandsError = res.error;
+    }
+  } catch (err) {
+    brandsError = err;
+  }
 
-  if (brandsError) {
-    console.warn("[publicCatalogDb] Error fetching brands:", brandsError);
+  if (!brands) {
+    const res = await supabase
+      .from("product_brands")
+      .select("id, name, code, slug")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true });
+    brands = res.data;
+    if (res.error) {
+      console.warn("[publicCatalogDb] Error fetching brands:", brandsError || res.error);
+    }
   }
 
   const activeBrandIds = (brands || []).map((b) => b.id);
   const brandMap = new Map((brands || []).map((b) => [b.id, b]));
 
-  // B. Fetch categories
-  let categoriesQuery = supabase
-    .from("product_categories")
-    .select("id, name, slug, brand_id")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true })
-    .order("name", { ascending: true });
+  // B. Fetch categories (from public_product_categories view, fallback to product_categories table)
+  let categories: Array<{ id: string; name: string; slug: string; brand_id: string }> | null = null;
+  let catError: unknown = null;
 
-  if (activeBrandIds.length > 0) {
-    categoriesQuery = categoriesQuery.in("brand_id", activeBrandIds);
+  try {
+    const res = await supabase
+      .from("public_product_categories")
+      .select("id, name, slug, brand_id")
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+    if (res.data && !res.error) {
+      categories = res.data;
+    } else {
+      catError = res.error;
+    }
+  } catch (err) {
+    catError = err;
   }
 
-  const { data: categories, error: catError } = await categoriesQuery;
-  if (catError) {
-    console.warn("[publicCatalogDb] Error fetching categories:", catError);
+  if (!categories) {
+    const res = await supabase
+      .from("product_categories")
+      .select("id, name, slug, brand_id")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+    categories = res.data;
+    if (res.error) {
+      console.warn("[publicCatalogDb] Error fetching categories:", catError || res.error);
+    }
   }
 
   const categoryMap = new Map((categories || []).map((c) => [c.id, c]));
 
-  // C. Fetch catalog_products
-  let productsQuery = supabase
-    .from("catalog_products")
-    .select(
-      "id, brand_id, category_id, product_code, name, description, image_url, status, sort_order",
-    )
-    .eq("status", "active")
-    .order("sort_order", { ascending: true })
-    .order("product_code", { ascending: true });
+  // C. Fetch catalog_products (from public_catalog_products view, fallback to catalog_products table)
+  let products: Array<{
+    id: string;
+    brand_id: string;
+    category_id: string | null;
+    product_code: string | null;
+    name: string;
+    description: string | null;
+    image_url: string | null;
+    status: string;
+    sort_order: number | null;
+  }> | null = null;
+  let prodError: unknown = null;
 
-  if (activeBrandIds.length > 0) {
-    productsQuery = productsQuery.in("brand_id", activeBrandIds);
+  try {
+    const res = await supabase
+      .from("public_catalog_products")
+      .select(
+        "id, brand_id, category_id, product_code, name, description, image_url, status, sort_order",
+      )
+      .order("sort_order", { ascending: true })
+      .order("product_code", { ascending: true });
+    if (res.data && !res.error) {
+      products = res.data;
+    } else {
+      prodError = res.error;
+    }
+  } catch (err) {
+    prodError = err;
   }
 
-  const { data: products, error: prodError } = await productsQuery;
-  if (prodError || !products || products.length === 0) {
-    if (prodError) {
-      console.warn("[publicCatalogDb] Error fetching products:", prodError);
+  if (!products) {
+    const res = await supabase
+      .from("catalog_products")
+      .select(
+        "id, brand_id, category_id, product_code, name, description, image_url, status, sort_order",
+      )
+      .eq("status", "active")
+      .order("sort_order", { ascending: true })
+      .order("product_code", { ascending: true });
+    products = res.data;
+    if (res.error) {
+      console.warn("[publicCatalogDb] Error fetching products:", prodError || res.error);
     }
+  }
+
+  if (!products || products.length === 0) {
     return {
       products: [],
       brands: brands || [],
@@ -114,28 +174,68 @@ export async function fetchPublicCatalogSafe(
 
   const activeProductIds = products.map((p) => p.id);
 
-  // D. Fetch retail variants — price included for retail
-  const { data: retailVariants, error: retailError } = await supabase
-    .from("catalog_product_variants")
-    .select("id, product_id, sku, channel, size_label, price, is_active")
-    .eq("channel", "retail")
-    .eq("is_active", true)
-    .in("product_id", activeProductIds);
+  // D. Fetch retail variants (from public_catalog_variants view, fallback to catalog_product_variants table)
+  let retailVariants: PublicCatalogVariant[] | null = null;
+  let retailError: unknown = null;
 
-  if (retailError) {
-    console.warn("[publicCatalogDb] Error fetching retail variants:", retailError);
+  try {
+    const res = await supabase
+      .from("public_catalog_variants")
+      .select("id, product_id, sku, channel, size_label, price, is_active")
+      .eq("channel", "retail")
+      .in("product_id", activeProductIds);
+    if (res.data && !res.error) {
+      retailVariants = res.data as PublicCatalogVariant[];
+    } else {
+      retailError = res.error;
+    }
+  } catch (err) {
+    retailError = err;
   }
 
-  // E. Fetch salon/professional variants — price is now public for salon channel as well
-  const { data: salonVariants, error: salonError } = await supabase
-    .from("catalog_product_variants")
-    .select("id, product_id, sku, channel, size_label, price, is_active")
-    .eq("channel", "salon")
-    .eq("is_active", true)
-    .in("product_id", activeProductIds);
+  if (!retailVariants) {
+    const res = await supabase
+      .from("catalog_product_variants")
+      .select("id, product_id, sku, channel, size_label, price, is_active")
+      .eq("channel", "retail")
+      .eq("is_active", true)
+      .in("product_id", activeProductIds);
+    retailVariants = res.data as PublicCatalogVariant[];
+    if (res.error) {
+      console.warn("[publicCatalogDb] Error fetching retail variants:", retailError || res.error);
+    }
+  }
 
-  if (salonError) {
-    console.warn("[publicCatalogDb] Error fetching salon variants:", salonError);
+  // E. Fetch salon variants (from public_catalog_variants view, fallback to catalog_product_variants table)
+  let salonVariants: PublicCatalogVariant[] | null = null;
+  let salonError: unknown = null;
+
+  try {
+    const res = await supabase
+      .from("public_catalog_variants")
+      .select("id, product_id, sku, channel, size_label, price, is_active")
+      .eq("channel", "salon")
+      .in("product_id", activeProductIds);
+    if (res.data && !res.error) {
+      salonVariants = res.data as PublicCatalogVariant[];
+    } else {
+      salonError = res.error;
+    }
+  } catch (err) {
+    salonError = err;
+  }
+
+  if (!salonVariants) {
+    const res = await supabase
+      .from("catalog_product_variants")
+      .select("id, product_id, sku, channel, size_label, price, is_active")
+      .eq("channel", "salon")
+      .eq("is_active", true)
+      .in("product_id", activeProductIds);
+    salonVariants = res.data as PublicCatalogVariant[];
+    if (res.error) {
+      console.warn("[publicCatalogDb] Error fetching salon variants:", salonError || res.error);
+    }
   }
 
   // Group variants by product_id

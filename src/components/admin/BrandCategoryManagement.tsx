@@ -93,9 +93,31 @@ export const normalizeSortOrder = (val: string | number, fallbackVal = 10): numb
   return parsed;
 };
 
-export const BrandCategoryManagement: React.FC = () => {
+interface BrandCategoryManagementProps {
+  initialTab?: "brands" | "categories" | "products";
+  autoOpenAddProduct?: boolean;
+  onAddProductHandled?: () => void;
+}
+
+export const BrandCategoryManagement: React.FC<BrandCategoryManagementProps> = ({
+  initialTab = "brands",
+  autoOpenAddProduct,
+  onAddProductHandled,
+}) => {
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("brands");
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  useEffect(() => {
+    if (autoOpenAddProduct) {
+      setActiveTab("products");
+    }
+  }, [autoOpenAddProduct]);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   // Brands data
   const [brands, setBrands] = useState<BrandRow[]>([]);
@@ -875,7 +897,12 @@ export const BrandCategoryManagement: React.FC = () => {
 
         {/* PRODUCTS & VARIANTS CONTENT */}
         <TabsContent value="products" className="mt-6">
-          <ProductVariantManagement brands={selectableBrands} categories={categories} />
+          <ProductVariantManagement
+            brands={selectableBrands}
+            categories={categories}
+            autoOpenAddProduct={autoOpenAddProduct}
+            onAddProductHandled={onAddProductHandled}
+          />
         </TabsContent>
       </Tabs>
 

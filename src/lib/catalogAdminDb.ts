@@ -221,3 +221,188 @@ export async function checkProductInOrders(productCode: string | null): Promise<
     return false;
   }
 }
+
+/**
+ * Product image file constraints and validation helpers
+ */
+export const MAX_PRODUCT_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+export const ALLOWED_PRODUCT_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
+
+export function validateProductImageFile(file: File | null | undefined): {
+  valid: boolean;
+  error?: string;
+} {
+  if (!file) {
+    return { valid: false, error: "Chưa chọn tệp ảnh." };
+  }
+  if (!ALLOWED_PRODUCT_IMAGE_TYPES.includes(file.type)) {
+    return {
+      valid: false,
+      error: "Định dạng ảnh không hợp lệ. Chỉ chấp nhận JPG, PNG, WEBP.",
+    };
+  }
+  if (file.size > MAX_PRODUCT_IMAGE_SIZE) {
+    return {
+      valid: false,
+      error: "Dung lượng ảnh vượt quá giới hạn 5MB.",
+    };
+  }
+  return { valid: true };
+}
+
+/**
+ * Uploads a product image file to Supabase Storage in the 'product-images' bucket.
+ * Path format: catalog-products/{productId}/{timestamp}-{safe-file-name}
+ */
+export async function uploadProductImage(
+  productId: string,
+  file: File,
+): Promise<{ publicUrl?: string; error?: string }> {
+  const validation = validateProductImageFile(file);
+  if (!validation.valid) {
+    return { error: validation.error };
+  }
+
+  try {
+    const cleanFileName = (file.name || "image.png")
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9._-]/g, "_");
+    const targetId = productId || "temp";
+    const filePath = `catalog-products/${targetId}/${Date.now()}-${cleanFileName}`;
+
+    const { data, error: uploadError } = await supabase.storage
+      .from("product-images")
+      .upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: true,
+      });
+
+    if (uploadError) {
+      return { error: uploadError.message };
+    }
+
+    const { data: publicUrlData } = supabase.storage.from("product-images").getPublicUrl(data.path);
+
+    if (!publicUrlData || !publicUrlData.publicUrl) {
+      return { error: "Không lấy được đường dẫn công khai của ảnh." };
+    }
+
+    return { publicUrl: publicUrlData.publicUrl };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { error: msg };
+  }
+}
+
+/**
+ * Uploads a product image file and updates the catalog_products table with the new image_url.
+ * Ensures the target product ID is verified and updates catalog_products with strict error checking.
+ */
+export async function uploadAndSaveProductImage(
+  productId: string,
+  file: File,
+  productCode?: string | null,
+): Promise<{ publicUrl?: string; error?: string; updatedProduct?: unknown }> {
+  // 1. Verify target product ID in catalog_products
+  let targetId = productId;
+  let targetCode = productCode;
+
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId);
+
+  // If productId is not a UUID, resolve real UUID from catalog_products
+  if (!isUuid) {
+    const searchVal = targetCode || targetId;
+    const { data: found } = await supabase
+      .from("catalog_products")
+      .select("id, product_code, name")
+      .or(`product_code.eq.${searchVal},id.eq.${searchVal}`)
+      .maybeSingle();
+
+    if (found?.id) {
+      targetId = found.id;
+      targetCode = found.product_code || targetCode;
+    }
+  }
+
+  // 2. Upload file to Supabase Storage
+  const uploadRes = await uploadProductImage(targetId, file);
+  if (uploadRes.error || !uploadRes.publicUrl) {
+    if (import.meta.env.DEV) {
+      console.error("[catalogAdminDb] Storage upload failed:", {
+        productId: targetId,
+        product_code: targetCode,
+        error: uploadRes.error,
+      });
+    }
+    return { error: uploadRes.error || "Tải ảnh lên Storage thất bại." };
+  }
+
+  // 3. Persist to public.catalog_products.image_url
+  const { data: updatedRows, error: dbError } = await supabase
+    .from("catalog_products")
+    .update({ image_url: uploadRes.publicUrl })
+    .eq("id", targetId)
+    .select("id, product_code, name, image_url");
+
+  if (dbError) {
+    if (import.meta.env.DEV) {
+      console.error("[catalogAdminDb] Failed to update catalog_products.image_url:", {
+        productId: targetId,
+        product_code: targetCode,
+        uploadedUrl: uploadRes.publicUrl,
+        updateError: dbError.message,
+      });
+    }
+    return {
+      error: `Ảnh đã tải lên Storage nhưng lưu vào database thất bại: ${dbError.message}`,
+    };
+  }
+
+  if (!updatedRows || updatedRows.length === 0) {
+    // Attempt fallback by product_code if available
+    if (targetCode) {
+      const { data: fallbackRows, error: fallbackError } = await supabase
+        .from("catalog_products")
+        .update({ image_url: uploadRes.publicUrl })
+        .eq("product_code", targetCode)
+        .select("id, product_code, name, image_url");
+
+      if (!fallbackError && fallbackRows && fallbackRows.length > 0) {
+        if (import.meta.env.DEV) {
+          console.log("[catalogAdminDb] Persisted catalog_products.image_url via product_code:", {
+            productId: targetId,
+            product_code: targetCode,
+            uploadedUrl: uploadRes.publicUrl,
+            updatedRow: fallbackRows[0],
+          });
+        }
+        return { publicUrl: uploadRes.publicUrl, updatedProduct: fallbackRows[0] };
+      }
+    }
+
+    if (import.meta.env.DEV) {
+      console.error("[catalogAdminDb] 0 rows updated in catalog_products:", {
+        productId: targetId,
+        product_code: targetCode,
+        uploadedUrl: uploadRes.publicUrl,
+        updateError: "0 rows matched target ID",
+      });
+    }
+    return {
+      error:
+        "Không tìm thấy sản phẩm tương ứng trong cơ sở dữ liệu để cập nhật ảnh (0 hàng được cập nhật).",
+    };
+  }
+
+  if (import.meta.env.DEV) {
+    console.log("[catalogAdminDb] Successfully persisted catalog_products.image_url:", {
+      productId: targetId,
+      product_code: targetCode || updatedRows[0]?.product_code,
+      uploadedUrl: uploadRes.publicUrl,
+      updatedRow: updatedRows[0],
+    });
+  }
+
+  return { publicUrl: uploadRes.publicUrl, updatedProduct: updatedRows[0] };
+}

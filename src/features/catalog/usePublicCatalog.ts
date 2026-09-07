@@ -193,6 +193,26 @@ export function usePublicCatalog(options?: UsePublicCatalogOptions) {
         setProducts(mappedProducts);
         logCatalogParityDiagnostics(diagList);
 
+        if (import.meta.env.DEV) {
+          console.groupCollapsed?.(
+            "[usePublicCatalog] Catalog Runtime Source Diagnostics (DB Catalog)",
+          );
+          console.log({
+            "dbResult.products.length": dbResult.products.length,
+            usingDbCatalog: true,
+            fallbackToStatic: false,
+            first10Products: mappedProducts.slice(0, 10).map((p, idx) => ({
+              idx: idx + 1,
+              id: p.id,
+              product_code: p.product_code ?? dbResult.products[idx]?.product_code ?? p.id,
+              name: p.name,
+              db_image_url: dbResult.products[idx]?.image_url ?? null,
+              finalPublicImageUrl: p.imageUrl ?? null,
+            })),
+          });
+          console.groupEnd?.();
+        }
+
         if (dbResult.brands.length > 0) setBrands(dbResult.brands);
         if (dbResult.categories.length > 0) {
           setCategories(
@@ -206,7 +226,13 @@ export function usePublicCatalog(options?: UsePublicCatalogOptions) {
       } else {
         throw new Error("No DB products returned from public catalog DB");
       }
-    } catch {
+    } catch (dbErr) {
+      if (import.meta.env.DEV) {
+        console.warn(
+          "[usePublicCatalog] DB catalog fetch failed or returned empty; falling back to static:",
+          dbErr,
+        );
+      }
       // Fallback to static PRODUCTS + overrideByNo (matching Admin mergedProducts)
       const mappedProducts: PublicProduct[] = [];
       const diagList: DiagItem[] = [];
@@ -223,6 +249,24 @@ export function usePublicCatalog(options?: UsePublicCatalogOptions) {
         mappedProducts.push(product);
         diagList.push(diag);
       });
+
+      if (import.meta.env.DEV) {
+        console.groupCollapsed?.(
+          "[usePublicCatalog] Catalog Runtime Source Diagnostics (Static Fallback)",
+        );
+        console.log({
+          "dbResult.products.length": 0,
+          usingDbCatalog: false,
+          fallbackToStatic: true,
+          first10Products: mappedProducts.slice(0, 10).map((p, idx) => ({
+            idx: idx + 1,
+            product_code: PRODUCTS[idx]?.id,
+            image_url: null,
+            finalPublicImageUrl: p.imageUrl ?? null,
+          })),
+        });
+        console.groupEnd?.();
+      }
 
       setProducts(mappedProducts);
       logCatalogParityDiagnostics(diagList);

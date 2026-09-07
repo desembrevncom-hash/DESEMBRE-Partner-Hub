@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Search, Plus, Download, Zap, Loader2, LayoutGrid, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -93,6 +94,15 @@ function ProductCatalogPage() {
     PAGE_SIZE,
   } = useProductCatalog();
 
+  const [autoOpenAddProduct, setAutoOpenAddProduct] = useState(false);
+
+  const handleAddProductClick = () => {
+    if (isDbAdminEnabled) {
+      setActiveTab("mgmt");
+      setAutoOpenAddProduct(true);
+    }
+  };
+
   return (
     <EditUnlockProvider>
       <CRMPageContainer>
@@ -126,26 +136,31 @@ function ProductCatalogPage() {
                 )}
               </PDFDownloadLink>
 
-              {/* Task 12: THÊM SẢN PHẨM — disabled with tooltip until create flow exists */}
+              {/* THÊM SẢN PHẨM — switches to management tab and opens add product dialog */}
               {isManager && (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="inline-block">
-                        <Button
-                          disabled
-                          className="h-10 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm shadow-indigo-200 transition-all shrink-0 cursor-not-allowed opacity-60"
-                        >
-                          <Plus className="w-4 h-4 mr-2 shrink-0" /> THÊM SẢN PHẨM
-                        </Button>
-                      </span>
+                      <Button
+                        onClick={handleAddProductClick}
+                        disabled={!isDbAdminEnabled}
+                        className={`h-10 px-6 rounded-xl font-bold text-xs shadow-sm transition-all shrink-0 active:scale-95 ${
+                          isDbAdminEnabled
+                            ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200 cursor-pointer"
+                            : "bg-slate-200 text-slate-400 cursor-not-allowed opacity-60"
+                        }`}
+                      >
+                        <Plus className="w-4 h-4 mr-2 shrink-0" /> THÊM SẢN PHẨM
+                      </Button>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      <p className="text-xs">
-                        Tính năng đang phát triển — sử dụng tab Quản lý Brand &amp; Danh mục để thêm
-                        sản phẩm qua DB.
-                      </p>
-                    </TooltipContent>
+                    {!isDbAdminEnabled && (
+                      <TooltipContent side="bottom">
+                        <p className="text-xs">
+                          Catalog DB đang tắt. Bật VITE_FEATURE_CATALOG_DB_ADMIN để quản lý sản
+                          phẩm.
+                        </p>
+                      </TooltipContent>
+                    )}
                   </Tooltip>
                 </TooltipProvider>
               )}
@@ -216,7 +231,11 @@ function ProductCatalogPage() {
           )}
 
           {activeTab === "mgmt" && isDbAdminEnabled && isManager ? (
-            <BrandCategoryManagement />
+            <BrandCategoryManagement
+              initialTab="products"
+              autoOpenAddProduct={autoOpenAddProduct}
+              onAddProductHandled={() => setAutoOpenAddProduct(false)}
+            />
           ) : (
             <>
               {isManager && !isDbAdminEnabled && (
