@@ -13,6 +13,7 @@ import {
   mapStaticProductToPublic,
   logCatalogParityDiagnostics,
 } from "./catalogParityUtils";
+import { sortCatalogProducts } from "./catalogSortUtils";
 
 interface PkRow {
   product_id?: number | null;
@@ -190,10 +191,42 @@ export function usePublicCatalog(options?: UsePublicCatalogOptions) {
           diagList.push(diag);
         });
 
-        setProducts(mappedProducts);
+        // Task 3: Stably sort products by numeric product_code, then sort_order, then name
+        const sortedProducts = sortCatalogProducts(mappedProducts);
+
+        setProducts(sortedProducts);
         logCatalogParityDiagnostics(diagList);
 
         if (import.meta.env.DEV) {
+          console.table(
+            sortedProducts
+              .filter((p) => ["4", "04", "5", "05"].includes(String(p.product_code)))
+              .map((p) => ({
+                id: p.id,
+                product_code: p.product_code,
+                name: p.name,
+                imageUrl: p.imageUrl,
+                fallbackImageUrl: p.fallbackImageUrl,
+                publicPriceItems: p.publicPriceItems?.map((i) => `${i.sizeLabel}:${i.price}`),
+              })),
+          );
+
+          console.log({
+            usingDbCatalog: true,
+            fallbackToStatic: false,
+            "dbResult.products.length": dbResult.products.length,
+          });
+
+          // Task 7: Console.table first 10 public products: product_code, sort_order, name, finalIndex
+          console.table(
+            sortedProducts.slice(0, 10).map((p, idx) => ({
+              finalIndex: idx + 1,
+              product_code: p.product_code,
+              sort_order: p.sort_order ?? 0,
+              name: p.name,
+            })),
+          );
+
           console.groupCollapsed?.(
             "[usePublicCatalog] Catalog Runtime Source Diagnostics (DB Catalog)",
           );
@@ -201,12 +234,12 @@ export function usePublicCatalog(options?: UsePublicCatalogOptions) {
             "dbResult.products.length": dbResult.products.length,
             usingDbCatalog: true,
             fallbackToStatic: false,
-            first10Products: mappedProducts.slice(0, 10).map((p, idx) => ({
+            first10Products: sortedProducts.slice(0, 10).map((p, idx) => ({
               idx: idx + 1,
               id: p.id,
-              product_code: p.product_code ?? dbResult.products[idx]?.product_code ?? p.id,
+              product_code: p.product_code ?? p.id,
               name: p.name,
-              db_image_url: dbResult.products[idx]?.image_url ?? null,
+              db_image_url: p.imageUrl ?? null,
               finalPublicImageUrl: p.imageUrl ?? null,
             })),
           });
@@ -250,7 +283,39 @@ export function usePublicCatalog(options?: UsePublicCatalogOptions) {
         diagList.push(diag);
       });
 
+      // Task 3: Stably sort products by numeric product_code, then sort_order, then name
+      const sortedProducts = sortCatalogProducts(mappedProducts);
+
       if (import.meta.env.DEV) {
+        console.table(
+          sortedProducts
+            .filter((p) => ["4", "04", "5", "05"].includes(String(p.product_code)))
+            .map((p) => ({
+              id: p.id,
+              product_code: p.product_code,
+              name: p.name,
+              imageUrl: p.imageUrl,
+              fallbackImageUrl: p.fallbackImageUrl,
+              publicPriceItems: p.publicPriceItems?.map((i) => `${i.sizeLabel}:${i.price}`),
+            })),
+        );
+
+        console.log({
+          usingDbCatalog: false,
+          fallbackToStatic: true,
+          "dbResult.products.length": 0,
+        });
+
+        // Task 7: Console.table first 10 public products
+        console.table(
+          sortedProducts.slice(0, 10).map((p, idx) => ({
+            finalIndex: idx + 1,
+            product_code: p.product_code,
+            sort_order: p.sort_order ?? 0,
+            name: p.name,
+          })),
+        );
+
         console.groupCollapsed?.(
           "[usePublicCatalog] Catalog Runtime Source Diagnostics (Static Fallback)",
         );
@@ -258,17 +323,17 @@ export function usePublicCatalog(options?: UsePublicCatalogOptions) {
           "dbResult.products.length": 0,
           usingDbCatalog: false,
           fallbackToStatic: true,
-          first10Products: mappedProducts.slice(0, 10).map((p, idx) => ({
+          first10Products: sortedProducts.slice(0, 10).map((p, idx) => ({
             idx: idx + 1,
-            product_code: PRODUCTS[idx]?.id,
-            image_url: null,
+            product_code: p.product_code ?? PRODUCTS[idx]?.id,
+            image_url: p.imageUrl ?? null,
             finalPublicImageUrl: p.imageUrl ?? null,
           })),
         });
         console.groupEnd?.();
       }
 
-      setProducts(mappedProducts);
+      setProducts(sortedProducts);
       logCatalogParityDiagnostics(diagList);
 
       setBrands([{ id: "desembre", name: "Desembre" }]);

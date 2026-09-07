@@ -31,8 +31,14 @@ export function CatalogProductImage({
   const activeSrc = (!useFallback ? src : fallbackSrc) || undefined;
   const isValidSrc = Boolean(activeSrc && activeSrc.trim().length > 0 && !hasError);
 
-  if (import.meta.env.DEV) {
-    console.log("[CatalogProductImage]", { alt, src, fallbackSrc, activeSrc, hasError });
+  if (import.meta.env.DEV && (alt?.includes("ENZYME") || alt?.includes("OXY"))) {
+    console.log("[CatalogProductImage runtime]", {
+      alt,
+      src,
+      fallbackSrc,
+      activeSrc,
+      hasError,
+    });
   }
 
   const handleError = () => {

@@ -92,15 +92,15 @@ describe("Product & Variant UI Helpers - Unit Tests", () => {
   });
 
   describe("stableProductSort", () => {
-    it("should sort by sort_order ASC first", () => {
+    it("should sort by numeric product_code ASC first", () => {
       const items = [
         { sort_order: 20, product_code: "1", name: "A" },
         { sort_order: 10, product_code: "2", name: "B" },
         { sort_order: 30, product_code: "3", name: "C" },
       ];
       const sorted = stableProductSort(items);
-      expect(sorted[0].name).toBe("B");
-      expect(sorted[1].name).toBe("A");
+      expect(sorted[0].name).toBe("A");
+      expect(sorted[1].name).toBe("B");
       expect(sorted[2].name).toBe("C");
     });
 

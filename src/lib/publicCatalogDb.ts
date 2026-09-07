@@ -172,6 +172,20 @@ export async function fetchPublicCatalogSafe(
     };
   }
 
+  if (import.meta.env.DEV) {
+    console.table(
+      products
+        .filter((p) => ["4", "04", "5", "05"].includes(String(p.product_code)))
+        .map((p) => ({
+          id: p.id,
+          product_code: p.product_code,
+          name: p.name,
+          image_url: p.image_url,
+          status: p.status,
+        })),
+    );
+  }
+
   const activeProductIds = products.map((p) => p.id);
 
   // D. Fetch retail variants (from public_catalog_variants view, fallback to catalog_product_variants table)

@@ -29,6 +29,7 @@ export interface PublicProduct {
   id: string | number;
   dbId?: string;
   product_code?: string;
+  sort_order?: number | null;
   name: string;
   brandName: string;
   brandCode?: string;
