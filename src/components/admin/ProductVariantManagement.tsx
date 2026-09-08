@@ -1349,7 +1349,7 @@ export const ProductVariantManagement: React.FC<ProductVariantManagementProps> =
                         Cá nhân (Retail)
                       </SelectItem>
                       <SelectItem value="salon" className="text-sm">
-                        Chuyên nghiệp (Salon)
+                        Salon
                       </SelectItem>
                     </SelectContent>
                   </Select>
@@ -1847,7 +1847,7 @@ export const ProductVariantManagement: React.FC<ProductVariantManagementProps> =
                       <div className="p-4 bg-violet-50/40 rounded-xl border border-violet-100/50 space-y-3 shadow-sm">
                         <div className="flex justify-between items-center">
                           <span className="text-[10px] font-black text-violet-700 uppercase tracking-widest">
-                            Salon (Chuyên nghiệp)
+                            Salon
                           </span>
                           <CRMStatusBadge
                             variant={salon.is_active ? "success" : "neutral"}
@@ -1899,7 +1899,7 @@ export const ProductVariantManagement: React.FC<ProductVariantManagementProps> =
                   return (
                     <div className="p-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 text-center space-y-2">
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                        Chưa cấu hình kênh Salon (Chuyên nghiệp)
+                        Chưa cấu hình kênh Salon
                       </p>
                       <Button
                         variant="outline"

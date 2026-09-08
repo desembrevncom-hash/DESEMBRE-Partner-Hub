@@ -774,7 +774,7 @@ function NewOrderPage() {
                                 <span>#{it.product_no}</span>
                               )}
                               {" · "}
-                              {it.size_type === "retail" ? "Dòng bán lẻ" : "Dòng chuyên nghiệp"}
+                              {it.size_type === "retail" ? "Dòng cá nhân" : "Dòng Salon"}
                             </div>
                           </td>
                           <td className="text-center font-medium">
@@ -921,7 +921,7 @@ function NewOrderPage() {
                               {it.size}
                             </span>
                             <span className="text-[9px] font-bold text-slate-500 px-1.5 py-0.5 bg-slate-100 rounded shrink-0">
-                              {it.size_type === "retail" ? "Dòng bán lẻ" : "Dòng chuyên nghiệp"}
+                              {it.size_type === "retail" ? "Dòng cá nhân" : "Dòng Salon"}
                             </span>
                           </div>
 

@@ -35,7 +35,7 @@ export function ProductVariantAction({
     : layout === "desktop"
       ? ""
       : "CHƯA VAT";
-  const channelLabel = isRetail ? "CÁ NHÂN" : "CHUYÊN NGHIỆP";
+  const channelLabel = isRetail ? "CÁ NHÂN" : "SALON";
   const sizeTag = variant ? `${variant.size} (${isRetail ? "R" : "S"})` : "";
 
   if (layout === "desktop") {

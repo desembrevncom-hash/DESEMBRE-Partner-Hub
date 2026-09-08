@@ -79,7 +79,7 @@ export function ProductDetailModal({ product, isOpen, onClose, onOpenContact, va
                     {product.publicPriceItems.map((item, i) => {
                       const itemPrice = item.price ?? item.retailPrice;
                       const isContact = item.requiresContact || itemPrice == null || itemPrice <= 0;
-                      const channelLabel = item.channel === "salon" ? "Chuyên nghiệp" : "Cá nhân";
+                      const channelLabel = item.channel === "salon" ? "Salon" : "Cá nhân";
                       return (
                         <div
                           key={i}

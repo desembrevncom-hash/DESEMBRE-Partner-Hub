@@ -956,7 +956,7 @@ export function ProductSalesSheetDialog({
                     </div>
                     {contentJson.pricing?.salon?.length === 0 ? (
                       <p className="text-xs text-slate-400 italic">
-                        Chưa có thông tin giá chuyên nghiệp.
+                        Chưa có thông tin giá Salon.
                       </p>
                     ) : (
                       <div className="space-y-3">
@@ -981,7 +981,7 @@ export function ProductSalesSheetDialog({
                               className="h-8 text-xs border-slate-200 w-1/3"
                             />
                             <Input
-                              placeholder="Giá chuyên nghiệp (vd: 1,650,000đ)"
+                              placeholder="Giá Salon (vd: 1,650,000đ)"
                               value={row.price}
                               onChange={(e) =>
                                 handlePricingField("salon", index, "price", e.target.value)
