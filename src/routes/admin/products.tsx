@@ -358,64 +358,12 @@ function ProductCatalogPage() {
                           <th className="px-3 py-4 text-center w-36">Size</th>
                           <th className="px-6 py-4 text-right w-44">Cá nhân</th>
                           <th className="px-6 py-4 text-right w-44">Salon</th>
-                          <th className="px-3 py-4 text-center w-40">
-                            <div className="inline-flex items-center justify-center gap-1">
-                              <span>Tài liệu bán hàng</span>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Info className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 cursor-pointer" />
-                                  </TooltipTrigger>
-                                  <TooltipContent
-                                    side="top"
-                                    className="max-w-xs text-xs space-y-1 p-2.5"
-                                  >
-                                    <p className="font-bold text-slate-900">
-                                      Tài liệu bán hàng (Sales Sheet):
-                                    </p>
-                                    <p className="text-slate-600 leading-relaxed">
-                                      Output tài liệu tóm tắt sản phẩm và bảng giá tạo cho đại
-                                      lý/khách hàng, sinh từ Tri thức AI đã duyệt.
-                                    </p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                          </th>
-                          <th className="px-3 py-4 text-center w-40">
-                            <div className="inline-flex items-center justify-center gap-1">
-                              <span>Thao tác</span>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Info className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 cursor-pointer" />
-                                  </TooltipTrigger>
-                                  <TooltipContent
-                                    side="top"
-                                    className="max-w-xs text-xs space-y-1 p-2.5"
-                                  >
-                                    <p className="font-bold text-slate-900">
-                                      Tri thức AI &amp; Guidebook:
-                                    </p>
-                                    <p className="text-slate-600 leading-relaxed">
-                                      <strong>Tri thức AI:</strong> Dữ liệu có cấu trúc (công dụng,
-                                      thành phần, HDSD, xử lý từ chối) dùng cho trợ lý AI và tư vấn.
-                                    </p>
-                                    <p className="text-slate-600 leading-relaxed">
-                                      <strong>Tài liệu nguồn (Guidebook):</strong> Upload trong chi
-                                      tiết sản phẩm để trích xuất gợi ý vào Tri thức.
-                                    </p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {loading ? (
                           <tr>
-                            <td colSpan={8} className="py-32 text-center">
+                            <td colSpan={6} className="py-32 text-center">
                               <div className="flex flex-col items-center gap-4">
                                 <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
                                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest animate-pulse">
@@ -426,7 +374,7 @@ function ProductCatalogPage() {
                           </tr>
                         ) : paginatedProducts.length === 0 ? (
                           <tr>
-                            <td colSpan={8} className="py-32 text-center">
+                            <td colSpan={6} className="py-32 text-center">
                               <div className="flex flex-col items-center gap-4 opacity-30">
                                 <Zap className="w-16 h-16 text-slate-600" />
                                 <p className="text-sm font-bold text-slate-500">

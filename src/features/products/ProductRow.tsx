@@ -142,6 +142,133 @@ export function ProductRow({
             salesSheetStatus={salesSheetStatus}
             className="pt-1"
           />
+          {/* Action Buttons Row */}
+          <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-100">
+            {isManager ? (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onOpenKnowledge}
+                  className="h-8 px-2.5 text-[10px] font-black text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 uppercase tracking-wider rounded-xl transition-all whitespace-nowrap"
+                >
+                  <Sparkles className="w-3.5 h-3.5 mr-1 animate-pulse" /> Tri thức AI
+                </Button>
+
+                {!(p.isDbProduct && p.dbId) ? (
+                  <ProductLinkCell
+                    productNo={p.id}
+                    href={p.pdfUrl}
+                    onChange={(url) => onUpdate("link_url", url)}
+                    isReadOnly={false}
+                  />
+                ) : salesSheetInfo?.status === "approved" ? (
+                  <Button
+                    onClick={onOpenSalesSheet}
+                    variant="outline"
+                    className="h-8 px-2.5 rounded-xl border-green-200 text-green-700 bg-green-50 hover:bg-green-100 text-[10px] font-bold whitespace-nowrap"
+                  >
+                    <Printer className="w-3.5 h-3.5 mr-1" />
+                    Sales Sheet
+                  </Button>
+                ) : salesSheetInfo?.status === "draft" ? (
+                  <Button
+                    onClick={onOpenSalesSheet}
+                    variant="outline"
+                    className="h-8 px-2.5 rounded-xl border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 text-[10px] font-bold whitespace-nowrap"
+                  >
+                    <FileText className="w-3.5 h-3.5 mr-1" />
+                    Sheet (Nháp)
+                  </Button>
+                ) : knowledgeStatus === "approved" ? (
+                  <Button
+                    onClick={onOpenSalesSheet}
+                    variant="outline"
+                    className="h-8 px-2.5 rounded-xl text-[10px] font-bold border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 shadow-3xs whitespace-nowrap"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+                    Tạo Sales Sheet
+                  </Button>
+                ) : guidebookStatus === "extracted" ? (
+                  <Button
+                    onClick={onOpenKnowledge}
+                    variant="outline"
+                    className="h-8 px-2.5 rounded-xl text-[10px] font-bold border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 whitespace-nowrap"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 mr-1 text-indigo-600" />
+                    Duyệt Tri thức AI
+                  </Button>
+                ) : guidebookStatus === "saved" ? (
+                  <Button
+                    onClick={() =>
+                      toast.info(
+                        "Guidebook đã lưu nhưng chưa hoàn tất trích xuất. Vui lòng bấm 'Tri thức AI' để cập nhật.",
+                      )
+                    }
+                    variant="outline"
+                    className="h-8 px-2.5 rounded-xl text-[10px] font-bold border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 whitespace-nowrap"
+                  >
+                    <FileText className="w-3.5 h-3.5 mr-1 text-blue-500" />
+                    Guidebook chưa trích xuất
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() =>
+                      toast.info(
+                        "Sản phẩm chưa có Guidebook. Vui lòng mở chi tiết sản phẩm trong Quản lý Brand & Danh mục để tải file.",
+                      )
+                    }
+                    variant="outline"
+                    className="h-8 px-2.5 rounded-xl text-[10px] font-bold border-slate-200 text-slate-500 bg-slate-50 hover:bg-slate-100 whitespace-nowrap"
+                  >
+                    <FileText className="w-3.5 h-3.5 mr-1 text-slate-400" />
+                    Nhập Guidebook
+                  </Button>
+                )}
+
+                <DropdownAction />
+              </>
+            ) : (
+              <>
+                {knowledgeStatus === "approved" ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onOpenKnowledgeReadOnly}
+                    className="h-8 px-2.5 text-[10px] font-bold rounded-xl border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all whitespace-nowrap"
+                  >
+                    <BookOpen className="w-3.5 h-3.5 mr-1 text-indigo-600" /> Xem Tri thức
+                  </Button>
+                ) : (
+                  <span className="h-8 px-2.5 inline-flex items-center text-[10px] text-slate-400 font-medium whitespace-nowrap bg-slate-50 rounded-xl border border-slate-100">
+                    Chưa có tri thức
+                  </span>
+                )}
+
+                {!(p.isDbProduct && p.dbId) ? (
+                  <ProductLinkCell
+                    productNo={p.id}
+                    href={p.pdfUrl}
+                    onChange={(url) => onUpdate("link_url", url)}
+                    isReadOnly={true}
+                  />
+                ) : salesSheetInfo?.status === "approved" ? (
+                  <Button
+                    onClick={onOpenSalesSheet}
+                    variant="outline"
+                    className="h-8 px-2.5 rounded-xl border-green-200 text-green-700 bg-green-50 hover:bg-green-100 text-[10px] font-bold whitespace-nowrap"
+                  >
+                    <Printer className="w-3.5 h-3.5 mr-1" />
+                    Sales Sheet
+                  </Button>
+                ) : (
+                  <span className="h-8 px-2.5 inline-flex items-center text-[10px] text-slate-400 font-medium whitespace-nowrap bg-slate-50 rounded-xl border border-slate-100">
+                    Chưa có tài liệu bán hàng
+                  </span>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </td>
       <td className="px-3 py-5 text-center">
@@ -182,169 +309,6 @@ export function ProductRow({
           layout="desktop"
         />
       </td>
-      <td className="px-6 py-6 text-center">
-        {p.isDbProduct && p.dbId ? (
-          <SalesSheetCellInner
-            product={p}
-            salesSheetInfo={salesSheetInfo}
-            knowledgeSummary={knowledgeSummary}
-            guidebookStatus={guidebookStatus}
-            isManager={isManager}
-            onOpenSalesSheet={onOpenSalesSheet}
-            onOpenKnowledge={onOpenKnowledge}
-          />
-        ) : (
-          <ProductLinkCell
-            productNo={p.id}
-            href={p.pdfUrl}
-            onChange={(url) => onUpdate("link_url", url)}
-            isReadOnly={!isManager}
-          />
-        )}
-      </td>
-      <td className="px-6 py-6 text-center">
-        <div className="flex items-center justify-end gap-2">
-          {isManager ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onOpenKnowledge}
-              className="h-9 px-3 text-[10px] font-black text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 uppercase tracking-wider rounded-xl transition-all whitespace-nowrap"
-            >
-              <Sparkles className="w-3.5 h-3.5 mr-1 animate-pulse" /> Tri thức AI
-            </Button>
-          ) : knowledgeSummary?.qa_status === "approved" && knowledgeSummary?.is_active ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onOpenKnowledgeReadOnly}
-              className="h-8 px-2.5 text-[10px] font-bold rounded-lg border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all whitespace-nowrap"
-            >
-              <BookOpen className="w-3.5 h-3.5 mr-1 text-indigo-600" /> Xem Tri thức
-            </Button>
-          ) : (
-            <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">
-              Chưa có tri thức
-            </span>
-          )}
-          {isManager && <DropdownAction />}
-        </div>
-      </td>
     </tr>
-  );
-}
-
-/** Inner helper */
-function SalesSheetCellInner({
-  product,
-  salesSheetInfo,
-  knowledgeSummary,
-  guidebookStatus = "none",
-  isManager,
-  onOpenSalesSheet,
-  onOpenKnowledge,
-}: {
-  product: Product;
-  salesSheetInfo: SalesSheetInfo | undefined;
-  knowledgeSummary?: ProductKnowledgeSummary;
-  guidebookStatus?: GuidebookStatus;
-  isManager: boolean;
-  onOpenSalesSheet: () => void;
-  onOpenKnowledge: () => void;
-}) {
-  if (isManager) {
-    if (salesSheetInfo) {
-      return (
-        <Button
-          onClick={onOpenSalesSheet}
-          variant="outline"
-          className={`h-8 px-2.5 rounded-lg text-[10px] font-bold ${
-            salesSheetInfo.status === "approved"
-              ? "border-green-200 text-green-700 bg-green-50 hover:bg-green-100"
-              : "border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100"
-          }`}
-        >
-          <FileText className="w-3 h-3 mr-1" />
-          Sheet ({salesSheetInfo.status === "approved" ? "Đã duyệt" : "Nháp"})
-        </Button>
-      );
-    }
-
-    // No sales sheet yet => Check pipeline stages
-    const hasApprovedKnowledge =
-      knowledgeSummary?.qa_status === "approved" && knowledgeSummary?.is_active;
-
-    if (guidebookStatus === "none") {
-      return (
-        <Button
-          onClick={() =>
-            toast.info(
-              "Sản phẩm chưa có Guidebook. Vui lòng mở chi tiết sản phẩm trong Quản lý Brand & Danh mục để tải file hoặc nhập Text Guidebook.",
-            )
-          }
-          variant="outline"
-          className="h-8 px-2.5 rounded-lg text-[10px] font-bold border-slate-200 text-slate-500 bg-slate-50 hover:bg-slate-100"
-        >
-          <FileText className="w-3 h-3 mr-1 text-slate-400" />
-          Nhập Guidebook
-        </Button>
-      );
-    }
-
-    if (guidebookStatus === "saved") {
-      return (
-        <Button
-          onClick={() =>
-            toast.info(
-              "Guidebook đã lưu nhưng chưa hoàn tất trích xuất. Vui lòng bấm 'Phân tích vào Tri thức' trong chi tiết sản phẩm.",
-            )
-          }
-          variant="outline"
-          className="h-8 px-2.5 rounded-lg text-[10px] font-bold border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100"
-        >
-          <FileText className="w-3 h-3 mr-1 text-blue-500" />
-          Guidebook chưa trích xuất
-        </Button>
-      );
-    }
-
-    if (!hasApprovedKnowledge) {
-      return (
-        <Button
-          onClick={onOpenKnowledge}
-          variant="outline"
-          className="h-8 px-2.5 rounded-lg text-[10px] font-bold border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
-        >
-          <Sparkles className="w-3 h-3 mr-1 text-indigo-600" />
-          Duyệt Tri thức AI
-        </Button>
-      );
-    }
-
-    return (
-      <Button
-        onClick={onOpenSalesSheet}
-        variant="outline"
-        className="h-8 px-2.5 rounded-lg text-[10px] font-bold border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 shadow-3xs"
-      >
-        <Sparkles className="w-3 h-3 mr-1 text-emerald-600" />
-        Tạo Sales Sheet từ Tri thức AI
-      </Button>
-    );
-  }
-
-  // Non-manager (Staff / Sales)
-  if (!salesSheetInfo || salesSheetInfo.status !== "approved") {
-    return <span className="text-xs text-slate-400 font-medium">Chưa có tài liệu bán hàng</span>;
-  }
-  return (
-    <Button
-      onClick={onOpenSalesSheet}
-      variant="outline"
-      className="h-8 px-3 rounded-lg border-green-200 text-green-700 bg-green-50 hover:bg-green-100 text-[10px] font-bold"
-    >
-      <Printer className="w-3.5 h-3.5 mr-1" />
-      Sales Sheet
-    </Button>
   );
 }
