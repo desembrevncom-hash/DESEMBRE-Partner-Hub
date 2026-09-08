@@ -58,11 +58,11 @@ export function CatalogHero({ onOpenContact, totalProducts }: Props) {
         </div>
 
         {/* Right side: Compact CTAs */}
-        <div className="flex flex-row md:flex-col lg:flex-row items-center gap-2.5 shrink-0 pt-2 md:pt-0">
+        <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row items-stretch sm:items-center gap-2.5 shrink-0 pt-2 md:pt-0 w-full md:w-auto">
           <Button
             onClick={onOpenContact}
             size="sm"
-            className="flex-1 sm:flex-initial h-10 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
+            className="min-h-[44px] h-11 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/30 transition-all cursor-pointer flex items-center justify-center"
           >
             <PhoneCall className="w-3.5 h-3.5 mr-1.5" />
             Liên hệ tư vấn
@@ -73,10 +73,10 @@ export function CatalogHero({ onOpenContact, totalProducts }: Props) {
               asChild
               variant="outline"
               size="sm"
-              className="flex-1 sm:flex-initial h-10 px-5 rounded-xl bg-white/10 hover:bg-white/20 border-white/20 text-white font-bold text-xs backdrop-blur-md transition-all cursor-pointer"
+              className="min-h-[44px] h-11 px-5 rounded-xl bg-white/10 hover:bg-white/20 border-white/20 text-white font-bold text-xs backdrop-blur-md transition-all cursor-pointer flex items-center justify-center"
             >
               <Link to="/workspace">
-                Hub làm việc
+                <span>Hub làm việc</span>
                 <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
               </Link>
             </Button>
@@ -85,11 +85,11 @@ export function CatalogHero({ onOpenContact, totalProducts }: Props) {
               asChild
               variant="outline"
               size="sm"
-              className="flex-1 sm:flex-initial h-10 px-5 rounded-xl bg-white/10 hover:bg-white/20 border-white/20 text-white font-bold text-xs backdrop-blur-md transition-all cursor-pointer"
+              className="min-h-[44px] h-11 px-5 rounded-xl bg-white/10 hover:bg-white/20 border-white/20 text-white font-bold text-xs backdrop-blur-md transition-all cursor-pointer flex items-center justify-center"
             >
               <Link to="/login">
                 <LogIn className="w-3.5 h-3.5 mr-1.5 text-indigo-300" />
-                Đăng nhập Partner
+                <span>Đăng nhập Partner</span>
               </Link>
             </Button>
           )}

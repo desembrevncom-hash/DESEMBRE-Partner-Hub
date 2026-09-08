@@ -189,14 +189,17 @@ describe("Public Catalog Image Sync & DB Flow - Unit Tests", () => {
       ];
 
       (supabase.from as ReturnType<typeof vi.fn>).mockImplementation((tableOrView: string) => {
-        if (tableOrView === "public_product_brands") {
+        if (tableOrView === "public_product_brands" || tableOrView === "product_brands") {
           return {
             select: vi.fn().mockReturnValue({
               order: vi.fn().mockResolvedValue({ data: mockBrands, error: null }),
+              eq: vi.fn().mockReturnValue({
+                order: vi.fn().mockResolvedValue({ data: mockBrands, error: null }),
+              }),
             }),
           };
         }
-        if (tableOrView === "public_product_categories") {
+        if (tableOrView === "public_product_categories" || tableOrView === "product_categories") {
           const categoryResult = { data: mockCategories, error: null };
           const mockQuery: unknown = {
             in: vi.fn().mockResolvedValue(categoryResult),
@@ -207,10 +210,15 @@ describe("Public Catalog Image Sync & DB Flow - Unit Tests", () => {
               order: vi.fn().mockReturnValue({
                 order: vi.fn().mockReturnValue(mockQuery),
               }),
+              eq: vi.fn().mockReturnValue({
+                order: vi.fn().mockReturnValue({
+                  order: vi.fn().mockReturnValue(mockQuery),
+                }),
+              }),
             }),
           };
         }
-        if (tableOrView === "public_catalog_products") {
+        if (tableOrView === "public_catalog_products" || tableOrView === "catalog_products") {
           const productResult = { data: mockProducts, error: null };
           const mockQuery: unknown = {
             in: vi.fn().mockResolvedValue(productResult),
@@ -221,20 +229,24 @@ describe("Public Catalog Image Sync & DB Flow - Unit Tests", () => {
               order: vi.fn().mockReturnValue({
                 order: vi.fn().mockReturnValue(mockQuery),
               }),
+              eq: vi.fn().mockReturnValue({
+                order: vi.fn().mockReturnValue({
+                  order: vi.fn().mockReturnValue(mockQuery),
+                }),
+              }),
             }),
           };
         }
-        if (tableOrView === "public_catalog_variants") {
+        if (tableOrView === "public_catalog_variants" || tableOrView === "catalog_product_variants") {
           return {
             select: vi.fn().mockReturnValue({
               eq: vi.fn().mockImplementation((col: string, val: string) => {
-                if (val === "retail") {
-                  return {
-                    in: vi.fn().mockResolvedValue({ data: mockRetailVariants, error: null }),
-                  };
-                }
+                const data = val === "retail" ? mockRetailVariants : mockSalonVariants;
                 return {
-                  in: vi.fn().mockResolvedValue({ data: mockSalonVariants, error: null }),
+                  in: vi.fn().mockResolvedValue({ data, error: null }),
+                  eq: vi.fn().mockReturnValue({
+                    in: vi.fn().mockResolvedValue({ data, error: null }),
+                  }),
                 };
               }),
             }),

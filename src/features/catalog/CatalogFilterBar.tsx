@@ -52,31 +52,36 @@ export function CatalogFilterBar({
 
   return (
     <div className="space-y-4">
-      {/* Search Bar + Mobile Filter Trigger */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+      {/* Mobile/Tablet (< lg): Row 1 - Full Width Search Bar */}
+      <div className="lg:hidden w-full">
+        <div className="relative w-full group">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors pointer-events-none" />
           <Input
-            placeholder="Tìm theo tên sản phẩm, công dụng (Serum, Làm sạch, Mụn, Cấp ẩm...)"
+            placeholder="Tìm theo tên sản phẩm, công dụng (Serum, Làm sạch...)"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="h-12 pl-11 pr-10 rounded-2xl bg-white border-slate-200/80 focus:border-indigo-500 shadow-sm text-sm placeholder:text-slate-400"
+            className="min-h-[44px] h-11 sm:h-12 pl-10 pr-9 rounded-xl sm:rounded-2xl bg-white border-slate-200/80 focus:border-indigo-500 shadow-3xs text-xs sm:text-sm placeholder:text-slate-400 w-full"
           />
           {searchQuery && (
             <button
+              type="button"
               onClick={() => onSearchChange("")}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
+      </div>
 
-        {/* Mobile Filter Button */}
+      {/* Mobile/Tablet (< lg): Row 2 - Controls: Bộ lọc, Chưa VAT / Có VAT, Dạng lưới / Dạng bảng */}
+      <div className="flex lg:hidden items-center justify-between gap-1.5 sm:gap-2">
+        {/* Mobile Filter Trigger Button */}
         <Button
+          type="button"
           onClick={() => onToggleDrawer(true)}
           variant="outline"
-          className="lg:hidden h-12 px-4 rounded-2xl border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs shrink-0 flex items-center gap-2 shadow-sm"
+          className="min-h-[44px] h-11 px-3 sm:px-3.5 rounded-xl border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs shrink-0 flex items-center gap-1.5 shadow-3xs cursor-pointer"
         >
           <SlidersHorizontal className="w-4 h-4 text-indigo-600" />
           <span>Bộ lọc</span>
@@ -87,29 +92,103 @@ export function CatalogFilterBar({
           )}
         </Button>
 
+        {/* Clear Filters (Mobile Quick Reset) */}
+        {hasActiveFilters && (
+          <Button
+            type="button"
+            onClick={onClearFilters}
+            variant="ghost"
+            className="min-h-[44px] h-11 px-2.5 text-xs font-bold text-rose-500 hover:bg-rose-50 hover:text-rose-700 rounded-xl shrink-0 cursor-pointer"
+            title="Đặt lại bộ lọc"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </Button>
+        )}
+
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+          {/* Mobile VAT Toggle */}
+          <div
+            role="group"
+            aria-label="Hiển thị giá"
+            className="min-h-[44px] h-11 inline-flex items-center bg-slate-100/90 p-1 rounded-xl border border-slate-200/80 shadow-3xs shrink-0"
+            title="Hiển thị giá"
+          >
+            <button
+              type="button"
+              onClick={() => onVatModeChange("without_vat")}
+              className={`min-h-[36px] px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                vatMode === "without_vat"
+                  ? "bg-white text-slate-900 shadow-sm font-black"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+              title="Giá chưa VAT"
+            >
+              Chưa VAT
+            </button>
+            <button
+              type="button"
+              onClick={() => onVatModeChange("with_vat")}
+              className={`min-h-[36px] px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                vatMode === "with_vat"
+                  ? "bg-white text-indigo-700 shadow-sm font-black"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+              title="Giá có VAT 8%"
+            >
+              Có VAT
+            </button>
+          </div>
+
+          {/* View Mode Toggle: Grid vs Table */}
+          <CatalogViewToggle viewMode={viewMode} onViewModeChange={onViewModeChange} />
+        </div>
+      </div>
+
+      {/* Desktop (lg+): Single Row with Search + Reset + VAT Toggle + View Mode */}
+      <div className="hidden lg:flex items-center gap-3">
+        <div className="relative flex-1 group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors pointer-events-none" />
+          <Input
+            placeholder="Tìm theo tên sản phẩm, công dụng (Serum, Làm sạch, Mụn, Cấp ẩm...)"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="h-12 pl-11 pr-10 rounded-2xl bg-white border-slate-200/80 focus:border-indigo-500 shadow-sm text-sm placeholder:text-slate-400"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => onSearchChange("")}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
         {/* Desktop Clear Filters */}
         {hasActiveFilters && (
           <Button
+            type="button"
             onClick={onClearFilters}
             variant="ghost"
-            className="hidden lg:flex h-12 px-4 text-xs font-bold text-rose-500 hover:bg-rose-50 hover:text-rose-700 rounded-2xl shrink-0"
+            className="h-12 px-4 text-xs font-bold text-rose-500 hover:bg-rose-50 hover:text-rose-700 rounded-2xl shrink-0 cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
             Đặt lại
           </Button>
         )}
 
-        {/* VAT Toggle */}
+        {/* Desktop VAT Toggle */}
         <div
           role="group"
           aria-label="Hiển thị giá"
-          className="hidden sm:inline-flex items-center bg-slate-100/90 p-1 rounded-2xl border border-slate-200/80 shadow-3xs shrink-0"
+          className="min-h-[44px] h-12 inline-flex items-center bg-slate-100/90 p-1 rounded-2xl border border-slate-200/80 shadow-3xs shrink-0"
           title="Hiển thị giá"
         >
           <button
             type="button"
             onClick={() => onVatModeChange("without_vat")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               vatMode === "without_vat"
                 ? "bg-white text-slate-800 shadow-sm font-black"
                 : "text-slate-500 hover:text-slate-900"
@@ -121,7 +200,7 @@ export function CatalogFilterBar({
           <button
             type="button"
             onClick={() => onVatModeChange("with_vat")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               vatMode === "with_vat"
                 ? "bg-white text-indigo-700 shadow-sm font-black"
                 : "text-slate-500 hover:text-slate-900"
@@ -132,8 +211,68 @@ export function CatalogFilterBar({
           </button>
         </div>
 
-        {/* View Mode Toggle: Grid vs Table */}
+        {/* Desktop View Mode Toggle */}
         <CatalogViewToggle viewMode={viewMode} onViewModeChange={onViewModeChange} />
+      </div>
+
+      {/* Mobile/Tablet (< lg): Horizontal Scrolling Brand Chips (if multiple brands) */}
+      {brands.length > 1 && (
+        <div className="flex lg:hidden items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 -mx-4 px-4 sm:-mx-6 sm:px-6">
+          <button
+            type="button"
+            onClick={() => onSelectBrand("all")}
+            className={`min-h-[34px] px-3 py-1 rounded-xl text-xs font-bold transition-all border whitespace-nowrap shrink-0 cursor-pointer ${
+              selectedBrand === "all"
+                ? "bg-slate-900 text-white border-transparent shadow-sm"
+                : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+            }`}
+          >
+            Tất cả hiệu
+          </button>
+          {brands.map((b) => (
+            <button
+              key={b.id}
+              type="button"
+              onClick={() => onSelectBrand(b.id)}
+              className={`min-h-[34px] px-3 py-1 rounded-xl text-xs font-bold transition-all border whitespace-nowrap shrink-0 cursor-pointer ${
+                selectedBrand === b.id
+                  ? "bg-slate-900 text-white border-transparent shadow-sm"
+                  : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+              }`}
+            >
+              {b.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Mobile/Tablet (< lg): Horizontal Scrolling Category Chips */}
+      <div className="flex lg:hidden items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 -mx-4 px-4 sm:-mx-6 sm:px-6">
+        <button
+          type="button"
+          onClick={() => onSelectCategory("all")}
+          className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border whitespace-nowrap shrink-0 cursor-pointer ${
+            selectedCategory === "all"
+              ? "bg-indigo-600 text-white border-transparent shadow-sm"
+              : "bg-white border-slate-200 text-slate-600 hover:border-indigo-200 hover:bg-indigo-50/50"
+          }`}
+        >
+          Tất cả ({totalResults})
+        </button>
+        {categories.map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => onSelectCategory(c.name)}
+            className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border whitespace-nowrap shrink-0 cursor-pointer ${
+              selectedCategory === c.name
+                ? "bg-indigo-600 text-white border-transparent shadow-sm"
+                : "bg-white border-slate-200 text-slate-600 hover:border-indigo-200 hover:bg-indigo-50/50"
+            }`}
+          >
+            {c.name}
+          </button>
+        ))}
       </div>
 
       {/* Desktop Brand Chips */}

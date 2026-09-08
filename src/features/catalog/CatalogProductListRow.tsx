@@ -25,15 +25,15 @@ export function CatalogProductListRow({ product, onSelect, onOpenContact, vatMod
   return (
     <div
       onClick={() => onSelect(product)}
-      className="bg-white rounded-2xl border border-slate-200/90 hover:border-indigo-300 p-3 flex items-center gap-3 shadow-3xs hover:shadow-sm transition-all cursor-pointer group"
+      className="min-h-[72px] bg-white rounded-2xl border border-slate-200/90 hover:border-indigo-300 p-2.5 sm:p-3 flex items-center gap-2.5 sm:gap-3.5 shadow-3xs hover:shadow-sm transition-all cursor-pointer group"
     >
-      {/* Thumbnail */}
-      <div className="w-14 h-14 shrink-0 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center p-1 overflow-hidden">
+      {/* Thumbnail: 56px on mobile, 64px on sm+ */}
+      <div className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center p-1 overflow-hidden">
         <CatalogProductImage
           src={product.imageUrl}
           fallbackSrc={product.fallbackImageUrl}
           alt={product.imageAlt ?? product.name}
-          className="w-full h-full object-contain group-hover:scale-105 transition-transform"
+          className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
           fallbackIconSize={24}
         />
       </div>
@@ -65,21 +65,21 @@ export function CatalogProductListRow({ product, onSelect, onOpenContact, vatMod
               const isContact = item.requiresContact || itemPrice == null || itemPrice <= 0;
               const channelLabel = item.channel === "salon" ? "Chuyên nghiệp" : "Niêm yết";
               return (
-                <div key={i} className="flex items-center justify-between gap-2 max-w-[260px]">
-                  <div className="flex items-center gap-1 shrink-0">
-                    <span className="text-[9px] font-extrabold text-slate-700 bg-slate-100 border border-slate-200/70 px-1.5 py-0.2 rounded whitespace-nowrap">
-                      {item.sizeLabel}
-                    </span>
-                    <span className="text-[8px] font-semibold text-slate-400 whitespace-nowrap">
-                      · {channelLabel}
-                    </span>
+                <div
+                  key={i}
+                  className="flex items-center justify-between gap-1.5 text-[11px] leading-tight"
+                >
+                  <div className="flex items-center gap-1 shrink-0 text-slate-600">
+                    <span className="font-bold text-slate-800">{item.sizeLabel}</span>
+                    <span className="text-[10px] text-slate-400">· {channelLabel}</span>
+                    <span className="text-slate-300 font-normal">—</span>
                   </div>
                   {isContact ? (
-                    <span className="text-[9px] font-bold text-amber-600 whitespace-nowrap text-right">
+                    <span className="text-[10px] font-bold text-amber-600 whitespace-nowrap text-right">
                       Liên hệ báo giá
                     </span>
                   ) : (
-                    <span className="text-[10px] font-black text-indigo-700 tracking-tight whitespace-nowrap text-right">
+                    <span className="text-xs font-black text-indigo-700 tracking-tight whitespace-nowrap text-right">
                       {formatCatalogPrice(itemPrice!, vatMode)}
                     </span>
                   )}
@@ -112,7 +112,8 @@ export function CatalogProductListRow({ product, onSelect, onOpenContact, vatMod
           <Button
             size="sm"
             variant="ghost"
-            className="h-9 w-9 p-0 rounded-xl text-slate-400 group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-colors"
+            className="min-w-[44px] min-h-[44px] p-0 rounded-xl text-slate-400 group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-colors cursor-pointer"
+            aria-label="Xem chi tiết"
           >
             <ChevronRight className="w-5 h-5" />
           </Button>
@@ -127,10 +128,10 @@ export function CatalogProductListRow({ product, onSelect, onOpenContact, vatMod
                 onSelect(product);
               }
             }}
-            className="h-8 px-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[10px]"
+            className="min-h-[44px] px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center gap-1 cursor-pointer"
           >
-            <PhoneCall className="w-3 h-3 mr-1" />
-            Liên hệ
+            <PhoneCall className="w-3.5 h-3.5" />
+            <span>Liên hệ</span>
           </Button>
         )}
       </div>
