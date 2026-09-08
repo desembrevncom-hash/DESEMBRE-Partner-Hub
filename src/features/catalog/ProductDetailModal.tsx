@@ -79,7 +79,7 @@ export function ProductDetailModal({ product, isOpen, onClose, onOpenContact, va
                     {product.publicPriceItems.map((item, i) => {
                       const itemPrice = item.price ?? item.retailPrice;
                       const isContact = item.requiresContact || itemPrice == null || itemPrice <= 0;
-                      const channelLabel = item.channel === "salon" ? "Chuyên nghiệp" : "Niêm yết";
+                      const channelLabel = item.channel === "salon" ? "Chuyên nghiệp" : "Cá nhân";
                       return (
                         <div
                           key={i}
@@ -133,7 +133,7 @@ export function ProductDetailModal({ product, isOpen, onClose, onOpenContact, va
                 <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-100/80 space-y-2">
                   <div className="flex items-baseline justify-between gap-2 flex-wrap">
                     <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                      Giá niêm yết bán lẻ:
+                      Giá cá nhân:
                     </span>
                     <span className="text-[10px] font-semibold text-slate-500 bg-white/80 border border-indigo-100/80 px-2 py-0.5 rounded-md">
                       {vatMode === "with_vat"

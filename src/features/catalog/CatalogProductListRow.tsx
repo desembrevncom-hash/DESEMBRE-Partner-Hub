@@ -63,7 +63,7 @@ export function CatalogProductListRow({ product, onSelect, onOpenContact, vatMod
             {visibleItems.map((item, i) => {
               const itemPrice = item.price ?? item.retailPrice;
               const isContact = item.requiresContact || itemPrice == null || itemPrice <= 0;
-              const channelLabel = item.channel === "salon" ? "Chuyên nghiệp" : "Niêm yết";
+              const channelLabel = item.channel === "salon" ? "Chuyên nghiệp" : "Cá nhân";
               return (
                 <div
                   key={i}

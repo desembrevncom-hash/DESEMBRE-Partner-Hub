@@ -35,7 +35,7 @@ export function ProductVariantAction({
     : layout === "desktop"
       ? ""
       : "CHƯA VAT";
-  const channelLabel = isRetail ? "NIÊM YẾT LẺ" : "CHUYÊN NGHIỆP";
+  const channelLabel = isRetail ? "CÁ NHÂN" : "CHUYÊN NGHIỆP";
   const sizeTag = variant ? `${variant.size} (${isRetail ? "R" : "S"})` : "";
 
   if (layout === "desktop") {
@@ -80,7 +80,7 @@ export function ProductVariantAction({
       <div className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl bg-slate-50 border border-slate-100 opacity-60 min-h-[120px]">
         <span className="text-slate-300">—</span>
         <span className="text-[9px] font-bold text-slate-400 uppercase">
-          Không có {isRetail ? "Retail" : "Salon"}
+          Không có {isRetail ? "Cá nhân" : "Salon"}
         </span>
       </div>
     );
@@ -102,7 +102,7 @@ export function ProductVariantAction({
         </span>
       </div>
       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-        {isRetail ? "Retail" : "Salon"}
+        {isRetail ? "Cá nhân" : "Salon"}
       </span>
       <div className="mt-0.5">
         <p

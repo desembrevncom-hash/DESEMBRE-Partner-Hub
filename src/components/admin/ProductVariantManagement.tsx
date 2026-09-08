@@ -162,8 +162,8 @@ export const ProductVariantManagement: React.FC<ProductVariantManagementProps> =
   const getVariantsSummary = (p: Product) => {
     const retail = p.variants?.find((v) => v.channel === "retail");
     const salon = p.variants?.find((v) => v.channel === "salon");
-    if (retail && salon) return "2 biến thể: Lẻ, Salon";
-    if (retail) return "1 biến thể: Lẻ";
+    if (retail && salon) return "2 biến thể: Cá nhân, Salon";
+    if (retail) return "1 biến thể: Cá nhân";
     if (salon) return "1 biến thể: Salon";
     return "Chưa có biến thể";
   };
@@ -1346,7 +1346,7 @@ export const ProductVariantManagement: React.FC<ProductVariantManagementProps> =
                     </SelectTrigger>
                     <SelectContent className="rounded-xl border-slate-200">
                       <SelectItem value="retail" className="text-sm">
-                        Bán lẻ (Retail)
+                        Cá nhân (Retail)
                       </SelectItem>
                       <SelectItem value="salon" className="text-sm">
                         Chuyên nghiệp (Salon)
@@ -1773,7 +1773,7 @@ export const ProductVariantManagement: React.FC<ProductVariantManagementProps> =
                       <div className="p-4 bg-blue-50/40 rounded-xl border border-blue-100/50 space-y-3 shadow-sm">
                         <div className="flex justify-between items-center">
                           <span className="text-[10px] font-black text-blue-700 uppercase tracking-widest">
-                            Retail (Bán lẻ)
+                            Cá nhân (Retail)
                           </span>
                           <CRMStatusBadge
                             variant={retail.is_active ? "success" : "neutral"}
@@ -1817,7 +1817,7 @@ export const ProductVariantManagement: React.FC<ProductVariantManagementProps> =
                           onClick={() => openEditVariant(selectedProduct, retail)}
                           className="w-full h-9 text-[10px] font-bold rounded-lg border-blue-200 text-blue-600 hover:bg-blue-50 min-h-[44px]"
                         >
-                          Sửa Retail
+                          Sửa Cá nhân
                         </Button>
                       </div>
                     );
@@ -1825,7 +1825,7 @@ export const ProductVariantManagement: React.FC<ProductVariantManagementProps> =
                   return (
                     <div className="p-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 text-center space-y-2">
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                        Chưa cấu hình kênh Retail (Bán lẻ)
+                        Chưa cấu hình kênh Cá nhân (Retail)
                       </p>
                       <Button
                         variant="outline"
@@ -1833,7 +1833,7 @@ export const ProductVariantManagement: React.FC<ProductVariantManagementProps> =
                         onClick={() => openAddVariant(selectedProduct, "retail")}
                         className="h-9 text-[10px] font-bold rounded-lg border-blue-200 text-blue-600 hover:bg-blue-50 px-4 min-h-[44px]"
                       >
-                        + Thêm Retail
+                        + Thêm Cá nhân
                       </Button>
                     </div>
                   );

@@ -87,7 +87,7 @@ export function CatalogProductCard({ product, onSelect, vatMode }: Props) {
               {visibleItems.map((item, i) => {
                 const itemPrice = item.price ?? item.retailPrice;
                 const isContact = item.requiresContact || itemPrice == null || itemPrice <= 0;
-                const channelLabel = item.channel === "salon" ? "Chuyên nghiệp" : "Niêm yết";
+                const channelLabel = item.channel === "salon" ? "Chuyên nghiệp" : "Cá nhân";
                 return (
                   <div key={i} className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1 shrink-0">
@@ -120,7 +120,7 @@ export function CatalogProductCard({ product, onSelect, vatMode }: Props) {
             /* Fallback: single price display for products without publicPriceItems */
             <div>
               <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
-                Giá niêm yết
+                Giá cá nhân
               </span>
               {hasPricedItem || product.retailPrice ? (
                 <span className="text-sm sm:text-base font-black text-indigo-700 tracking-tight">

@@ -339,7 +339,7 @@ function ProductCatalogPage() {
                           <th className="px-3 py-4 text-center w-24">Hình ảnh</th>
                           <th className="px-6 py-4 text-left">Sản phẩm</th>
                           <th className="px-3 py-4 text-center w-36">Size</th>
-                          <th className="px-6 py-4 text-right w-44">Retail</th>
+                          <th className="px-6 py-4 text-right w-44">Cá nhân</th>
                           <th className="px-6 py-4 text-right w-44">Salon</th>
                           <th className="px-3 py-4 text-center w-40">Tài liệu</th>
                           <th className="px-3 py-4 text-center w-40">Thao tác</th>
