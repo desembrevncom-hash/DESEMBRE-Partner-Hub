@@ -227,15 +227,23 @@ export function useProductCatalog() {
     try {
       const { data, error } = await supabase
         .from("product_knowledge")
-        .select("id, product_id, catalog_product_id, qa_status, is_active, is_public");
+        .select("id, product_id, catalog_product_id, qa_status, is_active, is_public, updated_at");
       if (error) {
         console.error("Error loading knowledge map:", error);
         return;
       }
       if (data) {
         const kMap: Record<string, ProductKnowledgeSummary> = {};
+        // Sort so that active+approved come last (and thus overwrite drafts in the map)
+        const sortedData = [...data].sort((a, b) => {
+          const aPriority = a.is_active && a.qa_status === "approved" ? 1 : 0;
+          const bPriority = b.is_active && b.qa_status === "approved" ? 1 : 0;
+          if (aPriority !== bPriority) return aPriority - bPriority;
+          return new Date(a.updated_at || 0).getTime() - new Date(b.updated_at || 0).getTime();
+        });
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        data.forEach((row: any) => {
+        sortedData.forEach((row: any) => {
           const summary: ProductKnowledgeSummary = {
             id: row.id,
             qa_status: row.qa_status || "draft",

@@ -195,9 +195,24 @@ export function ProductKnowledgeDialog({
         return;
       }
 
-      const { data: knowledge, error: kError } = await query.maybeSingle();
+      const { data: knowledgeList, error: kError } = await query;
 
       if (kError) throw kError;
+
+      let knowledge = null;
+      if (knowledgeList && knowledgeList.length > 0) {
+        if (knowledgeList.length > 1) {
+          console.warn("[ProductKnowledge] Duplicate knowledge rows found:", { catProdId, id }, knowledgeList);
+        }
+        // Prefer active + approved first, then latest updated_at
+        knowledge = [...knowledgeList].sort((a, b) => {
+          const aPriority = a.is_active && a.qa_status === "approved" ? 1 : 0;
+          const bPriority = b.is_active && b.qa_status === "approved" ? 1 : 0;
+          if (aPriority !== bPriority) return bPriority - aPriority;
+          return new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime();
+        })[0];
+      }
+
 
       if (knowledge) {
         setKnowledgeId(knowledge.id);
@@ -335,6 +350,7 @@ export function ProductKnowledgeDialog({
         warnings,
         is_active: isActive,
         is_public: isPublic,
+        qa_status: qaStatus, // Explicitly include qa_status in the payload
         ...(catalogProductId ? { catalog_product_id: catalogProductId } : {}),
         ingredient_highlights: ingredientHighlights,
         skin_types: skinTypes,
@@ -345,13 +361,14 @@ export function ProductKnowledgeDialog({
         updated_by: user.id,
       };
 
-      const conflictTarget = knowledgeId ? "id" : "product_id";
+      const conflictTarget = knowledgeId ? "id" : catalogProductId ? "catalog_product_id" : "product_id";
       let upsertData: any = null;
 
       const { data: initialData, error: kError } = await supabase
         .from("product_knowledge")
-        .upsert(payload, { onConflict: conflictTarget, select: "id" })
+        .upsert(payload, { onConflict: conflictTarget, select: "id, qa_status, is_active, is_public" })
         .single();
+
 
       if (kError) {
         // Defensive backward-safe fallback: If schema cache is stale or extended column missing
@@ -439,6 +456,16 @@ export function ProductKnowledgeDialog({
           if (error) throw error;
         }
       }
+
+      console.log("[ProductKnowledgeSave]", {
+        productName,
+        productId,
+        catalogProductId,
+        savedId: currentKnowledgeId,
+        savedQaStatus: qaStatus,
+        savedIsActive: isActive,
+        savedIsPublic: isPublic,
+      });
 
       toast.success("Lưu tri thức sản phẩm thành công!");
       if (onSaved) onSaved();

@@ -92,11 +92,11 @@ function ProductCatalogPage() {
     guidebooksMap,
     loadGuidebooksMap,
     salesSheetsMap,
+    loadSalesSheets,
     salesSheetDialogOpen,
     setSalesSheetDialogOpen,
     selectedSalesSheetProduct,
     setSelectedSalesSheetProduct,
-    loadSalesSheets,
     handleUpdate,
     handlePick,
     getProductGuard,
@@ -566,6 +566,8 @@ function ProductCatalogPage() {
           onClose={() => setSelectedKnowledgeProductId(null)}
           onSaved={() => {
             loadKnowledgeMap();
+            loadGuidebooksMap();
+            loadSalesSheets();
           }}
         />
 
