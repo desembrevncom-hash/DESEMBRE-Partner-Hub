@@ -79,10 +79,12 @@ function RootLayout() {
 
   if (!user || isPublicStandalone) {
     return (
-      <AppErrorBoundary>
-        <Outlet />
-        <Toaster position="top-right" richColors />
-      </AppErrorBoundary>
+      <SystemSettingsProvider>
+        <AppErrorBoundary>
+          <Outlet />
+          <Toaster position="top-right" richColors />
+        </AppErrorBoundary>
+      </SystemSettingsProvider>
     );
   }
 

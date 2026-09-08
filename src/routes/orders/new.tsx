@@ -50,10 +50,10 @@ const fmt = formatCurrencyVND;
 // LineItem is now the unified HydratedLineItem from orders.ts.
 // Re-export with local alias for backward compat in this file.
 type LineItem = HydratedLineItem;
-
 function NewOrderPage() {
   const { user, isAdmin, isSale, loading } = useAuth();
-  const { vatRate, defaultDiscount } = useSystemSettings();
+  const { vatRate: sysVatRate, defaultDiscount } = useSystemSettings();
+  const vatRate = sysVatRate || 0.08;
   const navigate = useNavigate();
   const [overrides, setOverrides] = useState<Record<number, OverrideRow>>({});
   const [customerName, setCustomerName] = useState("");

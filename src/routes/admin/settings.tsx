@@ -401,7 +401,7 @@ function SystemSettingsPage() {
           address: data.address || "",
           supportEmail: data.support_email || "",
           supportPhone: data.support_phone || "",
-          vatRate: data.vat_rate || 10,
+          vatRate: data.vat_rate ?? 8,
           defaultDiscount: data.default_discount || 35,
           enableNotifications: data.enable_notifications ?? true,
           darkMode: data.dark_mode ?? false,

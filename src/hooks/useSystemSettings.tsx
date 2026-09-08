@@ -17,7 +17,7 @@ type SystemSettings = {
 };
 
 const defaultSettings: SystemSettings = {
-  vatRate: 0.1, // Default 10%
+  vatRate: 0.08, // Default 8% (Vietnamese standard VAT)
   defaultDiscount: 0.35, // Default 35%
   companyName: "DESEMBRE VIETNAM",
   supportPhone: "1900 6868",
@@ -42,7 +42,7 @@ export function SystemSettingsProvider({ children }: { children: ReactNode }) {
       .maybeSingle()
       .then(({ data }: { data: any }) => {
         if (data) {
-          const vat = (data.vat_rate ?? 10) / 100;
+          const vat = (data.vat_rate ?? 8) / 100;
           const discount = (data.default_discount ?? 35) / 100;
           setSettings((prev) => ({
             ...prev,
