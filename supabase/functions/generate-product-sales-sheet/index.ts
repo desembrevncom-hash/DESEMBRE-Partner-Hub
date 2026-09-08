@@ -34,7 +34,19 @@ async function callOpenAI(
 ): Promise<AIResponse> {
   const apiKey = config.openAiKey;
   const model = config.chatModel || "gpt-4o-mini";
-  if (!apiKey) throw new Error("Missing OpenAI API Key in configuration.");
+  if (!apiKey) {
+    throw new Error(
+      "Chưa cấu hình OPENAI_API_KEY trong Supabase Secret. Vui lòng thiết lập secret.",
+    );
+  }
+
+  // Diagnostic logging without exposing the key
+  console.log("[generate-product-sales-sheet] Calling OpenAI with config:", {
+    hasKey: Boolean(apiKey),
+    keyPrefix: apiKey.slice(0, 7),
+    keyLength: apiKey.length,
+    model,
+  });
 
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -55,6 +67,16 @@ async function callOpenAI(
 
   if (!res.ok) {
     const errBody = await res.text();
+    console.error(
+      `[generate-product-sales-sheet] OpenAI API error ${res.status}:`,
+      errBody,
+    );
+
+    if (res.status === 401 || errBody.includes("invalid_api_key")) {
+      throw new Error(
+        "OPENAI_API_KEY trong Supabase Secret không hợp lệ hoặc đã hết hiệu lực. Vui lòng cập nhật secret.",
+      );
+    }
     throw new Error(`OpenAI API error ${res.status}: ${errBody}`);
   }
 
@@ -163,40 +185,127 @@ serve(async (req) => {
       .eq("product_id", catalogProductId)
       .eq("is_active", true);
 
-    // Load approved product knowledge
-    const { data: knowledge } = await adminClient
+    // ─── GATE 1 & 2: Verify Source Documents (Guidebook) ─────────────────────
+    // Rule 1: product_source_documents là nguồn gốc bắt buộc.
+    // Rule 2: Nếu sản phẩm không có source document => Chặn tạo Sales Sheet.
+    // Rule 3: Nếu source document có nhưng extraction_status != completed => Chặn tạo Sales Sheet.
+    const { data: sourceDocs, error: srcDocErr } = await adminClient
+      .from("product_source_documents")
+      .select(
+        "id, document_type, extraction_status, extracted_data, file_name, source_type, raw_text, extracted_text",
+      )
+      .eq("catalog_product_id", catalogProductId);
+
+    if (srcDocErr) {
+      console.error("[generate-product-sales-sheet] Error querying source documents:", srcDocErr);
+    }
+
+    if (!sourceDocs || sourceDocs.length === 0) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Chưa có Guidebook. Vui lòng nhập Guidebook/Text nguồn trước khi tạo Sales Sheet.",
+          code: "MISSING_GUIDEBOOK",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const completedDocs = sourceDocs.filter((d: any) => d.extraction_status === "completed");
+    if (completedDocs.length === 0) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error:
+            "Guidebook chưa trích xuất. Vui lòng hoàn tất trích xuất Guidebook trước khi tạo Sales Sheet.",
+          code: "GUIDEBOOK_NOT_EXTRACTED",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // ─── GATE 3: Verify Approved & Active Product Knowledge ──────────────────
+    // Rule 4: Nếu đã trích xuất nhưng product_knowledge chưa approved => Chặn tạo Sales Sheet.
+    // Rule 5: Chỉ tạo khi extraction_status = completed AND qa_status = approved AND is_active = true.
+    let knowledgeQuery = adminClient
       .from("product_knowledge")
       .select(
-        "benefits, skin_concerns, suitable_spa_types, usage_instructions, sales_pitch, warnings",
-      )
-      .eq("catalog_product_id", catalogProductId)
-      .eq("is_active", true)
-      .eq("qa_status", "approved")
-      .maybeSingle();
+        "benefits, skin_concerns, suitable_spa_types, usage_instructions, sales_pitch, warnings, skin_types, ingredient_highlights, qa_status, is_active, full_ingredients, product_characteristics, key_ingredients_functions",
+      );
 
-    // 4. Retrieve and decrypt OpenAI API Key from DB
-    let openaiApiKey = Deno.env.get("OPENAI_API_KEY") || "";
+    if (product.product_code && !isNaN(Number(product.product_code))) {
+      knowledgeQuery = knowledgeQuery.or(
+        `catalog_product_id.eq.${catalogProductId},product_id.eq.${Number(product.product_code)}`,
+      );
+    } else {
+      knowledgeQuery = knowledgeQuery.eq("catalog_product_id", catalogProductId);
+    }
+
+    const { data: knowledge } = await knowledgeQuery.maybeSingle();
+
+    if (!knowledge || knowledge.qa_status !== "approved" || !knowledge.is_active) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error:
+            "Tri thức AI chưa duyệt. Vui lòng duyệt Tri thức AI trước khi tạo Sales Sheet.",
+          code: "KNOWLEDGE_NOT_APPROVED",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // 4. Retrieve OpenAI API Key: Priority #1 DB encrypted key, Priority #2 Supabase secret
+    let openaiApiKey = "";
+    let keySource = "none";
     let chatModel = "gpt-4o-mini";
     try {
       const { data: settings } = await adminClient
         .from("system_ai_provider_settings")
-        .select("encrypted_api_key, chat_model")
+        .select("encrypted_api_key, chat_model, is_enabled")
         .eq("provider", "openai")
         .single();
 
       if (settings?.encrypted_api_key) {
-        openaiApiKey = await decryptApiKey(settings.encrypted_api_key);
+        const decrypted = await decryptApiKey(settings.encrypted_api_key);
+        if (decrypted && decrypted.trim()) {
+          openaiApiKey = decrypted.trim().replace(/^["']|["']$/g, "").trim();
+          keySource = "database";
+        }
       }
       if (settings?.chat_model) {
         chatModel = settings.chat_model;
       }
     } catch (e) {
-      console.error("Failed to read OPENAI_API_KEY from DB, fallback to env", e);
+      console.error("[generate-product-sales-sheet] Failed to read key from DB:", e);
     }
+
+    // Fallback to Supabase secret ONLY if database has no valid key
+    if (!openaiApiKey) {
+      const envKey = Deno.env.get("OPENAI_API_KEY") || "";
+      if (envKey && envKey.trim()) {
+        openaiApiKey = envKey.trim().replace(/^["']|["']$/g, "").trim();
+        keySource = "secret";
+      }
+    }
+
+    console.log("[generate-product-sales-sheet] Resolved API key:", {
+      keySource,
+      hasKey: Boolean(openaiApiKey),
+      keyPrefix: openaiApiKey ? openaiApiKey.slice(0, 7) : "",
+      keySuffix: openaiApiKey ? openaiApiKey.slice(-4) : "",
+      keyLength: openaiApiKey ? openaiApiKey.length : 0,
+      chatModel,
+    });
 
     if (!openaiApiKey) {
       return new Response(
-        JSON.stringify({ error: "OpenAI API key is not configured in settings." }),
+        JSON.stringify({
+          success: false,
+          error:
+            "Chưa cấu hình OPENAI_API_KEY. Vui lòng thiết lập trong Cấu hình AI (/admin/ai-settings).",
+          code: "MISSING_OPENAI_KEY",
+        }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -226,6 +335,15 @@ serve(async (req) => {
           `- SKU: ${v.sku}, Dung tích: ${v.size_label || "Mặc định"}, Giá: ${formatCurrencyVND(v.price)}`,
       );
 
+    // Extract raw guidebook texts and extracted_data
+    const rawGuidebookTexts = completedDocs
+      .map((d: any) => d.raw_text || d.extracted_text || "")
+      .filter((t: string) => Boolean(t && t.trim()));
+
+    const guidebookExtractedDataList = completedDocs
+      .map((d: any) => d.extracted_data)
+      .filter((ed: any) => ed && typeof ed === "object");
+
     const inputData = {
       product: {
         name: product.name,
@@ -238,61 +356,156 @@ serve(async (req) => {
         retail: retailVariants,
         salon: salonVariants,
       },
-      knowledge: knowledge
-        ? {
-            benefits: knowledge.benefits || "",
-            skin_concerns: knowledge.skin_concerns || [],
-            suitable_spa_types: knowledge.suitable_spa_types || [],
-            usage_instructions: knowledge.usage_instructions || "",
-            sales_pitch: knowledge.sales_pitch || "",
-            warnings: knowledge.warnings || "",
-          }
-        : null,
+      approved_knowledge: {
+        benefits: knowledge.benefits || "",
+        skin_concerns: knowledge.skin_concerns || [],
+        suitable_spa_types: knowledge.suitable_spa_types || [],
+        usage_instructions: knowledge.usage_instructions || "",
+        sales_pitch: knowledge.sales_pitch || "",
+        warnings: knowledge.warnings || "",
+        skin_types: knowledge.skin_types || [],
+        ingredient_highlights: knowledge.ingredient_highlights || [],
+        full_ingredients: (knowledge as any).full_ingredients || "",
+        product_characteristics: (knowledge as any).product_characteristics || "",
+        key_ingredients_functions: (knowledge as any).key_ingredients_functions || [],
+      },
+      raw_guidebook_texts: rawGuidebookTexts,
+      extracted_guidebook_data: guidebookExtractedDataList,
     };
 
     const systemPrompt = `Bạn là chuyên gia tư vấn sản phẩm và xây dựng tài liệu bán hàng (Product Sales Sheet) cho thương hiệu mỹ phẩm cao cấp Desembre.
-Nhiệm vụ của bạn là tổng hợp và viết nội dung tài liệu bán hàng A4 cho sản phẩm dưới đây dựa trên thông tin chính xác được cung cấp.
+Nhiệm vụ của bạn là tổng hợp và viết nội dung tài liệu bán hàng A4 cho sản phẩm dưới đây CHỈ DỰA TRÊN thông tin chính xác từ Tri thức AI đã duyệt và Tài liệu nguồn (Guidebook) đã trích xuất.
 
-QUY TẮC BẮT BUỘC:
-1. KHÔNG bịa đặt thông tin (No hallucination). Chỉ viết dựa trên dữ liệu thật được cung cấp.
-2. Nếu một thông tin nào đó bị thiếu hoặc không được cung cấp trong phần dữ liệu sản phẩm đầu vào (ví dụ: phần knowledge là null hoặc các trường trong đó rỗng), bạn BẮT BUỘC phải điền chính xác cụm từ "Chưa có dữ liệu đã duyệt." vào trường đó. Không được tự ý suy luận hay bịa ra công dụng khác.
-3. Không quảng cáo quá đà hoặc cam kết chữa khỏi các bệnh da liễu nặng (no medical claims).
-4. Phản hồi của bạn PHẢI là một đối tượng JSON hợp lệ có định dạng như sau:
+QUY TẮC BẮT BUỘC (CHỐNG BỊA ĐẶT & CHỐNG TRÙNG LẶP THÀNH PHẦN):
+1. TUYỆT ĐỐI KHÔNG tự bịa đặt hay suy diễn thông tin ngoài dữ liệu được cung cấp.
+2. QUY TẮC BẢO VỆ PHÂN TẦNG THÀNH PHẦN (CHỐNG TRÙNG LẶP NỘI DUNG):
+   - "key_ingredients": BẮT BUỘC là danh sách chi tiết thành phần chính kèm chức năng theo cấu trúc "Tên thành phần: Chức năng/Lợi ích" (Ví dụ: ["Tinh dầu hạt mắc ca: Cung cấp độ ẩm sâu và làm mềm mượt da", "Glycerin: Giữ nước và duy trì độ ẩm tự nhiên cho da", "Allantoin: Làm dịu da và thúc đẩy tái tạo tế bào"]). Lấy từ key_ingredients_functions.
+   - "ingredient_highlights": CHỈ CHỨA danh sách tên thành phần ngắn gọn / tags (Ví dụ: ["Tinh dầu hạt mắc ca", "Glycerin", "Allantoin"]). TUYỆT ĐỐI KHÔNG sao chép mô tả chức năng vào đây. TUYỆT ĐỐI KHÔNG sao chép key_ingredients vào ingredient_highlights.
+   - "full_ingredients": Toàn bộ bảng thành phần đầy đủ dưới dạng văn bản (text), chỉ hiển thị một lần duy nhất. Nếu không có trong tài liệu, ghi rõ: "Chưa có thông tin trong tài liệu nguồn."
+3. NẾU một phần thông tin KHÔNG có trong dữ liệu nguồn (ví dụ không có cảnh báo/chống chỉ định, không có danh sách thành phần đầy đủ, hoặc trường tương ứng bị rỗng):
+   - BẮT BUỘC ghi rõ: "Chưa có thông tin trong tài liệu nguồn."
+   - TUYỆT ĐỐI KHÔNG để mảng rỗng [] hay chuỗi trống "", KHÔNG để trống ô (No empty boxes).
+4. Không quảng cáo quá đà, không đưa ra cam kết y khoa/chữa khỏi bệnh (no medical claims).
+5. Phản hồi của bạn PHẢI là một đối tượng JSON hợp lệ có định dạng như sau:
 {
   "product": {
     "name": "Tên sản phẩm",
     "brand_name": "Tên thương hiệu",
     "category_name": "Tên danh mục",
-    "short_description": "Tóm tắt ngắn gọn mô tả sản phẩm (tối đa 2-3 câu)"
+    "short_description": "Tóm tắt ngắn gọn mô tả và đặc tính sản phẩm (1-2 câu)"
   },
   "pricing": {
     "retail": [
-      { "sku": "SKU", "size_label": "Dung tích/kích thước", "price": "Giá lẻ" }
+      { "sku": "SKU", "size_label": "Dung tích/kích thước", "price": "Giá niêm yết" }
     ],
     "salon": [
       { "sku": "SKU", "size_label": "Dung tích/kích thước", "price": "Giá chuyên dụng" }
     ]
   },
   "knowledge": {
-    "benefits": ["Công dụng 1", "Công dụng 2", ...],
+    "benefits": ["Công dụng 1", "Công dụng 2"],
+    "key_ingredients": ["Tên thành phần A: chức năng...", ...],
+    "ingredient_highlights": ["Tên thành phần ngắn 1", "Tên thành phần ngắn 2"],
+    "full_ingredients": "Danh sách thành phần đầy đủ nếu có trong guidebook, hoặc 'Chưa có thông tin trong tài liệu nguồn.'",
     "skin_types": ["Loại da phù hợp 1", ...],
-    "usage": ["Bước 1...", "Bước 2...", ...],
-    "sales_notes": ["Lưu ý bán hàng 1...", ...],
-    "warnings": ["Cảnh báo 1...", ...]
+    "usage": ["Bước 1...", "Bước 2..."],
+    "sales_notes": ["Lưu ý tư vấn (nếu có)...", ...],
+    "warnings": ["Cảnh báo / chống chỉ định an toàn...", ...]
   },
-  "footer_note": "Ghi chú chân trang chuyên nghiệp (ví dụ: Tài liệu lưu hành nội bộ Desembre...)"
+  "footer_note": "Thông tin sản phẩm được cung cấp bởi Desembre Vietnam."
 }`;
 
-    const userPrompt = `=== DỮ LIỆU ĐẦU VÀO SẢN PHẨM ===\n${JSON.stringify(inputData, null, 2)}`;
+    const userPrompt = `=== DỮ LIỆU ĐẦU VÀO TỪ TRI THỨC ĐÃ DUYỆT & GUIDEBOOK ĐÃ TRÍCH XUẤT ===\n${JSON.stringify(inputData, null, 2)}`;
 
     // 6. Call OpenAI
     const aiResult = await callOpenAI(userPrompt, systemPrompt, aiConfig);
-    let contentJson = {};
+    let contentJson: any = {};
     try {
       contentJson = JSON.parse(aiResult.content);
     } catch (parseErr) {
       console.error("Failed to parse AI JSON content:", aiResult.content);
       throw new Error("AI returned invalid JSON structure.");
+    }
+
+    // Defensive Post-processing: Ensure no empty sections remain (No empty boxes)
+    const NO_INFO_MSG = "Chưa có thông tin trong tài liệu nguồn.";
+    if (!contentJson.knowledge) contentJson.knowledge = {};
+    const k = contentJson.knowledge;
+
+    const sanitizeList = (val: any) => {
+      if (!Array.isArray(val) || val.length === 0) return [NO_INFO_MSG];
+      const valid = val.filter((item: any) => typeof item === "string" && item.trim() !== "");
+      return valid.length > 0 ? valid : [NO_INFO_MSG];
+    };
+
+    k.benefits = sanitizeList(k.benefits);
+    k.skin_types = sanitizeList(k.skin_types);
+    k.usage = sanitizeList(k.usage);
+    k.sales_notes = sanitizeList(k.sales_notes);
+    k.warnings = sanitizeList(k.warnings);
+    k.ingredient_highlights = sanitizeList(k.ingredient_highlights);
+    k.key_ingredients = sanitizeList(k.key_ingredients);
+
+    // Fallback full_ingredients from guidebook source if AI missed it
+    if (!k.full_ingredients || typeof k.full_ingredients !== "string" || !k.full_ingredients.trim() || k.full_ingredients === NO_INFO_MSG) {
+      const sourceFull =
+        (knowledge as any).full_ingredients ||
+        guidebookExtractedDataList.find((ed: any) => ed?.full_ingredients)?.full_ingredients;
+      k.full_ingredients = sourceFull || NO_INFO_MSG;
+    }
+
+    // Fallback key_ingredients from guidebook source if AI returned NO_INFO_MSG
+    if (k.key_ingredients.length === 1 && k.key_ingredients[0] === NO_INFO_MSG) {
+      const sourceKeyFuncs =
+        Array.isArray((knowledge as any).key_ingredients_functions) &&
+        (knowledge as any).key_ingredients_functions.length > 0
+          ? (knowledge as any).key_ingredients_functions
+          : guidebookExtractedDataList.find(
+              (ed: any) =>
+                Array.isArray(ed?.key_ingredients_functions) &&
+                ed.key_ingredients_functions.length > 0,
+            )?.key_ingredients_functions;
+
+      if (sourceKeyFuncs && sourceKeyFuncs.length > 0) {
+        k.key_ingredients = sourceKeyFuncs.map((item: any) =>
+          item.function ? `${item.name}: ${item.function}` : item.name,
+        );
+      }
+      // REMOVED: do not copy ingredient_highlights into key_ingredients to prevent duplication
+    }
+
+    // Dedupe Guard: normalize ingredient_highlights to short tags only (strip function if included)
+    if (Array.isArray(k.ingredient_highlights)) {
+      k.ingredient_highlights = k.ingredient_highlights
+        .map((item: string) => {
+          if (typeof item === "string") {
+            const colonIdx = item.indexOf(":");
+            if (colonIdx !== -1) {
+              return item.slice(0, colonIdx).replace(/^[-*•\d.]+\s*/, "").trim();
+            }
+            return item.replace(/^[-*•\d.]+\s*/, "").trim();
+          }
+          return item;
+        })
+        .filter((item: string) => Boolean(item && item !== NO_INFO_MSG));
+
+      if (k.ingredient_highlights.length === 0) {
+        k.ingredient_highlights = [NO_INFO_MSG];
+      }
+    }
+
+    // Fallback short_description from characteristics or description
+    if (!contentJson.product?.short_description?.trim() || contentJson.product.short_description === NO_INFO_MSG) {
+      if (!contentJson.product) contentJson.product = {};
+      const sourceChar =
+        (knowledge as any).product_characteristics ||
+        guidebookExtractedDataList.find((ed: any) => ed?.product_characteristics)?.product_characteristics;
+      contentJson.product.short_description = sourceChar || product.description || NO_INFO_MSG;
+    }
+
+    // Customer-facing Footer Note fallback
+    if (!contentJson.footer_note || typeof contentJson.footer_note !== "string" || !contentJson.footer_note.trim() || contentJson.footer_note.includes("nội bộ")) {
+      contentJson.footer_note = "Thông tin sản phẩm được cung cấp bởi Desembre Vietnam.";
     }
 
     return new Response(

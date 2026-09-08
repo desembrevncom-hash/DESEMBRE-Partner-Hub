@@ -3,9 +3,12 @@
 
 // Helper to decode base64 master key
 function getMasterKeyMaterial(): Uint8Array {
-  const masterKeyString = Deno.env.get("AI_SETTINGS_MASTER_KEY");
+  const masterKeyString =
+    Deno.env.get("AI_SETTINGS_MASTER_KEY") ||
+    Deno.env.get("TOKEN_ENCRYPTION_KEY") ||
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!masterKeyString) {
-    throw new Error("AI_SETTINGS_MASTER_KEY is missing in Edge Function secrets.");
+    throw new Error("Master encryption key is missing in Edge Function secrets.");
   }
 
   try {

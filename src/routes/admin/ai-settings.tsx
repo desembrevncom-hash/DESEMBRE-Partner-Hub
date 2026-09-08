@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,6 +19,7 @@ import {
   Save,
   Eye,
   EyeOff,
+  Trash2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +35,22 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+async function extractEdgeFunctionError(error: any): Promise<string> {
+  if (!error) return "";
+  if ("context" in error && error.context && typeof (error.context as any).json === "function") {
+    try {
+      const body = await (error.context as any).json();
+      return body?.message || body?.error || error.message;
+    } catch {
+      // Ignore json parse error
+    }
+  }
+  if (error.message?.includes("Failed to send a request to the Edge Function")) {
+    return "Không thể kết nối đến Edge Function. Vui lòng kiểm tra lại dịch vụ Edge Function hoặc kết nối mạng.";
+  }
+  return error.message || "Lỗi không xác định";
+}
+
 export const Route = createFileRoute("/admin/ai-settings")({
   component: AdminAiSettingsPage,
 });
@@ -47,6 +65,7 @@ function AdminAiSettingsPage() {
   const [showKey, setShowKey] = useState(false);
   const [status, setStatus] = useState({
     isConfigured: false,
+    keySource: "none" as "database" | "secret" | "none",
     useRpcBrandFilter: false,
     maskedKey: "",
     chatModel: "gpt-4o-mini",
@@ -54,6 +73,20 @@ function AdminAiSettingsPage() {
     lastTestedAt: "",
     lastTestStatus: "untested",
   });
+  const [clearingKey, setClearingKey] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    status: "success" | "error" | null;
+    message: string;
+    diagnostic?: {
+      keySource?: string;
+      keyExists?: boolean;
+      keyPrefix?: string;
+      keySuffix?: string;
+      keyLength?: number;
+      openAiStatus?: number;
+      openAiError?: string;
+    };
+  } | null>(null);
 
   const [formData, setFormData] = useState({
     provider: "openai",
@@ -88,10 +121,14 @@ function AdminAiSettingsPage() {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
 
-      if (aiStatus.error) throw aiStatus.error;
+      if (aiStatus.error) {
+        const errorMsg = await extractEdgeFunctionError(aiStatus.error);
+        throw new Error(errorMsg);
+      }
 
       setStatus({
         isConfigured: aiStatus.data?.key_configured || false,
+        keySource: aiStatus.data?.key_source || "none",
         useRpcBrandFilter: aiStatus.data?.rag_use_rpc_brand_filter || false,
         maskedKey: aiStatus.data?.key_mask || "",
         chatModel: aiStatus.data?.chat_model || "gpt-4o-mini",
@@ -109,7 +146,7 @@ function AdminAiSettingsPage() {
       }));
     } catch (e: any) {
       console.error("Fetch status error:", e);
-      toast.error("Lỗi khi tải cấu hình AI: " + e.message);
+      toast.error("Lỗi khi tải cấu hình AI: " + (e?.message || "Lỗi không xác định"));
     } finally {
       setLoading(false);
     }
@@ -135,7 +172,10 @@ function AdminAiSettingsPage() {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
 
-      if (error) throw error;
+      if (error) {
+        const errorMsg = await extractEdgeFunctionError(error);
+        throw new Error(errorMsg);
+      }
 
       if (data?.status === "success") {
         toast.success(data.message || "Đã lưu cấu hình thành công!");
@@ -145,7 +185,7 @@ function AdminAiSettingsPage() {
       }
     } catch (e: any) {
       console.error("Save error:", e);
-      toast.error("Lỗi khi lưu cấu hình: " + e.message);
+      toast.error("Lỗi khi lưu cấu hình: " + (e?.message || "Lỗi không xác định"));
     } finally {
       setSaving(false);
     }
@@ -153,6 +193,7 @@ function AdminAiSettingsPage() {
 
   const handleTestConnection = async () => {
     setTesting(true);
+    setTestResult(null);
     try {
       const {
         data: { session },
@@ -162,18 +203,68 @@ function AdminAiSettingsPage() {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
 
-      if (error) throw error;
+      if (error) {
+        const errorMsg = await extractEdgeFunctionError(error);
+        setTestResult({
+          status: "error",
+          message: errorMsg,
+        });
+        throw new Error(errorMsg);
+      }
 
       if (data?.status === "success") {
+        setTestResult({
+          status: "success",
+          message: data.message || "Test kết nối OpenAI thành công!",
+          diagnostic: data.diagnostic,
+        });
         toast.success(data.message || "Test kết nối OpenAI thành công!");
       } else {
+        setTestResult({
+          status: "error",
+          message: data?.message || "Lỗi kết nối OpenAI.",
+          diagnostic: data?.diagnostic,
+        });
         toast.error(data?.message || "Lỗi kết nối OpenAI.");
       }
+      fetchStatus();
     } catch (e: any) {
       console.error("Test error:", e);
-      toast.error("Lỗi gọi hàm test: " + e.message);
+      toast.error("Lỗi gọi hàm test: " + (e?.message || "Lỗi không xác định"));
     } finally {
       setTesting(false);
+    }
+  };
+
+  const handleClearKey = async () => {
+    setClearingKey(true);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const { data, error } = await supabase.functions.invoke("admin-ai-settings", {
+        body: { action: "clear_ai_provider_key", provider: formData.provider },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+
+      if (error) {
+        const errorMsg = await extractEdgeFunctionError(error);
+        throw new Error(errorMsg);
+      }
+
+      if (data?.status === "success") {
+        toast.success(data.message || "Đã xóa API key lưu trong Database.");
+        setFormData((prev) => ({ ...prev, openai_api_key: "" }));
+        setTestResult(null);
+        fetchStatus();
+      } else {
+        toast.error(data?.message || "Lỗi khi xóa key.");
+      }
+    } catch (e: any) {
+      console.error("Clear key error:", e);
+      toast.error("Lỗi khi xóa key: " + (e?.message || "Lỗi không xác định"));
+    } finally {
+      setClearingKey(false);
     }
   };
 
@@ -193,7 +284,10 @@ function AdminAiSettingsPage() {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
 
-      if (error) throw error;
+      if (error) {
+        const errorMsg = await extractEdgeFunctionError(error);
+        throw new Error(errorMsg);
+      }
 
       if (data?.status === "success") {
         toast.success(data.message || "Đã kích hoạt Reindex Staging Knowledge!");
@@ -202,7 +296,7 @@ function AdminAiSettingsPage() {
       }
     } catch (e: any) {
       console.error("Reindex error:", e);
-      toast.error("Lỗi gọi hàm reindex: " + e.message);
+      toast.error("Lỗi gọi hàm reindex: " + (e?.message || "Lỗi không xác định"));
     } finally {
       setTesting(false);
     }
@@ -220,7 +314,10 @@ function AdminAiSettingsPage() {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
 
-      if (error) throw error;
+      if (error) {
+        const errorMsg = await extractEdgeFunctionError(error);
+        throw new Error(errorMsg);
+      }
 
       if (data?.status === "success") {
         toast.success(data.message || "RAG Smoke Test hoàn tất.");
@@ -229,7 +326,7 @@ function AdminAiSettingsPage() {
       }
     } catch (e: any) {
       console.error("Smoke test error:", e);
-      toast.error("Lỗi gọi hàm smoke test: " + e.message);
+      toast.error("Lỗi gọi hàm smoke test: " + (e?.message || "Lỗi không xác định"));
     } finally {
       setTesting(false);
     }
@@ -278,7 +375,11 @@ function AdminAiSettingsPage() {
               ) : (
                 <XCircle className="w-4 h-4" />
               )}
-              {status.isConfigured ? "Configured in Supabase Secrets" : "Not configured"}
+              {status.keySource === "database"
+                ? "Database Encrypted (Ưu tiên)"
+                : status.keySource === "secret"
+                  ? "Supabase Secrets (Dự phòng)"
+                  : "Not configured"}
             </div>
           </div>
 
@@ -290,6 +391,47 @@ function AdminAiSettingsPage() {
               API Key sẽ được lưu vào Database để sử dụng. Key trả về đã được ẩn để bảo mật.
             </p>
           </div>
+
+          {testResult && (
+            <div
+              className={`mt-4 p-4 rounded-xl border text-sm ${
+                testResult.status === "success"
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                  : "bg-rose-50 border-rose-200 text-rose-800"
+              }`}
+            >
+              <div className="flex items-start gap-2">
+                {testResult.status === "success" ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                ) : (
+                  <XCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                )}
+                <div className="space-y-1">
+                  <p className="font-semibold">{testResult.message}</p>
+                  {testResult.diagnostic && (
+                    <div className="text-xs space-y-0.5 opacity-90 font-mono bg-white/60 p-2 rounded border border-current/10 mt-2">
+                      <div>
+                        Nguồn Key kiểm tra: <strong>{testResult.diagnostic.keySource}</strong>
+                      </div>
+                      {testResult.diagnostic.keyPrefix && (
+                        <div>
+                          Mask: {testResult.diagnostic.keyPrefix}...
+                          {testResult.diagnostic.keySuffix} (độ dài:{" "}
+                          {testResult.diagnostic.keyLength})
+                        </div>
+                      )}
+                      {testResult.diagnostic.openAiStatus && (
+                        <div>HTTP Status: {testResult.diagnostic.openAiStatus}</div>
+                      )}
+                      {testResult.diagnostic.openAiError && (
+                        <div>Chi tiết lỗi từ OpenAI: {testResult.diagnostic.openAiError}</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="mt-6 space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -368,23 +510,60 @@ function AdminAiSettingsPage() {
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-6">
-            <Button
-              onClick={handleTestConnection}
-              disabled={testing || !status.isConfigured}
-              variant="outline"
-              className="border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-bold"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${testing ? "animate-spin" : ""}`} /> Test
-              Connection
-            </Button>
-            <Button
-              onClick={handleSaveSettings}
-              disabled={saving}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
-            >
-              <Save className={`w-4 h-4 mr-2 ${saving ? "animate-spin" : ""}`} /> Lưu Cấu Hình
-            </Button>
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-6">
+            <div>
+              {status.keySource === "database" && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      disabled={clearingKey}
+                      className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 font-medium text-xs"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                      {clearingKey ? "Đang xóa..." : "Xóa Key Đã Lưu Trong Database"}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="rounded-2xl">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Xác nhận xóa API Key trong Database?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Key đã mã hóa trong bảng cài đặt sẽ bị xóa. Hệ thống sẽ quay về sử dụng
+                        OpenAI Key trong Supabase Secrets (nếu có).
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="rounded-xl">Hủy</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white"
+                        onClick={handleClearKey}
+                      >
+                        Xác nhận xóa
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={handleTestConnection}
+                disabled={testing || !status.isConfigured}
+                variant="outline"
+                className="border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-bold"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${testing ? "animate-spin" : ""}`} /> Test
+                Connection
+              </Button>
+              <Button
+                onClick={handleSaveSettings}
+                disabled={saving}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+              >
+                <Save className={`w-4 h-4 mr-2 ${saving ? "animate-spin" : ""}`} /> Lưu Cấu Hình
+              </Button>
+            </div>
           </div>
         </CRMCard>
 

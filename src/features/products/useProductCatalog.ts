@@ -13,7 +13,13 @@ import {
   checkLegacyOrderability,
 } from "@/lib/catalogDb";
 import { validateDbCartItem } from "@/lib/orders";
-import type { CartItemAny, SalesSheetInfo } from "./types";
+import type {
+  CartItemAny,
+  SalesSheetInfo,
+  ProductKnowledgeSummary,
+  GuidebookStatus,
+} from "./types";
+import { resolveSalesDisplaySheet } from "@/lib/salesSheetVersionUtils";
 
 // ── Local interfaces ──────────────────────────────────────────────────────
 
@@ -59,6 +65,7 @@ interface SalesSheetRow {
   catalog_product_id: string;
   status: "draft" | "approved" | "archived";
   is_current: boolean | null;
+  is_default?: boolean | null;
   version: number | null;
   created_at: string | null;
 }
@@ -124,8 +131,12 @@ export function useProductCatalog() {
   const [cart, setCart] = useState<CartItemAny[]>([]);
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
 
-  // Knowledge dialog state
+  // Knowledge dialog & summary map state
   const [selectedKnowledgeProductId, setSelectedKnowledgeProductId] = useState<number | null>(null);
+  const [knowledgeMap, setKnowledgeMap] = useState<Record<string, ProductKnowledgeSummary>>({});
+
+  // Guidebooks map state
+  const [guidebooksMap, setGuidebooksMap] = useState<Record<string, GuidebookStatus>>({});
 
   // Sales sheet state
   const [salesSheetsMap, setSalesSheetsMap] = useState<Record<string, SalesSheetInfo>>({});
@@ -147,58 +158,125 @@ export function useProductCatalog() {
 
   // ── Data loaders ─────────────────────────────────────────────────────────
 
-  /** Task 10: select only required columns from product_sales_sheets */
-  const loadSalesSheets = useCallback(async (shouldThrow = false) => {
+  /** Load sales sheets and resolve current/default version for catalog display */
+  const loadSalesSheets = useCallback(
+    async (shouldThrow = false) => {
+      try {
+        let data: SalesSheetRow[] | null = null;
+        let error: { message?: string } | null = null;
+
+        const res = await supabase
+          .from("product_sales_sheets")
+          .select("id, catalog_product_id, status, is_current, is_default, version, created_at");
+
+        if (res.error && res.error.message?.includes("is_default")) {
+          // Fallback if column not yet added to remote schema
+          const fallbackRes = await supabase
+            .from("product_sales_sheets")
+            .select("id, catalog_product_id, status, is_current, version, created_at");
+          data = fallbackRes.data as SalesSheetRow[] | null;
+          error = fallbackRes.error;
+        } else {
+          data = res.data as SalesSheetRow[] | null;
+          error = res.error;
+        }
+
+        if (error) {
+          if (shouldThrow) throw error;
+          else console.error("Error loading sales sheets map:", error);
+        }
+        if (data) {
+          const map: Record<string, SalesSheetInfo> = {};
+
+          // Group by catalog_product_id
+          const groups: Record<string, SalesSheetRow[]> = {};
+          data.forEach((row) => {
+            if (!groups[row.catalog_product_id]) {
+              groups[row.catalog_product_id] = [];
+            }
+            groups[row.catalog_product_id].push(row);
+          });
+
+          // Resolve current/default version for each product group
+          Object.keys(groups).forEach((prodId) => {
+            const rows = groups[prodId];
+            const selected = resolveSalesDisplaySheet(rows, isManager);
+            if (selected) {
+              map[prodId] = {
+                id: selected.id,
+                status: (selected.status === "approved"
+                  ? "approved"
+                  : selected.status === "archived"
+                    ? "archived"
+                    : "draft") as "draft" | "approved" | "archived",
+              };
+            }
+          });
+
+          setSalesSheetsMap(map);
+        }
+      } catch (err) {
+        if (shouldThrow) throw err;
+        console.error("Error loading sales sheets map:", err);
+      }
+    },
+    [isManager],
+  );
+
+  const loadKnowledgeMap = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from("product_sales_sheets")
-        .select("id, catalog_product_id, status, is_current, version, created_at");
+        .from("product_knowledge")
+        .select("id, product_id, catalog_product_id, qa_status, is_active, is_public");
       if (error) {
-        if (shouldThrow) throw error;
-        else console.error("Error loading sales sheets map:", error);
+        console.error("Error loading knowledge map:", error);
+        return;
       }
       if (data) {
-        const map: Record<string, SalesSheetInfo> = {};
-
-        // Group by catalog_product_id
-        const groups: Record<string, SalesSheetRow[]> = {};
-        (data as SalesSheetRow[]).forEach((row) => {
-          if (!groups[row.catalog_product_id]) {
-            groups[row.catalog_product_id] = [];
-          }
-          groups[row.catalog_product_id].push(row);
+        const kMap: Record<string, ProductKnowledgeSummary> = {};
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        data.forEach((row: any) => {
+          const summary: ProductKnowledgeSummary = {
+            id: row.id,
+            qa_status: row.qa_status || "draft",
+            is_active: row.is_active ?? true,
+            is_public: row.is_public ?? false,
+          };
+          if (row.catalog_product_id) kMap[row.catalog_product_id] = summary;
+          if (row.product_id != null) kMap[String(row.product_id)] = summary;
         });
-
-        // Resolve current/latest version for each product group client-side
-        Object.keys(groups).forEach((prodId) => {
-          const rows = groups[prodId];
-          // 1. Try to find the row with is_current = true
-          let selected = rows.find((r) => r.is_current === true);
-
-          if (!selected) {
-            // 2. Fallback: Sort by version desc, then created_at desc
-            selected = [...rows].sort((a, b) => {
-              const versionA = typeof a.version === "number" ? a.version : 1;
-              const versionB = typeof b.version === "number" ? b.version : 1;
-              if (versionA !== versionB) {
-                return versionB - versionA;
-              }
-              const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
-              const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
-              return dateB - dateA;
-            })[0];
-          }
-
-          if (selected) {
-            map[prodId] = { id: selected.id, status: selected.status };
-          }
-        });
-
-        setSalesSheetsMap(map);
+        setKnowledgeMap(kMap);
       }
     } catch (err) {
-      if (shouldThrow) throw err;
-      console.error("Error loading sales sheets map:", err);
+      console.error("Error loading knowledge map:", err);
+    }
+  }, []);
+
+  const loadGuidebooksMap = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("product_source_documents")
+        .select("id, catalog_product_id, extraction_status, source_type");
+      if (error) {
+        console.error("Error loading guidebooks map:", error);
+        return;
+      }
+      if (data) {
+        const gMap: Record<string, GuidebookStatus> = {};
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        data.forEach((row: any) => {
+          if (!row.catalog_product_id) return;
+          const current = gMap[row.catalog_product_id];
+          if (row.extraction_status === "completed") {
+            gMap[row.catalog_product_id] = "extracted";
+          } else if (!current || current === "none") {
+            gMap[row.catalog_product_id] = "saved";
+          }
+        });
+        setGuidebooksMap(gMap);
+      }
+    } catch (err) {
+      console.error("Error loading guidebooks map:", err);
     }
   }, []);
 
@@ -234,7 +312,7 @@ export function useProductCatalog() {
 
       setDbBrands(brandsData || []);
       setDbCategories(categoriesData || []);
-      await loadSalesSheets();
+      await Promise.all([loadSalesSheets(), loadKnowledgeMap(), loadGuidebooksMap()]);
     } catch (e) {
       console.error("[products] DB Catalog fetch error, falling back:", e);
       setDbError(true);
@@ -245,7 +323,7 @@ export function useProductCatalog() {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadSalesSheets]);
+  }, [loadSalesSheets, loadKnowledgeMap, loadGuidebooksMap]);
 
   const fetchOverrides = useCallback(async () => {
     setLoading(true);
@@ -280,6 +358,8 @@ export function useProductCatalog() {
     } else {
       fetchOverrides();
       loadSalesSheets();
+      loadKnowledgeMap();
+      loadGuidebooksMap();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCatalogDbReadEnabled]);
@@ -522,9 +602,14 @@ export function useProductCatalog() {
     removeCartItem,
     clearCart,
     handleCreateOrder,
-    // Knowledge dialog
+    // Knowledge dialog & summary
     selectedKnowledgeProductId,
     setSelectedKnowledgeProductId,
+    knowledgeMap,
+    loadKnowledgeMap,
+    // Guidebooks map
+    guidebooksMap,
+    loadGuidebooksMap,
     // Sales sheet
     salesSheetsMap,
     salesSheetDialogOpen,

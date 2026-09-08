@@ -212,11 +212,49 @@ export function ProductDetailModal({ product, isOpen, onClose, onOpenContact, va
                 </div>
               )}
 
+              {/* Ingredient highlights if present */}
+              {product.ingredientHighlights && product.ingredientHighlights.length > 0 && (
+                <div className="space-y-1.5">
+                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                    Thành phần nổi bật
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {product.ingredientHighlights.map((ing, i) => (
+                      <span
+                        key={i}
+                        className="px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-bold"
+                      >
+                        {ing}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Skin types tags */}
+              {product.skinTypes && product.skinTypes.length > 0 && (
+                <div className="space-y-1.5">
+                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                    Loại da phù hợp
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {product.skinTypes.map((st, i) => (
+                      <span
+                        key={i}
+                        className="px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-700 text-[10px] font-bold"
+                      >
+                        {st}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Skin concerns tags */}
               {product.skinConcerns && product.skinConcerns.length > 0 && (
                 <div className="space-y-1.5">
                   <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                    Phù hợp loại da &amp; vấn đề
+                    Vấn đề da mục tiêu
                   </h4>
                   <div className="flex flex-wrap gap-1.5">
                     {product.skinConcerns.map((sc, i) => (

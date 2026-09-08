@@ -56,6 +56,8 @@ export interface PublicProduct {
   benefits?: string;
   skinConcerns?: string[];
   warnings?: string;
+  ingredientHighlights?: string[];
+  skinTypes?: string[];
 }
 
 export interface CatalogBrand {

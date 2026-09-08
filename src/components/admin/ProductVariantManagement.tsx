@@ -21,7 +21,14 @@ import {
   Eye,
   Info,
   Upload,
+  BookOpen,
+  FileText,
+  Trash2,
+  ExternalLink,
+  Sparkles,
+  ShieldCheck,
 } from "lucide-react";
+import { ProductKnowledgeDialog } from "@/components/ProductKnowledgeDialog";
 import { CRMCard } from "@/components/crm/CRMCard";
 import { CRMStatusBadge } from "@/components/crm/CRMStatusBadge";
 import { CRMEmptyState } from "@/components/crm/CRMEmptyState";
@@ -48,6 +55,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   saveCatalogProduct,
   saveCatalogVariant,
@@ -59,6 +67,13 @@ import {
   validateProductImageFile,
   uploadProductImage,
   uploadAndSaveProductImage,
+  fetchProductSourceDocuments,
+  uploadProductGuidebook,
+  deleteProductSourceDocument,
+  extractProductGuidebook,
+  saveProductGuidebookText,
+  GUIDEBOOK_TEXT_TEMPLATE,
+  type ProductSourceDocument,
 } from "@/lib/catalogAdminDb";
 import { stableProductSort, computeNextProductSortOrder } from "@/lib/catalogSort";
 
@@ -139,6 +154,127 @@ export const ProductVariantManagement: React.FC<ProductVariantManagementProps> =
 
   const [dialogImageUploading, setDialogImageUploading] = useState(false);
   const dialogFileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const [guidebooks, setGuidebooks] = useState<ProductSourceDocument[]>([]);
+  const [loadingGuidebooks, setLoadingGuidebooks] = useState(false);
+  const [guidebookUploading, setGuidebookUploading] = useState(false);
+  const [extractingDocId, setExtractingDocId] = useState<string | null>(null);
+  const guidebookFileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const loadGuidebooks = React.useCallback(async (productId: string) => {
+    setLoadingGuidebooks(true);
+    const res = await fetchProductSourceDocuments(productId);
+    if (res.error) {
+      toast.error(res.error);
+    } else {
+      setGuidebooks(res.data);
+    }
+    setLoadingGuidebooks(false);
+  }, []);
+
+  useEffect(() => {
+    if (selectedProduct?.id) {
+      loadGuidebooks(selectedProduct.id);
+    } else {
+      setGuidebooks([]);
+    }
+  }, [selectedProduct?.id, loadGuidebooks]);
+
+  const handleGuidebookFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedProduct) return;
+
+    setGuidebookUploading(true);
+    const res = await uploadProductGuidebook(file, selectedProduct.id);
+    if (!res.ok || !res.document) {
+      toast.error(res.error || "Tải lên thất bại");
+    } else {
+      toast.success(`Đã tải lên tài liệu: ${file.name}`);
+      await loadGuidebooks(selectedProduct.id);
+    }
+    setGuidebookUploading(false);
+    if (guidebookFileInputRef.current) {
+      guidebookFileInputRef.current.value = "";
+    }
+  };
+
+  const [adminKnowledgeOpen, setAdminKnowledgeOpen] = useState(false);
+  const [adminKnowledgeProduct, setAdminKnowledgeProduct] = useState<Product | null>(null);
+
+  const handleOpenKnowledgeForReview = (prod: Product) => {
+    setAdminKnowledgeProduct(prod);
+    setAdminKnowledgeOpen(true);
+  };
+
+  const handleExtractGuidebook = async (doc: ProductSourceDocument) => {
+    if (!selectedProduct) return;
+    setExtractingDocId(doc.id);
+    toast.info(`Đang trích xuất nội dung từ ${doc.file_name}...`);
+
+    const res = await extractProductGuidebook(doc.id, selectedProduct.id);
+    if (!res.ok) {
+      toast.error(res.error || "Trích xuất thất bại");
+    } else {
+      toast.success("Trích xuất hoàn tất! Gợi ý đã sẵn sàng trong 'Tri thức AI'.", {
+        action: {
+          label: "Mở Tri thức AI để duyệt",
+          onClick: () => handleOpenKnowledgeForReview(selectedProduct),
+        },
+      });
+      await loadGuidebooks(selectedProduct.id);
+    }
+    setExtractingDocId(null);
+  };
+
+  const [guidebookTextInput, setGuidebookTextInput] = useState("");
+  const [guidebookTextTitle, setGuidebookTextTitle] = useState("");
+  const [savingGuidebookText, setSavingGuidebookText] = useState(false);
+
+  const handleInsertGuidebookTemplate = () => {
+    setGuidebookTextInput(GUIDEBOOK_TEXT_TEMPLATE);
+    if (!guidebookTextTitle && selectedProduct) {
+      setGuidebookTextTitle(`Guidebook - ${selectedProduct.name}`);
+    }
+    toast.info("Đã chèn mẫu nội dung Guidebook dạng Markdown.");
+  };
+
+  const handleSaveGuidebookText = async (autoExtract: boolean = false) => {
+    if (!selectedProduct) return;
+    if (!guidebookTextInput.trim()) {
+      toast.error("Vui lòng nhập nội dung Guidebook dạng text trước khi lưu.");
+      return;
+    }
+
+    setSavingGuidebookText(true);
+    const title = guidebookTextTitle.trim() || `Guidebook - ${selectedProduct.name}`;
+    const res = await saveProductGuidebookText(selectedProduct.id, guidebookTextInput, title);
+
+    if (!res.ok || !res.document) {
+      toast.error(res.error || "Không thể lưu text Guidebook.");
+    } else {
+      toast.success("Lưu text Guidebook thành công!");
+      if (autoExtract) {
+        await handleExtractGuidebook(res.document);
+      }
+      setGuidebookTextInput("");
+      setGuidebookTextTitle("");
+      await loadGuidebooks(selectedProduct.id);
+    }
+    setSavingGuidebookText(false);
+  };
+
+  const handleDeleteGuidebook = async (doc: ProductSourceDocument) => {
+    if (!selectedProduct) return;
+    if (!confirm(`Bạn có chắc chắn muốn xóa tài liệu ${doc.file_name || "này"}?`)) return;
+
+    const res = await deleteProductSourceDocument(doc.id, doc.file_url);
+    if (!res.ok) {
+      toast.error(res.error || "Không thể xóa tài liệu");
+    } else {
+      toast.success(`Đã xóa tài liệu ${doc.file_name || ""}`);
+      await loadGuidebooks(selectedProduct.id);
+    }
+  };
 
   useEffect(() => {
     if (selectedProduct) {
@@ -1913,10 +2049,350 @@ export const ProductVariantManagement: React.FC<ProductVariantManagementProps> =
                   );
                 })()}
               </div>
+
+              {/* GUIDEBOOK / SOURCE DOCUMENTS SECTION */}
+              <div className="space-y-4 pt-6 border-t border-slate-200">
+                <div>
+                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-1.5">
+                    <BookOpen className="w-4 h-4 text-indigo-600" />
+                    Tài liệu nguồn / Guidebook
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Cung cấp tài liệu sản phẩm dạng Text hoặc File để trích xuất vào Tri thức AI.
+                  </p>
+                </div>
+
+                <Tabs defaultValue="text" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 bg-slate-100 p-1 rounded-xl h-10">
+                    <TabsTrigger
+                      value="text"
+                      className="text-xs font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-xs"
+                    >
+                      <FileText className="w-3.5 h-3.5 mr-1.5" /> Nhập Text (Đề xuất cho AI)
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="file"
+                      className="text-xs font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-xs"
+                    >
+                      <Upload className="w-3.5 h-3.5 mr-1.5" /> Upload File (Tùy chọn)
+                    </TabsTrigger>
+                  </TabsList>
+
+                  {/* TAB 1: NHẬP TEXT */}
+                  <TabsContent value="text" className="space-y-3 pt-2">
+                    <div className="p-2.5 bg-indigo-50/70 border border-indigo-100 rounded-xl text-[11px] text-indigo-900 flex items-start gap-2">
+                      <Sparkles className="w-4 h-4 shrink-0 mt-0.5 text-indigo-600" />
+                      <div>
+                        <strong className="font-bold text-indigo-950">Đề xuất:</strong> Dạng
+                        text/markdown giúp AI đọc nhanh và chính xác hơn PDF scan. Dán trực tiếp
+                        thông tin hãng hoặc bấm <strong>Chèn mẫu nội dung</strong> bên dưới.
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          Tiêu đề tài liệu
+                        </Label>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleInsertGuidebookTemplate}
+                          className="h-6 px-2 text-[10px] font-bold text-indigo-600 hover:bg-indigo-50"
+                        >
+                          <Sparkles className="w-3 h-3 mr-1" /> Chèn mẫu nội dung
+                        </Button>
+                      </div>
+                      <Input
+                        value={guidebookTextTitle}
+                        onChange={(e) => setGuidebookTextTitle(e.target.value)}
+                        placeholder={`VD: Guidebook - ${selectedProduct.name}`}
+                        className="h-9 text-xs rounded-lg border-slate-200"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                        Nội dung Text / Markdown
+                      </Label>
+                      <Textarea
+                        value={guidebookTextInput}
+                        onChange={(e) => setGuidebookTextInput(e.target.value)}
+                        placeholder="Dán nội dung sách hướng dẫn, tài liệu sản phẩm hoặc bấm 'Chèn mẫu nội dung'..."
+                        rows={8}
+                        className="font-mono text-xs rounded-xl border-slate-200 bg-slate-50/40 focus:bg-white resize-y min-h-[140px]"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      {guidebookTextInput && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setGuidebookTextInput("")}
+                          className="h-8 px-2 text-xs font-semibold text-slate-500 hover:text-slate-800"
+                        >
+                          Xóa trắng
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={savingGuidebookText || !guidebookTextInput.trim()}
+                        onClick={() => handleSaveGuidebookText(false)}
+                        className="h-8 px-3 text-xs font-bold rounded-lg border-slate-200 text-slate-700 hover:bg-slate-50"
+                      >
+                        {savingGuidebookText ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Đang lưu...
+                          </>
+                        ) : (
+                          "Lưu text nguồn"
+                        )}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={savingGuidebookText || !guidebookTextInput.trim()}
+                        onClick={() => handleSaveGuidebookText(true)}
+                        className="h-8 px-3.5 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-xs"
+                      >
+                        {savingGuidebookText ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Đang xử lý...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Phân tích vào Tri thức AI
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </TabsContent>
+
+                  {/* TAB 2: UPLOAD FILE */}
+                  <TabsContent value="file" className="space-y-3 pt-2">
+                    <div className="p-4 bg-slate-50/70 rounded-xl border border-dashed border-slate-200 text-center space-y-2">
+                      <p className="text-xs font-medium text-slate-600">
+                        File tài liệu đính kèm bổ trợ (Tùy chọn)
+                      </p>
+                      <p className="text-[11px] text-slate-400">
+                        Chấp nhận: PDF, Word (DOCX/DOC), Ảnh (PNG, JPG, WEBP) tối đa 25MB.
+                      </p>
+                      <input
+                        type="file"
+                        ref={guidebookFileInputRef}
+                        className="hidden"
+                        accept=".pdf,.docx,.doc,.png,.jpg,.jpeg,.webp"
+                        onChange={handleGuidebookFileUpload}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={guidebookUploading}
+                        onClick={() => guidebookFileInputRef.current?.click()}
+                        className="h-9 px-4 text-xs font-bold rounded-lg border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+                      >
+                        {guidebookUploading ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Đang tải lên...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-3.5 h-3.5 mr-1.5" /> Chọn tập tin tải lên
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+
+                {/* LIST OF SAVED GUIDEBOOK DOCUMENTS */}
+                <div className="space-y-2.5 pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                      Tài liệu đã lưu ({guidebooks.length})
+                    </span>
+                  </div>
+
+                  {loadingGuidebooks ? (
+                    <div className="py-6 text-center text-xs text-slate-400">
+                      <Loader2 className="w-5 h-5 mx-auto animate-spin text-slate-400 mb-1" />
+                      Đang tải danh sách tài liệu...
+                    </div>
+                  ) : guidebooks.length === 0 ? (
+                    <div className="p-3 bg-slate-50/60 rounded-xl border border-slate-200/60 text-center text-xs text-slate-400">
+                      Chưa có tài liệu nguồn nào. Nhập Text hoặc tải File ở trên.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {guidebooks.map((doc) => {
+                        const isText = doc.source_type === "text" || !doc.file_url;
+                        return (
+                          <div
+                            key={doc.id}
+                            className="p-3 bg-white rounded-xl border border-slate-200/80 shadow-3xs space-y-2"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-start gap-2.5 min-w-0">
+                                <div
+                                  className={`p-2 rounded-lg shrink-0 mt-0.5 ${isText ? "bg-emerald-50 text-emerald-600" : "bg-indigo-50 text-indigo-600"}`}
+                                >
+                                  {isText ? (
+                                    <FileText className="w-4 h-4" />
+                                  ) : (
+                                    <BookOpen className="w-4 h-4" />
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span
+                                      className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${isText ? "bg-emerald-100 text-emerald-800" : "bg-blue-100 text-blue-800"}`}
+                                    >
+                                      {isText ? "Text" : "File"}
+                                    </span>
+                                    <p
+                                      className="text-xs font-bold text-slate-800 truncate"
+                                      title={doc.file_name || "Tài liệu"}
+                                    >
+                                      {doc.file_name || "Tài liệu nguồn"}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400">
+                                    <span>
+                                      {new Date(doc.created_at).toLocaleDateString("vi-VN")}
+                                    </span>
+                                    <span>•</span>
+                                    <span
+                                      className={`font-semibold px-1.5 py-0.5 rounded text-[9px] ${
+                                        doc.extraction_status === "completed"
+                                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                          : doc.extraction_status === "processing"
+                                            ? "bg-blue-50 text-blue-700 border border-blue-200 animate-pulse"
+                                            : doc.extraction_status === "failed"
+                                              ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                              : "bg-slate-100 text-slate-600 border border-slate-200"
+                                      }`}
+                                    >
+                                      {doc.extraction_status === "completed"
+                                        ? "Đã trích xuất"
+                                        : doc.extraction_status === "processing"
+                                          ? "Đang trích xuất..."
+                                          : doc.extraction_status === "failed"
+                                            ? "Trích xuất lỗi"
+                                            : "Chờ trích xuất"}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Action buttons */}
+                            <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-slate-100">
+                              {doc.file_url ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  asChild
+                                  className="h-7 px-2 text-[11px] font-semibold text-slate-600 hover:text-slate-900"
+                                >
+                                  <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                                    <ExternalLink className="w-3 h-3 mr-1" /> Xem file
+                                  </a>
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setGuidebookTextInput(doc.raw_text || doc.extracted_text || "");
+                                    setGuidebookTextTitle(doc.file_name || "");
+                                    toast.info(
+                                      "Đã nạp nội dung văn bản lên khung chỉnh sửa phía trên.",
+                                    );
+                                  }}
+                                  className="h-7 px-2 text-[11px] font-semibold text-slate-600 hover:text-slate-900"
+                                >
+                                  <Edit2 className="w-3 h-3 mr-1" /> Nạp vào ô sửa
+                                </Button>
+                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={
+                                  extractingDocId === doc.id ||
+                                  doc.extraction_status === "processing"
+                                }
+                                onClick={() => handleExtractGuidebook(doc)}
+                                className="h-7 px-2.5 text-[11px] font-bold rounded-lg border-indigo-200 text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100"
+                              >
+                                {extractingDocId === doc.id ? (
+                                  <>
+                                    <Loader2 className="w-3 h-3 mr-1 animate-spin" /> Đang trích
+                                    xuất...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles className="w-3 h-3 mr-1" />
+                                    {doc.extraction_status === "completed"
+                                      ? "Trích xuất lại"
+                                      : "Trích xuất vào Tri thức"}
+                                  </>
+                                )}
+                              </Button>
+                              {doc.extraction_status === "completed" && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleOpenKnowledgeForReview(selectedProduct)}
+                                  className="h-7 px-2.5 text-[11px] font-bold rounded-lg border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 shadow-3xs"
+                                >
+                                  <ShieldCheck className="w-3 h-3 mr-1 text-emerald-600" />
+                                  Mở Tri thức AI để duyệt
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteGuidebook(doc)}
+                                className="h-7 px-2 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 rounded-lg"
+                              >
+                                <Trash2 className="w-3 h-3 mr-1" /> Xóa
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </SheetContent>
       </Sheet>
+
+      {/* ADMIN PRODUCT KNOWLEDGE REVIEW DIALOG */}
+      {adminKnowledgeProduct && (
+        <ProductKnowledgeDialog
+          productId={null}
+          catalogProductId={adminKnowledgeProduct.id}
+          productName={adminKnowledgeProduct.name}
+          productsList={products.map((p) => ({ id: p.sort_order || 0, name: p.name }))}
+          isOpenOverride={adminKnowledgeOpen}
+          onClose={() => {
+            setAdminKnowledgeOpen(false);
+            setAdminKnowledgeProduct(null);
+          }}
+          onSaved={() => {
+            if (selectedProduct) loadGuidebooks(selectedProduct.id);
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -17,10 +17,15 @@ import { sortCatalogProducts } from "./catalogSortUtils";
 
 interface PkRow {
   product_id?: number | null;
+  catalog_product_id?: string | null;
   usage_instructions?: string | null;
   benefits?: string | null;
-  skinConcerns?: string[];
+  skin_concerns?: string[];
   warnings?: string | null;
+  ingredient_highlights?: string[];
+  skin_types?: string[];
+  is_public?: boolean;
+  qa_status?: string;
 }
 
 const getInitialViewMode = (): CatalogViewMode => {
@@ -138,7 +143,7 @@ export function usePublicCatalog(options?: UsePublicCatalogOptions) {
     // Index overrides by numeric no
     const overrideByNo = buildOverrideMapByNo(rawOverridesList);
 
-    // 2. Fetch product_knowledge safely
+    // 2. Fetch product_knowledge safely: Only approved AND is_public = true
     const knowledgeMap = new Map<
       string,
       {
@@ -146,26 +151,38 @@ export function usePublicCatalog(options?: UsePublicCatalogOptions) {
         benefits?: string;
         skinConcerns?: string[];
         warnings?: string;
+        ingredientHighlights?: string[];
+        skinTypes?: string[];
       }
     >();
 
     try {
       const { data: pkData, error: pkError } = await supabase
         .from("product_knowledge")
-        .select("product_id, usage_instructions, benefits, skin_concerns, warnings")
-        .eq("is_active", true);
+        .select(
+          "product_id, catalog_product_id, usage_instructions, benefits, skin_concerns, warnings, ingredient_highlights, skin_types, is_public, qa_status",
+        )
+        .eq("is_active", true)
+        .eq("is_public", true)
+        .eq("qa_status", "approved");
 
       if (pkError) {
         console.warn("[usePublicCatalog] product_knowledge fetch warning:", pkError);
       } else if (pkData) {
         (pkData as unknown as PkRow[]).forEach((row) => {
+          const item = {
+            usageInstructions: row.usage_instructions || undefined,
+            benefits: row.benefits || undefined,
+            skinConcerns: row.skin_concerns || undefined,
+            warnings: row.warnings || undefined,
+            ingredientHighlights: row.ingredient_highlights || undefined,
+            skinTypes: row.skin_types || undefined,
+          };
           if (row.product_id != null) {
-            knowledgeMap.set(String(row.product_id), {
-              usageInstructions: row.usage_instructions || undefined,
-              benefits: row.benefits || undefined,
-              skinConcerns: row.skin_concerns || undefined,
-              warnings: row.warnings || undefined,
-            });
+            knowledgeMap.set(String(row.product_id), item);
+          }
+          if (row.catalog_product_id) {
+            knowledgeMap.set(String(row.catalog_product_id), item);
           }
         });
       }

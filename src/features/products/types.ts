@@ -15,6 +15,17 @@ export interface SalesSheetInfo {
   status: "draft" | "approved" | "archived";
 }
 
+export type GuidebookStatus = "none" | "saved" | "extracted";
+export type KnowledgeStatus = "none" | "draft" | "review" | "approved";
+export type SalesSheetStatus = "none" | "draft" | "approved";
+
+export interface ProductKnowledgeSummary {
+  id: string;
+  qa_status: "draft" | "review" | "approved" | "archived";
+  is_active: boolean;
+  is_public: boolean;
+}
+
 /** A cart item produced from a DB-catalog product. */
 export interface DbCartEntry {
   source: "db_catalog";

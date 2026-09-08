@@ -1,12 +1,22 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Search, Plus, Download, Zap, Loader2, LayoutGrid, AlertTriangle } from "lucide-react";
+import {
+  Search,
+  Plus,
+  Download,
+  Zap,
+  Loader2,
+  LayoutGrid,
+  AlertTriangle,
+  Info,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { FullCatalogPDF } from "@/components/FullCatalogPDF";
 import { EditUnlockProvider } from "@/hooks/useEditUnlock";
 import { ProductKnowledgeDialog } from "@/components/ProductKnowledgeDialog";
+import { ProductKnowledgeReadOnlyDialog } from "@/components/ProductKnowledgeReadOnlyDialog";
 import { ProductSalesSheetDialog } from "@/components/admin/templates/ProductSalesSheetDialog";
 import { CRMPageContainer } from "@/components/crm/CRMPageContainer";
 import { CRMPageHeader } from "@/components/crm/CRMPageHeader";
@@ -77,6 +87,10 @@ function ProductCatalogPage() {
     handleCreateOrder,
     selectedKnowledgeProductId,
     setSelectedKnowledgeProductId,
+    knowledgeMap,
+    loadKnowledgeMap,
+    guidebooksMap,
+    loadGuidebooksMap,
     salesSheetsMap,
     salesSheetDialogOpen,
     setSalesSheetDialogOpen,
@@ -95,6 +109,9 @@ function ProductCatalogPage() {
   } = useProductCatalog();
 
   const [autoOpenAddProduct, setAutoOpenAddProduct] = useState(false);
+  const [readOnlyKnowledgeProduct, setReadOnlyKnowledgeProduct] = useState<
+    import("@/types/crm").Product | null
+  >(null);
 
   const handleAddProductClick = () => {
     if (isDbAdminEnabled) {
@@ -341,8 +358,58 @@ function ProductCatalogPage() {
                           <th className="px-3 py-4 text-center w-36">Size</th>
                           <th className="px-6 py-4 text-right w-44">Cá nhân</th>
                           <th className="px-6 py-4 text-right w-44">Salon</th>
-                          <th className="px-3 py-4 text-center w-40">Tài liệu</th>
-                          <th className="px-3 py-4 text-center w-40">Thao tác</th>
+                          <th className="px-3 py-4 text-center w-40">
+                            <div className="inline-flex items-center justify-center gap-1">
+                              <span>Tài liệu bán hàng</span>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 cursor-pointer" />
+                                  </TooltipTrigger>
+                                  <TooltipContent
+                                    side="top"
+                                    className="max-w-xs text-xs space-y-1 p-2.5"
+                                  >
+                                    <p className="font-bold text-slate-900">
+                                      Tài liệu bán hàng (Sales Sheet):
+                                    </p>
+                                    <p className="text-slate-600 leading-relaxed">
+                                      Output tài liệu tóm tắt sản phẩm và bảng giá tạo cho đại
+                                      lý/khách hàng, sinh từ Tri thức AI đã duyệt.
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                          </th>
+                          <th className="px-3 py-4 text-center w-40">
+                            <div className="inline-flex items-center justify-center gap-1">
+                              <span>Thao tác</span>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 cursor-pointer" />
+                                  </TooltipTrigger>
+                                  <TooltipContent
+                                    side="top"
+                                    className="max-w-xs text-xs space-y-1 p-2.5"
+                                  >
+                                    <p className="font-bold text-slate-900">
+                                      Tri thức AI &amp; Guidebook:
+                                    </p>
+                                    <p className="text-slate-600 leading-relaxed">
+                                      <strong>Tri thức AI:</strong> Dữ liệu có cấu trúc (công dụng,
+                                      thành phần, HDSD, xử lý từ chối) dùng cho trợ lý AI và tư vấn.
+                                    </p>
+                                    <p className="text-slate-600 leading-relaxed">
+                                      <strong>Tài liệu nguồn (Guidebook):</strong> Upload trong chi
+                                      tiết sản phẩm để trích xuất gợi ý vào Tri thức.
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -374,6 +441,12 @@ function ProductCatalogPage() {
                             const guard = getProductGuard(p);
                             const salesSheetInfo =
                               p.isDbProduct && p.dbId ? salesSheetsMap[p.dbId] : undefined;
+                            const knowledgeSummary = p.dbId
+                              ? knowledgeMap[p.dbId]
+                              : knowledgeMap[String(p.id)];
+                            const guidebookStatus = p.dbId
+                              ? guidebooksMap[p.dbId] || "none"
+                              : "none";
                             return (
                               <ProductRow
                                 key={p.dbId || p.id}
@@ -385,9 +458,12 @@ function ProductCatalogPage() {
                                 fmt={fmt}
                                 guard={guard}
                                 salesSheetInfo={salesSheetInfo}
+                                guidebookStatus={guidebookStatus}
+                                knowledgeSummary={knowledgeSummary}
                                 onPick={(sizeType) => handlePick(p, sizeType)}
                                 onUpdate={(field, value) => handleUpdate(p.id, field, value)}
                                 onOpenKnowledge={() => setSelectedKnowledgeProductId(p.id)}
+                                onOpenKnowledgeReadOnly={() => setReadOnlyKnowledgeProduct(p)}
                                 onOpenSalesSheet={() => {
                                   setSelectedSalesSheetProduct(p);
                                   setSalesSheetDialogOpen(true);
@@ -421,6 +497,10 @@ function ProductCatalogPage() {
                       const guard = getProductGuard(p);
                       const salesSheetInfo =
                         p.isDbProduct && p.dbId ? salesSheetsMap[p.dbId] : undefined;
+                      const knowledgeSummary = p.dbId
+                        ? knowledgeMap[p.dbId]
+                        : knowledgeMap[String(p.id)];
+                      const guidebookStatus = p.dbId ? guidebooksMap[p.dbId] || "none" : "none";
                       return (
                         <ProductMobileCard
                           key={p.dbId || p.id}
@@ -431,9 +511,12 @@ function ProductCatalogPage() {
                           fmt={fmt}
                           guard={guard}
                           salesSheetInfo={salesSheetInfo}
+                          guidebookStatus={guidebookStatus}
+                          knowledgeSummary={knowledgeSummary}
                           onPick={(sizeType) => handlePick(p, sizeType)}
                           onUpdate={(field, value) => handleUpdate(p.id, field, value)}
                           onOpenKnowledge={() => setSelectedKnowledgeProductId(p.id)}
+                          onOpenKnowledgeReadOnly={() => setReadOnlyKnowledgeProduct(p)}
                           onOpenSalesSheet={() => {
                             setSelectedSalesSheetProduct(p);
                             setSalesSheetDialogOpen(true);
@@ -473,12 +556,24 @@ function ProductCatalogPage() {
         {/* Knowledge dialog */}
         <ProductKnowledgeDialog
           productId={selectedKnowledgeProductId}
+          catalogProductId={
+            productsToFilter.find((p) => p.id === selectedKnowledgeProductId)?.dbId || null
+          }
           productName={
             productsToFilter.find((p) => p.id === selectedKnowledgeProductId)?.name || ""
           }
           productsList={productsToFilter.map((p) => ({ id: p.id, name: p.name }))}
           onClose={() => setSelectedKnowledgeProductId(null)}
-          onSaved={() => {}}
+          onSaved={() => {
+            loadKnowledgeMap();
+          }}
+        />
+
+        {/* Read-only Knowledge dialog for sales/staff */}
+        <ProductKnowledgeReadOnlyDialog
+          isOpen={Boolean(readOnlyKnowledgeProduct)}
+          onClose={() => setReadOnlyKnowledgeProduct(null)}
+          product={readOnlyKnowledgeProduct}
         />
 
         {/* Sales sheet dialog */}

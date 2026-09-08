@@ -7,7 +7,14 @@
  */
 import { ShoppingCart, X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from "@/components/ui/sheet";
 import type { CartItemAny } from "./types";
 import { getCartEntryLabel, getCartEntryPrice } from "./types";
 
@@ -69,6 +76,9 @@ export function CartDrawer({
                 </button>
               )}
             </SheetTitle>
+            <SheetDescription className="sr-only">
+              Danh sách sản phẩm đã chọn vào giỏ hàng nháp
+            </SheetDescription>
           </SheetHeader>
 
           {/* Items list */}

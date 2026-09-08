@@ -13,11 +13,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Save, Info } from "lucide-react";
+import { Loader2, Plus, Trash2, Save, Info, BookOpen, Sparkles, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { EmbeddingBuilder } from "./product-knowledge/EmbeddingBuilder";
+import type { KeyIngredientFunction } from "@/lib/catalogAdminDb";
 
 const SKIN_CONCERNS_TAGS = [
   "Da mụn",
@@ -54,22 +62,33 @@ type Objection = {
 
 type Props = {
   productId: number | null;
+  catalogProductId?: string | null;
   productName: string;
   onClose: () => void;
   productsList: { id: number; name: string }[];
   onSaved?: () => void;
+  isOpenOverride?: boolean;
 };
 
 export function ProductKnowledgeDialog({
   productId,
+  catalogProductId,
   productName,
   onClose,
   productsList,
   onSaved,
+  isOpenOverride,
 }: Props) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Guidebook suggestions state
+  const [guidebookSuggestionsOpen, setGuidebookSuggestionsOpen] = useState(false);
+  const [availableGuidebooks, setAvailableGuidebooks] = useState<any[]>([]);
+  const [hasCompletedGuidebooks, setHasCompletedGuidebooks] = useState(false);
+  const [loadingAvailableGuidebooks, setLoadingAvailableGuidebooks] = useState(false);
+  const [selectedGuidebookDoc, setSelectedGuidebookDoc] = useState<any | null>(null);
 
   // Internal Knowledge ID
   const [knowledgeId, setKnowledgeId] = useState<string | null>(null);
@@ -84,12 +103,20 @@ export function ProductKnowledgeDialog({
   const [restockCycleDays, setRestockCycleDays] = useState(60);
   const [warnings, setWarnings] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [isPublic, setIsPublic] = useState(false);
 
   // Phase E Fields
   const [ingredientHighlights, setIngredientHighlights] = useState<string[]>([]);
   const [skinTypes, setSkinTypes] = useState<string[]>([]);
   const [pregnancySafe, setPregnancySafe] = useState(false);
   const [routinePosition, setRoutinePosition] = useState("");
+  const [productCharacteristics, setProductCharacteristics] = useState("");
+  const [fullIngredients, setFullIngredients] = useState("");
+  const [effects, setEffects] = useState("");
+  const [keyIngredientsFunctions, setKeyIngredientsFunctions] = useState<KeyIngredientFunction[]>(
+    [],
+  );
+  const [consultationNotes, setConsultationNotes] = useState("");
 
   // QA Fields
   const [qaStatus, setQaStatus] = useState("draft");
@@ -106,15 +133,16 @@ export function ProductKnowledgeDialog({
   // Objections state
   const [objections, setObjections] = useState<Objection[]>([]);
 
-  const isOpen = productId !== null;
+  const isOpen =
+    isOpenOverride !== undefined ? isOpenOverride : productId !== null || Boolean(catalogProductId);
 
   useEffect(() => {
-    if (productId !== null) {
-      loadData(productId);
+    if (isOpen) {
+      loadData(productId, catalogProductId);
     } else {
       resetForm();
     }
-  }, [productId]);
+  }, [isOpen, productId, catalogProductId]);
 
   const resetForm = () => {
     setKnowledgeId(null);
@@ -127,10 +155,16 @@ export function ProductKnowledgeDialog({
     setRestockCycleDays(60);
     setWarnings("");
     setIsActive(true);
+    setIsPublic(false);
     setIngredientHighlights([]);
     setSkinTypes([]);
     setPregnancySafe(false);
     setRoutinePosition("");
+    setProductCharacteristics("");
+    setFullIngredients("");
+    setEffects("");
+    setKeyIngredientsFunctions([]);
+    setConsultationNotes("");
     setQaStatus("draft");
     setNote("");
     setStatusReasonType("");
@@ -143,15 +177,25 @@ export function ProductKnowledgeDialog({
     setEmbeddingError(null);
   };
 
-  const loadData = async (id: number) => {
+  const loadData = async (id: number | null, catProdId?: string | null) => {
     setLoading(true);
     try {
-      // Fetch Knowledge
-      const { data: knowledge, error: kError } = await supabase
-        .from("product_knowledge")
-        .select("*")
-        .eq("product_id", id)
-        .maybeSingle();
+      // 1. Fetch Knowledge by catalog_product_id or product_id
+      let query = supabase.from("product_knowledge").select("*");
+      if (catProdId) {
+        if (id !== null) {
+          query = query.or(`catalog_product_id.eq.${catProdId},product_id.eq.${id}`);
+        } else {
+          query = query.eq("catalog_product_id", catProdId);
+        }
+      } else if (id !== null) {
+        query = query.eq("product_id", id);
+      } else {
+        setLoading(false);
+        return;
+      }
+
+      const { data: knowledge, error: kError } = await query.maybeSingle();
 
       if (kError) throw kError;
 
@@ -166,12 +210,22 @@ export function ProductKnowledgeDialog({
         setRestockCycleDays(knowledge.restock_cycle_days || 60);
         setWarnings(knowledge.warnings || "");
         setIsActive(knowledge.is_active ?? true);
+        setIsPublic(knowledge.is_public ?? false);
 
         // New Phase E fields
         setIngredientHighlights(knowledge.ingredient_highlights || []);
         setSkinTypes(knowledge.skin_types || []);
         setPregnancySafe(knowledge.pregnancy_safe || false);
         setRoutinePosition(knowledge.routine_position || "");
+        setProductCharacteristics((knowledge as any).product_characteristics || "");
+        setFullIngredients((knowledge as any).full_ingredients || "");
+        setEffects((knowledge as any).effects || "");
+        setKeyIngredientsFunctions(
+          Array.isArray((knowledge as any).key_ingredients_functions)
+            ? (knowledge as any).key_ingredients_functions
+            : [],
+        );
+        setConsultationNotes((knowledge as any).consultation_notes || "");
 
         setQaStatus(knowledge.qa_status || "draft");
         setStatusReasonType(knowledge.status_reason_type || "");
@@ -193,18 +247,39 @@ export function ProductKnowledgeDialog({
         resetForm();
       }
 
-      // Fetch Objections
-      const { data: objs, error: oError } = await supabase
-        .from("product_objections")
-        .select("*")
-        .eq("product_id", id);
+      // 2. Fetch Objections if product id is available
+      if (id !== null) {
+        const { data: objs, error: oError } = await supabase
+          .from("product_objections")
+          .select("*")
+          .eq("product_id", id);
 
-      if (oError) throw oError;
+        if (!oError && objs) {
+          setObjections(objs);
+        } else {
+          setObjections([]);
+        }
+      }
 
-      if (objs) {
-        setObjections(objs);
+      // 3. Check if completed guidebook documents exist for suggestions CTA
+      let targetCatId = catProdId;
+      if (!targetCatId && id !== null) {
+        const { data: catProd } = await supabase
+          .from("catalog_products")
+          .select("id")
+          .or(`product_code.eq.${id},product_code.eq.0${id}`)
+          .maybeSingle();
+        targetCatId = catProd?.id || null;
+      }
+      if (targetCatId) {
+        const { data: docs } = await supabase
+          .from("product_source_documents")
+          .select("id, extraction_status")
+          .eq("catalog_product_id", targetCatId)
+          .eq("extraction_status", "completed");
+        setHasCompletedGuidebooks((docs && docs.length > 0) || false);
       } else {
-        setObjections([]);
+        setHasCompletedGuidebooks(false);
       }
     } catch (error: any) {
       console.error("Error loading knowledge:", error);
@@ -215,7 +290,7 @@ export function ProductKnowledgeDialog({
   };
 
   const handleSave = async () => {
-    if (!productId || !user) return;
+    if ((!productId && !catalogProductId) || !user) return;
 
     if (!benefits.trim() || !usageInstructions.trim() || !salesPitch.trim()) {
       toast.error("Vui lòng điền Lợi ích, Hướng dẫn và Sales Pitch.");
@@ -225,32 +300,91 @@ export function ProductKnowledgeDialog({
     setSaving(true);
     try {
       // 1. Upsert Knowledge Data
-      const { data: upsertData, error: kError } = await supabase
+      const effectiveProductId =
+        productId ??
+        (catalogProductId
+          ? Math.abs(
+              catalogProductId
+                .split("-")[0]
+                .split("")
+                .reduce((acc, c) => acc * 31 + c.charCodeAt(0), 0),
+            ) % 1000000
+          : 999999);
+
+      const extendedFields: Record<string, any> = {
+        product_characteristics: productCharacteristics.trim() || null,
+        full_ingredients: fullIngredients.trim() || null,
+        effects: effects.trim() || null,
+        key_ingredients_functions:
+          Array.isArray(keyIngredientsFunctions) && keyIngredientsFunctions.length > 0
+            ? keyIngredientsFunctions
+            : [],
+        consultation_notes: consultationNotes.trim() || null,
+      };
+
+      const payload: any = {
+        ...(knowledgeId ? { id: knowledgeId } : {}),
+        product_id: effectiveProductId,
+        benefits,
+        skin_concerns: skinConcerns,
+        suitable_spa_types: suitableSpaTypes,
+        usage_instructions: usageInstructions,
+        sales_pitch: salesPitch,
+        cross_sell_products: crossSellProducts,
+        restock_cycle_days: restockCycleDays,
+        warnings,
+        is_active: isActive,
+        is_public: isPublic,
+        ...(catalogProductId ? { catalog_product_id: catalogProductId } : {}),
+        ingredient_highlights: ingredientHighlights,
+        skin_types: skinTypes,
+        pregnancy_safe: pregnancySafe,
+        routine_position: routinePosition,
+        ...extendedFields,
+        updated_at: new Date().toISOString(),
+        updated_by: user.id,
+      };
+
+      const conflictTarget = knowledgeId ? "id" : "product_id";
+      let upsertData: any = null;
+
+      const { data: initialData, error: kError } = await supabase
         .from("product_knowledge")
-        .upsert(
-          {
-            product_id: productId,
-            benefits,
-            skin_concerns: skinConcerns,
-            suitable_spa_types: suitableSpaTypes,
-            usage_instructions: usageInstructions,
-            sales_pitch: salesPitch,
-            cross_sell_products: crossSellProducts,
-            restock_cycle_days: restockCycleDays,
-            warnings,
-            is_active: isActive,
-            ingredient_highlights: ingredientHighlights,
-            skin_types: skinTypes,
-            pregnancy_safe: pregnancySafe,
-            routine_position: routinePosition,
-            updated_at: new Date().toISOString(),
-            updated_by: user.id,
-          },
-          { onConflict: "product_id", select: "id" },
-        )
+        .upsert(payload, { onConflict: conflictTarget, select: "id" })
         .single();
 
-      if (kError) throw kError;
+      if (kError) {
+        // Defensive backward-safe fallback: If schema cache is stale or extended column missing
+        const isColumnError =
+          kError.message?.includes("column") ||
+          kError.message?.includes("schema cache") ||
+          kError.code === "PGRST204";
+
+        if (isColumnError) {
+          console.warn(
+            "[ProductKnowledgeDialog] Schema cache missing extended column, retrying with core fields:",
+            kError.message,
+          );
+          const legacyPayload = { ...payload };
+          delete legacyPayload.product_characteristics;
+          delete legacyPayload.full_ingredients;
+          delete legacyPayload.effects;
+          delete legacyPayload.key_ingredients_functions;
+          delete legacyPayload.consultation_notes;
+
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from("product_knowledge")
+            .upsert(legacyPayload, { onConflict: conflictTarget, select: "id" })
+            .single();
+
+          if (fallbackError) throw fallbackError;
+          upsertData = fallbackData;
+        } else {
+          throw kError;
+        }
+      } else {
+        upsertData = initialData;
+      }
 
       const currentKnowledgeId = upsertData?.id || knowledgeId;
 
@@ -317,6 +451,144 @@ export function ProductKnowledgeDialog({
     }
   };
 
+  const handleOpenGuidebookSuggestions = async () => {
+    setLoadingAvailableGuidebooks(true);
+    try {
+      let targetCatalogId = catalogProductId;
+      if (!targetCatalogId && productId) {
+        const { data: catProd } = await supabase
+          .from("catalog_products")
+          .select("id")
+          .or(`product_code.eq.${productId},product_code.eq.0${productId}`)
+          .maybeSingle();
+        targetCatalogId = catProd?.id || null;
+      }
+
+      if (!targetCatalogId) {
+        toast.info("Không tìm thấy mã Catalog DB để liên kết Guidebook.");
+        return;
+      }
+
+      const { data: docs, error } = await supabase
+        .from("product_source_documents")
+        .select("*")
+        .eq("catalog_product_id", targetCatalogId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      if (!docs || docs.length === 0) {
+        toast.info(
+          "Chưa có tài liệu Guidebook nào được tải lên cho sản phẩm này. Hãy mở tab Quản lý Brand & Danh mục để tải lên Guidebook trước.",
+        );
+        return;
+      }
+
+      const completedDocs = docs.filter(
+        (d) => d.extraction_status === "completed" && d.extracted_data,
+      );
+
+      if (completedDocs.length === 0) {
+        toast.warning(
+          "Sản phẩm có Guidebook nhưng chưa được trích xuất. Vui lòng bấm 'Trích xuất vào Tri thức' trong phần Quản lý trước.",
+        );
+        return;
+      }
+
+      setAvailableGuidebooks(completedDocs);
+      setSelectedGuidebookDoc(completedDocs[0]);
+      setGuidebookSuggestionsOpen(true);
+    } catch (err: any) {
+      toast.error("Lỗi khi tải gợi ý từ Guidebook: " + err.message);
+    } finally {
+      setLoadingAvailableGuidebooks(false);
+    }
+  };
+
+  const applyGuidebookSuggestions = () => {
+    if (!selectedGuidebookDoc?.extracted_data) return;
+    const data = selectedGuidebookDoc.extracted_data;
+
+    // Combine benefits and effects if both exist
+    const rawBenefits = data.benefits || "";
+    const rawEffects = data.effects || "";
+    let combinedBenefits = rawBenefits;
+    if (rawEffects && !rawBenefits.includes(rawEffects)) {
+      combinedBenefits = rawBenefits ? `${rawBenefits}\n\n${rawEffects}` : rawEffects;
+    }
+    if (combinedBenefits) setBenefits(combinedBenefits);
+
+    if (data.product_characteristics) {
+      setProductCharacteristics(data.product_characteristics);
+    }
+
+    if (data.full_ingredients) {
+      setFullIngredients(data.full_ingredients);
+    }
+
+    if (data.effects) {
+      setEffects(data.effects);
+    }
+
+    if (
+      data.key_ingredients_functions &&
+      Array.isArray(data.key_ingredients_functions) &&
+      data.key_ingredients_functions.length > 0
+    ) {
+      setKeyIngredientsFunctions(data.key_ingredients_functions);
+      setIngredientHighlights(
+        data.key_ingredients_functions.map((k: any) => k.name.trim()),
+      );
+    } else if (data.ingredient_highlights && Array.isArray(data.ingredient_highlights)) {
+      setIngredientHighlights(data.ingredient_highlights);
+      setKeyIngredientsFunctions(
+        data.ingredient_highlights.map((item: string) => {
+          const colonIdx = item.indexOf(":");
+          if (colonIdx !== -1) {
+            return {
+              name: item.slice(0, colonIdx).trim(),
+              function: item.slice(colonIdx + 1).trim(),
+            };
+          }
+          return { name: item.trim(), function: "" };
+        }),
+      );
+    }
+
+    if (data.usage_instructions) setUsageInstructions(data.usage_instructions);
+    if (data.skin_types && Array.isArray(data.skin_types)) {
+      setSkinTypes(data.skin_types);
+    }
+    if (data.skin_concerns && Array.isArray(data.skin_concerns)) {
+      setSkinConcerns(data.skin_concerns);
+    }
+    if (data.warnings) setWarnings(data.warnings);
+    if (data.sales_pitch) {
+      setSalesPitch(data.sales_pitch);
+      setConsultationNotes(data.sales_pitch);
+    }
+
+    if (data.objections && Array.isArray(data.objections) && data.objections.length > 0) {
+      const newObjs: Objection[] = data.objections.map((o: any) => ({
+        product_id: productId || 0,
+        objection_type: o.objection_type || "Chung",
+        customer_statement: o.customer_statement || "",
+        suggested_response: o.suggested_response || "",
+        is_active: true,
+      }));
+      setObjections(newObjs);
+    }
+
+    // Set qa_status to draft or review, NEVER approved automatically
+    setQaStatus("draft");
+
+    setGuidebookSuggestionsOpen(false);
+    toast.success(
+      "Đã nạp gợi ý từ Guidebook vào biểu mẫu (Trạng thái: BẢN NHÁP). Hãy rà soát lại và bấm 'Lưu thay đổi' để hoàn tất.",
+      { duration: 5000 },
+    );
+  };
+
   const toggleTag = (currentTags: string[], setTags: (t: string[]) => void, tag: string) => {
     if (currentTags.includes(tag)) {
       setTags(currentTags.filter((t) => t !== tag));
@@ -366,22 +638,37 @@ export function ProductKnowledgeDialog({
         <DialogHeader className="px-6 py-4 border-b border-slate-800 bg-slate-900/50">
           <DialogTitle className="text-xl font-black text-white flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <SparklesIcon className="w-5 h-5 text-indigo-400" />
-              Cập nhật Tri thức: {productName}
+              <Sparkles className="w-5 h-5 text-indigo-400" />
+              <span>Tri thức AI: {productName}</span>
+              {qaStatus && (
+                <Badge
+                  className={
+                    qaStatus === "approved"
+                      ? "bg-green-500/10 text-green-400 border border-green-500/30"
+                      : qaStatus === "review"
+                        ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+                        : "bg-slate-800 text-slate-400 border border-slate-700"
+                  }
+                >
+                  {qaStatus.toUpperCase()}
+                </Badge>
+              )}
             </div>
-            {qaStatus && (
-              <Badge
-                className={
-                  qaStatus === "approved"
-                    ? "bg-green-500/10 text-green-400"
-                    : qaStatus === "review"
-                      ? "bg-amber-500/10 text-amber-400"
-                      : "bg-slate-800 text-slate-400"
-                }
-              >
-                {qaStatus.toUpperCase()}
-              </Badge>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              onClick={handleOpenGuidebookSuggestions}
+              disabled={loadingAvailableGuidebooks}
+              className="h-8 px-3 text-xs font-bold rounded-lg border-indigo-400/40 text-indigo-300 bg-indigo-950/60 hover:bg-indigo-900/80 hover:text-white"
+            >
+              {loadingAvailableGuidebooks ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <BookOpen className="w-3.5 h-3.5 mr-1.5 text-indigo-400" />
+              )}
+              Nhập từ Guidebook
+            </Button>
           </DialogTitle>
         </DialogHeader>
 
@@ -395,20 +682,78 @@ export function ProductKnowledgeDialog({
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* LEFT COLUMN: Data Entry */}
               <div className="lg:col-span-2 space-y-8">
+                {/* PROMINENT GUIDEBOOK SUGGESTIONS BANNER */}
+                {hasCompletedGuidebooks && (
+                  <div className="p-3.5 rounded-xl bg-gradient-to-r from-indigo-950/90 via-purple-950/70 to-slate-900 border border-indigo-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400 shrink-0">
+                        <Sparkles className="w-4 h-4 animate-pulse" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-indigo-200">
+                          Đã có dữ liệu trích xuất từ Guidebook!
+                        </p>
+                        <p className="text-[11px] text-slate-400">
+                          Bấm để nạp cấu trúc công dụng, thành phần, HDSD &amp; xử lý từ chối vào
+                          bản nháp để duyệt.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleOpenGuidebookSuggestions}
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shrink-0 shadow-sm w-full sm:w-auto"
+                    >
+                      <BookOpen className="w-3.5 h-3.5 mr-1.5" /> Nhập từ Guidebook
+                    </Button>
+                  </div>
+                )}
+
                 {/* SECTION: THÔNG TIN CHUNG */}
                 <div className="space-y-4">
                   <h3 className="text-sm font-black text-indigo-400 uppercase tracking-widest border-b border-slate-800 pb-2">
                     Thông tin cơ bản
                   </h3>
 
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold text-slate-400">Trạng thái (Active)</Label>
-                    <div className="flex items-center gap-2">
-                      <Switch checked={isActive} onCheckedChange={setIsActive} />
-                      <span className="text-xs text-slate-500">
-                        {isActive ? "Đang bật" : "Đã tắt"}
-                      </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold text-slate-400">
+                        Trạng thái (Active)
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Switch checked={isActive} onCheckedChange={setIsActive} />
+                        <span className="text-xs text-slate-500">
+                          {isActive ? "Đang bật" : "Đã tắt"}
+                        </span>
+                      </div>
                     </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold text-slate-400">
+                        Hiển thị trên catalog công khai (/san-pham)
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Switch checked={isPublic} onCheckedChange={setIsPublic} />
+                        <span className="text-xs text-slate-500">
+                          {isPublic
+                            ? "Công khai (Yêu cầu QA: Approved)"
+                            : "Nội bộ (Ẩn khỏi catalog)"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-slate-400">
+                      Đặc tính sản phẩm (Product Characteristics)
+                    </Label>
+                    <Textarea
+                      value={productCharacteristics}
+                      onChange={(e) => setProductCharacteristics(e.target.value)}
+                      placeholder="Mô tả đặc tính, kết cấu, công nghệ sản phẩm..."
+                      className="min-h-[70px] bg-slate-900 border-slate-800"
+                    />
                   </div>
 
                   <div className="space-y-2">
@@ -425,20 +770,55 @@ export function ProductKnowledgeDialog({
 
                   <div className="space-y-2">
                     <Label className="text-xs font-bold text-slate-400">
-                      Thành phần nổi bật (Ingredient Highlights - Cách nhau bởi dấu phẩy)
+                      Hiệu quả &amp; tác dụng (Effects)
                     </Label>
                     <Textarea
-                      value={ingredientHighlights.join(", ")}
-                      onChange={(e) =>
-                        setIngredientHighlights(
-                          e.target.value
-                            .split(",")
-                            .map((s) => s.trim())
-                            .filter(Boolean),
-                        )
-                      }
-                      placeholder="Niacinamide, Retinol, HA..."
-                      className="min-h-[60px] bg-slate-900 border-slate-800"
+                      value={effects}
+                      onChange={(e) => setEffects(e.target.value)}
+                      placeholder="Hiệu quả và tác dụng chi tiết..."
+                      className="min-h-[70px] bg-slate-900 border-slate-800"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-slate-400">
+                      Thành phần nổi bật (Ingredient Highlights - Mỗi thành phần 1 dòng)
+                    </Label>
+                    <Textarea
+                      value={ingredientHighlights.join("\n")}
+                      onChange={(e) => {
+                        const lines = e.target.value
+                          .split("\n")
+                          .map((s) => s.trim())
+                          .filter(Boolean);
+                        setIngredientHighlights(lines);
+                        setKeyIngredientsFunctions(
+                          lines.map((line) => {
+                            const colonIdx = line.indexOf(":");
+                            if (colonIdx !== -1) {
+                              return {
+                                name: line.slice(0, colonIdx).trim(),
+                                function: line.slice(colonIdx + 1).trim(),
+                              };
+                            }
+                            return { name: line.trim(), function: "" };
+                          }),
+                        );
+                      }}
+                      placeholder="Chiết xuất hạt mắc ca: Dưỡng ẩm sâu&#10;Glycerin: Giữ nước..."
+                      className="min-h-[80px] bg-slate-900 border-slate-800"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-slate-400">
+                      Bảng thành phần đầy đủ (Full Ingredients)
+                    </Label>
+                    <Textarea
+                      value={fullIngredients}
+                      onChange={(e) => setFullIngredients(e.target.value)}
+                      placeholder="Water, Glycerin, Butylene Glycol..."
+                      className="min-h-[70px] bg-slate-900 border-slate-800 text-xs"
                     />
                   </div>
 
@@ -527,6 +907,18 @@ export function ProductKnowledgeDialog({
                       onChange={(e) => setSalesPitch(e.target.value)}
                       placeholder="Câu chốt sale ấn tượng, lý do khách nên mua..."
                       className="min-h-[80px] bg-slate-900 border-slate-800"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-slate-400">
+                      Lưu ý tư vấn bán hàng (Consultation Notes)
+                    </Label>
+                    <Textarea
+                      value={consultationNotes}
+                      onChange={(e) => setConsultationNotes(e.target.value)}
+                      placeholder="Lưu ý quan trọng cho telesale / tư vấn viên..."
+                      className="min-h-[70px] bg-slate-900 border-slate-800"
                     />
                   </div>
 
@@ -820,6 +1212,244 @@ export function ProductKnowledgeDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* GUIDEBOOK SUGGESTIONS PREVIEW MODAL */}
+      <Dialog open={guidebookSuggestionsOpen} onOpenChange={setGuidebookSuggestionsOpen}>
+        <DialogContent className="max-w-2xl bg-slate-900 border-slate-800 text-slate-100">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2 text-indigo-400">
+              <BookOpen className="w-5 h-5" />
+              Gợi ý trích xuất từ Guidebook
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedGuidebookDoc ? (
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1 text-xs">
+              <div className="p-3 bg-indigo-950/40 rounded-xl border border-indigo-500/20 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                      selectedGuidebookDoc.source_type === "text" || !selectedGuidebookDoc.file_url
+                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                        : "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                    }`}
+                  >
+                    {selectedGuidebookDoc.source_type === "text" || !selectedGuidebookDoc.file_url
+                      ? "Text"
+                      : "File"}
+                  </span>
+                  <div>
+                    <p className="font-bold text-slate-200">
+                      {selectedGuidebookDoc.file_name || "Tài liệu Guidebook"}
+                    </p>
+                    <p className="text-[10px] text-slate-400">
+                      Trích xuất:{" "}
+                      {new Date(selectedGuidebookDoc.updated_at).toLocaleString("vi-VN")}
+                    </p>
+                  </div>
+                </div>
+                {availableGuidebooks.length > 1 && (
+                  <Select
+                    value={selectedGuidebookDoc.id}
+                    onValueChange={(val) => {
+                      const found = availableGuidebooks.find((d) => d.id === val);
+                      if (found) setSelectedGuidebookDoc(found);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 w-48 bg-slate-800 border-slate-700 text-xs">
+                      <SelectValue placeholder="Chọn tài liệu khác" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800 border-slate-700 text-slate-100">
+                      {availableGuidebooks.map((d) => (
+                        <SelectItem key={d.id} value={d.id} className="text-xs">
+                          {d.source_type === "text" || !d.file_url ? "[Text] " : "[File] "}
+                          {d.file_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                {selectedGuidebookDoc.extracted_data?.product_characteristics && (
+                  <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800">
+                    <span className="font-bold text-indigo-300 block mb-1">
+                      Đặc tính sản phẩm (Characteristics):
+                    </span>
+                    <p className="text-slate-300 whitespace-pre-wrap leading-relaxed">
+                      {selectedGuidebookDoc.extracted_data.product_characteristics}
+                    </p>
+                  </div>
+                )}
+
+                <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800">
+                  <span className="font-bold text-indigo-300 block mb-1">Công dụng chính:</span>
+                  <p className="text-slate-300 whitespace-pre-wrap leading-relaxed">
+                    {selectedGuidebookDoc.extracted_data?.benefits || "(Không có)"}
+                  </p>
+                </div>
+
+                {selectedGuidebookDoc.extracted_data?.effects && (
+                  <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800">
+                    <span className="font-bold text-indigo-300 block mb-1">
+                      Hiệu quả &amp; tác dụng (Effects):
+                    </span>
+                    <p className="text-slate-300 whitespace-pre-wrap leading-relaxed">
+                      {selectedGuidebookDoc.extracted_data.effects}
+                    </p>
+                  </div>
+                )}
+
+                {selectedGuidebookDoc.extracted_data?.key_ingredients_functions &&
+                selectedGuidebookDoc.extracted_data.key_ingredients_functions.length > 0 ? (
+                  <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800">
+                    <span className="font-bold text-indigo-300 block mb-1.5">
+                      Thành phần chính &amp; chức năng (
+                      {selectedGuidebookDoc.extracted_data.key_ingredients_functions.length}):
+                    </span>
+                    <div className="space-y-1.5">
+                      {selectedGuidebookDoc.extracted_data.key_ingredients_functions.map(
+                        (item: any, idx: number) => (
+                          <div
+                            key={idx}
+                            className="p-1.5 rounded bg-slate-900 border border-slate-800/90 text-xs"
+                          >
+                            <span className="font-bold text-emerald-400">✦ {item.name}</span>
+                            {item.function ? (
+                              <span className="text-slate-300 ml-1.5">— {item.function}</span>
+                            ) : null}
+                          </div>
+                        ),
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800">
+                    <span className="font-bold text-indigo-300 block mb-1">
+                      Thành phần nổi bật:
+                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedGuidebookDoc.extracted_data?.ingredient_highlights?.map(
+                        (ing: string, i: number) => (
+                          <span
+                            key={i}
+                            className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[10px]"
+                          >
+                            {ing}
+                          </span>
+                        ),
+                      ) || "(Không có)"}
+                    </div>
+                  </div>
+                )}
+
+                {selectedGuidebookDoc.extracted_data?.full_ingredients && (
+                  <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800">
+                    <span className="font-bold text-indigo-300 block mb-1">
+                      Bảng thành phần đầy đủ (Full Ingredients):
+                    </span>
+                    <p className="text-slate-300 text-xs whitespace-pre-wrap leading-relaxed font-mono">
+                      {selectedGuidebookDoc.extracted_data.full_ingredients}
+                    </p>
+                  </div>
+                )}
+
+                <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800">
+                  <span className="font-bold text-indigo-300 block mb-1">Hướng dẫn sử dụng:</span>
+                  <p className="text-slate-300 whitespace-pre-wrap leading-relaxed">
+                    {selectedGuidebookDoc.extracted_data?.usage_instructions || "(Không có)"}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800">
+                    <span className="font-bold text-indigo-300 block mb-1">Loại da phù hợp:</span>
+                    <p className="text-slate-300">
+                      {selectedGuidebookDoc.extracted_data?.skin_types?.join(", ") || "(Không có)"}
+                    </p>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800">
+                    <span className="font-bold text-indigo-300 block mb-1">
+                      Vấn đề da quan tâm:
+                    </span>
+                    <p className="text-slate-300">
+                      {selectedGuidebookDoc.extracted_data?.skin_concerns?.join(", ") ||
+                        "(Không có)"}
+                    </p>
+                  </div>
+                </div>
+
+                {selectedGuidebookDoc.extracted_data?.warnings && (
+                  <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800">
+                    <span className="font-bold text-amber-400 block mb-1">Cảnh báo / Lưu ý:</span>
+                    <p className="text-slate-300">{selectedGuidebookDoc.extracted_data.warnings}</p>
+                  </div>
+                )}
+
+                {selectedGuidebookDoc.extracted_data?.sales_pitch && (
+                  <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800">
+                    <span className="font-bold text-indigo-300 block mb-1">Sales Pitch:</span>
+                    <p className="text-slate-300">
+                      {selectedGuidebookDoc.extracted_data.sales_pitch}
+                    </p>
+                  </div>
+                )}
+
+                {selectedGuidebookDoc.extracted_data?.objections?.length > 0 && (
+                  <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800">
+                    <span className="font-bold text-indigo-300 block mb-1">
+                      Kịch bản xử lý từ chối (
+                      {selectedGuidebookDoc.extracted_data.objections.length}):
+                    </span>
+                    <div className="space-y-1.5">
+                      {selectedGuidebookDoc.extracted_data.objections.map((o: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="p-1.5 bg-slate-900 rounded border border-slate-800/80"
+                        >
+                          <p className="font-semibold text-slate-200">❓ {o.customer_statement}</p>
+                          <p className="text-slate-400 mt-0.5">💬 {o.suggested_response}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-300 text-[11px] flex items-start gap-2">
+                  <Info className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+                  <span>
+                    <strong>Quy tắc bảo vệ dữ liệu:</strong> Dữ liệu áp dụng sẽ được đưa vào biểu
+                    mẫu dưới dạng <strong>BẢN NHÁP (Draft)</strong>. Bạn cần rà soát và bấm{" "}
+                    <strong>Lưu Tri Thức</strong> để hoàn tất. Hệ thống không tự động phê duyệt.
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400 py-4 text-center">Không có dữ liệu trích xuất.</p>
+          )}
+
+          <DialogFooter className="border-t border-slate-800 pt-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setGuidebookSuggestionsOpen(false)}
+              className="text-slate-400 hover:text-white"
+            >
+              Hủy bỏ
+            </Button>
+            <Button
+              size="sm"
+              onClick={applyGuidebookSuggestions}
+              disabled={!selectedGuidebookDoc?.extracted_data}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold"
+            >
+              <CheckCircle2 className="w-4 h-4 mr-1.5" /> Áp dụng vào biểu mẫu
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

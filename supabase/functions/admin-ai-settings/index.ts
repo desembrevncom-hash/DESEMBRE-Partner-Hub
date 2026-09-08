@@ -4,12 +4,17 @@ import { encryptApiKey, decryptApiKey } from "../_shared/crypto-utils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", {
+      status: 200,
+      headers: corsHeaders,
+    });
   }
 
   try {
@@ -83,10 +88,14 @@ serve(async (req) => {
       if (rag_use_rpc_brand_filter !== undefined)
         updateData.rag_use_rpc_brand_filter = rag_use_rpc_brand_filter;
 
-      if (api_key && api_key.trim() !== "") {
-        const { ciphertext, mask } = await encryptApiKey(api_key);
+      if (api_key && typeof api_key === "string" && api_key.trim() !== "") {
+        const cleanedKey = api_key.trim().replace(/^["']|["']$/g, "").trim();
+        const { ciphertext, mask } = await encryptApiKey(cleanedKey);
         updateData.encrypted_api_key = ciphertext;
         updateData.key_mask = mask;
+      } else if (body.clear_key === true) {
+        updateData.encrypted_api_key = null;
+        updateData.key_mask = null;
       }
 
       const { data: existing } = await adminClient
@@ -115,6 +124,27 @@ serve(async (req) => {
       );
     }
 
+    if (action === "clear_ai_provider_key") {
+      const { provider = "openai" } = body;
+      await adminClient
+        .from("system_ai_provider_settings")
+        .update({
+          encrypted_api_key: null,
+          key_mask: null,
+          last_tested_at: null,
+          last_test_status: "untested",
+          last_test_message: null,
+          updated_at: new Date().toISOString(),
+          updated_by: user.id,
+        })
+        .eq("provider", provider);
+
+      return new Response(
+        JSON.stringify({ status: "success", message: "Đã xóa API key đã lưu trong Database." }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     if (action === "get_ai_settings_status") {
       const { provider = "openai" } = body;
       const { data: settings } = await adminClient
@@ -125,14 +155,17 @@ serve(async (req) => {
         .eq("provider", provider)
         .single();
 
-      const isConfigured = !!settings?.encrypted_api_key;
+      const hasDbKey = !!settings?.encrypted_api_key;
+      const hasSecretKey = !!Deno.env.get("OPENAI_API_KEY");
+      const keySource = hasDbKey ? "database" : hasSecretKey ? "secret" : "none";
 
       return new Response(
         JSON.stringify({
           status: "success",
           provider: settings?.provider || provider,
           api_base_url: settings?.api_base_url || "",
-          key_configured: isConfigured,
+          key_configured: hasDbKey || hasSecretKey,
+          key_source: keySource,
           key_mask: settings?.key_mask || "",
           chat_model: settings?.chat_model || "gpt-4o-mini",
           embedding_model: settings?.embedding_model || "text-embedding-3-small",
@@ -148,34 +181,138 @@ serve(async (req) => {
       const { provider = "openai" } = body;
       const { data: settings } = await adminClient
         .from("system_ai_provider_settings")
-        .select("id, encrypted_api_key, api_base_url")
+        .select("id, encrypted_api_key, api_base_url, chat_model")
         .eq("provider", provider)
         .single();
 
-      let key = null;
+      let key: string | null = null;
+      let keySource: "database" | "secret" | "none" = "none";
+
+      // 1. Check database encrypted key first
       if (settings?.encrypted_api_key) {
-        key = await decryptApiKey(settings.encrypted_api_key);
-      } else {
-        key = Deno.env.get("OPENAI_API_KEY");
+        try {
+          const decrypted = await decryptApiKey(settings.encrypted_api_key);
+          if (decrypted && decrypted.trim()) {
+            key = decrypted.trim().replace(/^["']|["']$/g, "").trim();
+            keySource = "database";
+          }
+        } catch (decErr) {
+          console.error("[admin-ai-settings] Failed to decrypt DB key:", decErr);
+        }
       }
+
+      // 2. Fallback to Supabase Secret OPENAI_API_KEY ONLY if database key is absent
+      if (!key) {
+        const envKey = Deno.env.get("OPENAI_API_KEY");
+        if (envKey && envKey.trim()) {
+          key = envKey.trim().replace(/^["']|["']$/g, "").trim();
+          keySource = "secret";
+        }
+      }
+
+      // 3. Masked diagnostics (Never log full key)
+      const keyPrefix = key ? key.slice(0, 7) : "";
+      const keySuffix = key ? key.slice(-4) : "";
+      const keyLength = key ? key.length : 0;
+      const keyExists = Boolean(key);
+
+      console.log("[admin-ai-settings] Testing OpenAI connection:", {
+        keySource,
+        keyExists,
+        keyPrefix,
+        keySuffix,
+        keyLength,
+      });
 
       if (!key) {
         return new Response(
-          JSON.stringify({ status: "error", message: "OPENAI_API_KEY chưa được cấu hình." }),
+          JSON.stringify({
+            status: "error",
+            message: "OPENAI_API_KEY chưa được cấu hình trong Database hoặc Supabase Secrets.",
+            diagnostic: {
+              keySource: "none",
+              keyExists: false,
+              keyPrefix: "",
+              keySuffix: "",
+              keyLength: 0,
+            },
+          }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
 
-      const baseUrl = settings?.api_base_url || "https://api.openai.com/v1";
+      const rawBaseUrl = settings?.api_base_url?.trim() || "https://api.openai.com/v1";
+      const baseUrl = rawBaseUrl.replace(/\/+$/, "");
 
       try {
-        const resp = await fetch(`${baseUrl}/models`, {
+        // Probe 1: GET /v1/models
+        let resp = await fetch(`${baseUrl}/models`, {
           method: "GET",
           headers: { Authorization: `Bearer ${key}` },
         });
 
-        const isSuccess = resp.ok;
-        const msg = isSuccess ? "Connection successful" : `Provider API returned ${resp.status}`;
+        let resStatus = resp.status;
+        let openAiErrMsg = "";
+
+        if (!resp.ok) {
+          try {
+            const errJson = await resp.json();
+            openAiErrMsg = errJson?.error?.message || JSON.stringify(errJson);
+          } catch {
+            openAiErrMsg = await resp.text().catch(() => "");
+          }
+
+          // Probe 2: If /models returned 401/403, test chat completions (some restricted keys have no models:read)
+          if (resp.status === 401 || resp.status === 403) {
+            try {
+              const chatProbe = await fetch(`${baseUrl}/chat/completions`, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${key}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  model: settings?.chat_model || "gpt-4o-mini",
+                  messages: [{ role: "user", content: "ping" }],
+                  max_tokens: 1,
+                }),
+              });
+              if (chatProbe.ok) {
+                resp = chatProbe;
+                resStatus = 200;
+                openAiErrMsg = "";
+              } else {
+                resStatus = chatProbe.status;
+                const chatErrJson = await chatProbe.json().catch(() => null);
+                if (chatErrJson?.error?.message) {
+                  openAiErrMsg = chatErrJson.error.message;
+                }
+              }
+            } catch (_) {
+              // keep /models error
+            }
+          }
+        }
+
+        const isSuccess = resp.ok || resStatus === 200;
+        let clientMsg = "";
+        if (isSuccess) {
+          clientMsg = "Kết nối OpenAI thành công!";
+        } else if (resStatus === 401) {
+          clientMsg =
+            "API key OpenAI không hợp lệ hoặc không thuộc project có quyền dùng model. Hãy tạo key mới trên OpenAI Platform và lưu lại.";
+        } else {
+          clientMsg = `OpenAI trả về mã lỗi ${resStatus}: ${openAiErrMsg}`;
+        }
+
+        console.log("[admin-ai-settings] OpenAI test result:", {
+          isSuccess,
+          resStatus,
+          openAiErrMsg,
+          keySource,
+          keyPrefix,
+          keyLength,
+        });
 
         if (settings?.id) {
           await adminClient
@@ -183,22 +320,29 @@ serve(async (req) => {
             .update({
               last_tested_at: new Date().toISOString(),
               last_test_status: isSuccess ? "success" : "failed",
-              last_test_message: msg,
+              last_test_message: isSuccess
+                ? "Connection successful"
+                : `[${resStatus}] ${openAiErrMsg || clientMsg}`,
             })
             .eq("id", settings.id);
         }
 
-        if (!isSuccess) {
-          return new Response(JSON.stringify({ status: "error", message: msg }), {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
-        return new Response(JSON.stringify({ status: "success", message: msg }), {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({
+            status: isSuccess ? "success" : "error",
+            message: clientMsg,
+            diagnostic: {
+              keySource,
+              keyExists,
+              keyPrefix,
+              keySuffix,
+              keyLength,
+              openAiStatus: resStatus,
+              openAiError: openAiErrMsg,
+            },
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
       } catch (err: any) {
         if (settings?.id) {
           await adminClient
@@ -210,7 +354,22 @@ serve(async (req) => {
             })
             .eq("id", settings.id);
         }
-        throw err;
+        return new Response(
+          JSON.stringify({
+            status: "error",
+            message: "Lỗi mạng hoặc không thể kết nối tới OpenAI: " + err.message,
+            diagnostic: {
+              keySource,
+              keyExists,
+              keyPrefix,
+              keySuffix,
+              keyLength,
+              openAiStatus: 0,
+              openAiError: err.message,
+            },
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
       }
     }
 

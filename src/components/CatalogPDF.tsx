@@ -1,5 +1,4 @@
 import React from "react";
-import { formatCurrency, formatDiscount } from "@/lib/utils/format";
 import { safeDigits } from "@/lib/utils/safeString";
 import { Document, Page, Text, View, StyleSheet, Font, Image } from "@react-pdf/renderer";
 
@@ -87,11 +86,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   colNo: { width: "5%" },
-  colImage: { width: "15%" },
+  colImage: { width: "12%" },
   colName: { width: "35%" },
   colSize: { width: "10%" },
-  colPrice: { width: "15%" },
-  colTotal: { width: "20%" },
+  colQty: { width: "8%" },
+  colPrice: { width: "14%" },
+  colTotal: { width: "16%" },
   cellText: {
     textAlign: "center",
   },
@@ -145,7 +145,89 @@ const styles = StyleSheet.create({
 
 const fmt = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
 
-export const CatalogPDF = ({
+export function getPdfProductName(it: unknown): string {
+  if (!it || typeof it !== "object") return "Sản phẩm";
+  const item = it as Record<string, unknown>;
+  const candidates = [item.product_name_snapshot, item.product_name, item.name, item.display_name];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  return "Sản phẩm";
+}
+
+export function getPdfChannelLabel(it: unknown): string {
+  if (!it || typeof it !== "object") return "";
+  const item = it as Record<string, unknown>;
+  const ch = String(item.channel_snapshot || item.size_type || item.channel || "")
+    .trim()
+    .toLowerCase();
+  if (ch === "salon") return "Chuyên nghiệp";
+  if (ch === "retail") return "Niêm yết";
+  return "";
+}
+
+export function getPdfProductSubtitle(it: unknown): string {
+  if (!it || typeof it !== "object") return "";
+  const item = it as Record<string, unknown>;
+  const parts: string[] = [];
+
+  // Brand
+  const brand = String(item.brand_name_snapshot || item.brand_name || item.brand || "").trim();
+  if (brand) {
+    parts.push(brand.toUpperCase());
+  }
+
+  // Channel label
+  const channelLabel = getPdfChannelLabel(it);
+  if (channelLabel) {
+    parts.push(channelLabel);
+  }
+
+  // Size / variant
+  const size = String(item.size || item.size_label || item.variant_label_snapshot || "").trim();
+  if (size) {
+    parts.push(size);
+  }
+
+  return parts.join(" · ");
+}
+
+export interface CatalogPDFItem {
+  product_name_snapshot?: string | null;
+  product_name?: string | null;
+  name?: string | null;
+  display_name?: string | null;
+  brand_name_snapshot?: string | null;
+  brand_name?: string | null;
+  brand?: string | null;
+  variant_label_snapshot?: string | null;
+  channel_snapshot?: "retail" | "salon" | string | null;
+  size_type?: "retail" | "salon" | string | null;
+  channel?: "retail" | "salon" | string | null;
+  size?: string | null;
+  size_label?: string | null;
+  image_url?: string | null;
+  unit_price: number;
+  quantity?: number;
+  [key: string]: unknown;
+}
+
+export interface CatalogPDFProps {
+  items: CatalogPDFItem[];
+  customerName?: string;
+  subtotal: number;
+  vatAmount: number;
+  total: number;
+  orderNo?: string;
+  quoterName?: string;
+  quoterEmail?: string;
+  quoterPhone?: string;
+  vatRate?: number;
+}
+
+export const CatalogPDF: React.FC<CatalogPDFProps> = ({
   items,
   customerName,
   subtotal,
@@ -156,7 +238,7 @@ export const CatalogPDF = ({
   quoterEmail,
   quoterPhone,
   vatRate = 0.08,
-}: any) => (
+}) => (
   <Document>
     <Page size="A4" style={styles.page}>
       <View style={styles.header}>
@@ -188,6 +270,9 @@ export const CatalogPDF = ({
           <View style={[styles.tableCol, styles.colSize]}>
             <Text style={styles.cellText}>Size</Text>
           </View>
+          <View style={[styles.tableCol, styles.colQty]}>
+            <Text style={styles.cellText}>SL</Text>
+          </View>
           <View style={[styles.tableCol, styles.colPrice]}>
             <Text style={styles.cellTextRight}>Đơn giá</Text>
           </View>
@@ -197,46 +282,56 @@ export const CatalogPDF = ({
         </View>
 
         {/* Rows */}
-        {items.map((it: any, idx: number) => (
-          <View key={idx} style={styles.tableRow}>
-            <View style={[styles.tableCol, styles.colNo]}>
-              <Text style={styles.cellText}>{idx + 1}</Text>
+        {items.map((it, idx) => {
+          const productName = getPdfProductName(it);
+          const subtitle = getPdfProductSubtitle(it);
+          const quantity = it.quantity ?? 1;
+          const lineTotal = it.unit_price * quantity;
+
+          return (
+            <View key={idx} style={styles.tableRow}>
+              <View style={[styles.tableCol, styles.colNo]}>
+                <Text style={styles.cellText}>{idx + 1}</Text>
+              </View>
+              <View style={[styles.tableCol, styles.colImage]}>
+                {it.image_url ? (
+                  <Image
+                    src={it.image_url}
+                    style={{
+                      width: 36,
+                      height: 36,
+                      objectFit: "cover",
+                      alignSelf: "center",
+                      borderRadius: 4,
+                    }}
+                  />
+                ) : (
+                  <Text style={{ fontSize: 6, color: "#ccc", textAlign: "center", marginTop: 12 }}>
+                    NO IMG
+                  </Text>
+                )}
+              </View>
+              <View style={[styles.tableCol, styles.colName]}>
+                <Text style={[styles.cellTextLeft, { fontWeight: "bold" }]}>{productName}</Text>
+                {subtitle ? (
+                  <Text style={{ fontSize: 6, color: "#666", marginTop: 2 }}>{subtitle}</Text>
+                ) : null}
+              </View>
+              <View style={[styles.tableCol, styles.colSize]}>
+                <Text style={styles.cellText}>{it.size || "-"}</Text>
+              </View>
+              <View style={[styles.tableCol, styles.colQty]}>
+                <Text style={styles.cellText}>{quantity}</Text>
+              </View>
+              <View style={[styles.tableCol, styles.colPrice]}>
+                <Text style={styles.cellTextRight}>{fmt(it.unit_price)}</Text>
+              </View>
+              <View style={[styles.tableCol, styles.colTotal]}>
+                <Text style={styles.cellTextRight}>{fmt(lineTotal)}</Text>
+              </View>
             </View>
-            <View style={[styles.tableCol, styles.colImage]}>
-              {it.image_url ? (
-                <Image
-                  src={it.image_url}
-                  style={{
-                    width: 40,
-                    height: 40,
-                    objectFit: "cover",
-                    alignSelf: "center",
-                    borderRadius: 4,
-                  }}
-                />
-              ) : (
-                <Text style={{ fontSize: 6, color: "#ccc", textAlign: "center", marginTop: 15 }}>
-                  NO IMG
-                </Text>
-              )}
-            </View>
-            <View style={[styles.tableCol, styles.colName]}>
-              <Text style={[styles.cellTextLeft, { fontWeight: "bold" }]}>{it.product_name}</Text>
-              <Text style={{ fontSize: 6, color: "#666", marginTop: 1 }}>
-                {it.size_type === "retail" ? "Dòng bán lẻ" : "Dòng chuyên nghiệp"}
-              </Text>
-            </View>
-            <View style={[styles.tableCol, styles.colSize]}>
-              <Text style={styles.cellText}>{it.size}</Text>
-            </View>
-            <View style={[styles.tableCol, styles.colPrice]}>
-              <Text style={styles.cellTextRight}>{fmt(it.unit_price)}</Text>
-            </View>
-            <View style={[styles.tableCol, styles.colTotal]}>
-              <Text style={styles.cellTextRight}>{fmt(it.unit_price * it.quantity)}</Text>
-            </View>
-          </View>
-        ))}
+          );
+        })}
       </View>
 
       <View style={styles.summary}>
