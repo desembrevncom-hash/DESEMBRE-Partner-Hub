@@ -276,58 +276,6 @@ export function ProductMobileCard({
           layout="mobile"
         />
       </div>
-
-      {/* Footer Actions */}
-      <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-1">
-        <div className="flex items-center">
-          {p.isDbProduct && p.dbId ? (
-            <MobileSalesSheetCell
-              product={p}
-              salesSheetInfo={salesSheetInfo}
-              knowledgeSummary={knowledgeSummary}
-              guidebookStatus={guidebookStatus}
-              isManager={isManager}
-              onOpenSalesSheet={onOpenSalesSheet}
-              onOpenKnowledge={onOpenKnowledge}
-            />
-          ) : (
-            <ProductLinkCell
-              productNo={p.id}
-              href={p.pdfUrl}
-              onChange={(url) => onUpdate("link_url", url)}
-              isReadOnly={!isManager}
-            />
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {isManager ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onOpenKnowledge}
-              className="min-h-[44px] px-3 text-[10px] font-black text-blue-600 hover:bg-blue-50 uppercase tracking-wider rounded-xl transition-all whitespace-nowrap active:scale-95 touch-manipulation"
-            >
-              <Sparkles className="w-3.5 h-3.5 mr-1" /> Tri thức AI
-            </Button>
-          ) : knowledgeSummary?.qa_status === "approved" && knowledgeSummary?.is_active ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onOpenKnowledgeReadOnly}
-              className="min-h-[44px] px-3 text-[10px] font-bold rounded-lg border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all whitespace-nowrap"
-            >
-              <BookOpen className="w-3.5 h-3.5 mr-1 text-indigo-600" /> Xem Tri thức
-            </Button>
-          ) : (
-            <span className="text-[10px] text-slate-400 font-medium">Chưa có tri thức</span>
-          )}
-          {isManager && (
-            <button className="w-10 h-10 rounded-xl hover:bg-slate-800 text-slate-500 hover:text-white transition-all flex items-center justify-center">
-              <MoreVertical className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

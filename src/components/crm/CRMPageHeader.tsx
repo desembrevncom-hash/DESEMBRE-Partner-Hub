@@ -19,6 +19,13 @@ export const CRMPageHeader: React.FC<CRMPageHeaderProps> = ({
   subtitle,
   action,
   className,
+  badgeText,
+  description,
+  icon,
+  breadcrumbs,
+  actions,
+  actionButtons,
+  backTo,
   ...props
 }) => {
   return (
