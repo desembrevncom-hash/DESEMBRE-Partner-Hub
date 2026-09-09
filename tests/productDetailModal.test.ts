@@ -3,7 +3,7 @@ import type { PublicProduct } from "../src/features/catalog/types";
 import fs from "fs";
 import path from "path";
 
-describe("ProductDetailModal - Launch Readiness & UX Standards (Milestone 2)", () => {
+describe("ProductDetailModal - Launch Readiness & UX Standards (Milestone 2 & 3)", () => {
   const sampleProduct: PublicProduct = {
     id: "prod-101",
     name: "Desembre Hydro Science Hydro E.R. Cream",
@@ -35,15 +35,16 @@ describe("ProductDetailModal - Launch Readiness & UX Standards (Milestone 2)", (
     expect(fileContent.includes("fullIngredients")).toBe(false);
   });
 
-  it("2. empty sections are not rendered (trim & length checks)", () => {
+  it("2. empty sections are not rendered (normalized buildPublicProductProfile checks)", () => {
     const modalPath = path.resolve(__dirname, "../src/features/catalog/ProductDetailModal.tsx");
     const fileContent = fs.readFileSync(modalPath, "utf-8");
 
-    // Verify trim checks exist for description, benefits, usageInstructions, warnings
-    expect(fileContent).toContain('product.description.trim() !== ""');
-    expect(fileContent).toContain('product.benefits.trim() !== ""');
-    expect(fileContent).toContain('product.usageInstructions.trim() !== ""');
-    expect(fileContent).toContain('product.warnings.trim() !== ""');
+    // Verify buildPublicProductProfile model is used
+    expect(fileContent).toContain("buildPublicProductProfile");
+    expect(fileContent).toContain("profile.description");
+    expect(fileContent).toContain("profile.benefits");
+    expect(fileContent).toContain("profile.usage_instructions");
+    expect(fileContent).toContain("profile.warnings");
   });
 
   it("3. benefits section is configured to render when present", () => {
@@ -51,7 +52,7 @@ describe("ProductDetailModal - Launch Readiness & UX Standards (Milestone 2)", (
     const fileContent = fs.readFileSync(modalPath, "utf-8");
 
     expect(fileContent).toContain("Hiệu quả nổi bật");
-    expect(fileContent).toContain("product.benefits");
+    expect(fileContent).toContain("profile.benefits");
   });
 
   it("4. ingredient highlights section is configured to render when present", () => {
@@ -59,7 +60,7 @@ describe("ProductDetailModal - Launch Readiness & UX Standards (Milestone 2)", (
     const fileContent = fs.readFileSync(modalPath, "utf-8");
 
     expect(fileContent).toContain("Thành phần nổi bật");
-    expect(fileContent).toContain("product.ingredientHighlights");
+    expect(fileContent).toContain("profile.ingredient_highlights");
   });
 
   it("5. warning section is configured to render only when warnings exist", () => {
@@ -67,7 +68,7 @@ describe("ProductDetailModal - Launch Readiness & UX Standards (Milestone 2)", (
     const fileContent = fs.readFileSync(modalPath, "utf-8");
 
     expect(fileContent).toContain("Lưu ý &amp; Chống chỉ định");
-    expect(fileContent).toContain('product.warnings.trim() !== ""');
+    expect(fileContent).toContain("profile.warnings");
   });
 
   it("6. mobile sticky CTA bar and mobile CTA text exist", () => {

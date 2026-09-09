@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { formatCatalogPrice } from "@/lib/pricing";
 import type { CatalogVatMode } from "@/lib/pricing";
 import { CatalogProductImage } from "./CatalogProductImage";
 import type { PublicProduct } from "./types";
+import { buildPublicProductProfile } from "@/lib/publicProductProfile";
 
 interface Props {
   product: PublicProduct | null;
@@ -223,7 +224,13 @@ function CTAFooter({ onClose, onOpenContact, hasPricedItem }: CTAFooterProps) {
 }
 
 export function ProductDetailModal({ product, isOpen, onClose, onOpenContact, vatMode }: Props) {
-  if (!product) return null;
+  const profile = useMemo(
+    () =>
+      product ? buildPublicProductProfile(product as unknown as Record<string, unknown>) : null,
+    [product],
+  );
+
+  if (!product || !profile) return null;
 
   const hasPricedItem =
     product.publicPriceItems && product.publicPriceItems.some((it) => !it.requiresContact);
@@ -247,13 +254,13 @@ export function ProductDetailModal({ product, isOpen, onClose, onOpenContact, va
                 />
                 <div className="absolute top-3 left-3 flex flex-col gap-1.5">
                   <Badge className="bg-slate-900 text-white font-black text-[9px] uppercase tracking-wider">
-                    {product.brandName}
+                    {profile.brand_name || product.brandName}
                   </Badge>
                   <Badge
                     variant="outline"
                     className="bg-white/90 backdrop-blur-sm text-slate-700 border-slate-200 font-bold text-[9px] uppercase"
                   >
-                    {product.categoryName}
+                    {profile.category_name || product.categoryName}
                   </Badge>
                 </div>
               </div>
@@ -285,34 +292,34 @@ export function ProductDetailModal({ product, isOpen, onClose, onOpenContact, va
                 Mỹ phẩm sinh học chuyên sâu
               </span>
               <DialogTitle className="text-xl sm:text-2xl font-black text-slate-900 leading-snug">
-                {product.name}
+                {profile.name || product.name}
               </DialogTitle>
             </DialogHeader>
 
             {/* Short Description */}
-            {product.description && product.description.trim() !== "" && (
+            {profile.description && (
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
-                {product.description.trim()}
+                {profile.description}
               </p>
             )}
 
             {/* Benefits */}
-            {product.benefits && product.benefits.trim() !== "" && (
+            {profile.benefits && (
               <DetailSection
                 title="Hiệu quả nổi bật"
                 icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />}
               >
                 <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium bg-emerald-50/50 p-3.5 rounded-2xl border border-emerald-100/80 whitespace-pre-line">
-                  {product.benefits.trim()}
+                  {profile.benefits}
                 </p>
               </DetailSection>
             )}
 
             {/* Ingredient Highlights */}
-            {product.ingredientHighlights && product.ingredientHighlights.length > 0 && (
+            {profile.ingredient_highlights && profile.ingredient_highlights.length > 0 && (
               <DetailSection title="Thành phần nổi bật">
                 <div className="flex flex-wrap gap-2">
-                  {product.ingredientHighlights.map((ing, i) => (
+                  {profile.ingredient_highlights.map((ing, i) => (
                     <span
                       key={i}
                       className="px-3 py-1 rounded-xl bg-indigo-50/80 border border-indigo-100 text-indigo-800 text-xs font-bold shadow-3xs"
@@ -325,10 +332,10 @@ export function ProductDetailModal({ product, isOpen, onClose, onOpenContact, va
             )}
 
             {/* Skin Types */}
-            {product.skinTypes && product.skinTypes.length > 0 && (
+            {profile.skin_types && profile.skin_types.length > 0 && (
               <DetailSection title="Loại da phù hợp">
                 <div className="flex flex-wrap gap-2">
-                  {product.skinTypes.map((st, i) => (
+                  {profile.skin_types.map((st, i) => (
                     <span
                       key={i}
                       className="px-3 py-1 rounded-xl bg-emerald-50/80 border border-emerald-100 text-emerald-800 text-xs font-bold shadow-3xs"
@@ -341,10 +348,10 @@ export function ProductDetailModal({ product, isOpen, onClose, onOpenContact, va
             )}
 
             {/* Skin Concerns */}
-            {product.skinConcerns && product.skinConcerns.length > 0 && (
+            {profile.skin_concerns && profile.skin_concerns.length > 0 && (
               <DetailSection title="Vấn đề da mục tiêu">
                 <div className="flex flex-wrap gap-2">
-                  {product.skinConcerns.map((sc, i) => (
+                  {profile.skin_concerns.map((sc, i) => (
                     <span
                       key={i}
                       className="px-3 py-1 rounded-xl bg-slate-100 border border-slate-200/60 text-slate-700 text-xs font-bold shadow-3xs"
@@ -357,21 +364,21 @@ export function ProductDetailModal({ product, isOpen, onClose, onOpenContact, va
             )}
 
             {/* Usage Instructions */}
-            {product.usageInstructions && product.usageInstructions.trim() !== "" && (
+            {profile.usage_instructions && (
               <InfoCard
                 title="Hướng dẫn sử dụng"
                 icon={<BookOpen className="w-4 h-4 text-amber-600" />}
-                content={product.usageInstructions}
+                content={profile.usage_instructions}
                 variant="amber"
               />
             )}
 
             {/* Warnings & Contraindications */}
-            {product.warnings && product.warnings.trim() !== "" && (
+            {profile.warnings && (
               <InfoCard
                 title="Lưu ý &amp; Chống chỉ định"
                 icon={<AlertCircle className="w-4 h-4 text-rose-500" />}
-                content={product.warnings}
+                content={profile.warnings}
                 variant="rose"
               />
             )}

@@ -45,6 +45,7 @@ import {
   type ProductSalesSheetPdfData,
 } from "@/lib/salesSheetPdfExport";
 import { sanitizePublicProductKnowledge } from "@/lib/productLaunchValidation";
+import { buildPublicProductProfile } from "@/lib/publicProductProfile";
 
 interface ProductSalesSheetDialogProps {
   isOpen: boolean;
@@ -691,7 +692,7 @@ export function ProductSalesSheetDialog({
     try {
       const activeKnowledge =
         audience === "customer"
-          ? sanitizePublicProductKnowledge(contentJson.knowledge || {})
+          ? buildPublicProductProfile(contentJson.knowledge || {})
           : contentJson.knowledge || {};
 
       const dedupedIngredients = dedupeSalesSheetIngredients(activeKnowledge as any);
@@ -779,7 +780,7 @@ export function ProductSalesSheetDialog({
 
     const activeKnowledge =
       audience === "customer"
-        ? sanitizePublicProductKnowledge(contentJson.knowledge || {})
+        ? buildPublicProductProfile(contentJson.knowledge || {})
         : contentJson.knowledge || {};
 
     const retailList = contentJson.pricing?.retail || [];
