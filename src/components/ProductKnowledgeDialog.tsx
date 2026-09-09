@@ -337,10 +337,29 @@ export function ProductKnowledgeDialog({
         consultation_notes: consultationNotes.trim() || null,
       };
 
-      const conflictTarget = catalogProductId ? "catalog_product_id" : knowledgeId ? "id" : "product_id";
+      let targetKnowledgeId = knowledgeId;
+
+      if (!targetKnowledgeId && catalogProductId) {
+        // Look up existing by catalogProductId
+        const { data: existingRows, error: lookupError } = await supabase
+          .from("product_knowledge")
+          .select("id, is_active, qa_status, updated_at")
+          .eq("catalog_product_id", catalogProductId);
+
+        if (lookupError) throw lookupError;
+
+        if (existingRows && existingRows.length > 0) {
+          const bestRow = [...existingRows].sort((a, b) => {
+            const aPriority = a.is_active && a.qa_status === "approved" ? 1 : 0;
+            const bPriority = b.is_active && b.qa_status === "approved" ? 1 : 0;
+            if (aPriority !== bPriority) return bPriority - aPriority;
+            return new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime();
+          })[0];
+          targetKnowledgeId = bestRow.id;
+        }
+      }
 
       const payload: any = {
-        ...(conflictTarget === "id" && knowledgeId ? { id: knowledgeId } : {}),
         product_id: effectiveProductId,
         benefits,
         skin_concerns: skinConcerns,
@@ -365,11 +384,27 @@ export function ProductKnowledgeDialog({
 
       let upsertData: any = null;
 
-      const { data: initialData, error: kError } = await supabase
-        .from("product_knowledge")
-        .upsert(payload, { onConflict: conflictTarget, select: "id, qa_status, is_active, is_public" })
-        .single();
+      const performSave = async (dataPayload: any) => {
+        if (targetKnowledgeId) {
+          return supabase
+            .from("product_knowledge")
+            .update(dataPayload)
+            .eq("id", targetKnowledgeId)
+            .select("id, qa_status, is_active, is_public")
+            .single();
+        } else {
+          return supabase
+            .from("product_knowledge")
+            .insert({
+              ...dataPayload,
+              created_by: user.id,
+            })
+            .select("id, qa_status, is_active, is_public")
+            .single();
+        }
+      };
 
+      const { data: initialData, error: kError } = await performSave(payload);
 
       if (kError) {
         // Defensive backward-safe fallback: If schema cache is stale or extended column missing
@@ -390,10 +425,7 @@ export function ProductKnowledgeDialog({
           delete legacyPayload.key_ingredients_functions;
           delete legacyPayload.consultation_notes;
 
-          const { data: fallbackData, error: fallbackError } = await supabase
-            .from("product_knowledge")
-            .upsert(legacyPayload, { onConflict: conflictTarget, select: "id" })
-            .single();
+          const { data: fallbackData, error: fallbackError } = await performSave(legacyPayload);
 
           if (fallbackError) throw fallbackError;
           upsertData = fallbackData;
@@ -404,7 +436,7 @@ export function ProductKnowledgeDialog({
         upsertData = initialData;
       }
 
-      const currentKnowledgeId = upsertData?.id || knowledgeId;
+      const currentKnowledgeId = upsertData?.id || targetKnowledgeId;
 
       // 2. Update QA Status via RPC if changed or has note
       if (currentKnowledgeId && (note || qaStatus)) {
