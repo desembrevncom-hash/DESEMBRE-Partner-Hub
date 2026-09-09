@@ -10,6 +10,7 @@ import ProductImageCell from "@/components/ProductImageCell";
 import ProductLinkCell from "@/components/ProductLinkCell";
 import { CATEGORIES } from "@/data/products";
 import type { Product } from "@/types/product";
+import { getProductLaunchStatus } from "@/lib/publicProductProfile";
 import type {
   ProductGuard,
   SalesSheetInfo,
@@ -140,6 +141,14 @@ export function ProductRow({
             guidebookStatus={guidebookStatus}
             knowledgeStatus={knowledgeStatus}
             salesSheetStatus={salesSheetStatus}
+            isPublic={knowledgeSummary?.is_public}
+            isLaunchReady={
+              getProductLaunchStatus(knowledgeSummary as unknown as Record<string, unknown>, {
+                hasSourceDocs: guidebookStatus !== "none",
+                hasCompletedGuidebook: guidebookStatus === "extracted",
+                salesSheetStatus,
+              }).isLaunchReady
+            }
             className="pt-1"
           />
           {/* Action Buttons Row */}

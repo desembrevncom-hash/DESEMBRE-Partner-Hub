@@ -17,6 +17,7 @@ import { FullCatalogPDF } from "@/components/FullCatalogPDF";
 import { EditUnlockProvider } from "@/hooks/useEditUnlock";
 import { ProductKnowledgeDialog } from "@/components/ProductKnowledgeDialog";
 import { ProductKnowledgeReadOnlyDialog } from "@/components/ProductKnowledgeReadOnlyDialog";
+import { ProductLaunchChecklistDialog } from "@/features/products/ProductLaunchChecklistDialog";
 import { ProductSalesSheetDialog } from "@/components/admin/templates/ProductSalesSheetDialog";
 import { CRMPageContainer } from "@/components/crm/CRMPageContainer";
 import { CRMPageHeader } from "@/components/crm/CRMPageHeader";
@@ -155,16 +156,29 @@ function ProductCatalogPage() {
 
               {/* THÊM SẢN PHẨM — switches to management tab and opens add product dialog */}
               {isManager && (
+                <ProductLaunchChecklistDialog
+                  products={filteredProducts}
+                  guidebooksMap={guidebooksMap}
+                  knowledgeMap={knowledgeMap}
+                  salesSheetsMap={salesSheetsMap}
+                />
+              )}
+              {isManager && (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
-                        onClick={handleAddProductClick}
+                        onClick={() => {
+                          if (isDbAdminEnabled) {
+                            setSelectedProductForEdit(null);
+                            setIsCreateModalOpen(true);
+                          }
+                        }}
                         disabled={!isDbAdminEnabled}
-                        className={`h-10 px-6 rounded-xl font-bold text-xs shadow-sm transition-all shrink-0 active:scale-95 ${
+                        className={`h-9 font-extrabold text-xs px-3 rounded-xl transition-all shadow-sm ${
                           isDbAdminEnabled
-                            ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200 cursor-pointer"
-                            : "bg-slate-200 text-slate-400 cursor-not-allowed opacity-60"
+                            ? "bg-slate-900 text-white hover:bg-slate-800 cursor-pointer"
+                            : "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300"
                         }`}
                       >
                         <Plus className="w-4 h-4 mr-2 shrink-0" /> THÊM SẢN PHẨM

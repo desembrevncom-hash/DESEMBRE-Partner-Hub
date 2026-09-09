@@ -415,21 +415,29 @@ export function ProductSalesSheetDialog({
       let kApproved = false;
       const { data: knowledgeRow } = await supabase
         .from("product_knowledge")
-        .select("id, qa_status, is_active")
+        .select("*")
         .eq("catalog_product_id", catalogProductId)
         .maybeSingle();
 
-      if (knowledgeRow && knowledgeRow.qa_status === "approved" && knowledgeRow.is_active) {
-        kApproved = true;
+      if (knowledgeRow) {
+        setKnowledgeRecord(knowledgeRow);
+        if (knowledgeRow.qa_status === "approved" && knowledgeRow.is_active) {
+          kApproved = true;
+        }
       } else if (productCode && !isNaN(Number(productCode))) {
         const { data: legacyRow } = await supabase
           .from("product_knowledge")
-          .select("id, qa_status, is_active")
+          .select("*")
           .eq("product_id", Number(productCode))
           .maybeSingle();
-        if (legacyRow && legacyRow.qa_status === "approved" && legacyRow.is_active) {
-          kApproved = true;
+        if (legacyRow) {
+          setKnowledgeRecord(legacyRow);
+          if (legacyRow.qa_status === "approved" && legacyRow.is_active) {
+            kApproved = true;
+          }
         }
+      } else {
+        setKnowledgeRecord(null);
       }
       setKnowledgeApproved(kApproved);
     } catch (e: any) {
@@ -475,6 +483,8 @@ export function ProductSalesSheetDialog({
     }
   };
 
+  const [knowledgeRecord, setKnowledgeRecord] = useState<Record<string, any> | null>(null);
+
   // Generate via AI Edge Function
   const handleGenerateAI = async () => {
     if (!isAdminOrSub) return;
@@ -484,6 +494,17 @@ export function ProductSalesSheetDialog({
     }
     if (!catalogProductId) {
       toast.error("Thiếu mã định danh sản phẩm (catalogProductId).");
+      return;
+    }
+
+    const eligibility = canGenerateSalesSheet({
+      hasGuidebook: guidebookStatus !== "none",
+      hasExtractedGuidebook: guidebookStatus === "extracted",
+      knowledge: knowledgeRecord,
+    });
+
+    if (!eligibility.ok) {
+      eligibility.blockingReasons.forEach((reason) => toast.error(reason));
       return;
     }
 

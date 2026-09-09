@@ -6,6 +6,8 @@ interface Props {
   guidebookStatus?: GuidebookStatus;
   knowledgeStatus?: KnowledgeStatus;
   salesSheetStatus?: SalesSheetStatus;
+  isPublic?: boolean | null;
+  isLaunchReady?: boolean;
   className?: string;
 }
 
@@ -13,6 +15,8 @@ export function ProductPipelineStatusBadges({
   guidebookStatus = "none",
   knowledgeStatus = "none",
   salesSheetStatus = "none",
+  isPublic,
+  isLaunchReady = false,
   className = "",
 }: Props) {
   return (
@@ -57,7 +61,25 @@ export function ProductPipelineStatusBadges({
         </Badge>
       )}
 
-      {/* 3. SALES SHEET STATUS */}
+      {/* 3. WEBSITE PUBLIC STATUS */}
+      {isPublic === true ? (
+        <Badge className="bg-purple-50 text-purple-700 border border-purple-200/80 text-[9px] font-bold px-1.5 py-0">
+          Website: Công khai
+        </Badge>
+      ) : isPublic === false ? (
+        <Badge className="bg-slate-100 text-slate-600 border border-slate-200 text-[9px] font-bold px-1.5 py-0">
+          Website: Nội bộ
+        </Badge>
+      ) : (
+        <Badge
+          variant="outline"
+          className="bg-slate-50/60 text-slate-400 border-slate-200 text-[9px] font-medium px-1.5 py-0"
+        >
+          Website: Thiếu dữ liệu
+        </Badge>
+      )}
+
+      {/* 4. SALES SHEET STATUS */}
       {salesSheetStatus === "approved" ? (
         <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[9px] font-bold px-1.5 py-0">
           Sales Sheet: Đã duyệt
@@ -72,6 +94,20 @@ export function ProductPipelineStatusBadges({
           className="bg-slate-50/60 text-slate-400 border-slate-200 text-[9px] font-medium px-1.5 py-0"
         >
           Sales Sheet: Chưa có
+        </Badge>
+      )}
+
+      {/* 5. LAUNCH READINESS STATUS */}
+      {isLaunchReady ? (
+        <Badge className="bg-emerald-600 text-white font-black text-[9px] px-1.5 py-0 shadow-2xs">
+          Launch: Sẵn sàng launch
+        </Badge>
+      ) : (
+        <Badge
+          variant="outline"
+          className="bg-rose-50 text-rose-700 border-rose-200 text-[9px] font-bold px-1.5 py-0"
+        >
+          Launch: Chưa sẵn sàng
         </Badge>
       )}
     </div>
