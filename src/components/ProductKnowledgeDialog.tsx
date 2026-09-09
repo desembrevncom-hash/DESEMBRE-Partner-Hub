@@ -337,8 +337,10 @@ export function ProductKnowledgeDialog({
         consultation_notes: consultationNotes.trim() || null,
       };
 
+      const conflictTarget = catalogProductId ? "catalog_product_id" : knowledgeId ? "id" : "product_id";
+
       const payload: any = {
-        ...(knowledgeId ? { id: knowledgeId } : {}),
+        ...(conflictTarget === "id" && knowledgeId ? { id: knowledgeId } : {}),
         product_id: effectiveProductId,
         benefits,
         skin_concerns: skinConcerns,
@@ -361,7 +363,6 @@ export function ProductKnowledgeDialog({
         updated_by: user.id,
       };
 
-      const conflictTarget = knowledgeId ? "id" : catalogProductId ? "catalog_product_id" : "product_id";
       let upsertData: any = null;
 
       const { data: initialData, error: kError } = await supabase
