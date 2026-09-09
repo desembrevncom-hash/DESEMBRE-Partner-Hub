@@ -129,6 +129,57 @@ describe("productLaunchValidation", () => {
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain("Dữ liệu tri thức sản phẩm là bắt buộc");
     });
+
+    it("should accept camelCase inputs for required and recommended fields, qaStatus, and isActive", () => {
+      const camelCaseRecord = {
+        catalogProductId: "prod-456",
+        productCharacteristics: "Kem gel mỏng nhẹ",
+        benefits: "Cấp ẩm chuyên sâu",
+        usageInstructions: "Sử dụng hàng ngày",
+        ingredientHighlights: ["Centella Asiatica"],
+        skinTypes: ["Da nhạy cảm"],
+        warnings: "Tránh thoa vết thương hở",
+        qaStatus: "approved",
+        isActive: true,
+      };
+
+      const result = validateProductLaunchReady(camelCaseRecord);
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toEqual([]);
+      expect(result.warnings).toEqual([]);
+    });
+
+    it("should fail validation when product_characteristics (or productCharacteristics) is missing", () => {
+      const missingCharacteristicsRecord = {
+        catalog_product_id: "prod-789",
+        benefits: "Dưỡng ẩm",
+        usage_instructions: "Thoa 2 lần/ngày",
+        qa_status: "approved",
+        is_active: true,
+      };
+
+      const result = validateProductLaunchReady(missingCharacteristicsRecord);
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain("Trường bắt buộc còn thiếu: product_characteristics");
+    });
+
+    it("should remain launch ready with warning when only a warning-only field is missing", () => {
+      const missingWarningOnlyRecord = {
+        catalog_product_id: "prod-999",
+        product_characteristics: "Serum cấp nước",
+        benefits: "Phục hồi da",
+        usage_instructions: "Thoa vài giọt",
+        qa_status: "approved",
+        is_active: true,
+        // ingredient_highlights, skin_types, warnings are missing
+      };
+
+      const result = validateProductLaunchReady(missingWarningOnlyRecord);
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toEqual([]);
+      expect(result.warnings.length).toBeGreaterThan(0);
+      expect(result.warnings).toContain("Trường khuyến nghị còn thiếu: warnings");
+    });
   });
 
   describe("sanitizePublicProductKnowledge", () => {

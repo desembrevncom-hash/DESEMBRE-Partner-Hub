@@ -1,4 +1,4 @@
-import { Eye, ArrowRight } from "lucide-react";
+import { Eye, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatCatalogPrice } from "@/lib/pricing";
 import type { CatalogVatMode } from "@/lib/pricing";
@@ -19,14 +19,15 @@ export function CatalogProductCard({ product, onSelect, vatMode }: Props) {
   const visibleItems = product.publicPriceItems.slice(0, MAX_VISIBLE_SIZES);
   const overflowCount = product.publicPriceItems.length - MAX_VISIBLE_SIZES;
   const hasPricedItem = product.publicPriceItems.some((it) => !it.requiresContact);
+  const highlightBullets = product.highlightPreview || product.characteristicsPreview || [];
 
   return (
     <div
       onClick={() => onSelect(product)}
-      className="group bg-white rounded-3xl border border-slate-200/80 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-50/50 transition-all duration-300 flex flex-col overflow-hidden cursor-pointer"
+      className="group bg-white rounded-3xl border border-slate-200/80 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-50/50 transition-all duration-300 flex flex-col overflow-hidden cursor-pointer h-full"
     >
       {/* Card Image Container */}
-      <div className="relative aspect-[4/3] bg-slate-50 flex items-center justify-center p-4 overflow-hidden border-b border-slate-100">
+      <div className="relative aspect-[4/3] bg-slate-50 flex items-center justify-center p-4 overflow-hidden border-b border-slate-100 shrink-0">
         <CatalogProductImage
           src={product.imageUrl}
           fallbackSrc={product.fallbackImageUrl}
@@ -59,7 +60,7 @@ export function CatalogProductCard({ product, onSelect, vatMode }: Props) {
 
       {/* Card Body */}
       <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-3">
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <div className="flex items-center gap-1.5 flex-wrap">
             <Badge
               variant="outline"
@@ -73,10 +74,41 @@ export function CatalogProductCard({ product, onSelect, vatMode }: Props) {
             {product.name}
           </h3>
 
-          <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed font-normal">
-            {product.description ||
-              "Dòng mỹ phẩm chăm sóc và trị liệu chuyên sâu chuẩn spa Hàn Quốc."}
-          </p>
+          {/* ĐIỂM NỔI BẬT */}
+          {highlightBullets.length > 0 && (
+            <div className="pt-1 space-y-1">
+              <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                ĐIỂM NỔI BẬT
+              </span>
+              <div className="space-y-1">
+                {highlightBullets.slice(0, 2).map((item, i) => (
+                  <div key={i} className="flex items-start gap-1.5 text-[11px] text-slate-600 font-medium leading-tight">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0 mt-0.5" />
+                    <span className="line-clamp-1">{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* HOẠT CHẤT CHÍNH */}
+          {product.activeIngredientPreview && product.activeIngredientPreview.length > 0 && (
+            <div className="pt-1 space-y-1">
+              <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                HOẠT CHẤT CHÍNH
+              </span>
+              <div className="flex flex-wrap gap-1">
+                {product.activeIngredientPreview.slice(0, 3).map((ing, i) => (
+                  <span
+                    key={i}
+                    className="px-2 py-0.5 rounded-md bg-indigo-50/80 border border-indigo-100 text-indigo-800 text-[10px] font-bold shadow-3xs line-clamp-1"
+                  >
+                    {ing}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Size-price rows + action */}

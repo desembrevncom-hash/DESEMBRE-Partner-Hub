@@ -73,6 +73,12 @@ export function detectSensitiveClaims(text: unknown): string[] {
   return Array.from(new Set(detected));
 }
 
+function getFieldVal(input: Record<string, unknown>, field: string): unknown {
+  if (input[field] !== undefined) return input[field];
+  const camelField = field.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+  return input[camelField];
+}
+
 /**
  * Validates if a product knowledge record is ready for public launch or sales sheet generation.
  */
@@ -92,17 +98,19 @@ export function validateProductLaunchReady(
   }
 
   // 1. Check QA status and active state if provided
-  if (input.qa_status !== undefined && input.qa_status !== null && input.qa_status !== "approved") {
+  const qaStatus = getFieldVal(input, "qa_status");
+  if (qaStatus !== undefined && qaStatus !== null && qaStatus !== "approved") {
     errors.push("Trạng thái QA chưa được duyệt (qa_status phải là 'approved')");
   }
 
-  if (input.is_active !== undefined && input.is_active !== null && input.is_active === false) {
+  const isActive = getFieldVal(input, "is_active");
+  if (isActive !== undefined && isActive !== null && isActive === false) {
     errors.push("Sản phẩm chưa ở trạng thái hoạt động (is_active phải là true)");
   }
 
   // 2. Check required public fields
   for (const field of REQUIRED_PUBLIC_FIELDS) {
-    const val = input[field];
+    const val = getFieldVal(input, field);
     let isMissing = false;
 
     if (val === null || val === undefined) {
@@ -120,7 +128,7 @@ export function validateProductLaunchReady(
 
   // 3. Check recommended fields (warnings only)
   for (const field of RECOMMENDED_PUBLIC_FIELDS) {
-    const val = input[field];
+    const val = getFieldVal(input, field);
     let isMissing = false;
 
     if (val === null || val === undefined) {

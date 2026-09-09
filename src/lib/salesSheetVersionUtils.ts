@@ -270,78 +270,138 @@ export function extractIngredientName(item: string): string {
 }
 
 /**
+ * Normalizes and deduplicates an array or string of ingredient items.
+ */
+export function dedupeIngredientItems(items: unknown): string[] {
+  if (!items) return [];
+  const NO_INFO_MSG = "Chưa có thông tin trong tài liệu nguồn.";
+  const rawList: string[] = [];
+
+  if (Array.isArray(items)) {
+    for (const item of items) {
+      if (typeof item === "string" && item.trim()) {
+        const trimmed = item.trim();
+        if (trimmed !== NO_INFO_MSG) {
+          rawList.push(trimmed);
+        }
+      } else if (item && typeof item === "object") {
+        const name =
+          (item as Record<string, unknown>).name || (item as Record<string, unknown>).ingredient;
+        const func =
+          (item as Record<string, unknown>).function ||
+          (item as Record<string, unknown>).description ||
+          (item as Record<string, unknown>).purpose;
+        if (typeof name === "string" && name.trim()) {
+          const nameStr = name.trim();
+          const funcStr = typeof func === "string" ? func.trim() : "";
+          rawList.push(funcStr ? `${nameStr}: ${funcStr}` : nameStr);
+        }
+      }
+    }
+  } else if (typeof items === "string" && items.trim()) {
+    const trimmed = items.trim();
+    if (trimmed !== NO_INFO_MSG) {
+      const lines = trimmed
+        .split(/\r?\n/)
+        .map((l) => l.replace(/^[-*•\d.]+\s*/, "").trim())
+        .filter(Boolean);
+      rawList.push(...lines);
+    }
+  }
+
+  const result: string[] = [];
+  const seenKeys = new Set<string>();
+
+  for (const item of rawList) {
+    const nameKey = extractIngredientName(item) || item.toLowerCase().trim();
+    if (!seenKeys.has(nameKey)) {
+      seenKeys.add(nameKey);
+      result.push(item);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Selects ingredient items strictly from a SINGLE source based on priority order:
+ * 1. canonical_ingredients / canonicalIngredients / key_ingredients_functions / key_ingredients / main_ingredients
+ * 2. ingredients_with_functions / ingredientsWithFunctions
+ * 3. ingredient_highlights / ingredientHighlights
+ *
+ * Does NOT merge arrays across different priority groups.
+ */
+export function selectSingleIngredientSource(knowledge: Record<string, unknown>): string[] {
+  if (!knowledge || typeof knowledge !== "object") return [];
+
+  // Group 1: Canonical sources
+  const canonicalSources = [
+    knowledge.canonical_ingredients,
+    knowledge.canonicalIngredients,
+    knowledge.key_ingredients_functions,
+    knowledge.keyIngredientsFunctions,
+    knowledge.key_ingredients,
+    knowledge.keyIngredients,
+    knowledge.main_ingredients,
+    knowledge.mainIngredients,
+  ];
+
+  for (const src of canonicalSources) {
+    const items = dedupeIngredientItems(src);
+    if (items.length > 0) {
+      return items;
+    }
+  }
+
+  // Group 2: Ingredients with functions
+  const functionSources = [
+    knowledge.ingredients_with_functions,
+    knowledge.ingredientsWithFunctions,
+  ];
+
+  for (const src of functionSources) {
+    const items = dedupeIngredientItems(src);
+    if (items.length > 0) {
+      return items;
+    }
+  }
+
+  // Group 3: Ingredient highlights
+  const highlightSources = [
+    knowledge.ingredient_highlights,
+    knowledge.ingredientHighlights,
+  ];
+
+  for (const src of highlightSources) {
+    const items = dedupeIngredientItems(src);
+    if (items.length > 0) {
+      return items;
+    }
+  }
+
+  return [];
+}
+
+/**
  * Normalizer & Dedupe Guard for Sales Sheet Ingredients:
- * 1. key_ingredients (or key_ingredients_functions) is the CANONICAL field for "THÀNH PHẦN CHÍNH & CHỨC NĂNG".
- *    Format: "Tên thành phần: Chức năng/Lợi ích"
- * 2. full_ingredients is the CANONICAL field for "THÀNH PHẦN ĐẦY ĐỦ".
- * 3. ingredient_highlights is ONLY short ingredient names/tags. Never detailed bullets.
- * 4. If key_ingredients exists and has items:
- *    - "THÀNH PHẦN NỔI BẬT" is removed / not rendered (show_ingredient_highlights = false).
- * 5. If ingredient_highlights and key_ingredients contain the same ingredient names,
- *    only key_ingredients is rendered.
- * 6. Fallback between ingredient_highlights and key_ingredients is removed to prevent duplication.
+ * Uses single-source ingredient picker based on strict priority order.
+ * In Customer mode, only ONE section ("THÀNH PHẦN CHÍNH & CHỨC NĂNG") is rendered.
  */
 export function dedupeSalesSheetIngredients(knowledge: {
   key_ingredients?: unknown;
   key_ingredients_functions?: unknown;
   ingredient_highlights?: unknown;
   full_ingredients?: unknown;
+  canonical_ingredients?: unknown;
+  main_ingredients?: unknown;
+  ingredients_with_functions?: unknown;
 }): DedupeIngredientsResult {
   const NO_INFO_MSG = "Chưa có thông tin trong tài liệu nguồn.";
 
-  // 1. Resolve canonical key_ingredients
-  let keyIngredients: string[] = [];
-  if (
-    Array.isArray(knowledge?.key_ingredients_functions) &&
-    knowledge.key_ingredients_functions.length > 0
-  ) {
-    keyIngredients = knowledge.key_ingredients_functions
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((item: any) => {
-        if (typeof item === "string") return item.trim();
-        if (item && typeof item === "object" && item.name) {
-          return item.function ? `${item.name}: ${item.function}` : item.name;
-        }
-        return "";
-      })
-      .filter(Boolean);
-  } else if (Array.isArray(knowledge?.key_ingredients)) {
-    keyIngredients = knowledge.key_ingredients
-      .filter((item): item is string => typeof item === "string" && item.trim() !== "")
-      .map((item) => item.trim());
-  }
+  const selectedIngredients = selectSingleIngredientSource((knowledge || {}) as Record<string, unknown>);
+  const hasKeyIngredients = selectedIngredients.length > 0;
 
-  const validKeyIngredients = keyIngredients.filter((item) => item !== NO_INFO_MSG);
-  const hasKeyIngredients = validKeyIngredients.length > 0;
-
-  // 2. Resolve ingredient_highlights (short tags only)
-  let rawHighlights: string[] = [];
-  if (Array.isArray(knowledge?.ingredient_highlights)) {
-    rawHighlights = knowledge.ingredient_highlights
-      .filter((item): item is string => typeof item === "string" && item.trim() !== "")
-      .map((item) => {
-        const colonIdx = item.indexOf(":");
-        if (colonIdx !== -1) {
-          return item
-            .slice(0, colonIdx)
-            .replace(/^[-*•\d.]+\s*/, "")
-            .trim();
-        }
-        return item.replace(/^[-*•\d.]+\s*/, "").trim();
-      })
-      .filter((item) => item !== NO_INFO_MSG);
-  }
-
-  // 3. Dedupe overlapping ingredient names
-  const keyNames = new Set(
-    validKeyIngredients.map((item) => extractIngredientName(item)).filter(Boolean),
-  );
-
-  const dedupedHighlights = rawHighlights.filter(
-    (item) => !keyNames.has(extractIngredientName(item)),
-  );
-
-  // 4. Resolve full_ingredients
+  // Resolve full_ingredients
   let fullIngredients = "";
   if (
     typeof knowledge?.full_ingredients === "string" &&
@@ -352,12 +412,11 @@ export function dedupeSalesSheetIngredients(knowledge: {
   }
 
   return {
-    key_ingredients: hasKeyIngredients ? validKeyIngredients : [],
-    ingredient_highlights: dedupedHighlights,
+    key_ingredients: selectedIngredients,
+    ingredient_highlights: [],
     full_ingredients: fullIngredients,
     has_key_ingredients: hasKeyIngredients,
-    // Only render highlights if key ingredients is absent and highlights has valid items
-    show_ingredient_highlights: !hasKeyIngredients && dedupedHighlights.length > 0,
+    show_ingredient_highlights: false,
   };
 }
 
@@ -367,8 +426,9 @@ export function dedupeSalesSheetIngredients(knowledge: {
  *    - "TÀI LIỆU ĐÀO TẠO NỘI BỘ" -> "THÔNG TIN SẢN PHẨM"
  *    - "BẢNG GIÁ ĐỐI TÁC" -> "BẢNG GIÁ SẢN PHẨM"
  *    - "Tài liệu lưu hành nội bộ..." -> "Thông tin sản phẩm được cung cấp bởi Desembre Vietnam."
- * 2. Remove "THÀNH PHẦN NỔI BẬT" when key_ingredients exists.
+ * 2. Remove "THÀNH PHẦN NỔI BẬT" when key_ingredients exists or when in customer mode.
  * 3. In customer audience mode (default):
+ *    - Remove "THÀNH PHẦN ĐẦY ĐỦ" section entirely.
  *    - Remove "LƯU Ý TƯ VẤN" section entirely.
  *    - Convert advisory grid to 1 column.
  *    - Rename "CHỐNG CHỈ ĐỊNH" to "CẢNH BÁO / CHỐNG CHỈ ĐỊNH".
@@ -376,7 +436,7 @@ export function dedupeSalesSheetIngredients(knowledge: {
 export function cleanSalesSheetTemplateHtml(
   templateHtml: string,
   hasKeyIngredients: boolean,
-  audience: "customer" | "internal" = "customer",
+  audience: "customer" | "internal" = "internal",
 ): string {
   if (!templateHtml) return "";
   let cleaned = templateHtml;
@@ -401,22 +461,39 @@ export function cleanSalesSheetTemplateHtml(
     "Thông tin sản phẩm được cung cấp bởi Desembre Vietnam",
   );
 
-  // 4. Ingredient deduplication
-  if (hasKeyIngredients) {
-    // Remove static comment + block
+  // 4. Ingredient deduplication / section removal
+  if (hasKeyIngredients || audience === "customer") {
+    // Remove "THÀNH PHẦN NỔI BẬT" static comment + block
     cleaned = cleaned.replace(
-      /<!--\s*Ingredient Highlights\s*-->\s*<div>\s*<h4[^>]*>\s*THÀNH PHẦN NỔI BẬT\s*<\/h4>\s*<div[^>]*>\{\{knowledge\.ingredient_highlights\}\}<\/div>\s*<\/div>/gi,
+      /<!--\s*Ingredient Highlights\s*-->\s*<div>\s*<h4[^>]*>\s*THÀNH PHẦN NỔI BẬT\s*<\/h4>[\s\S]*?<\/div>\s*<\/div>/gi,
       "",
     );
-    // Remove without comment
     cleaned = cleaned.replace(
-      /<div>\s*<h4[^>]*>\s*THÀNH PHẦN NỔI BẬT\s*<\/h4>\s*<div[^>]*>\{\{knowledge\.ingredient_highlights\}\}<\/div>\s*<\/div>/gi,
+      /<div>\s*<h4[^>]*>\s*THÀNH PHẦN NỔI BẬT\s*<\/h4>[\s\S]*?<\/div>\s*<\/div>/gi,
+      "",
+    );
+    cleaned = cleaned.replace(
+      /\{\{#if\s+knowledge\.show_ingredient_highlights\}\}[\s\S]*?\{\{\/if\}\}/gi,
       "",
     );
   }
 
   // 5. Audience-specific filters (Customer vs Internal)
   if (audience === "customer") {
+    // Remove "THÀNH PHẦN ĐẦY ĐỦ" container block in customer mode
+    cleaned = cleaned.replace(
+      /<!--\s*Full Ingredients\s*-->\s*<div>\s*<h4[^>]*>\s*THÀNH PHẦN ĐẦY ĐỦ\s*<\/h4>[\s\S]*?<\/div>\s*<\/div>/gi,
+      "",
+    );
+    cleaned = cleaned.replace(
+      /<div>\s*<h4[^>]*>\s*THÀNH PHẦN ĐẦY ĐỦ\s*<\/h4>[\s\S]*?<\/div>\s*<\/div>/gi,
+      "",
+    );
+    cleaned = cleaned.replace(
+      /\{\{#if\s+knowledge\.full_ingredients\}\}[\s\S]*?\{\{\/if\}\}/gi,
+      "",
+    );
+
     // Remove "LƯU Ý TƯ VẤN" container block
     cleaned = cleaned.replace(
       /<div[^>]*>\s*<h4[^>]*>\s*LƯU Ý TƯ VẤN\s*<\/h4>[\s\S]*?<\/div>\s*<\/div>/gi,
@@ -532,24 +609,30 @@ export const PRODUCT_SALES_SHEET_V1_HTML = `<div style="font-family: 'Inter', sa
 
     <!-- Right Panel: AI Product Knowledge Base -->
     <div style="display: flex; flex-direction: column; gap: 12px; font-size: 10.5px;">
+      {{#if product.short_description}}
       <!-- Hero Product Quote -->
       <div style="background: #eff6ff; border-left: 4px solid #1e3a8a; border-radius: 0 8px 8px 0; padding: 10px 14px; border-top: 1px solid #dbeafe; border-right: 1px solid #dbeafe; border-bottom: 1px solid #dbeafe;">
         <p style="margin: 0; font-size: 11px; line-height: 1.4; color: #1e3a8a; font-style: italic; font-weight: 500;">
           {{product.short_description}}
         </p>
       </div>
+      {{/if}}
 
+      {{#if knowledge.benefits}}
       <!-- Core Features -->
       <div>
         <h4 style="font-size: 11px; font-weight: 800; color: #1e3a8a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">CÔNG DỤNG NỔI BẬT</h4>
         <div style="line-height: 1.45; color: #334155; white-space: pre-line;">{{knowledge.benefits}}</div>
       </div>
+      {{/if}}
 
+      {{#if knowledge.key_ingredients}}
       <!-- Key Ingredients & Functions (Canonical) -->
       <div>
         <h4 style="font-size: 11px; font-weight: 800; color: #1e3a8a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">THÀNH PHẦN CHÍNH &amp; CHỨC NĂNG</h4>
         <div style="line-height: 1.45; color: #334155; white-space: pre-line;">{{knowledge.key_ingredients}}</div>
       </div>
+      {{/if}}
 
       {{#if knowledge.show_ingredient_highlights}}
       <!-- Ingredient Highlights (Only shown if key ingredients & functions is missing) -->
@@ -559,23 +642,29 @@ export const PRODUCT_SALES_SHEET_V1_HTML = `<div style="font-family: 'Inter', sa
       </div>
       {{/if}}
 
+      {{#if knowledge.full_ingredients}}
       <!-- Full Ingredients -->
       <div>
         <h4 style="font-size: 11px; font-weight: 800; color: #1e3a8a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">THÀNH PHẦN ĐẦY ĐỦ</h4>
         <div style="line-height: 1.45; color: #334155; white-space: pre-line; font-size: 9px;">{{knowledge.full_ingredients}}</div>
       </div>
+      {{/if}}
 
+      {{#if knowledge.skin_types}}
       <!-- Skin Compatibility -->
       <div>
         <h4 style="font-size: 11px; font-weight: 800; color: #1e3a8a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">LOẠI DA PHÙ HỢP</h4>
         <div style="line-height: 1.45; color: #334155; white-space: pre-line;">{{knowledge.skin_types}}</div>
       </div>
+      {{/if}}
 
+      {{#if knowledge.usage}}
       <!-- Usage Instructions -->
       <div>
         <h4 style="font-size: 11px; font-weight: 800; color: #1e3a8a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">HƯỚNG DẪN SỬ DỤNG</h4>
         <div style="line-height: 1.45; color: #334155; white-space: pre-line;">{{knowledge.usage}}</div>
       </div>
+      {{/if}}
 
       <!-- Advisory & Warnings -->
       {{#if knowledge.sales_notes}}
@@ -590,12 +679,14 @@ export const PRODUCT_SALES_SHEET_V1_HTML = `<div style="font-family: 'Inter', sa
         </div>
       </div>
       {{else}}
+      {{#if knowledge.warnings}}
       <div style="border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 4px;">
         <div style="background: #fef2f2; border: 1px solid #fee2e2; padding: 10px; border-radius: 8px;">
           <h4 style="font-size: 9.5px; font-weight: 800; color: #dc2626; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #fca5a5; padding-bottom: 2px;">CẢNH BÁO / CHỐNG CHỈ ĐỊNH</h4>
           <div style="font-size: 9px; line-height: 1.4; color: #7f1d1d; white-space: pre-line; font-weight: 500;">{{knowledge.warnings}}</div>
         </div>
       </div>
+      {{/if}}
       {{/if}}
     </div>
   </div>
@@ -613,148 +704,10 @@ export const PRODUCT_SALES_SHEET_V1_HTML = `<div style="font-family: 'Inter', sa
  * Identical to V1 except the top-right DESEMBRE / Luxury Cosmetics logo block is removed.
  * SOURCE OF TRUTH: must stay in sync with DEFAULT_HTML_TEMPLATE_V2 in ProductSalesSheetDialog.tsx.
  */
-export const PRODUCT_SALES_SHEET_V2_HTML = `<div style="font-family: 'Inter', sans-serif; max-width: 100%; color: #1e293b; line-height: 1.4; padding: 5px;">
-  <!-- Premium Header (No right text logo) -->
-  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3.5px solid #1e3a8a; padding-bottom: 12px; margin-bottom: 16px;">
-    <div>
-      <span style="font-size: 9px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.15em; background: #eff6ff; padding: 2px 6px; border-radius: 4px; border: 1px solid #bfdbfe;">THÔNG TIN SẢN PHẨM</span>
-      <h1 style="font-size: 20px; font-weight: 900; margin: 6px 0 2px 0; color: #0f172a; text-transform: uppercase; letter-spacing: -0.5px;">{{product.name}}</h1>
-      <p style="font-size: 11px; color: #64748b; margin: 0;">Thương hiệu: <strong style="color: #1e3a8a;">{{product.brand_name}}</strong> | Danh mục: <strong>{{product.category_name}}</strong></p>
-    </div>
-  </div>
-
-  <!-- Content Structure -->
-  <div style="display: grid; grid-template-columns: 1.25fr 1.75fr; gap: 18px;">
-    <!-- Left Panel: Product Image and Pricing Table -->
-    <div style="display: flex; flex-direction: column; gap: 14px;">
-      <!-- Styled Product Frame -->
-      <div style="background: #ffffff; border-radius: 12px; padding: 12px; text-align: center; border: 1.5px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); min-height: 180px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
-        {{#if product.image_url}}
-          <img src="{{product.image_url}}" alt="{{product.name}}" style="max-width: 100%; max-height: 160px; object-fit: contain;" />
-        {{else}}
-          <!-- Fallback image block -->
-          <div style="font-size: 11px; color: #94a3b8; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 6px;">
-            <svg style="width: 32px; height: 32px; stroke: #cbd5e1; fill: none; stroke-width: 1.5;" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-            </svg>
-            Không có hình ảnh
-          </div>
-        {{/if}}
-      </div>
-
-      <!-- Pricing Info Block -->
-      <div style="background: #ffffff; border-radius: 12px; padding: 14px; border: 1.5px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);">
-        <h3 style="font-size: 11px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; margin: 0 0 10px 0; border-bottom: 1.5px solid #f1f5f9; padding-bottom: 5px; letter-spacing: 0.5px; display: flex; justify-content: space-between;">
-          <span>BẢNG GIÁ SẢN PHẨM</span>
-          <span style="color: #64748b; font-size: 9px; font-weight: 500;">VND</span>
-        </h3>
-        
-        {{#if variants}}
-        <table style="width: 100%; font-size: 10px; border-collapse: collapse;">
-          <thead>
-            <tr style="color: #64748b; font-weight: 700; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 9px; text-transform: uppercase;">
-              <th style="padding: 5px 0;">Kênh</th>
-              <th style="padding: 5px 0; text-align: center;">Quy cách</th>
-              <th style="padding: 5px 0; text-align: right;">Giá niêm yết</th>
-            </tr>
-          </thead>
-          <tbody>
-            {{#each variants}}
-            <tr style="border-top: 1px solid #f8fafc; color: #334155;">
-              <td style="padding: 6px 0; font-weight: 700; text-transform: uppercase; font-size: 8.5px; color: #1e3a8a;">{{channel}}</td>
-              <td style="padding: 6px 0; text-align: center; font-weight: 600;">{{size_label}}</td>
-              <td style="padding: 6px 0; text-align: right; font-weight: 800; color: #0f172a; font-mono: true;">{{price}}</td>
-            </tr>
-            {{/each}}
-          </tbody>
-        </table>
-        {{else}}
-          <div style="font-size: 9.5px; color: #94a3b8; text-align: center; padding: 10px 0; font-style: italic;">
-            Chưa có bảng giá đã duyệt.
-          </div>
-        {{/if}}
-      </div>
-    </div>
-
-    <!-- Right Panel: AI Product Knowledge Base -->
-    <div style="display: flex; flex-direction: column; gap: 12px; font-size: 10.5px;">
-      <!-- Hero Product Quote -->
-      <div style="background: #eff6ff; border-left: 4px solid #1e3a8a; border-radius: 0 8px 8px 0; padding: 10px 14px; border-top: 1px solid #dbeafe; border-right: 1px solid #dbeafe; border-bottom: 1px solid #dbeafe;">
-        <p style="margin: 0; font-size: 11px; line-height: 1.4; color: #1e3a8a; font-style: italic; font-weight: 500;">
-          {{product.short_description}}
-        </p>
-      </div>
-
-      <!-- Core Features -->
-      <div>
-        <h4 style="font-size: 11px; font-weight: 800; color: #1e3a8a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">CÔNG DỤNG NỔI BẬT</h4>
-        <div style="line-height: 1.45; color: #334155; white-space: pre-line;">{{knowledge.benefits}}</div>
-      </div>
-
-      <!-- Key Ingredients & Functions (Canonical) -->
-      <div>
-        <h4 style="font-size: 11px; font-weight: 800; color: #1e3a8a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">THÀNH PHẦN CHÍNH &amp; CHỨC NĂNG</h4>
-        <div style="line-height: 1.45; color: #334155; white-space: pre-line;">{{knowledge.key_ingredients}}</div>
-      </div>
-
-      {{#if knowledge.show_ingredient_highlights}}
-      <!-- Ingredient Highlights (Only shown if key ingredients & functions is missing) -->
-      <div>
-        <h4 style="font-size: 11px; font-weight: 800; color: #1e3a8a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">THÀNH PHẦN NỔI BẬT</h4>
-        <div style="line-height: 1.45; color: #334155; white-space: pre-line;">{{knowledge.ingredient_highlights}}</div>
-      </div>
-      {{/if}}
-
-      <!-- Full Ingredients -->
-      <div>
-        <h4 style="font-size: 11px; font-weight: 800; color: #1e3a8a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">THÀNH PHẦN ĐẦY ĐỦ</h4>
-        <div style="line-height: 1.45; color: #334155; white-space: pre-line; font-size: 9px;">{{knowledge.full_ingredients}}</div>
-      </div>
-
-      <!-- Skin Compatibility -->
-      <div>
-        <h4 style="font-size: 11px; font-weight: 800; color: #1e3a8a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">LOẠI DA PHÙ HỢP</h4>
-        <div style="line-height: 1.45; color: #334155; white-space: pre-line;">{{knowledge.skin_types}}</div>
-      </div>
-
-      <!-- Usage Instructions -->
-      <div>
-        <h4 style="font-size: 11px; font-weight: 800; color: #1e3a8a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">HƯỚNG DẪN SỬ DỤNG</h4>
-        <div style="line-height: 1.45; color: #334155; white-space: pre-line;">{{knowledge.usage}}</div>
-      </div>
-
-      <!-- Advisory & Warnings -->
-      {{#if knowledge.sales_notes}}
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 4px;">
-        <div style="background: #fffbeb; border: 1px solid #fef3c7; padding: 10px; border-radius: 8px;">
-          <h4 style="font-size: 9.5px; font-weight: 800; color: #d97706; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #fde68a; padding-bottom: 2px;">LƯU Ý TƯ VẤN</h4>
-          <div style="font-size: 9px; line-height: 1.4; color: #78350f; white-space: pre-line; font-weight: 500;">{{knowledge.sales_notes}}</div>
-        </div>
-        <div style="background: #fef2f2; border: 1px solid #fee2e2; padding: 10px; border-radius: 8px;">
-          <h4 style="font-size: 9.5px; font-weight: 800; color: #dc2626; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #fca5a5; padding-bottom: 2px;">CẢNH BÁO / CHỐNG CHỈ ĐỊNH</h4>
-          <div style="font-size: 9px; line-height: 1.4; color: #7f1d1d; white-space: pre-line; font-weight: 500;">{{knowledge.warnings}}</div>
-        </div>
-      </div>
-      {{else}}
-      <div style="border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 4px;">
-        <div style="background: #fef2f2; border: 1px solid #fee2e2; padding: 10px; border-radius: 8px;">
-          <h4 style="font-size: 9.5px; font-weight: 800; color: #dc2626; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #fca5a5; padding-bottom: 2px;">CẢNH BÁO / CHỐNG CHỈ ĐỊNH</h4>
-          <div style="font-size: 9px; line-height: 1.4; color: #7f1d1d; white-space: pre-line; font-weight: 500;">{{knowledge.warnings}}</div>
-        </div>
-      </div>
-      {{/if}}
-    </div>
-  </div>
-
-  <!-- Footer Info block -->
-  <div style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 20px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #94a3b8; font-weight: 500;">
-    <div>{{footer_note}} | Tạo lúc: {{generated_at}}</div>
-    <div>Trang 1/1</div>
-  </div>
-
-</div>`;
-
-
+export const PRODUCT_SALES_SHEET_V2_HTML = PRODUCT_SALES_SHEET_V1_HTML.replace(
+  /\s*<div style="text-align: right;">[\s\S]*?Luxury Cosmetics<\/div>\s*<\/div>/,
+  "",
+);
 
 /**
  * Determines whether a given template (by name or HTML content) is v2 (no brand logo).
@@ -773,4 +726,3 @@ export function isTemplateV2(templateName?: string, templateHtml?: string): bool
   }
   return false;
 }
-

@@ -46,6 +46,11 @@ import {
 } from "@/lib/salesSheetPdfExport";
 import { sanitizePublicProductKnowledge } from "@/lib/productLaunchValidation";
 import { buildPublicProductProfile } from "@/lib/publicProductProfile";
+import {
+  buildSalesSheetViewModel,
+  renderSalesSheetViewModelHtml,
+} from "@/lib/salesSheetViewModel";
+import { renderSalesSheetHtml } from "@/lib/renderSalesSheetHtml";
 
 interface ProductSalesSheetDialogProps {
   isOpen: boolean;
@@ -130,24 +135,30 @@ const DEFAULT_HTML_TEMPLATE = `
 
     <!-- Right Panel: AI Product Knowledge Base -->
     <div style="display: flex; flex-direction: column; gap: 12px; font-size: 10.5px;">
+      {{#if product.short_description}}
       <!-- Hero Product Quote -->
       <div style="background: #eff6ff; border-left: 4px solid #1e3a8a; border-radius: 0 8px 8px 0; padding: 10px 14px; border-top: 1px solid #dbeafe; border-right: 1px solid #dbeafe; border-bottom: 1px solid #dbeafe;">
         <p style="margin: 0; font-size: 11px; line-height: 1.4; color: #1e3a8a; font-style: italic; font-weight: 500;">
           {{product.short_description}}
         </p>
       </div>
+      {{/if}}
 
+      {{#if knowledge.benefits}}
       <!-- Core Features -->
       <div>
         <h4 style="font-size: 11px; font-weight: 800; color: #1e3a8a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">CÔNG DỤNG NỔI BẬT</h4>
         <div style="line-height: 1.45; color: #334155; white-space: pre-line;">{{knowledge.benefits}}</div>
       </div>
+      {{/if}}
 
+      {{#if knowledge.key_ingredients}}
       <!-- Key Ingredients & Functions (Canonical) -->
       <div>
         <h4 style="font-size: 11px; font-weight: 800; color: #1e3a8a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">THÀNH PHẦN CHÍNH &amp; CHỨC NĂNG</h4>
         <div style="line-height: 1.45; color: #334155; white-space: pre-line;">{{knowledge.key_ingredients}}</div>
       </div>
+      {{/if}}
 
       {{#if knowledge.show_ingredient_highlights}}
       <!-- Ingredient Highlights (Only shown if key ingredients & functions is missing) -->
@@ -157,23 +168,29 @@ const DEFAULT_HTML_TEMPLATE = `
       </div>
       {{/if}}
 
+      {{#if knowledge.full_ingredients}}
       <!-- Full Ingredients -->
       <div>
         <h4 style="font-size: 11px; font-weight: 800; color: #1e3a8a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">THÀNH PHẦN ĐẦY ĐỦ</h4>
         <div style="line-height: 1.45; color: #334155; white-space: pre-line; font-size: 9px;">{{knowledge.full_ingredients}}</div>
       </div>
+      {{/if}}
 
+      {{#if knowledge.skin_types}}
       <!-- Skin Compatibility -->
       <div>
         <h4 style="font-size: 11px; font-weight: 800; color: #1e3a8a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">LOẠI DA PHÙ HỢP</h4>
         <div style="line-height: 1.45; color: #334155; white-space: pre-line;">{{knowledge.skin_types}}</div>
       </div>
+      {{/if}}
 
+      {{#if knowledge.usage}}
       <!-- Usage Instructions -->
       <div>
         <h4 style="font-size: 11px; font-weight: 800; color: #1e3a8a; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">HƯỚNG DẪN SỬ DỤNG</h4>
         <div style="line-height: 1.45; color: #334155; white-space: pre-line;">{{knowledge.usage}}</div>
       </div>
+      {{/if}}
 
       <!-- Advisory & Warnings -->
       {{#if knowledge.sales_notes}}
@@ -188,12 +205,14 @@ const DEFAULT_HTML_TEMPLATE = `
         </div>
       </div>
       {{else}}
+      {{#if knowledge.warnings}}
       <div style="border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 4px;">
         <div style="background: #fef2f2; border: 1px solid #fee2e2; padding: 10px; border-radius: 8px;">
           <h4 style="font-size: 9.5px; font-weight: 800; color: #dc2626; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #fca5a5; padding-bottom: 2px;">CẢNH BÁO / CHỐNG CHỈ ĐỊNH</h4>
           <div style="font-size: 9px; line-height: 1.4; color: #7f1d1d; white-space: pre-line; font-weight: 500;">{{knowledge.warnings}}</div>
         </div>
       </div>
+      {{/if}}
       {{/if}}
     </div>
   </div>
@@ -487,12 +506,22 @@ export function ProductSalesSheetDialog({
 
   // Generate via AI Edge Function
   const handleGenerateAI = async () => {
-    if (!isAdminOrSub) return;
-    if (!canGenerateAI) {
-      toast.error(blockReason || "Không đủ điều kiện để tạo Sales Sheet bằng AI.");
+    console.log("[SalesSheetAI] clicked", {
+      catalogProductId,
+      productName,
+      productCode,
+      audience,
+      templateId: selectedTemplateId,
+    });
+
+    if (!isAdminOrSub) {
+      console.warn("[SalesSheetAI] user is not admin or sub_admin");
+      toast.error("Chỉ Admin hoặc Sub Admin mới có quyền tạo Sales Sheet bằng AI.");
       return;
     }
+
     if (!catalogProductId) {
+      console.error("[SalesSheetAI] missing catalogProductId");
       toast.error("Thiếu mã định danh sản phẩm (catalogProductId).");
       return;
     }
@@ -503,25 +532,40 @@ export function ProductSalesSheetDialog({
       knowledge: knowledgeRecord,
     });
 
+    console.log("[SalesSheetAI] eligibility", eligibility);
+
     if (!eligibility.ok) {
-      eligibility.blockingReasons.forEach((reason) => toast.error(reason));
+      console.error("[SalesSheetAI] error - eligibility failed", eligibility.blockingReasons);
+      const detailText = eligibility.blockingReasons.join("\n• ");
+      toast.error("Chưa thể tạo Sales Sheet bằng AI", {
+        description: `Cần hoàn thiện các điều kiện sau:\n• ${detailText}`,
+      });
       return;
     }
 
     setGenerating(true);
     try {
       const payload = {
+        catalog_product_id: catalogProductId,
+        product_id: productCode && !isNaN(Number(productCode)) ? Number(productCode) : undefined,
+        audience,
+        template_id: selectedTemplateId || undefined,
+        // Legacy field aliases
         catalogProductId,
-        templateId: selectedTemplateId || null,
+        templateId: selectedTemplateId || undefined,
         productName,
         brandId,
         categoryName,
         productCode,
       };
 
+      console.log("[SalesSheetAI] invoking function", payload);
+
       const { data, error } = await supabase.functions.invoke("generate-product-sales-sheet", {
         body: payload,
       });
+
+      console.log("[SalesSheetAI] function response", { data, error });
 
       if (error) {
         let serverErrorMsg = "";
@@ -534,22 +578,16 @@ export function ProductSalesSheetDialog({
         ) {
           try {
             responseBody = await (error.context as any).json();
-            serverErrorMsg = responseBody?.error || responseBody?.message;
+            serverErrorMsg = responseBody?.message || responseBody?.error;
           } catch {
             // Ignore JSON parse error from error context
           }
         }
 
-        if (import.meta.env.DEV) {
-          console.error("[generate-product-sales-sheet] Error details:", {
-            operation: "handleGenerateAI",
-            functionName: "generate-product-sales-sheet",
-            productId: catalogProductId,
-            status: (error as any)?.status,
-            responseBody: responseBody || data,
-            invokeError: error,
-          });
-        }
+        console.error("[SalesSheetAI] error", {
+          invokeError: error,
+          responseBody,
+        });
 
         if (serverErrorMsg) {
           throw new Error(serverErrorMsg);
@@ -565,15 +603,8 @@ export function ProductSalesSheetDialog({
       }
 
       if (!data || !data.success) {
-        const errorMsg = data?.error || "AI generation returned success=false";
-        if (import.meta.env.DEV) {
-          console.error("[generate-product-sales-sheet] Unsuccessful response:", {
-            operation: "handleGenerateAI",
-            functionName: "generate-product-sales-sheet",
-            productId: catalogProductId,
-            responseBody: data,
-          });
-        }
+        const errorMsg = data?.message || data?.error || "Dịch vụ AI phản hồi không thành công";
+        console.error("[SalesSheetAI] error - unsuccessful data", data);
         throw new Error(errorMsg);
       }
 
@@ -581,11 +612,9 @@ export function ProductSalesSheetDialog({
       if (data.content_json) {
         setContentJson(data.content_json);
       }
-      toast.success("Sinh dữ liệu Sales Sheet thành công!");
+      toast.success("Sinh dữ liệu Sales Sheet bằng AI thành công!");
     } catch (e: any) {
-      if (import.meta.env.DEV) {
-        console.error("[generate-product-sales-sheet] Catch handler:", e);
-      }
+      console.error("[SalesSheetAI] error - exception caught", e);
       toast.error("Lỗi sinh AI: " + (e?.message || "Lỗi không xác định"));
     } finally {
       setGenerating(false);
@@ -601,12 +630,37 @@ export function ProductSalesSheetDialog({
     setSaving(true);
     const targetStatus = newStatus || status;
     try {
+      const activeTemplate = templates.find((t) => t.id === selectedTemplateId);
+      const viewModel = buildSalesSheetViewModel({
+        sheetData: contentJson,
+        profile: knowledgeRecord,
+        fallbackProductInfo: { productName, categoryName, imageUrl, brandName: brandId },
+        audience,
+        templateName: activeTemplate?.name,
+        templateHtml: activeTemplateHtml,
+      });
+
+      let compiledHtml = "";
+      try {
+        compiledHtml = renderSalesSheetHtml(viewModel, audience);
+      } catch (err: any) {
+        toast.error("Template chưa được render hoàn chỉnh", {
+          description: err?.message || "Vẫn còn thẻ template {{ }} chưa được thế dữ liệu.",
+        });
+        setSaving(false);
+        return;
+      }
+
       const payload: any = {
         brand_id: brandId,
         catalog_product_id: catalogProductId,
         template_id: selectedTemplateId || null,
         title,
-        content_json: contentJson,
+        content_json: {
+          ...contentJson,
+          audience,
+          rendered_html: compiledHtml,
+        },
         status: targetStatus,
         is_public: isPublic,
       };
@@ -711,56 +765,27 @@ export function ProductSalesSheetDialog({
   const handleExportPdf = async () => {
     setIsExporting(true);
     try {
-      const activeKnowledge =
-        audience === "customer"
-          ? buildPublicProductProfile(contentJson.knowledge || {})
-          : contentJson.knowledge || {};
-
-      const dedupedIngredients = dedupeSalesSheetIngredients(activeKnowledge as any);
-      const retailList = contentJson.pricing?.retail || [];
-      const salonList = contentJson.pricing?.salon || [];
-      const formattedVariants = [
-        ...retailList.map((v) => ({ ...v, channel: "retail" })),
-        ...salonList.map((v) => ({ ...v, channel: "salon" })),
-      ];
-
       const activeTemplate = templates.find((t) => t.id === selectedTemplateId);
-      const hideBrandLogo = isTemplateV2(
-        activeTemplate?.name,
-        activeTemplate?.html_template || activeTemplateHtml,
-      );
-
-      const pdfData: ProductSalesSheetPdfData = {
-        product: {
-          name: contentJson.product?.name || productName,
-          brand_name: contentJson.product?.brand_name || "Desembre",
-          category_name: contentJson.product?.category_name || categoryName,
-          short_description: contentJson.product?.short_description || "",
-          image_url: imageUrl || "",
-        },
-        variants: formattedVariants,
-        knowledge: {
-          benefits: activeKnowledge.benefits || [],
-          key_ingredients: dedupedIngredients.has_key_ingredients
-            ? dedupedIngredients.key_ingredients
-            : (activeKnowledge as any)?.key_ingredients || [],
-          ingredient_highlights: dedupedIngredients.ingredient_highlights,
-          show_ingredient_highlights: dedupedIngredients.show_ingredient_highlights,
-          full_ingredients: audience === "customer" ? "" : dedupedIngredients.full_ingredients,
-          skin_types: activeKnowledge.skin_types || [],
-          usage: activeKnowledge.usage || [],
-          warnings: activeKnowledge.warnings || [],
-          sales_notes: audience === "customer" ? [] : (activeKnowledge as any)?.sales_notes || [],
-        },
-        footer_note:
-          contentJson.footer_note || "Thông tin sản phẩm được cung cấp bởi Desembre Vietnam.",
-        generated_at: new Date().toLocaleString("vi-VN"),
+      const viewModel = buildSalesSheetViewModel({
+        sheetData: contentJson,
+        profile: knowledgeRecord,
+        fallbackProductInfo: { productName, categoryName, imageUrl, brandName: brandId },
         audience,
-        hideBrandLogo,
-      };
+        templateName: activeTemplate?.name,
+        templateHtml: activeTemplate?.html_template || activeTemplateHtml,
+      });
 
-      const fileName = generateSalesSheetFileName(contentJson.product?.name || productName);
-      await exportProductSalesSheetPdf(pdfData, fileName);
+      console.log("[SalesSheetViewModel]", {
+        audience,
+        benefitsCount: viewModel.benefits.length,
+        ingredientsCount: viewModel.ingredients.length,
+        usageCount: viewModel.usageInstructions.length,
+        warningsCount: viewModel.warnings.length,
+        source: viewModel.__debugSource,
+      });
+
+      const fileName = generateSalesSheetFileName(viewModel.product.name || productName);
+      await exportProductSalesSheetPdf(viewModel, fileName);
       toast.success("Đã xuất file PDF thành công!");
     } catch (err: any) {
       console.error("[ProductSalesSheetDialog] PDF export error:", err);
@@ -788,81 +813,34 @@ export function ProductSalesSheetDialog({
   }, [templates, selectedTemplateId]);
 
   const previewHtml = useMemo(() => {
-    // Adapter to transform content_json structure into matching formats expected by the template
-    const joinList = (val: any) => {
-      if (Array.isArray(val)) {
-        const valid = val.filter((v) => typeof v === "string" && v.trim() !== "");
-        if (valid.length === 0) return "Chưa có thông tin trong tài liệu nguồn.";
-        return valid.map((v) => `- ${v}`).join("\n");
-      }
-      if (typeof val === "string" && val.trim() !== "") return val;
-      return "Chưa có thông tin trong tài liệu nguồn.";
-    };
+    try {
+      const activeTemplate = templates.find((t) => t.id === selectedTemplateId);
+      const viewModel = buildSalesSheetViewModel({
+        sheetData: contentJson,
+        profile: knowledgeRecord,
+        fallbackProductInfo: { productName, categoryName, imageUrl, brandName: brandId },
+        audience,
+        templateName: activeTemplate?.name,
+        templateHtml: activeTemplateHtml,
+      });
 
-    const activeKnowledge =
-      audience === "customer"
-        ? buildPublicProductProfile(contentJson.knowledge || {})
-        : contentJson.knowledge || {};
-
-    const retailList = contentJson.pricing?.retail || [];
-    const salonList = contentJson.pricing?.salon || [];
-
-    const formattedVariants = [
-      ...retailList.map((v) => ({ ...v, channel: "retail" })),
-      ...salonList.map((v) => ({ ...v, channel: "salon" })),
-    ];
-
-    // Dedupe & normalize ingredients according to canonical hierarchy
-    const dedupedIngredients = dedupeSalesSheetIngredients(activeKnowledge as any);
-
-    // Clean template if key_ingredients exists to ensure no static "THÀNH PHẦN NỔI BẬT" remains, and clean internal elements if customer mode
-    const templateToUse = cleanSalesSheetTemplateHtml(
-      activeTemplateHtml,
-      dedupedIngredients.has_key_ingredients,
-      audience,
-    );
-
-    const dataForRendering = {
-      product: {
-        name: contentJson.product?.name || productName,
-        brand_name: contentJson.product?.brand_name || "",
-        category_name: contentJson.product?.category_name || categoryName,
-        short_description:
-          contentJson.product?.short_description || "Chưa có thông tin trong tài liệu nguồn.",
-        image_url: imageUrl || "",
-        product_code: productCode || "",
-      },
-      pricing: contentJson.pricing || { retail: [], salon: [] },
-      variants: formattedVariants,
-      knowledge: {
-        benefits: joinList(activeKnowledge.benefits),
-        ingredient_highlights: dedupedIngredients.show_ingredient_highlights
-          ? joinList(dedupedIngredients.ingredient_highlights)
-          : "",
-        show_ingredient_highlights: dedupedIngredients.show_ingredient_highlights,
-        full_ingredients:
-          audience === "customer"
-            ? ""
-            : dedupedIngredients.full_ingredients !== ""
-              ? dedupedIngredients.full_ingredients
-              : "Chưa có thông tin trong tài liệu nguồn.",
-        key_ingredients: joinList(
-          dedupedIngredients.has_key_ingredients
-            ? dedupedIngredients.key_ingredients
-            : (activeKnowledge as any)?.key_ingredients,
-        ),
-        skin_types: joinList(activeKnowledge.skin_types),
-        usage: joinList(activeKnowledge.usage),
-        sales_notes: audience === "customer" ? "" : joinList((activeKnowledge as any)?.sales_notes),
-        warnings: joinList(activeKnowledge.warnings),
-      },
-      footer_note:
-        contentJson.footer_note || "Thông tin sản phẩm được cung cấp bởi Desembre Vietnam.",
-      generated_at: new Date().toLocaleString("vi-VN"),
-    };
-
-    return renderTemplate(templateToUse, dataForRendering);
-  }, [contentJson, activeTemplateHtml, productName, categoryName, imageUrl, productCode, audience]);
+      return renderSalesSheetHtml(viewModel, audience);
+    } catch (err: any) {
+      console.error("[SalesSheetDialog] previewHtml render error:", err);
+      return `<div style="padding: 20px; color: #dc2626; font-weight: bold; background: #fef2f2; border: 1px solid #fee2e2; border-radius: 8px;">Template chưa được render hoàn chỉnh: ${err?.message || "vẫn còn raw template placeholders"}</div>`;
+    }
+  }, [
+    contentJson,
+    knowledgeRecord,
+    activeTemplateHtml,
+    productName,
+    categoryName,
+    imageUrl,
+    brandId,
+    selectedTemplateId,
+    templates,
+    audience,
+  ]);
 
   // Form Field Changers
   const handleProductField = (field: string, value: string) => {
@@ -998,12 +976,12 @@ export function ProductSalesSheetDialog({
               )}
               <Button
                 onClick={handleGenerateAI}
-                disabled={generating || loading || !canGenerateAI}
+                disabled={generating || loading}
                 variant="outline"
                 className={`font-bold transition-all ${
                   canGenerateAI
-                    ? "border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
-                    : "border-slate-200 text-slate-400 bg-slate-100 cursor-not-allowed opacity-60"
+                    ? "border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 cursor-pointer"
+                    : "border-amber-200 text-amber-800 bg-amber-50 hover:bg-amber-100 cursor-pointer"
                 }`}
                 title={!canGenerateAI ? blockReason : "Tạo bằng AI (OpenAI)"}
               >

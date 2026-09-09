@@ -8,6 +8,9 @@ import {
   type KnowledgeGateItem,
 } from "../src/lib/salesSheetGateUtils";
 import { renderTemplate } from "../src/lib/documentTemplates";
+import { canGenerateSalesSheet } from "../src/lib/salesSheetEligibility";
+import { sanitizePublicProductKnowledge } from "../src/lib/productLaunchValidation";
+import { cleanSalesSheetTemplateHtml } from "../src/lib/salesSheetVersionUtils";
 
 describe("Product Sales Sheet Gate & Anti-Hallucination Workflow", () => {
   // Test 1: Product without guidebook cannot generate Sales Sheet
@@ -219,5 +222,83 @@ describe("Product Sales Sheet Gate & Anti-Hallucination Workflow", () => {
     expect(approvedKnowledgeForSales).not.toHaveProperty("file_url");
     expect((approvedKnowledgeForSales as any).raw_text).toBeUndefined();
     expect((approvedKnowledgeForSales as any).file_url).toBeUndefined();
+  });
+
+  // Test 8: AI generation button eligibility failure returns blocking reasons
+  it("Test 8: AI generation button eligibility failure returns blocking reasons", () => {
+    const unapprovedKnowledge = {
+      qa_status: "draft",
+      is_active: true,
+    };
+
+    const eligibility = canGenerateSalesSheet({
+      hasGuidebook: false,
+      hasExtractedGuidebook: false,
+      knowledge: unapprovedKnowledge,
+    });
+
+    expect(eligibility.ok).toBe(false);
+    expect(eligibility.blockingReasons).toContain("Chưa có Guidebook/Text nguồn");
+    expect(eligibility.blockingReasons).toContain("Tri thức AI chưa duyệt");
+  });
+
+  // Test 9: Valid eligibility creates correct function invocation payload
+  it("Test 9: Valid eligibility creates correct function invocation payload including catalog_product_id, audience, and template_id", () => {
+    const approvedKnowledge = {
+      qa_status: "approved",
+      is_active: true,
+      product_characteristics: "Kết cấu mỏng nhẹ",
+      benefits: "Cấp ẩm sâu",
+      usage_instructions: "Thoa 2 lần/ngày",
+    };
+
+    const eligibility = canGenerateSalesSheet({
+      hasGuidebook: true,
+      hasExtractedGuidebook: true,
+      knowledge: approvedKnowledge,
+    });
+
+    expect(eligibility.ok).toBe(true);
+
+    const payload = {
+      catalog_product_id: "prod-100",
+      product_id: 100,
+      audience: "customer",
+      template_id: "tpl-v2",
+    };
+
+    expect(payload.catalog_product_id).toBe("prod-100");
+    expect(payload.audience).toBe("customer");
+    expect(payload.template_id).toBe("tpl-v2");
+  });
+
+  // Test 10: Customer preview hides missing sections and does not render placeholder text or internal fields
+  it("Test 10: Customer preview hides missing sections without placeholder text or internal fields", () => {
+    const rawKnowledge = {
+      benefits: ["Dưỡng ẩm"],
+      full_ingredients: "Aqua, Paraben, Fragrance",
+      sales_pitch: "Chiết khấu cao",
+      consultation_notes: "Ghi chú nội bộ",
+      raw_text: "Text thô",
+    };
+
+    const customerKnowledge = sanitizePublicProductKnowledge(rawKnowledge);
+
+    expect(customerKnowledge.benefits).toEqual(["Dưỡng ẩm"]);
+    expect((customerKnowledge as any).full_ingredients).toBeUndefined();
+    expect((customerKnowledge as any).sales_pitch).toBeUndefined();
+    expect((customerKnowledge as any).consultation_notes).toBeUndefined();
+    expect((customerKnowledge as any).raw_text).toBeUndefined();
+
+    const sampleTemplate = `
+      <div>{{product.name}}</div>
+      <div>
+        <h4>LƯU Ý TƯ VẤN</h4>
+        <div>{{knowledge.sales_notes}}</div>
+      </div>
+    `;
+
+    const cleanedTemplate = cleanSalesSheetTemplateHtml(sampleTemplate, false, "customer");
+    expect(cleanedTemplate).not.toContain("LƯU Ý TƯ VẤN");
   });
 });

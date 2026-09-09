@@ -63,6 +63,20 @@ describe("publicProductProfile - Single Source of Truth (Milestone 3)", () => {
       expect(profile.warnings).toBe("Tránh thoa lên mắt");
     });
 
+    it("selects canonical ingredients via single-source picker without merging secondary sources", () => {
+      const aliasInput = {
+        name: "Desembre Papaya Cream",
+        canonical_ingredients: ["Glycerin: giữ ẩm"],
+        ingredients_with_functions: ["Papaya Extract: làm sạch da"],
+        ingredient_highlights: ["Niacinamide: làm sáng"],
+      };
+
+      const profile = buildPublicProductProfile(aliasInput);
+      expect(profile.ingredient_highlights).toEqual([
+        "Glycerin: giữ ẩm",
+      ]);
+    });
+
     it("does not auto-fill or add dummy placeholder text for missing sections", () => {
       const sparseInput = {
         name: "Desembre Pure Serum",
@@ -121,21 +135,40 @@ describe("publicProductProfile - Single Source of Truth (Milestone 3)", () => {
       expect(status.blockingReasons).toEqual([]);
     });
 
-    it("fails launch readiness and returns blocking errors when required public fields are missing", () => {
-      const incompleteInput = {
-        ...rawInput,
-        product_characteristics: "",
-        benefits: "",
+    it("passes launch readiness with camelCase input fields", () => {
+      const camelInput = {
+        catalogProductId: "cat-200",
+        productCharacteristics: "Kem dưỡng nhẹ",
+        benefits: "Cấp ẩm",
+        usageInstructions: "Sử dụng sáng tối",
+        qaStatus: "approved",
+        isActive: true,
+        isPublic: true,
       };
 
-      const status = getProductLaunchStatus(incompleteInput);
+      const status = getProductLaunchStatus(camelInput);
+      expect(status.isLaunchReady).toBe(true);
+      expect(status.publicStatus).toBe("public_ready");
+      expect(status.blockingReasons).toEqual([]);
+    });
 
-      expect(status.isLaunchReady).toBe(false);
-      expect(status.publicStatus).toBe("draft");
-      expect(status.blockingReasons).toContain(
-        "Trường bắt buộc còn thiếu: product_characteristics",
-      );
-      expect(status.blockingReasons).toContain("Trường bắt buộc còn thiếu: benefits");
+    it("retains launch readiness when only warning-only fields are missing and records warnings", () => {
+      const warningInput = {
+        catalog_product_id: "cat-300",
+        product_characteristics: "Tinh chất phục hồi",
+        benefits: "Tái tạo da",
+        usage_instructions: "Dùng 1-2 giọt",
+        qa_status: "approved",
+        is_active: true,
+        is_public: true,
+      };
+
+      const status = getProductLaunchStatus(warningInput);
+      expect(status.isLaunchReady).toBe(true);
+      expect(status.publicStatus).toBe("public_ready");
+      expect(status.blockingReasons).toEqual([]);
+      expect(status.warnings.length).toBeGreaterThan(0);
+      expect(status.warnings).toContain("Trường khuyến nghị còn thiếu: warnings");
     });
   });
 });

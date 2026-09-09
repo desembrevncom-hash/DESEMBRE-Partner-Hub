@@ -156,8 +156,7 @@ export function CatalogProductTable({
                             const itemPrice = item.price ?? item.retailPrice;
                             const isContact =
                               item.requiresContact || itemPrice == null || itemPrice <= 0;
-                            const channelLabel =
-                              item.channel === "salon" ? "Salon" : "Cá nhân";
+                            const channelLabel = item.channel === "salon" ? "Salon" : "Cá nhân";
                             return (
                               <div key={i} className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-1.5 shrink-0">

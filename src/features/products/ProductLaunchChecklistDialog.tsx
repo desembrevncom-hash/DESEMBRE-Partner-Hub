@@ -133,22 +133,50 @@ export function ProductLaunchChecklistDialog({
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-black text-slate-900">{item.product.name}</span>
                 </div>
-                {item.launchStatus.isLaunchReady ? (
+                {item.launchStatus.isLaunchReady && (
                   <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <span>Đạt 100% điều kiện xuất bản công khai</span>
                   </div>
-                ) : (
-                  <div className="space-y-0.5">
-                    {item.launchStatus.blockingReasons.map((reason, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center gap-1.5 text-[11px] font-medium text-rose-700"
-                      >
-                        <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                        <span>{reason}</span>
-                      </div>
-                    ))}
+                )}
+
+                {/* 1. Lỗi chặn launch */}
+                {item.launchStatus.blockingReasons.length > 0 && (
+                  <div className="space-y-1 pt-0.5">
+                    <div className="text-[10px] font-bold text-rose-700 uppercase tracking-wide">
+                      Lỗi chặn launch ({item.launchStatus.blockingReasons.length}):
+                    </div>
+                    <ul className="space-y-0.5 pl-0.5">
+                      {item.launchStatus.blockingReasons.map((reason, i) => (
+                        <li
+                          key={i}
+                          className="flex items-start gap-1.5 text-[11px] font-medium text-rose-700 leading-snug"
+                        >
+                          <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
+                          <span>{reason}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* 2. Cảnh báo cần kiểm tra */}
+                {item.launchStatus.warnings.length > 0 && (
+                  <div className="space-y-1 pt-0.5">
+                    <div className="text-[10px] font-bold text-amber-700 uppercase tracking-wide">
+                      Cảnh báo cần kiểm tra ({item.launchStatus.warnings.length}):
+                    </div>
+                    <ul className="space-y-0.5 pl-0.5">
+                      {item.launchStatus.warnings.map((warning, i) => (
+                        <li
+                          key={i}
+                          className="flex items-start gap-1.5 text-[11px] font-medium text-amber-800 leading-snug"
+                        >
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                          <span>{warning}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
               </div>

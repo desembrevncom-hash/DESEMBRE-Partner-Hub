@@ -58,6 +58,10 @@ export interface PublicProduct {
   warnings?: string;
   ingredientHighlights?: string[];
   skinTypes?: string[];
+  productCharacteristics?: string;
+  highlightPreview?: string[];
+  characteristicsPreview?: string[];
+  activeIngredientPreview?: string[];
 }
 
 export interface CatalogBrand {

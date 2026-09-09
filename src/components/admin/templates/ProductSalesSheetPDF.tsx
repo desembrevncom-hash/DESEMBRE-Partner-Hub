@@ -300,6 +300,8 @@ const styles = StyleSheet.create({
   },
 });
 
+import type { SalesSheetViewModel } from "@/lib/salesSheetViewModel";
+
 export interface ProductSalesSheetPdfData {
   product: {
     name: string;
@@ -313,7 +315,7 @@ export interface ProductSalesSheetPdfData {
     size_label: string;
     price: string;
   }>;
-  knowledge: {
+  knowledge?: {
     benefits?: string[] | string;
     key_ingredients?: string[] | string;
     ingredient_highlights?: string[] | string;
@@ -324,6 +326,13 @@ export interface ProductSalesSheetPdfData {
     warnings?: string[] | string;
     sales_notes?: string[] | string;
   };
+  benefits?: string[];
+  ingredients?: string[];
+  full_ingredients?: string;
+  skin_types?: string[];
+  usageInstructions?: string[];
+  warnings?: string[];
+  sales_notes?: string[];
   footer_note?: string;
   generated_at?: string;
   audience?: "customer" | "internal";
@@ -334,33 +343,66 @@ function toArray(val: unknown): string[] {
   if (Array.isArray(val)) {
     return val.filter((item): item is string => typeof item === "string" && item.trim() !== "");
   }
-  if (typeof val === "string" && val.trim() !== "") {
+  if (typeof val === "string" && val.trim() !== "" && val.trim() !== "Chưa có thông tin trong tài liệu nguồn.") {
     return val
       .split("\n")
-      .map((line) => line.replace(/^[-*•]\s*/, "").trim())
+      .map((line) => line.replace(/^[-*•\d.]+\s*/, "").trim())
       .filter(Boolean);
   }
   return [];
 }
 
-export function ProductSalesSheetPDF({ data }: { data: ProductSalesSheetPdfData }) {
-  const {
-    product,
-    variants = [],
-    knowledge,
-    footer_note,
-    generated_at,
-    audience = "customer",
-    hideBrandLogo = false,
-  } = data;
+export function ProductSalesSheetPDF({
+  data,
+}: {
+  data: ProductSalesSheetPdfData | SalesSheetViewModel;
+}) {
+  const audience = data.audience || "customer";
+  const isCustomer = audience === "customer";
+  const hideBrandLogo = data.hideBrandLogo ?? false;
+  const footer_note = data.footer_note;
+  const generated_at = data.generated_at;
 
-  const benefitsList = toArray(knowledge.benefits);
-  const keyIngredientsList = toArray(knowledge.key_ingredients);
-  const ingredientHighlightsList = toArray(knowledge.ingredient_highlights);
-  const skinTypesList = toArray(knowledge.skin_types);
-  const usageList = toArray(knowledge.usage);
-  const warningsList = toArray(knowledge.warnings);
-  const salesNotesList = audience === "internal" ? toArray(knowledge.sales_notes) : [];
+  const product = {
+    name: data.product.name,
+    brand_name: data.product.brand_name || "Desembre",
+    category_name: data.product.category_name || "Mỹ phẩm",
+    short_description: data.product.short_description || "",
+    image_url: data.product.image_url || "",
+  };
+
+  const variants = data.variants || [];
+
+  // Extract list fields cleanly whether passed as SalesSheetViewModel or legacy ProductSalesSheetPdfData
+  const benefitsList = "benefits" in data && Array.isArray(data.benefits)
+    ? toArray(data.benefits)
+    : toArray(data.knowledge?.benefits);
+
+  const ingredientsList = "ingredients" in data && Array.isArray(data.ingredients)
+    ? toArray(data.ingredients)
+    : toArray(data.knowledge?.key_ingredients);
+
+  const fullIngredients = !isCustomer
+    ? ("full_ingredients" in data ? data.full_ingredients : data.knowledge?.full_ingredients) || ""
+    : "";
+
+  const skinTypesList = "skin_types" in data && Array.isArray(data.skin_types)
+    ? toArray(data.skin_types)
+    : toArray(data.knowledge?.skin_types);
+
+  const usageList = "usageInstructions" in data && Array.isArray(data.usageInstructions)
+    ? toArray(data.usageInstructions)
+    : toArray(data.knowledge?.usage);
+
+  const warningsList = "warnings" in data && Array.isArray(data.warnings)
+    ? toArray(data.warnings)
+    : toArray(data.knowledge?.warnings);
+
+  const salesNotesList = !isCustomer
+    ? ("sales_notes" in data && Array.isArray(data.sales_notes)
+        ? toArray(data.sales_notes)
+        : toArray(data.knowledge?.sales_notes))
+    : [];
 
   return (
     <Document>
@@ -448,11 +490,11 @@ export function ProductSalesSheetPDF({ data }: { data: ProductSalesSheetPdfData 
             ) : null}
 
             {/* Thành phần chính & Chức năng */}
-            {keyIngredientsList.length > 0 ? (
+            {ingredientsList.length > 0 ? (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>THÀNH PHẦN CHÍNH &amp; CHỨC NĂNG</Text>
                 <View style={styles.bulletList}>
-                  {keyIngredientsList.map((item, idx) => (
+                  {ingredientsList.map((item, idx) => (
                     <Text key={idx} style={styles.bulletItem}>
                       • {item}
                     </Text>
@@ -461,25 +503,11 @@ export function ProductSalesSheetPDF({ data }: { data: ProductSalesSheetPdfData 
               </View>
             ) : null}
 
-            {/* Thành phần nổi bật (fallback only if show_ingredient_highlights is true) */}
-            {knowledge.show_ingredient_highlights && ingredientHighlightsList.length > 0 ? (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>THÀNH PHẦN NỔI BẬT</Text>
-                <View style={styles.bulletList}>
-                  {ingredientHighlightsList.map((item, idx) => (
-                    <Text key={idx} style={styles.bulletItem}>
-                      • {item}
-                    </Text>
-                  ))}
-                </View>
-              </View>
-            ) : null}
-
-            {/* Thành phần đầy đủ */}
-            {knowledge.full_ingredients ? (
+            {/* Thành phần đầy đủ (only in internal mode) */}
+            {!isCustomer && fullIngredients ? (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>THÀNH PHẦN ĐẦY ĐỦ</Text>
-                <Text style={styles.fullIngredientsText}>{knowledge.full_ingredients}</Text>
+                <Text style={styles.fullIngredientsText}>{fullIngredients}</Text>
               </View>
             ) : null}
 
@@ -524,7 +552,7 @@ export function ProductSalesSheetPDF({ data }: { data: ProductSalesSheetPdfData 
             ) : null}
 
             {/* Lưu ý tư vấn nội bộ (Only in internal mode) */}
-            {audience === "internal" && salesNotesList.length > 0 ? (
+            {!isCustomer && salesNotesList.length > 0 ? (
               <View style={styles.internalNotesBox}>
                 <Text style={styles.internalNotesTitle}>LƯU Ý TƯ VẤN (NỘI BỘ)</Text>
                 {salesNotesList.map((item, idx) => (

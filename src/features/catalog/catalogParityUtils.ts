@@ -104,6 +104,10 @@ export function mapDbProductToPublic(
         warnings?: string;
         ingredientHighlights?: string[];
         skinTypes?: string[];
+        productCharacteristics?: string;
+        highlightPreview?: string[];
+        characteristicsPreview?: string[];
+        activeIngredientPreview?: string[];
       }
     | boolean,
   canViewPartnerPricesArg: boolean = true,
@@ -237,6 +241,10 @@ export function mapDbProductToPublic(
     warnings: knowledge?.warnings,
     ingredientHighlights: knowledge?.ingredientHighlights,
     skinTypes: knowledge?.skinTypes,
+    productCharacteristics: knowledge?.productCharacteristics,
+    highlightPreview: knowledge?.highlightPreview || knowledge?.characteristicsPreview,
+    characteristicsPreview: knowledge?.characteristicsPreview,
+    activeIngredientPreview: knowledge?.activeIngredientPreview,
   };
 
   const diag: DiagItem = {
@@ -266,6 +274,12 @@ export function mapStaticProductToPublic(
         benefits?: string;
         skinConcerns?: string[];
         warnings?: string;
+        ingredientHighlights?: string[];
+        skinTypes?: string[];
+        productCharacteristics?: string;
+        highlightPreview?: string[];
+        characteristicsPreview?: string[];
+        activeIngredientPreview?: string[];
       }
     | boolean,
   canViewPartnerPricesArg: boolean = true,
@@ -361,6 +375,10 @@ export function mapStaticProductToPublic(
     warnings: knowledge?.warnings,
     ingredientHighlights: knowledge?.ingredientHighlights,
     skinTypes: knowledge?.skinTypes,
+    productCharacteristics: knowledge?.productCharacteristics,
+    highlightPreview: knowledge?.highlightPreview || knowledge?.characteristicsPreview,
+    characteristicsPreview: knowledge?.characteristicsPreview,
+    activeIngredientPreview: knowledge?.activeIngredientPreview,
   };
 
   const diag: DiagItem = {

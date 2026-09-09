@@ -15,10 +15,12 @@ import {
 } from "./catalogParityUtils";
 import { sortCatalogProducts } from "./catalogSortUtils";
 import { sanitizePublicProductKnowledge } from "@/lib/productLaunchValidation";
+import { buildPublicProductProfile } from "@/lib/publicProductProfile";
 
 interface PkRow {
   product_id?: number | null;
   catalog_product_id?: string | null;
+  product_characteristics?: string | null;
   usage_instructions?: string | null;
   benefits?: string | null;
   skin_concerns?: string[];
@@ -154,6 +156,10 @@ export function usePublicCatalog(options?: UsePublicCatalogOptions) {
         warnings?: string;
         ingredientHighlights?: string[];
         skinTypes?: string[];
+        productCharacteristics?: string;
+        highlightPreview?: string[];
+        characteristicsPreview?: string[];
+        activeIngredientPreview?: string[];
       }
     >();
 
@@ -161,7 +167,7 @@ export function usePublicCatalog(options?: UsePublicCatalogOptions) {
       const { data: pkData, error: pkError } = await supabase
         .from("product_knowledge")
         .select(
-          "product_id, catalog_product_id, usage_instructions, benefits, skin_concerns, warnings, ingredient_highlights, skin_types, is_public, qa_status",
+          "product_id, catalog_product_id, product_characteristics, usage_instructions, benefits, skin_concerns, warnings, ingredient_highlights, skin_types, is_public, qa_status",
         )
         .eq("is_active", true)
         .eq("is_public", true)
@@ -171,20 +177,24 @@ export function usePublicCatalog(options?: UsePublicCatalogOptions) {
         console.warn("[usePublicCatalog] product_knowledge fetch warning:", pkError);
       } else if (pkData) {
         (pkData as unknown as Record<string, unknown>[]).forEach((rawRow) => {
-          const row = sanitizePublicProductKnowledge(rawRow) as PkRow;
+          const profile = buildPublicProductProfile(rawRow);
           const item = {
-            usageInstructions: row.usage_instructions || undefined,
-            benefits: row.benefits || undefined,
-            skinConcerns: row.skin_concerns || undefined,
-            warnings: row.warnings || undefined,
-            ingredientHighlights: row.ingredient_highlights || undefined,
-            skinTypes: row.skin_types || undefined,
+            usageInstructions: profile.usage_instructions,
+            benefits: profile.benefits,
+            skinConcerns: profile.skin_concerns,
+            warnings: profile.warnings,
+            ingredientHighlights: profile.ingredient_highlights,
+            skinTypes: profile.skin_types,
+            productCharacteristics: profile.product_characteristics,
+            highlightPreview: profile.highlightPreview,
+            characteristicsPreview: profile.characteristicsPreview,
+            activeIngredientPreview: profile.activeIngredientPreview,
           };
-          if (row.product_id != null) {
-            knowledgeMap.set(String(row.product_id), item);
+          if (profile.product_id != null) {
+            knowledgeMap.set(String(profile.product_id), item);
           }
-          if (row.catalog_product_id) {
-            knowledgeMap.set(String(row.catalog_product_id), item);
+          if (profile.catalog_product_id) {
+            knowledgeMap.set(String(profile.catalog_product_id), item);
           }
         });
       }

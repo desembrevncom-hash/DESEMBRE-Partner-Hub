@@ -119,20 +119,28 @@ export function ProductMobileCard({
           </div>
 
           {/* Pipeline Status Badges */}
-          <ProductPipelineStatusBadges
-            guidebookStatus={guidebookStatus}
-            knowledgeStatus={knowledgeStatus}
-            salesSheetStatus={salesSheetStatus}
-            isPublic={knowledgeSummary?.is_public}
-            isLaunchReady={
-              getProductLaunchStatus(knowledgeSummary as unknown as Record<string, unknown>, {
+          {(() => {
+            const launchStatus = getProductLaunchStatus(
+              knowledgeSummary as unknown as Record<string, unknown>,
+              {
                 hasSourceDocs: guidebookStatus !== "none",
                 hasCompletedGuidebook: guidebookStatus === "extracted",
                 salesSheetStatus,
-              }).isLaunchReady
-            }
-            className="pt-2"
-          />
+              },
+            );
+            return (
+              <ProductPipelineStatusBadges
+                guidebookStatus={guidebookStatus}
+                knowledgeStatus={knowledgeStatus}
+                salesSheetStatus={salesSheetStatus}
+                isPublic={knowledgeSummary?.is_public}
+                isLaunchReady={launchStatus.isLaunchReady}
+                blockingReasons={launchStatus.blockingReasons}
+                warnings={launchStatus.warnings}
+                className="pt-2"
+              />
+            );
+          })()}
 
           {/* Action Buttons Row */}
           <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-100">

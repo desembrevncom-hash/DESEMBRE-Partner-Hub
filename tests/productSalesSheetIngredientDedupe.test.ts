@@ -3,6 +3,8 @@ import {
   dedupeSalesSheetIngredients,
   cleanSalesSheetTemplateHtml,
   extractIngredientName,
+  dedupeIngredientItems,
+  selectSingleIngredientSource,
 } from "../src/lib/salesSheetVersionUtils";
 import { renderTemplate } from "../src/lib/documentTemplates";
 
@@ -145,8 +147,8 @@ describe("Product Sales Sheet Ingredient Deduplication & Section Normalization",
     expect(deduped.full_ingredients).toBe("Aqua, Niacinamide, Arbutin, Glycerin.");
   });
 
-  // Test 3: If key_ingredients is missing, ingredient_highlights (short tags) is rendered without error
-  it("Test 3: If key_ingredients is missing, ingredient_highlights (short tags) is rendered as fallback", () => {
+  // Test 3: If key_ingredients is missing, ingredient_highlights (short tags) is rendered as fallback in key_ingredients
+  it("Test 3: If key_ingredients is missing, ingredient_highlights (short tags) is rendered as single-source fallback", () => {
     const knowledge = {
       key_ingredients: [],
       ingredient_highlights: ["Chiết xuất trà xanh", "Vitamin C"],
@@ -155,39 +157,37 @@ describe("Product Sales Sheet Ingredient Deduplication & Section Normalization",
 
     const deduped = dedupeSalesSheetIngredients(knowledge);
 
-    expect(deduped.has_key_ingredients).toBe(false);
-    expect(deduped.show_ingredient_highlights).toBe(true);
-    expect(deduped.ingredient_highlights).toEqual(["Chiết xuất trà xanh", "Vitamin C"]);
+    expect(deduped.has_key_ingredients).toBe(true);
+    expect(deduped.show_ingredient_highlights).toBe(false);
+    expect(deduped.key_ingredients).toEqual(["Chiết xuất trà xanh", "Vitamin C"]);
 
     const cleanedTemplate = cleanSalesSheetTemplateHtml(sampleTemplate, deduped.has_key_ingredients);
-    // Since has_key_ingredients is false, THÀNH PHẦN NỔI BẬT remains in template for fallback
-    expect(cleanedTemplate).toContain("THÀNH PHẦN NỔI BẬT");
+    expect(cleanedTemplate).not.toContain("THÀNH PHẦN NỔI BẬT");
 
     const renderedHtml = renderTemplate(cleanedTemplate, {
       knowledge: {
-        ingredient_highlights: deduped.ingredient_highlights.map((h) => `- ${h}`).join("\n"),
-        key_ingredients: "Chưa có thông tin trong tài liệu nguồn.",
-        full_ingredients: "Chưa có thông tin trong tài liệu nguồn.",
+        key_ingredients: deduped.key_ingredients.map((h) => `- ${h}`).join("\n"),
       },
     });
 
-    expect(renderedHtml).toContain("THÀNH PHẦN NỔI BẬT");
+    expect(renderedHtml).toContain("THÀNH PHẦN CHÍNH &amp; CHỨC NĂNG");
     expect(renderedHtml).toContain("Chiết xuất trà xanh");
   });
 
-  // Test 4: ingredient_highlights with accidental function descriptions is stripped to short tags
-  it("Test 4: ingredient_highlights with accidental function descriptions is stripped to short tags only", () => {
-    const knowledge = {
-      key_ingredients: [],
-      ingredient_highlights: [
-        "Hyaluronic Acid: Cấp ẩm đa tầng",
-        "Peptide: Tăng sinh collagen",
-      ],
-    };
+  // Test 4: dedupeIngredientItems extracts clean normalized ingredient items
+  it("Test 4: dedupeIngredientItems extracts clean normalized ingredient items", () => {
+    const items = [
+      "Hyaluronic Acid: Cấp ẩm đa tầng",
+      "Peptide: Tăng sinh collagen",
+      "Hyaluronic Acid",
+    ];
 
-    const deduped = dedupeSalesSheetIngredients(knowledge);
+    const deduped = dedupeIngredientItems(items);
 
-    expect(deduped.ingredient_highlights).toEqual(["Hyaluronic Acid", "Peptide"]);
+    expect(deduped).toEqual([
+      "Hyaluronic Acid: Cấp ẩm đa tầng",
+      "Peptide: Tăng sinh collagen",
+    ]);
   });
 
   // Test 5: extractIngredientName handles various bullet and punctuation patterns
@@ -335,5 +335,138 @@ describe("Product Sales Sheet Ingredient Deduplication & Section Normalization",
 
     expect(rendered).toContain("LƯU Ý TƯ VẤN");
     expect(rendered).toContain("Phù hợp chốt gói liệu trình spa");
+  });
+
+  // Test 9: Customer mode renders single ingredient section and hides missing sections without fallback text
+  it("Test 9: Customer mode renders single ingredient section and hides missing sections without fallback text", () => {
+    const knowledge = {
+      benefits: ["Dưỡng ẩm"],
+      canonical_ingredients: ["Papaya Extract: Làm sạch sâu", "Glycerin: Cấp ẩm"],
+      ingredient_highlights: ["Papaya Extract", "Glycerin"],
+      full_ingredients: "Aqua, Papaya, Glycerin",
+      sales_notes: ["Nội bộ note"],
+    };
+
+    const deduped = dedupeSalesSheetIngredients(knowledge);
+    expect(deduped.has_key_ingredients).toBe(true);
+    expect(deduped.show_ingredient_highlights).toBe(false);
+
+    const cleanedCustomerTemplate = cleanSalesSheetTemplateHtml(
+      sampleTemplate,
+      deduped.has_key_ingredients,
+      "customer",
+    );
+
+    expect(cleanedCustomerTemplate).not.toContain("THÀNH PHẦN NỔI BẬT");
+    expect(cleanedCustomerTemplate).not.toContain("THÀNH PHẦN ĐẦY ĐỦ");
+    expect(cleanedCustomerTemplate).not.toContain("LƯU Ý TƯ VẤN");
+
+    const rendered = renderTemplate(cleanedCustomerTemplate, {
+      knowledge: {
+        benefits: "- Dưỡng ẩm",
+        key_ingredients: deduped.key_ingredients.map((k) => `- ${k}`).join("\n"),
+        ingredient_highlights: "",
+        full_ingredients: "",
+        skin_types: "",
+        usage: "",
+        sales_notes: "",
+        warnings: "",
+      },
+    });
+
+    expect(rendered).toContain("THÀNH PHẦN CHÍNH &amp; CHỨC NĂNG");
+    expect(rendered).toContain("Papaya Extract: Làm sạch sâu");
+    expect(rendered).not.toContain("THÀNH PHẦN NỔI BẬT");
+    expect(rendered).not.toContain("THÀNH PHẦN ĐẦY ĐỦ");
+    expect(rendered).not.toContain("LƯU Ý TƯ VẤN");
+    expect(rendered).not.toContain("Chưa có thông tin trong tài liệu nguồn.");
+  });
+
+  // Task C1: canonical_ingredients + ingredient_highlights both present -> canonical only, no duplication
+  it("Task C1: canonical_ingredients + ingredient_highlights both present uses canonical only", () => {
+    const knowledge = {
+      canonical_ingredients: [
+        "Chiết xuất tinh dầu hạt mắc ca: Dưỡng ẩm sâu",
+        "Glycerin: Giữ nước",
+      ],
+      ingredient_highlights: [
+        "Chiết xuất tinh dầu hạt mắc ca",
+        "Glycerin",
+        "Allantoin",
+      ],
+    };
+
+    const selected = selectSingleIngredientSource(knowledge);
+
+    expect(selected).toEqual([
+      "Chiết xuất tinh dầu hạt mắc ca: Dưỡng ẩm sâu",
+      "Glycerin: Giữ nước",
+    ]);
+    expect(selected).not.toContain("Allantoin");
+  });
+
+  // Task C2: ingredients_with_functions fallback works when canonical is empty
+  it("Task C2: ingredients_with_functions fallback works when canonical is empty", () => {
+    const knowledge = {
+      canonical_ingredients: [],
+      ingredients_with_functions: [
+        "Niacinamide: Dưỡng trắng mờ thâm",
+        "Arbutin: Ức chế melanin",
+      ],
+      ingredient_highlights: ["Niacinamide", "Arbutin"],
+    };
+
+    const selected = selectSingleIngredientSource(knowledge);
+
+    expect(selected).toEqual([
+      "Niacinamide: Dưỡng trắng mờ thâm",
+      "Arbutin: Ức chế melanin",
+    ]);
+  });
+
+  // Task C3: ingredient_highlights fallback works when both canonical and ingredients_with_functions are empty
+  it("Task C3: ingredient_highlights fallback works when canonical and ingredients_with_functions are empty", () => {
+    const knowledge = {
+      canonical_ingredients: [],
+      ingredients_with_functions: [],
+      ingredient_highlights: ["Centella Asiatica", "Tea Tree Oil"],
+    };
+
+    const selected = selectSingleIngredientSource(knowledge);
+
+    expect(selected).toEqual(["Centella Asiatica", "Tea Tree Oil"]);
+  });
+
+  // Task C4: Customer preview does not contain duplicate ingredient names
+  it("Task C4: Customer preview does not contain duplicate ingredient names", () => {
+    const knowledge = {
+      key_ingredients: [
+        "Chiết xuất tinh dầu hạt mắc ca: Dưỡng ẩm sâu",
+        "Glycerin: Giữ nước",
+      ],
+      ingredient_highlights: [
+        "Chiết xuất tinh dầu hạt mắc ca",
+        "Glycerin",
+      ],
+    };
+
+    const deduped = dedupeSalesSheetIngredients(knowledge);
+    expect(deduped.key_ingredients).toHaveLength(2);
+    expect(deduped.key_ingredients[0]).toBe("Chiết xuất tinh dầu hạt mắc ca: Dưỡng ẩm sâu");
+
+    const cleanedCustomerTemplate = cleanSalesSheetTemplateHtml(
+      sampleTemplate,
+      deduped.has_key_ingredients,
+      "customer",
+    );
+
+    const rendered = renderTemplate(cleanedCustomerTemplate, {
+      knowledge: {
+        key_ingredients: deduped.key_ingredients.map((k) => `- ${k}`).join("\n"),
+      },
+    });
+
+    const macadamiaMatches = rendered.match(/hạt mắc ca/g) || [];
+    expect(macadamiaMatches).toHaveLength(1);
   });
 });

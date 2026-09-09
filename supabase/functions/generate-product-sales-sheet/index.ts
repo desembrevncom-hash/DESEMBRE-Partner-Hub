@@ -145,12 +145,19 @@ serve(async (req) => {
 
     // 2. Parse request payload
     const body = await req.json();
-    const { catalogProductId, templateId } = body;
+    const catalogProductId = body.catalogProductId || body.catalog_product_id;
+    const templateId = body.templateId || body.template_id;
+
     if (!catalogProductId) {
-      return new Response(JSON.stringify({ error: "catalogProductId is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          code: "BAD_REQUEST",
+          message: "catalog_product_id (hoặc catalogProductId) là bắt buộc",
+          error: "catalog_product_id (hoặc catalogProductId) là bắt buộc",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     // 3. Load product catalog data
@@ -172,10 +179,15 @@ serve(async (req) => {
       .single();
 
     if (productErr || !product) {
-      return new Response(JSON.stringify({ error: "Catalog product not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          code: "NOT_FOUND",
+          message: "Không tìm thấy sản phẩm trong danh mục",
+          error: "Không tìm thấy sản phẩm trong danh mục",
+        }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     // Load variants
@@ -376,13 +388,17 @@ serve(async (req) => {
     const systemPrompt = `Bạn là chuyên gia tư vấn sản phẩm và xây dựng tài liệu bán hàng (Product Sales Sheet) cho thương hiệu mỹ phẩm cao cấp Desembre.
 Nhiệm vụ của bạn là tổng hợp và viết nội dung tài liệu bán hàng A4 cho sản phẩm dưới đây CHỈ DỰA TRÊN thông tin chính xác từ Tri thức AI đã duyệt và Tài liệu nguồn (Guidebook) đã trích xuất.
 
-QUY TẮC BẮT BUỘC (CHỐNG BỊA ĐẶT & CHỐNG TRÙNG LẶP THÀNH PHẦN):
+QUY TẮC BẮT BUỘC (CHỐNG BỊA ĐẶT & CHỐNG TRÙNG LẶP THÀNH PHẦN/NỘI DUNG):
 1. TUYỆT ĐỐI KHÔNG tự bịa đặt hay suy diễn thông tin ngoài dữ liệu được cung cấp.
-2. QUY TẮC BẢO VỆ PHÂN TẦNG THÀNH PHẦN (CHỐNG TRÙNG LẶP NỘI DUNG):
+2. QUY TẮC PHÂN VIÊN NỘI DUNG GIỮA ĐẶC TÍNH SẢN PHẨM VÀ HIỆU QUẢ:
+   - "product_characteristics": Chỉ dùng để mô tả dạng sản phẩm / kết cấu / phong cách công thức / cảm giác sử dụng (Ví dụ: "Dạng lotion không bọt, dịu nhẹ, phù hợp sử dụng hằng ngày").
+   - "benefits": Chỉ dùng để mô tả kết quả / lợi ích khách hàng nhận được (Ví dụ: "Làm sạch bụi bẩn và bã nhờn nhẹ nhàng", "Duy trì độ ẩm tự nhiên").
+   - TUYỆT ĐỐI KHÔNG sao chép hoặc lặp lại nội dung giữa "product_characteristics" và "benefits".
+3. QUY TẮC BẢO VỆ PHÂN TẦNG THÀNH PHẦN (CHỐNG TRÙNG LẶP NỘI DUNG):
    - "key_ingredients": BẮT BUỘC là danh sách chi tiết thành phần chính kèm chức năng theo cấu trúc "Tên thành phần: Chức năng/Lợi ích" (Ví dụ: ["Tinh dầu hạt mắc ca: Cung cấp độ ẩm sâu và làm mềm mượt da", "Glycerin: Giữ nước và duy trì độ ẩm tự nhiên cho da", "Allantoin: Làm dịu da và thúc đẩy tái tạo tế bào"]). Lấy từ key_ingredients_functions.
    - "ingredient_highlights": CHỈ CHỨA danh sách tên thành phần ngắn gọn / tags (Ví dụ: ["Tinh dầu hạt mắc ca", "Glycerin", "Allantoin"]). TUYỆT ĐỐI KHÔNG sao chép mô tả chức năng vào đây. TUYỆT ĐỐI KHÔNG sao chép key_ingredients vào ingredient_highlights.
    - "full_ingredients": Toàn bộ bảng thành phần đầy đủ dưới dạng văn bản (text), chỉ hiển thị một lần duy nhất. Nếu không có trong tài liệu, ghi rõ: "Chưa có thông tin trong tài liệu nguồn."
-3. NẾU một phần thông tin KHÔNG có trong dữ liệu nguồn (ví dụ không có cảnh báo/chống chỉ định, không có danh sách thành phần đầy đủ, hoặc trường tương ứng bị rỗng):
+4. NẾU một phần thông tin KHÔNG có trong dữ liệu nguồn (ví dụ không có cảnh báo/chống chỉ định, không có danh sách thành phần đầy đủ, hoặc trường tương ứng bị rỗng):
    - BẮT BUỘC ghi rõ: "Chưa có thông tin trong tài liệu nguồn."
    - TUYỆT ĐỐI KHÔNG để mảng rỗng [] hay chuỗi trống "", KHÔNG để trống ô (No empty boxes).
 4. Không quảng cáo quá đà, không đưa ra cam kết y khoa/chữa khỏi bệnh (no medical claims).
@@ -519,9 +535,16 @@ QUY TẮC BẮT BUỘC (CHỐNG BỊA ĐẶT & CHỐNG TRÙNG LẶP THÀNH PHẦ
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("[generate-product-sales-sheet] Unhandled error:", err);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        code: err.code || "INTERNAL_ERROR",
+        message: err.message || "Lỗi nội bộ hệ thống khi tạo Sales Sheet",
+        error: err.message || "Lỗi nội bộ hệ thống khi tạo Sales Sheet",
+        details: err.stack || String(err),
+      }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 });

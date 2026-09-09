@@ -125,4 +125,28 @@ describe("Product Sales Sheet PDF Export & Action Button - Unit Tests", () => {
     // Verified window.print() was never invoked
     expect(printSpy).not.toHaveBeenCalled();
   });
+
+  // Task C5: A4PreviewFrame renders a scaled container and does not require horizontal overflow
+  it("A4PreviewFrame renders a scaled container and transform scale style", () => {
+    const html = renderToString(
+      React.createElement(A4PreviewFrame, {
+        htmlContent: "<div>Content to scale</div>",
+        title: "Scaling Test",
+      }),
+    );
+
+    // 1. Must render preview container
+    expect(html).toContain('data-testid="a4-preview-container"');
+
+    // 2. Must render scaled wrapper
+    expect(html).toContain('data-testid="a4-scaled-wrapper"');
+
+    // 3. Must apply transform scale and top-left transformOrigin
+    expect(html).toContain("transform:scale(");
+    expect(html).toContain("transform-origin:top left");
+
+    // 4. Must render 794px width for unscaled A4 canvas
+    expect(html).toContain("width:794px");
+    expect(html).toContain("min-height:1123px");
+  });
 });

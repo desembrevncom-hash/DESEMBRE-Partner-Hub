@@ -3,12 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
-import { Sparkles, PhoneCall, LogIn, CheckCircle2, AlertCircle, BookOpen } from "lucide-react";
+import { Sparkles, PhoneCall, LogIn, CheckCircle2, AlertCircle, BookOpen, Layers } from "lucide-react";
 import { formatCatalogPrice } from "@/lib/pricing";
 import type { CatalogVatMode } from "@/lib/pricing";
 import { CatalogProductImage } from "./CatalogProductImage";
 import type { PublicProduct } from "./types";
 import { buildPublicProductProfile } from "@/lib/publicProductProfile";
+import { isSimilarContent } from "@/lib/productContentDedupe";
 
 interface Props {
   product: PublicProduct | null;
@@ -188,34 +189,36 @@ interface CTAFooterProps {
 
 function CTAFooter({ onClose, onOpenContact, hasPricedItem }: CTAFooterProps) {
   return (
-    <div className="space-y-2">
-      {hasPricedItem && (
-        <div className="flex items-start gap-1.5 text-[10px] text-slate-400 font-medium">
-          <Sparkles className="w-3 h-3 mt-0.5 shrink-0 text-indigo-400" />
-          <span>Đăng nhập Partner để xem giá Spa và lên đơn hàng</span>
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
+      {hasPricedItem ? (
+        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium shrink-0">
+          <Sparkles className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+          <span>Partner đăng nhập để xem giá Spa và lên đơn hàng.</span>
         </div>
+      ) : (
+        <div className="hidden sm:block" />
       )}
 
-      <div className="flex flex-col sm:flex-row gap-2">
+      <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full sm:w-auto shrink-0">
         <Button
           onClick={() => {
             onClose();
             onOpenContact();
           }}
-          className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-200 transition-all cursor-pointer flex items-center justify-center gap-2"
+          className="w-full sm:w-auto h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2"
         >
           <PhoneCall className="w-4 h-4 shrink-0" />
-          <span>Liên hệ tư vấn liệu trình &amp; đặt hàng</span>
+          <span>Liên hệ tư vấn &amp; đặt hàng</span>
         </Button>
 
         <Button
           variant="outline"
           asChild
-          className="w-full h-11 rounded-xl border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-2"
+          className="w-full sm:w-auto h-10 px-4 rounded-xl border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-2"
         >
           <Link to="/login">
             <LogIn className="w-4 h-4 shrink-0 text-slate-400" />
-            <span>Đăng nhập Partner để xem giá Spa &amp; lên đơn</span>
+            <span>Đăng nhập Partner</span>
           </Link>
         </Button>
       </div>
@@ -230,39 +233,69 @@ export function ProductDetailModal({ product, isOpen, onClose, onOpenContact, va
     [product],
   );
 
+  // Unique ingredient list for full-width grid rendering
+  const uniqueIngredients = useMemo(() => {
+    if (!profile?.ingredient_highlights || profile.ingredient_highlights.length === 0) return [];
+    return Array.from(new Set(profile.ingredient_highlights.map((item) => item.trim()))).filter(
+      (item) => item.length > 0,
+    );
+  }, [profile?.ingredient_highlights]);
+
   if (!product || !profile) return null;
 
   const hasPricedItem =
     product.publicPriceItems && product.publicPriceItems.some((it) => !it.requiresContact);
 
+  const rawCharacteristics = profile.product_characteristics || product.productCharacteristics;
+  const showCharacteristics = Boolean(rawCharacteristics && rawCharacteristics.trim());
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-4xl max-h-[92vh] overflow-y-auto p-0 rounded-3xl border-slate-200 max-w-full">
-        <div className="flex flex-col lg:grid lg:grid-cols-12 min-h-0">
-          {/* LEFT COLUMN: Image & Price Card */}
-          <div className="lg:col-span-5 bg-slate-50/80 p-6 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200/80 space-y-6">
-            <div className="space-y-6">
+      <DialogContent className="sm:max-w-5xl max-h-[92vh] flex flex-col overflow-hidden p-0 rounded-3xl border-slate-200 w-full">
+        {/* Scrollable Modal Body (Single unified scrollable container for desktop & mobile) */}
+        <div className="flex-1 overflow-y-auto min-h-0 p-6 sm:p-8 space-y-6 sm:space-y-8">
+          {/* Top Header Area */}
+          <div className="space-y-2 pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
+                Mỹ phẩm sinh học chuyên sâu
+              </span>
+              <Badge className="bg-slate-900 text-white font-black text-[9px] uppercase tracking-wider">
+                {profile.brand_name || product.brandName}
+              </Badge>
+              <Badge
+                variant="outline"
+                className="bg-slate-100 text-slate-700 border-slate-200 font-bold text-[9px] uppercase"
+              >
+                {profile.category_name || product.categoryName}
+              </Badge>
+            </div>
+            <DialogHeader className="text-left space-y-1">
+              <DialogTitle className="text-xl sm:text-2xl font-black text-slate-900 leading-snug">
+                {profile.name || product.name}
+              </DialogTitle>
+            </DialogHeader>
+            {profile.description && (
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium pt-1">
+                {profile.description}
+              </p>
+            )}
+          </div>
+
+          {/* Main Grid: Left Image & Price | Right Knowledge & Details */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
+            {/* LEFT COLUMN: Image & Price Card */}
+            <div className="lg:col-span-5 space-y-5">
               {/* Product Image Frame */}
-              <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-2xs flex items-center justify-center relative min-h-[260px]">
+              <div className="bg-slate-50/80 rounded-2xl p-6 border border-slate-200/80 shadow-2xs flex items-center justify-center relative min-h-[220px]">
                 <CatalogProductImage
                   src={product.imageUrl}
                   fallbackSrc={product.fallbackImageUrl}
                   alt={product.imageAlt ?? product.name}
-                  className="max-h-64 w-auto object-contain rounded-xl shadow-xs hover:scale-105 transition-transform duration-300"
+                  className="max-h-56 w-auto object-contain rounded-xl shadow-xs hover:scale-105 transition-transform duration-300"
                   fallbackIconSize={64}
                   showWatermark
                 />
-                <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-                  <Badge className="bg-slate-900 text-white font-black text-[9px] uppercase tracking-wider">
-                    {profile.brand_name || product.brandName}
-                  </Badge>
-                  <Badge
-                    variant="outline"
-                    className="bg-white/90 backdrop-blur-sm text-slate-700 border-slate-200 font-bold text-[9px] uppercase"
-                  >
-                    {profile.category_name || product.categoryName}
-                  </Badge>
-                </div>
               </div>
 
               {/* Price & Specifications Card */}
@@ -274,119 +307,127 @@ export function ProductDetailModal({ product, isOpen, onClose, onOpenContact, va
               />
             </div>
 
-            {/* Desktop CTA Footer */}
-            <div className="hidden lg:block pt-4 border-t border-slate-200/60">
-              <CTAFooter
-                onClose={onClose}
-                onOpenContact={onOpenContact}
-                hasPricedItem={hasPricedItem}
-              />
+            {/* RIGHT COLUMN: Knowledge & Product Information */}
+            <div className="lg:col-span-7 space-y-5">
+              {/* Product Characteristics (Only rendered if distinct from description & benefits) */}
+              {showCharacteristics && rawCharacteristics && (
+                <DetailSection
+                  title="Đặc tính sản phẩm"
+                  icon={<Layers className="w-4 h-4 text-indigo-600" />}
+                >
+                  <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 whitespace-pre-line">
+                    {rawCharacteristics.trim()}
+                  </p>
+                </DetailSection>
+              )}
+
+              {/* Benefits */}
+              {profile.benefits && (
+                <DetailSection
+                  title="Hiệu quả nổi bật"
+                  icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                >
+                  <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium bg-emerald-50/50 p-3.5 rounded-2xl border border-emerald-100/80 whitespace-pre-line">
+                    {profile.benefits}
+                  </p>
+                </DetailSection>
+              )}
+
+              {/* Skin Types */}
+              {profile.skin_types && profile.skin_types.length > 0 && (
+                <DetailSection title="Loại da phù hợp">
+                  <div className="flex flex-wrap gap-2">
+                    {profile.skin_types.map((st, i) => (
+                      <span
+                        key={i}
+                        className="px-3 py-1 rounded-xl bg-emerald-50/80 border border-emerald-100 text-emerald-800 text-xs font-bold shadow-3xs"
+                      >
+                        {st}
+                      </span>
+                    ))}
+                  </div>
+                </DetailSection>
+              )}
+
+              {/* Skin Concerns */}
+              {profile.skin_concerns && profile.skin_concerns.length > 0 && (
+                <DetailSection title="Vấn đề da mục tiêu">
+                  <div className="flex flex-wrap gap-2">
+                    {profile.skin_concerns.map((sc, i) => (
+                      <span
+                        key={i}
+                        className="px-3 py-1 rounded-xl bg-slate-100 border border-slate-200/60 text-slate-700 text-xs font-bold shadow-3xs"
+                      >
+                        {sc}
+                      </span>
+                    ))}
+                  </div>
+                </DetailSection>
+              )}
+
+              {/* Usage Instructions */}
+              {profile.usage_instructions && (
+                <InfoCard
+                  title="Hướng dẫn sử dụng"
+                  icon={<BookOpen className="w-4 h-4 text-amber-600" />}
+                  content={profile.usage_instructions}
+                  variant="amber"
+                />
+              )}
+
+              {/* Warnings & Contraindications */}
+              {profile.warnings && (
+                <InfoCard
+                  title="Lưu ý &amp; Chống chỉ định"
+                  icon={<AlertCircle className="w-4 h-4 text-rose-500" />}
+                  content={profile.warnings}
+                  variant="rose"
+                />
+              )}
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Knowledge & Product Information */}
-          <div className="lg:col-span-7 p-6 space-y-6 overflow-y-auto">
-            {/* Header */}
-            <DialogHeader className="text-left space-y-1.5">
-              <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
-                Mỹ phẩm sinh học chuyên sâu
-              </span>
-              <DialogTitle className="text-xl sm:text-2xl font-black text-slate-900 leading-snug">
-                {profile.name || product.name}
-              </DialogTitle>
-            </DialogHeader>
-
-            {/* Short Description */}
-            {profile.description && (
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
-                {profile.description}
-              </p>
-            )}
-
-            {/* Benefits */}
-            {profile.benefits && (
+          {/* Full-Width Ingredient Section (Spans entire modal body width) */}
+          {uniqueIngredients.length > 0 && (
+            <div className="pt-4 border-t border-slate-100 space-y-3">
               <DetailSection
-                title="Hiệu quả nổi bật"
-                icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                title="THÀNH PHẦN CHÍNH & CHỨC NĂNG"
+                icon={<Sparkles className="w-4 h-4 text-indigo-600" />}
               >
-                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium bg-emerald-50/50 p-3.5 rounded-2xl border border-emerald-100/80 whitespace-pre-line">
-                  {profile.benefits}
-                </p>
-              </DetailSection>
-            )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                  {uniqueIngredients.map((ing, i) => {
+                    const parts = ing.split(/:\s*(.+)/);
+                    const hasFunction = parts.length > 1 && parts[1].trim().length > 0;
+                    const name = parts[0].trim();
+                    const fnDesc = hasFunction ? parts[1].trim() : null;
 
-            {/* Ingredient Highlights */}
-            {profile.ingredient_highlights && profile.ingredient_highlights.length > 0 && (
-              <DetailSection title="Thành phần nổi bật">
-                <div className="flex flex-wrap gap-2">
-                  {profile.ingredient_highlights.map((ing, i) => (
-                    <span
-                      key={i}
-                      className="px-3 py-1 rounded-xl bg-indigo-50/80 border border-indigo-100 text-indigo-800 text-xs font-bold shadow-3xs"
-                    >
-                      {ing}
-                    </span>
-                  ))}
+                    return (
+                      <div
+                        key={i}
+                        className="p-3.5 rounded-2xl bg-indigo-50/60 border border-indigo-100/80 space-y-1 shadow-3xs hover:border-indigo-200 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0" />
+                          <h5 className="text-xs font-black text-indigo-950 tracking-tight">
+                            {name}
+                          </h5>
+                        </div>
+                        {fnDesc && (
+                          <p className="text-xs text-slate-600 font-medium leading-relaxed pl-3.5 line-clamp-2">
+                            {fnDesc}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </DetailSection>
-            )}
-
-            {/* Skin Types */}
-            {profile.skin_types && profile.skin_types.length > 0 && (
-              <DetailSection title="Loại da phù hợp">
-                <div className="flex flex-wrap gap-2">
-                  {profile.skin_types.map((st, i) => (
-                    <span
-                      key={i}
-                      className="px-3 py-1 rounded-xl bg-emerald-50/80 border border-emerald-100 text-emerald-800 text-xs font-bold shadow-3xs"
-                    >
-                      {st}
-                    </span>
-                  ))}
-                </div>
-              </DetailSection>
-            )}
-
-            {/* Skin Concerns */}
-            {profile.skin_concerns && profile.skin_concerns.length > 0 && (
-              <DetailSection title="Vấn đề da mục tiêu">
-                <div className="flex flex-wrap gap-2">
-                  {profile.skin_concerns.map((sc, i) => (
-                    <span
-                      key={i}
-                      className="px-3 py-1 rounded-xl bg-slate-100 border border-slate-200/60 text-slate-700 text-xs font-bold shadow-3xs"
-                    >
-                      {sc}
-                    </span>
-                  ))}
-                </div>
-              </DetailSection>
-            )}
-
-            {/* Usage Instructions */}
-            {profile.usage_instructions && (
-              <InfoCard
-                title="Hướng dẫn sử dụng"
-                icon={<BookOpen className="w-4 h-4 text-amber-600" />}
-                content={profile.usage_instructions}
-                variant="amber"
-              />
-            )}
-
-            {/* Warnings & Contraindications */}
-            {profile.warnings && (
-              <InfoCard
-                title="Lưu ý &amp; Chống chỉ định"
-                icon={<AlertCircle className="w-4 h-4 text-rose-500" />}
-                content={profile.warnings}
-                variant="rose"
-              />
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* Mobile Sticky Bottom CTA Bar */}
-        <div className="lg:hidden sticky bottom-0 bg-white/95 backdrop-blur-md p-4 border-t border-slate-200 shadow-lg z-10">
+        {/* Dedicated Full-Width Modal Footer */}
+        <div className="shrink-0 p-4 sm:px-6 sm:py-4 bg-white/95 backdrop-blur-md border-t border-slate-200">
           <CTAFooter
             onClose={onClose}
             onOpenContact={onOpenContact}

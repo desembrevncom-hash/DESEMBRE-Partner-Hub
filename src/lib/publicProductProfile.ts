@@ -3,6 +3,11 @@ import {
   validateProductLaunchReady,
   INTERNAL_SENSITIVE_FIELDS,
 } from "./productLaunchValidation";
+import { selectSingleIngredientSource } from "./salesSheetVersionUtils";
+import {
+  extractPreviewBullets,
+  extractIngredientNames,
+} from "./productPreviewExtractors";
 
 export interface PublicProductProfile {
   id?: string | number;
@@ -25,6 +30,9 @@ export interface PublicProductProfile {
   qa_status?: string;
   is_active?: boolean;
   is_public?: boolean;
+  highlightPreview: string[];
+  characteristicsPreview: string[];
+  activeIngredientPreview: string[];
 }
 
 export interface ProductLaunchStatus {
@@ -57,6 +65,19 @@ function normalizeArray(val: unknown): string[] | undefined {
   return filtered.length > 0 ? filtered : undefined;
 }
 
+
+/**
+ * Normalizes all possible ingredient field aliases from raw/sanitized input into a single-source string array.
+ */
+function normalizeIngredientList(
+  input: Record<string, unknown>,
+  sanitized: Record<string, unknown>,
+): string[] | undefined {
+  const merged = { ...input, ...sanitized };
+  const items = selectSingleIngredientSource(merged);
+  return items.length > 0 ? items : undefined;
+}
+
 /**
  * Builds a unified, customer-safe PublicProductProfile from raw input data.
  * Internally strips forbidden internal fields using sanitizePublicProductKnowledge
@@ -70,11 +91,24 @@ export function buildPublicProductProfile(
       name: "",
       brand_name: "Desembre",
       category_name: "Mỹ phẩm",
+      highlightPreview: [],
+      characteristicsPreview: [],
+      activeIngredientPreview: [],
     };
   }
 
   // 1. Sanitize raw input to strip forbidden internal fields
   const sanitized = sanitizePublicProductKnowledge(input) as Record<string, unknown>;
+
+  const productCharacteristics = normalizeString(
+    sanitized.product_characteristics ?? input.product_characteristics ?? sanitized.productCharacteristics ?? input.productCharacteristics,
+  );
+  const benefitsVal = normalizeString(sanitized.benefits ?? input.benefits);
+  const ingredientHighlights = normalizeIngredientList(input, sanitized);
+
+  const benefitsBullets = extractPreviewBullets(benefitsVal, 2);
+  const characteristicsBullets = extractPreviewBullets(productCharacteristics, 2);
+  const highlightPreview = benefitsBullets.length > 0 ? benefitsBullets : characteristicsBullets;
 
   // 2. Extract and normalize public fields
   const profile: PublicProductProfile = {
@@ -93,16 +127,12 @@ export function buildPublicProductProfile(
     fallback_image_url: normalizeString(
       sanitized.fallback_image_url ?? input.fallback_image_url ?? input.fallbackImageUrl,
     ),
-    product_characteristics: normalizeString(
-      sanitized.product_characteristics ?? input.product_characteristics,
-    ),
-    benefits: normalizeString(sanitized.benefits ?? input.benefits),
+    product_characteristics: productCharacteristics,
+    benefits: benefitsVal,
     usage_instructions: normalizeString(
       sanitized.usage_instructions ?? input.usage_instructions ?? input.usageInstructions,
     ),
-    ingredient_highlights: normalizeArray(
-      sanitized.ingredient_highlights ?? input.ingredient_highlights ?? input.ingredientHighlights,
-    ),
+    ingredient_highlights: ingredientHighlights,
     skin_types: normalizeArray(sanitized.skin_types ?? input.skin_types ?? input.skinTypes),
     skin_concerns: normalizeArray(
       sanitized.skin_concerns ?? input.skin_concerns ?? input.skinConcerns,
@@ -121,6 +151,9 @@ export function buildPublicProductProfile(
         : typeof input.is_public === "boolean"
           ? input.is_public
           : undefined,
+    highlightPreview,
+    characteristicsPreview: highlightPreview,
+    activeIngredientPreview: extractIngredientNames(ingredientHighlights, 3),
   };
 
   // Ensure forbidden fields are strictly deleted if present
@@ -151,7 +184,7 @@ export function getProductLaunchStatus(
       ? "saved"
       : "none";
 
-  const rawQaStatus = normalizeString(input?.qa_status);
+  const rawQaStatus = normalizeString(input?.qa_status ?? input?.qaStatus);
   const knowledgeStatus: "none" | "draft" | "review" | "approved" | "archived" =
     rawQaStatus === "approved"
       ? "approved"
@@ -184,12 +217,14 @@ export function getProductLaunchStatus(
   }
 
   // Check active state
-  if (input.is_active === false) {
+  const isActive = input.is_active ?? input.isActive;
+  if (isActive === false) {
     blockingReasons.push("Sản phẩm chưa ở trạng thái hoạt động (is_active phải là true)");
   }
 
   // Check public flag
-  if (input.is_public === false || input.is_public === undefined || input.is_public === null) {
+  const isPublic = input.is_public ?? input.isPublic;
+  if (isPublic === false || isPublic === undefined || isPublic === null) {
     blockingReasons.push("Sản phẩm chưa bật chế độ công khai (is_public phải là true)");
   }
 
