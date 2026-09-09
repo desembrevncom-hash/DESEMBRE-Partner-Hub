@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { Loader2, Plus, Trash2, Save, Info, BookOpen, Sparkles, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { EmbeddingBuilder } from "./product-knowledge/EmbeddingBuilder";
+import { validateProductLaunchReady } from "@/lib/productLaunchValidation";
 import type { KeyIngredientFunction } from "@/lib/catalogAdminDb";
 
 const SKIN_CONCERNS_TAGS = [
@@ -381,6 +382,23 @@ export function ProductKnowledgeDialog({
         updated_at: new Date().toISOString(),
         updated_by: user.id,
       };
+
+      // Validation gate for public approved product launch
+      if (qaStatus === "approved" && isActive && isPublic) {
+        const validation = validateProductLaunchReady(payload);
+        if (!validation.isValid) {
+          validation.errors.forEach((errMessage) => {
+            toast.error(errMessage);
+          });
+          setSaving(false);
+          return;
+        }
+        if (validation.warnings.length > 0) {
+          validation.warnings.forEach((warnMessage) => {
+            toast.warning(warnMessage);
+          });
+        }
+      }
 
       let upsertData: any = null;
 

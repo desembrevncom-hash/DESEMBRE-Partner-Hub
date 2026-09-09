@@ -14,6 +14,7 @@ import {
   logCatalogParityDiagnostics,
 } from "./catalogParityUtils";
 import { sortCatalogProducts } from "./catalogSortUtils";
+import { sanitizePublicProductKnowledge } from "@/lib/productLaunchValidation";
 
 interface PkRow {
   product_id?: number | null;
@@ -169,7 +170,8 @@ export function usePublicCatalog(options?: UsePublicCatalogOptions) {
       if (pkError) {
         console.warn("[usePublicCatalog] product_knowledge fetch warning:", pkError);
       } else if (pkData) {
-        (pkData as unknown as PkRow[]).forEach((row) => {
+        (pkData as unknown as Record<string, unknown>[]).forEach((rawRow) => {
+          const row = sanitizePublicProductKnowledge(rawRow) as PkRow;
           const item = {
             usageInstructions: row.usage_instructions || undefined,
             benefits: row.benefits || undefined,

@@ -44,6 +44,7 @@ import {
   exportProductSalesSheetPdf,
   type ProductSalesSheetPdfData,
 } from "@/lib/salesSheetPdfExport";
+import { sanitizePublicProductKnowledge } from "@/lib/productLaunchValidation";
 
 interface ProductSalesSheetDialogProps {
   isOpen: boolean;
@@ -688,7 +689,12 @@ export function ProductSalesSheetDialog({
   const handleExportPdf = async () => {
     setIsExporting(true);
     try {
-      const dedupedIngredients = dedupeSalesSheetIngredients(contentJson.knowledge || {});
+      const activeKnowledge =
+        audience === "customer"
+          ? sanitizePublicProductKnowledge(contentJson.knowledge || {})
+          : contentJson.knowledge || {};
+
+      const dedupedIngredients = dedupeSalesSheetIngredients(activeKnowledge as any);
       const retailList = contentJson.pricing?.retail || [];
       const salonList = contentJson.pricing?.salon || [];
       const formattedVariants = [
@@ -712,17 +718,17 @@ export function ProductSalesSheetDialog({
         },
         variants: formattedVariants,
         knowledge: {
-          benefits: contentJson.knowledge?.benefits || [],
+          benefits: activeKnowledge.benefits || [],
           key_ingredients: dedupedIngredients.has_key_ingredients
             ? dedupedIngredients.key_ingredients
-            : (contentJson.knowledge as any)?.key_ingredients || [],
+            : (activeKnowledge as any)?.key_ingredients || [],
           ingredient_highlights: dedupedIngredients.ingredient_highlights,
           show_ingredient_highlights: dedupedIngredients.show_ingredient_highlights,
-          full_ingredients: dedupedIngredients.full_ingredients,
-          skin_types: contentJson.knowledge?.skin_types || [],
-          usage: contentJson.knowledge?.usage || [],
-          warnings: contentJson.knowledge?.warnings || [],
-          sales_notes: audience === "customer" ? [] : contentJson.knowledge?.sales_notes || [],
+          full_ingredients: audience === "customer" ? "" : dedupedIngredients.full_ingredients,
+          skin_types: activeKnowledge.skin_types || [],
+          usage: activeKnowledge.usage || [],
+          warnings: activeKnowledge.warnings || [],
+          sales_notes: audience === "customer" ? [] : (activeKnowledge as any)?.sales_notes || [],
         },
         footer_note:
           contentJson.footer_note || "Thông tin sản phẩm được cung cấp bởi Desembre Vietnam.",
@@ -759,7 +765,6 @@ export function ProductSalesSheetDialog({
     return html;
   }, [templates, selectedTemplateId]);
 
-
   const previewHtml = useMemo(() => {
     // Adapter to transform content_json structure into matching formats expected by the template
     const joinList = (val: any) => {
@@ -772,6 +777,11 @@ export function ProductSalesSheetDialog({
       return "Chưa có thông tin trong tài liệu nguồn.";
     };
 
+    const activeKnowledge =
+      audience === "customer"
+        ? sanitizePublicProductKnowledge(contentJson.knowledge || {})
+        : contentJson.knowledge || {};
+
     const retailList = contentJson.pricing?.retail || [];
     const salonList = contentJson.pricing?.salon || [];
 
@@ -781,7 +791,7 @@ export function ProductSalesSheetDialog({
     ];
 
     // Dedupe & normalize ingredients according to canonical hierarchy
-    const dedupedIngredients = dedupeSalesSheetIngredients(contentJson.knowledge || {});
+    const dedupedIngredients = dedupeSalesSheetIngredients(activeKnowledge as any);
 
     // Clean template if key_ingredients exists to ensure no static "THÀNH PHẦN NỔI BẬT" remains, and clean internal elements if customer mode
     const templateToUse = cleanSalesSheetTemplateHtml(
@@ -803,24 +813,26 @@ export function ProductSalesSheetDialog({
       pricing: contentJson.pricing || { retail: [], salon: [] },
       variants: formattedVariants,
       knowledge: {
-        benefits: joinList(contentJson.knowledge?.benefits),
+        benefits: joinList(activeKnowledge.benefits),
         ingredient_highlights: dedupedIngredients.show_ingredient_highlights
           ? joinList(dedupedIngredients.ingredient_highlights)
           : "",
         show_ingredient_highlights: dedupedIngredients.show_ingredient_highlights,
         full_ingredients:
-          dedupedIngredients.full_ingredients !== ""
-            ? dedupedIngredients.full_ingredients
-            : "Chưa có thông tin trong tài liệu nguồn.",
+          audience === "customer"
+            ? ""
+            : dedupedIngredients.full_ingredients !== ""
+              ? dedupedIngredients.full_ingredients
+              : "Chưa có thông tin trong tài liệu nguồn.",
         key_ingredients: joinList(
           dedupedIngredients.has_key_ingredients
             ? dedupedIngredients.key_ingredients
-            : (contentJson.knowledge as any)?.key_ingredients,
+            : (activeKnowledge as any)?.key_ingredients,
         ),
-        skin_types: joinList(contentJson.knowledge?.skin_types),
-        usage: joinList(contentJson.knowledge?.usage),
-        sales_notes: audience === "customer" ? "" : joinList(contentJson.knowledge?.sales_notes),
-        warnings: joinList(contentJson.knowledge?.warnings),
+        skin_types: joinList(activeKnowledge.skin_types),
+        usage: joinList(activeKnowledge.usage),
+        sales_notes: audience === "customer" ? "" : joinList((activeKnowledge as any)?.sales_notes),
+        warnings: joinList(activeKnowledge.warnings),
       },
       footer_note:
         contentJson.footer_note || "Thông tin sản phẩm được cung cấp bởi Desembre Vietnam.",

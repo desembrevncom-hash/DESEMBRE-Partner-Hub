@@ -162,7 +162,7 @@ export function ProductDetailModal({ product, isOpen, onClose, onOpenContact, va
               )}
 
               {/* Description */}
-              {product.description && (
+              {product.description && product.description.trim() !== "" && (
                 <div className="space-y-1.5">
                   <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
                     Mô tả sản phẩm
@@ -174,7 +174,7 @@ export function ProductDetailModal({ product, isOpen, onClose, onOpenContact, va
               )}
 
               {/* Benefits if present */}
-              {product.benefits && (
+              {product.benefits && product.benefits.trim() !== "" && (
                 <div className="space-y-1.5">
                   <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -187,7 +187,7 @@ export function ProductDetailModal({ product, isOpen, onClose, onOpenContact, va
               )}
 
               {/* Usage Instructions if present */}
-              {product.usageInstructions && (
+              {product.usageInstructions && product.usageInstructions.trim() !== "" && (
                 <div className="space-y-1.5 p-3 rounded-2xl bg-amber-50/70 border border-amber-100 text-amber-950">
                   <h4 className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5 text-amber-800">
                     <BookOpen className="w-3.5 h-3.5 text-amber-600" />
@@ -200,7 +200,7 @@ export function ProductDetailModal({ product, isOpen, onClose, onOpenContact, va
               )}
 
               {/* Warnings if present */}
-              {product.warnings && (
+              {product.warnings && product.warnings.trim() !== "" && (
                 <div className="space-y-1.5 p-3 rounded-2xl bg-rose-50/70 border border-rose-100">
                   <h4 className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5 text-rose-700">
                     <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
