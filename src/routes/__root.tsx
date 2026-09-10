@@ -34,6 +34,7 @@ import { PilotFeedbackButton } from "@/components/layout/PilotFeedbackButton";
 import { AppErrorBoundary } from "@/components/system/AppErrorBoundary";
 import { CommandPalette } from "@/components/crm/CommandPalette";
 import { BRANDING } from "@/config/branding";
+import { BrandFavicon } from "@/components/system/BrandFavicon";
 import { ProductCopilot } from "@/components/chat/ProductCopilot";
 import { ProductCopilotProvider } from "@/components/chat/ProductCopilotContext";
 
@@ -92,6 +93,7 @@ function RootLayout() {
   return (
     <SystemSettingsProvider>
       <ProductCopilotProvider>
+        <BrandFavicon />
         <div className="min-h-screen bg-[#f8fafc] font-sans antialiased selection:bg-indigo-100 selection:text-indigo-900">
           <style>{`
         :root {

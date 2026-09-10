@@ -11,6 +11,7 @@ import { CatalogLoadMore } from "@/features/catalog/CatalogLoadMore";
 import { ProductDetailModal } from "@/features/catalog/ProductDetailModal";
 import { ContactConsultationModal } from "@/features/catalog/ContactConsultationModal";
 import { BRANDING } from "@/config/branding";
+import { useBranding } from "@/hooks/useBranding";
 
 export const Route = createFileRoute("/san-pham")({
   component: PublicCatalogPage,
@@ -18,6 +19,7 @@ export const Route = createFileRoute("/san-pham")({
 
 export function PublicCatalogPage() {
   const { user } = useAuth();
+  const branding = useBranding();
   const {
     loading,
     products,
@@ -58,14 +60,19 @@ export function PublicCatalogPage() {
         <div className="container mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between max-w-7xl">
           <Link to="/" className="flex items-center gap-3 group cursor-pointer">
             <img
-              src={BRANDING.logo}
-              alt={BRANDING.logoAlt}
-              className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl object-contain shadow-sm group-hover:scale-105 transition-transform"
+              src={branding.logoMarkUrl}
+              alt={branding.siteName}
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl object-contain shadow-md shadow-slate-200 group-hover:scale-105 transition-transform"
             />
-            <span className="text-base sm:text-xl font-black tracking-tighter flex items-center">
-              DESEMBRE <span className="text-indigo-600 ml-1">HUB</span>
-              <Sparkles className="w-3.5 h-3.5 text-indigo-500 ml-1.5 group-hover:rotate-12 transition-transform" />
-            </span>
+            <div className="flex flex-col justify-center">
+              <span className="text-base sm:text-xl font-black text-slate-900 tracking-tighter leading-none flex items-center">
+                DESEMBRE
+                <Sparkles className="w-3.5 h-3.5 text-indigo-500 ml-1.5 group-hover:rotate-12 transition-transform" />
+              </span>
+              <p className="text-[9px] sm:text-[10px] font-black text-indigo-600 uppercase tracking-widest leading-none mt-1">
+                Partner Hub OS
+              </p>
+            </div>
           </Link>
 
           <div className="flex items-center gap-2 sm:gap-3">
@@ -187,12 +194,12 @@ export function PublicCatalogPage() {
         <div className="container mx-auto max-w-7xl flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
           <div className="flex items-center gap-2 justify-center sm:justify-start">
             <img
-              src={BRANDING.logo}
-              alt={BRANDING.logoAlt}
+              src={branding.logoMarkUrl}
+              alt={branding.siteName}
               className="w-7 h-7 rounded-lg object-contain"
             />
             <span className="text-sm font-black tracking-tight text-slate-800">
-              {BRANDING.companyName.toUpperCase()}
+              {branding.siteName.toUpperCase()}
             </span>
           </div>
 

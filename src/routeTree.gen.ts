@@ -71,6 +71,7 @@ import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
 import { Route as AdminHubRouteImport } from './routes/admin/hub'
 import { Route as AdminCrmOpsRouteImport } from './routes/admin/crm-ops'
 import { Route as AdminCrmHealthRouteImport } from './routes/admin/crm-health'
+import { Route as AdminBrandingRouteImport } from './routes/admin/branding'
 import { Route as AdminAutomationRulesRouteImport } from './routes/admin/automation-rules'
 import { Route as AdminAutomationGovernanceRouteImport } from './routes/admin/automation-governance'
 import { Route as AdminAutomationRouteImport } from './routes/admin/automation'
@@ -413,6 +414,11 @@ const AdminCrmHealthRoute = AdminCrmHealthRouteImport.update({
   path: '/admin/crm-health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminBrandingRoute = AdminBrandingRouteImport.update({
+  id: '/admin/branding',
+  path: '/admin/branding',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminAutomationRulesRoute = AdminAutomationRulesRouteImport.update({
   id: '/admin/automation-rules',
   path: '/admin/automation-rules',
@@ -576,6 +582,7 @@ export interface FileRoutesByFullPath {
   '/admin/automation': typeof AdminAutomationRoute
   '/admin/automation-governance': typeof AdminAutomationGovernanceRoute
   '/admin/automation-rules': typeof AdminAutomationRulesRoute
+  '/admin/branding': typeof AdminBrandingRoute
   '/admin/crm-health': typeof AdminCrmHealthRoute
   '/admin/crm-ops': typeof AdminCrmOpsRoute
   '/admin/hub': typeof AdminHubRoute
@@ -666,6 +673,7 @@ export interface FileRoutesByTo {
   '/admin/automation': typeof AdminAutomationRoute
   '/admin/automation-governance': typeof AdminAutomationGovernanceRoute
   '/admin/automation-rules': typeof AdminAutomationRulesRoute
+  '/admin/branding': typeof AdminBrandingRoute
   '/admin/crm-health': typeof AdminCrmHealthRoute
   '/admin/crm-ops': typeof AdminCrmOpsRoute
   '/admin/hub': typeof AdminHubRoute
@@ -758,6 +766,7 @@ export interface FileRoutesById {
   '/admin/automation': typeof AdminAutomationRoute
   '/admin/automation-governance': typeof AdminAutomationGovernanceRoute
   '/admin/automation-rules': typeof AdminAutomationRulesRoute
+  '/admin/branding': typeof AdminBrandingRoute
   '/admin/crm-health': typeof AdminCrmHealthRoute
   '/admin/crm-ops': typeof AdminCrmOpsRoute
   '/admin/hub': typeof AdminHubRoute
@@ -851,6 +860,7 @@ export interface FileRouteTypes {
     | '/admin/automation'
     | '/admin/automation-governance'
     | '/admin/automation-rules'
+    | '/admin/branding'
     | '/admin/crm-health'
     | '/admin/crm-ops'
     | '/admin/hub'
@@ -941,6 +951,7 @@ export interface FileRouteTypes {
     | '/admin/automation'
     | '/admin/automation-governance'
     | '/admin/automation-rules'
+    | '/admin/branding'
     | '/admin/crm-health'
     | '/admin/crm-ops'
     | '/admin/hub'
@@ -1032,6 +1043,7 @@ export interface FileRouteTypes {
     | '/admin/automation'
     | '/admin/automation-governance'
     | '/admin/automation-rules'
+    | '/admin/branding'
     | '/admin/crm-health'
     | '/admin/crm-ops'
     | '/admin/hub'
@@ -1124,6 +1136,7 @@ export interface RootRouteChildren {
   AdminAutomationRoute: typeof AdminAutomationRoute
   AdminAutomationGovernanceRoute: typeof AdminAutomationGovernanceRoute
   AdminAutomationRulesRoute: typeof AdminAutomationRulesRoute
+  AdminBrandingRoute: typeof AdminBrandingRoute
   AdminCrmHealthRoute: typeof AdminCrmHealthRoute
   AdminCrmOpsRoute: typeof AdminCrmOpsRoute
   AdminHubRoute: typeof AdminHubRoute
@@ -1629,6 +1642,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCrmHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/branding': {
+      id: '/admin/branding'
+      path: '/admin/branding'
+      fullPath: '/admin/branding'
+      preLoaderRoute: typeof AdminBrandingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/automation-rules': {
       id: '/admin/automation-rules'
       path: '/admin/automation-rules'
@@ -1858,6 +1878,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminAutomationRoute: AdminAutomationRoute,
   AdminAutomationGovernanceRoute: AdminAutomationGovernanceRoute,
   AdminAutomationRulesRoute: AdminAutomationRulesRoute,
+  AdminBrandingRoute: AdminBrandingRoute,
   AdminCrmHealthRoute: AdminCrmHealthRoute,
   AdminCrmOpsRoute: AdminCrmOpsRoute,
   AdminHubRoute: AdminHubRoute,

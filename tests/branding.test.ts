@@ -4,11 +4,11 @@ import fs from "fs";
 import path from "path";
 
 describe("Branding & Asset Single Source of Truth", () => {
-  it("1. BRANDING config contains valid asset paths and cache-busting queries", () => {
-    expect(BRANDING.logo).toBe("/branding/logo-desembrehub.svg");
-    expect(BRANDING.faviconSvg).toContain("/branding/favicon-desembrehub.svg");
-    expect(BRANDING.faviconSvg).toContain("?v=");
-    expect(BRANDING.appleTouchIcon).toContain("?v=");
+  it("1. BRANDING config contains valid asset paths and company info", () => {
+    expect(BRANDING.logo).toBe("/branding/default-logo-mark.svg");
+    expect(BRANDING.defaultHeaderLogo).toBe("/branding/default-header-logo.svg");
+    expect(BRANDING.defaultFavicon).toBe("/branding/favicon.svg");
+    expect(BRANDING.defaultAppleTouchIcon).toBe("/branding/apple-touch-icon.png");
     expect(BRANDING.companyName).toBe("Desembre Vietnam");
   });
 
@@ -48,11 +48,12 @@ describe("Branding & Asset Single Source of Truth", () => {
     expect(manifestContent.icons.some((icon: any) => icon.src.includes("favicon-desembrehub.svg"))).toBe(true);
   });
 
-  it("5. public /san-pham route references BRANDING.logo", () => {
+  it("5. public /san-pham route uses dynamic branding from useBranding hook", () => {
     const sanPhamPath = path.resolve(__dirname, "../src/routes/san-pham.tsx");
     const fileContent = fs.readFileSync(sanPhamPath, "utf-8");
 
-    expect(fileContent).toContain("BRANDING.logo");
-    expect(fileContent).toContain("BRANDING.logoAlt");
+    expect(fileContent).toContain("useBranding");
+    expect(fileContent).toContain("branding.logoMarkUrl");
+    expect(fileContent).toContain("branding.siteName");
   });
 });

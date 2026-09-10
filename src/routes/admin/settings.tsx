@@ -711,10 +711,29 @@ function SystemSettingsPage() {
           <TabsContent value="branding">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-8">
+                {/* Dynamic Public Site Branding Callout */}
+                <div className="p-6 rounded-[28px] bg-gradient-to-r from-indigo-900 to-indigo-700 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-indigo-300" />
+                      <h3 className="text-base font-black tracking-tight">Cấu Hình Logo &amp; Favicon Công Khai (Dynamic Branding)</h3>
+                    </div>
+                    <p className="text-xs text-indigo-200">
+                      Tải lên trực tiếp Logo Web (`/san-pham`), Biểu tượng Logo Vuông, và Favicon Tab Trình Duyệt vào Storage.
+                    </p>
+                  </div>
+                  <Button asChild className="rounded-xl font-bold text-xs bg-white text-indigo-950 hover:bg-indigo-50 shadow-sm shrink-0">
+                    <Link to="/admin/branding">
+                      <span>Mở Trình Quản Lý</span>
+                      <ExternalLink className="w-3.5 h-3.5 ml-1.5" />
+                    </Link>
+                  </Button>
+                </div>
+
                 <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white">
                   <CardHeader className="p-8 pb-4">
                     <CardTitle className="text-lg font-black text-slate-900">
-                      Nhận diện Thương hiệu
+                      Nhận diện Thương hiệu Toàn Hệ Thống
                     </CardTitle>
                     <CardDescription>
                       Tùy chỉnh Logo và màu sắc đại diện cho DESEMBRE
