@@ -1,5 +1,6 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
+import { BRANDING } from "@/config/branding";
 import {
   TrendingUp,
   Users,
@@ -52,8 +53,8 @@ function LandingPage() {
         <div className="container mx-auto px-6 h-20 flex items-center justify-between max-w-7xl">
           <a href="#hero" className="flex items-center gap-3 cursor-pointer group">
             <img
-              src="/logo.svg"
-              alt="Desembre Logo"
+              src={BRANDING.logo}
+              alt={BRANDING.logoAlt}
               className="w-12 h-12 rounded-xl object-contain shadow-xl shadow-slate-200 group-hover:scale-110 transition-transform"
             />
             <span className="text-xl font-black tracking-tighter flex items-center">

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { BRANDING } from "@/config/branding";
 import {
   ShieldCheck,
   Zap,
@@ -60,8 +61,8 @@ function LoginPage() {
 
           <div className="relative z-10">
             <img
-              src="/logo.svg"
-              alt="Desembre Logo"
+              src={BRANDING.logo}
+              alt={BRANDING.logoAlt}
               className="w-16 h-16 rounded-2xl object-contain bg-white/10 backdrop-blur-md border border-white/20 shadow-xl mb-10 transition-transform hover:scale-110"
             />
             <h2 className="text-4xl font-black text-white tracking-tight leading-tight mb-6">

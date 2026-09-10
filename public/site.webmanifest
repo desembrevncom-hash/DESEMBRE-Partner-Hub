@@ -1,0 +1,19 @@
+{
+  "name": "DESEMBRE Partner Hub",
+  "short_name": "Desembre Hub",
+  "icons": [
+    {
+      "src": "/branding/favicon-desembrehub.svg?v=2",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/branding/logo-desembrehub.svg?v=2",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ],
+  "theme_color": "#4f46e5",
+  "background_color": "#ffffff",
+  "display": "standalone"
+}

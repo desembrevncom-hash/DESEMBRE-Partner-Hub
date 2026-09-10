@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none">
+  <defs>
+    <linearGradient id="fav-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3730A3" />
+      <stop offset="100%" stop-color="#7C3AED" />
+    </linearGradient>
+    <linearGradient id="fav-white" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#EDE9FE" />
+    </linearGradient>
+  </defs>
+
+  <!-- High-contrast rounded background squircle -->
+  <rect width="64" height="64" rx="16" fill="url(#fav-bg)" />
+  
+  <!-- High-legibility "D" Monogram -->
+  <!-- Stem -->
+  <rect x="15" y="14" width="9" height="36" rx="4.5" fill="url(#fav-white)" />
+  <!-- Arc -->
+  <path d="M19 14 H34 C44.493 14 53 22.059 53 32 C53 41.941 44.493 50 34 50 H19 V42 H34 C39.523 42 44 37.523 44 32 C44 26.477 39.523 22 34 22 H19 V14 Z" fill="url(#fav-white)" />
+  <!-- Sparkling biological core -->
+  <path d="M31 26 C31 29.314 33.686 32 37 32 C33.686 32 31 34.686 31 38 C31 34.686 28.314 32 25 32 C28.314 32 31 29.314 31 26 Z" fill="#A5B4FC" />
+</svg>

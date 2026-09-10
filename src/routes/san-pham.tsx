@@ -10,6 +10,7 @@ import { CatalogProductTable } from "@/features/catalog/CatalogProductTable";
 import { CatalogLoadMore } from "@/features/catalog/CatalogLoadMore";
 import { ProductDetailModal } from "@/features/catalog/ProductDetailModal";
 import { ContactConsultationModal } from "@/features/catalog/ContactConsultationModal";
+import { BRANDING } from "@/config/branding";
 
 export const Route = createFileRoute("/san-pham")({
   component: PublicCatalogPage,
@@ -57,8 +58,8 @@ export function PublicCatalogPage() {
         <div className="container mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between max-w-7xl">
           <Link to="/" className="flex items-center gap-3 group cursor-pointer">
             <img
-              src="/logo.svg"
-              alt="Desembre Logo"
+              src={BRANDING.logo}
+              alt={BRANDING.logoAlt}
               className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl object-contain shadow-sm group-hover:scale-105 transition-transform"
             />
             <span className="text-base sm:text-xl font-black tracking-tighter flex items-center">
@@ -186,12 +187,12 @@ export function PublicCatalogPage() {
         <div className="container mx-auto max-w-7xl flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
           <div className="flex items-center gap-2 justify-center sm:justify-start">
             <img
-              src="/logo.svg"
-              alt="Desembre Logo"
+              src={BRANDING.logo}
+              alt={BRANDING.logoAlt}
               className="w-7 h-7 rounded-lg object-contain"
             />
             <span className="text-sm font-black tracking-tight text-slate-800">
-              DESEMBRE VIETNAM
+              {BRANDING.companyName.toUpperCase()}
             </span>
           </div>
 

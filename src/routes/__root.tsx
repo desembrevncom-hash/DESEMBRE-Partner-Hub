@@ -33,6 +33,7 @@ import { NotificationBell } from "@/components/layout/NotificationBell";
 import { PilotFeedbackButton } from "@/components/layout/PilotFeedbackButton";
 import { AppErrorBoundary } from "@/components/system/AppErrorBoundary";
 import { CommandPalette } from "@/components/crm/CommandPalette";
+import { BRANDING } from "@/config/branding";
 import { ProductCopilot } from "@/components/chat/ProductCopilot";
 import { ProductCopilotProvider } from "@/components/chat/ProductCopilotContext";
 
@@ -135,8 +136,8 @@ function RootLayout() {
                 {/* LOGO AREA */}
                 <Link to="/" className="flex items-center gap-3 group">
                   <img
-                    src={branding.logoLight || "/logo.svg"}
-                    alt="Desembre Logo"
+                    src={branding.logoLight || BRANDING.logo}
+                    alt={BRANDING.logoAlt}
                     className="w-10 h-10 rounded-xl object-contain shadow-lg shadow-slate-200 transition-transform group-hover:scale-110"
                   />
                   <div className="hidden md:flex flex-col justify-center">
