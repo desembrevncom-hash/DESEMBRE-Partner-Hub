@@ -57,8 +57,14 @@ export function CatalogProductGrid({
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-      {products.map((p) => (
-        <CatalogProductCard key={p.id} product={p} onSelect={onSelectProduct} vatMode={vatMode} />
+      {products.map((p, idx) => (
+        <CatalogProductCard
+          key={p.id}
+          product={p}
+          onSelect={onSelectProduct}
+          vatMode={vatMode}
+          priority={idx < 4}
+        />
       ))}
     </div>
   );

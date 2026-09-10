@@ -64,13 +64,14 @@ export function CatalogProductTable({
     <div>
       {/* Mobile view: Compact list rows */}
       <div className="block md:hidden space-y-2.5">
-        {products.map((p) => (
+        {products.map((p, idx) => (
           <CatalogProductListRow
             key={p.id}
             product={p}
             onSelect={onSelectProduct}
             onOpenContact={onOpenContact}
             vatMode={vatMode}
+            priority={idx < 4}
           />
         ))}
       </div>
@@ -118,6 +119,7 @@ export function CatalogProductTable({
                           alt={p.imageAlt ?? p.name}
                           className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
                           fallbackIconSize={20}
+                          priority={idx < 4}
                         />
                       </div>
                     </td>

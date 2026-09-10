@@ -13,9 +13,16 @@ interface Props {
   onSelect: (product: PublicProduct) => void;
   onOpenContact?: () => void;
   vatMode: CatalogVatMode;
+  priority?: boolean;
 }
 
-export function CatalogProductListRow({ product, onSelect, onOpenContact, vatMode }: Props) {
+export function CatalogProductListRow({
+  product,
+  onSelect,
+  onOpenContact,
+  vatMode,
+  priority = false,
+}: Props) {
   const altText = `${product.brandName} - ${product.name}${product.retailSize ? ` (${product.retailSize})` : ""}`;
 
   const visibleItems = product.publicPriceItems.slice(0, MAX_VISIBLE_SIZES);
@@ -35,6 +42,7 @@ export function CatalogProductListRow({ product, onSelect, onOpenContact, vatMod
           alt={product.imageAlt ?? product.name}
           className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
           fallbackIconSize={24}
+          priority={priority}
         />
       </div>
 

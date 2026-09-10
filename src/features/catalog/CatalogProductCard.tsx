@@ -11,9 +11,10 @@ interface Props {
   product: PublicProduct;
   onSelect: (product: PublicProduct) => void;
   vatMode: CatalogVatMode;
+  priority?: boolean;
 }
 
-export function CatalogProductCard({ product, onSelect, vatMode }: Props) {
+export function CatalogProductCard({ product, onSelect, vatMode, priority = false }: Props) {
   const altText = `${product.brandName} - ${product.name}${product.retailSize ? ` (${product.retailSize})` : ""}`;
 
   const visibleItems = product.publicPriceItems.slice(0, MAX_VISIBLE_SIZES);
@@ -35,6 +36,7 @@ export function CatalogProductCard({ product, onSelect, vatMode }: Props) {
           className="h-full w-full object-contain group-hover:scale-105 transition-transform duration-500 ease-out"
           fallbackIconSize={48}
           showWatermark
+          priority={priority}
         />
 
         {/* Top Badges */}

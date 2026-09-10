@@ -9,6 +9,7 @@ interface Props {
   knowledgeStatus?: KnowledgeStatus;
   salesSheetStatus?: SalesSheetStatus;
   isPublic?: boolean | null;
+  hasImage?: boolean;
   isLaunchReady?: boolean;
   blockingReasons?: string[];
   warnings?: string[];
@@ -20,6 +21,7 @@ export function ProductPipelineStatusBadges({
   knowledgeStatus = "none",
   salesSheetStatus = "none",
   isPublic,
+  hasImage,
   isLaunchReady = false,
   blockingReasons = [],
   warnings = [],
@@ -113,6 +115,16 @@ export function ProductPipelineStatusBadges({
           className="bg-slate-50/60 text-slate-400 border-slate-200 text-[9px] font-medium px-1.5 py-0"
         >
           Sales Sheet: Chưa có
+        </Badge>
+      )}
+
+      {/* 4b. IMAGE STATUS BADGE */}
+      {hasImage === false && (
+        <Badge
+          variant="outline"
+          className="bg-amber-50 text-amber-700 border-amber-300 text-[9px] font-bold px-1.5 py-0"
+        >
+          Thiếu ảnh
         </Badge>
       )}
 

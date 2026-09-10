@@ -134,6 +134,7 @@ export function ProductMobileCard({
                 knowledgeStatus={knowledgeStatus}
                 salesSheetStatus={salesSheetStatus}
                 isPublic={knowledgeSummary?.is_public}
+                hasImage={Boolean(p.image && p.image.trim().length > 0)}
                 isLaunchReady={launchStatus.isLaunchReady}
                 blockingReasons={launchStatus.blockingReasons}
                 warnings={launchStatus.warnings}

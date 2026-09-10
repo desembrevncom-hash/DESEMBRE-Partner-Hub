@@ -9,6 +9,9 @@ interface Props {
   containerClassName?: string;
   fallbackIconSize?: number;
   showWatermark?: boolean;
+  priority?: boolean;
+  loading?: "lazy" | "eager";
+  decoding?: "async" | "auto" | "sync";
 }
 
 export function CatalogProductImage({
@@ -19,6 +22,9 @@ export function CatalogProductImage({
   containerClassName = "w-full h-full flex items-center justify-center bg-slate-50",
   fallbackIconSize = 24,
   showWatermark = false,
+  priority = false,
+  loading,
+  decoding = "async",
 }: Props) {
   const [useFallback, setUseFallback] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -74,7 +80,16 @@ export function CatalogProductImage({
     );
   }
 
+  const resolvedLoading = loading ?? (priority ? "eager" : "lazy");
+
   return (
-    <img src={activeSrc} alt={alt} loading="lazy" onError={handleError} className={className} />
+    <img
+      src={activeSrc}
+      alt={alt}
+      loading={resolvedLoading}
+      decoding={decoding}
+      onError={handleError}
+      className={className}
+    />
   );
 }

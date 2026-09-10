@@ -223,36 +223,22 @@ export async function checkProductInOrders(productCode: string | null): Promise<
   }
 }
 
-/**
- * Product image file constraints and validation helpers
- */
-export const MAX_PRODUCT_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
-export const ALLOWED_PRODUCT_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
+import {
+  MAX_PRODUCT_IMAGE_SIZE,
+  ALLOWED_PRODUCT_IMAGE_TYPES,
+  validateProductImageFile,
+  compressImageForUpload,
+} from "./imageCompression";
 
-export function validateProductImageFile(file: File | null | undefined): {
-  valid: boolean;
-  error?: string;
-} {
-  if (!file) {
-    return { valid: false, error: "Chưa chọn tệp ảnh." };
-  }
-  if (!ALLOWED_PRODUCT_IMAGE_TYPES.includes(file.type)) {
-    return {
-      valid: false,
-      error: "Định dạng ảnh không hợp lệ. Chỉ chấp nhận JPG, PNG, WEBP.",
-    };
-  }
-  if (file.size > MAX_PRODUCT_IMAGE_SIZE) {
-    return {
-      valid: false,
-      error: "Dung lượng ảnh vượt quá giới hạn 5MB.",
-    };
-  }
-  return { valid: true };
-}
+export {
+  MAX_PRODUCT_IMAGE_SIZE,
+  ALLOWED_PRODUCT_IMAGE_TYPES,
+  validateProductImageFile,
+};
 
 /**
  * Uploads a product image file to Supabase Storage in the 'product-images' bucket.
+ * Automatically compresses/resizes large images to WebP (max 1200px, quality 0.82) before upload.
  * Path format: catalog-products/{productId}/{timestamp}-{safe-file-name}
  */
 export async function uploadProductImage(
@@ -265,7 +251,15 @@ export async function uploadProductImage(
   }
 
   try {
-    const cleanFileName = (file.name || "image.png")
+    // Automatically compress and resize to WebP (max 1200px)
+    const compression = await compressImageForUpload(file, {
+      maxWidth: 1200,
+      maxHeight: 1200,
+      quality: 0.82,
+    });
+    const uploadFile = compression.file;
+
+    const cleanFileName = (uploadFile.name || "image.webp")
       .toLowerCase()
       .trim()
       .replace(/[^a-z0-9._-]/g, "_");
@@ -274,9 +268,10 @@ export async function uploadProductImage(
 
     const { data, error: uploadError } = await supabase.storage
       .from("product-images")
-      .upload(filePath, file, {
+      .upload(filePath, uploadFile, {
         cacheControl: "3600",
         upsert: true,
+        contentType: uploadFile.type || "image/webp",
       });
 
     if (uploadError) {

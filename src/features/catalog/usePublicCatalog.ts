@@ -228,16 +228,13 @@ export function usePublicCatalog(options?: UsePublicCatalogOptions) {
 
         if (import.meta.env.DEV) {
           console.table(
-            sortedProducts
-              .filter((p) => ["4", "04", "5", "05"].includes(String(p.product_code)))
-              .map((p) => ({
-                id: p.id,
-                product_code: p.product_code,
-                name: p.name,
-                imageUrl: p.imageUrl,
-                fallbackImageUrl: p.fallbackImageUrl,
-                publicPriceItems: p.publicPriceItems?.map((i) => `${i.sizeLabel}:${i.price}`),
-              })),
+            sortedProducts.map((p) => ({
+              productCode: p.product_code ?? p.id,
+              name: p.name,
+              category: p.categoryName || "(none)",
+              imageUrl: p.imageUrl ?? "(none)",
+              hasImageUrl: Boolean(p.imageUrl && p.imageUrl.trim().length > 0),
+            })),
           );
 
           console.log({
@@ -317,16 +314,13 @@ export function usePublicCatalog(options?: UsePublicCatalogOptions) {
 
       if (import.meta.env.DEV) {
         console.table(
-          sortedProducts
-            .filter((p) => ["4", "04", "5", "05"].includes(String(p.product_code)))
-            .map((p) => ({
-              id: p.id,
-              product_code: p.product_code,
-              name: p.name,
-              imageUrl: p.imageUrl,
-              fallbackImageUrl: p.fallbackImageUrl,
-              publicPriceItems: p.publicPriceItems?.map((i) => `${i.sizeLabel}:${i.price}`),
-            })),
+          sortedProducts.map((p) => ({
+            productCode: p.product_code ?? p.id,
+            name: p.name,
+            category: p.categoryName || "(none)",
+            imageUrl: p.imageUrl ?? "(none)",
+            hasImageUrl: Boolean(p.imageUrl && p.imageUrl.trim().length > 0),
+          })),
         );
 
         console.log({

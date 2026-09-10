@@ -37,8 +37,8 @@ describe("Product Image Upload & Validation - Unit Tests", () => {
   });
 
   describe("Constants & Constraints", () => {
-    it("should specify 5MB max size limit", () => {
-      expect(MAX_PRODUCT_IMAGE_SIZE).toBe(5 * 1024 * 1024);
+    it("should specify 8MB max size limit", () => {
+      expect(MAX_PRODUCT_IMAGE_SIZE).toBe(8 * 1024 * 1024);
     });
 
     it("should allow png, jpeg, and webp types", () => {
@@ -53,7 +53,7 @@ describe("Product Image Upload & Validation - Unit Tests", () => {
       expect(validateProductImageFile(null).error).toContain("Chưa chọn tệp ảnh");
     });
 
-    it("should pass for valid image types under 5MB", () => {
+    it("should pass for valid image types under 8MB", () => {
       const pngFile = new File(["test data"], "avatar.png", { type: "image/png" });
       const jpgFile = new File(["test data"], "photo.jpg", { type: "image/jpeg" });
       const webpFile = new File(["test data"], "banner.webp", { type: "image/webp" });
@@ -79,17 +79,17 @@ describe("Product Image Upload & Validation - Unit Tests", () => {
       expect(pdfRes.valid).toBe(false);
     });
 
-    it("should reject files exceeding 5MB", () => {
+    it("should reject files exceeding 8MB", () => {
       // Mock large file size
       const oversizedFile = new File(["content"], "huge.png", { type: "image/png" });
       Object.defineProperty(oversizedFile, "size", {
-        value: 5 * 1024 * 1024 + 1,
+        value: 8 * 1024 * 1024 + 1,
         configurable: true,
       });
 
       const res = validateProductImageFile(oversizedFile);
       expect(res.valid).toBe(false);
-      expect(res.error).toContain("vượt quá giới hạn 5MB");
+      expect(res.error).toContain("vượt quá giới hạn 8MB");
     });
   });
 
